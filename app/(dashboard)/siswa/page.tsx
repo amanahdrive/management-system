@@ -147,28 +147,40 @@ export default function SiswaPage() {
     loadData();
   };
 
-  const handlePaketChange = (paketId: string) => {
+  const calculatePrice = (paketId: string, promoId: string | null): number => {
     const selectedPaket = paketList.find((p) => p.id === paketId);
-    if (selectedPaket) {
-      let finalPrice = selectedPaket.harga_promo || selectedPaket.harga_normal;
+    if (!selectedPaket) return 0;
 
-      if (formData.promosi_id) {
-        const promo = promosiList.find((pr) => pr.id === formData.promosi_id);
-        if (promo) {
-          if (promo.tipe_potongan === 'persen') {
-            finalPrice = Math.round(finalPrice * (1 - promo.nilai_potongan / 100));
-          } else {
-            finalPrice = Math.max(0, finalPrice - promo.nilai_potongan);
-          }
+    let basePrice = selectedPaket.harga_promo || selectedPaket.harga_normal;
+    if (promoId) {
+      const promo = promosiList.find((pr) => pr.id === promoId);
+      if (promo) {
+        if (promo.tipe_potongan === 'persen') {
+          basePrice = Math.round(basePrice * (1 - promo.nilai_potongan / 100));
+        } else {
+          basePrice = Math.max(0, basePrice - promo.nilai_potongan);
         }
       }
-
-      setFormData((prev) => ({
-        ...prev,
-        paket_id: paketId,
-        harga_final: finalPrice,
-      }));
     }
+    return basePrice;
+  };
+
+  const handlePaketChange = (paketId: string) => {
+    const newPrice = calculatePrice(paketId, formData.promosi_id || null);
+    setFormData((prev) => ({
+      ...prev,
+      paket_id: paketId,
+      harga_final: newPrice,
+    }));
+  };
+
+  const handlePromoChange = (promoId: string | null) => {
+    const newPrice = calculatePrice(formData.paket_id || '', promoId);
+    setFormData((prev) => ({
+      ...prev,
+      promosi_id: promoId,
+      harga_final: newPrice,
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -454,10 +466,9 @@ export default function SiswaPage() {
                     value={formData.promosi_id || ''}
                     onChange={(e) => {
                       const pId = e.target.value || null;
-                      setFormData({ ...formData, promosi_id: pId });
-                      if (formData.paket_id) handlePaketChange(formData.paket_id);
+                      handlePromoChange(pId);
                     }}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold"
                   >
                     <option value="">Tanpa Promo</option>
                     {promosiList.map((pr) => (
@@ -468,12 +479,23 @@ export default function SiswaPage() {
                   </select>
                 </div>
 
-                <div className="md:col-span-2">
+                <div className="md:col-span-2 space-y-1">
                   <CurrencyInput
                     label="Harga Final Siswa (Rupiah) *"
                     value={formData.harga_final || 0}
+                    disabled={!!formData.promosi_id}
+                    className={formData.promosi_id ? 'bg-black/5 dark:bg-white/5 cursor-not-allowed font-bold text-[var(--brand-primary)]' : ''}
                     onChange={(val) => setFormData({ ...formData, harga_final: val, harga_manual_override: true })}
                   />
+                  {formData.promosi_id ? (
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold italic">
+                      * Harga final terkunci otomatis karena menerapkan diskon promo &ldquo;{promosiList.find(p => p.id === formData.promosi_id)?.nama_promo}&rdquo;.
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-[var(--text-secondary)] italic">
+                      * Tanpa promo: Anda dapat mengubah nominal harga final secara manual jika diperlukan.
+                    </p>
+                  )}
                 </div>
               </div>
 
