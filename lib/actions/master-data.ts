@@ -66,7 +66,22 @@ export async function getJabatanList(): Promise<Jabatan[]> {
       .from('jabatan')
       .select('*')
       .order('nama_jabatan', { ascending: true });
-    if (!error && data) return data as Jabatan[];
+    
+    if (!error && data && data.length > 0) return data as Jabatan[];
+
+    // If table is empty, auto-seed default master Jabatan
+    const defaultJabatan = [
+      { nama_jabatan: 'Owner', deskripsi: 'Pemilik Usaha Amanah Drive' },
+      { nama_jabatan: 'Manager', deskripsi: 'Manajer Operasional' },
+      { nama_jabatan: 'Instruktur', deskripsi: 'Pelatih Mengemudi' },
+      { nama_jabatan: 'Admin', deskripsi: 'Administrator Sistem' },
+      { nama_jabatan: 'SM Specialist', deskripsi: 'Social Media Specialist' },
+      { nama_jabatan: 'Content Creator', deskripsi: 'Pembuat Konten' },
+      { nama_jabatan: 'Fleet Officer', deskripsi: 'Petugas Perawatan Armada' },
+    ];
+
+    const { data: seeded } = await supabase.from('jabatan').insert(defaultJabatan).select();
+    if (seeded && seeded.length > 0) return seeded as Jabatan[];
   } catch (e) {
     console.error('Error fetching jabatan:', e);
   }

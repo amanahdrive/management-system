@@ -6,7 +6,7 @@ import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Staff, Jabatan } from '@/types/database';
 import { getStaffList, getJabatanList, upsertStaff } from '@/lib/actions/master-data';
-import { Plus, User, Edit2 } from 'lucide-react';
+import { Plus, User, Edit2, Check } from 'lucide-react';
 import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
 
 export default function MasterStaffPage() {
@@ -49,11 +49,9 @@ export default function MasterStaffPage() {
   };
 
   const toggleJabatan = (id: string) => {
-    if (selectedJabatanIds.includes(id)) {
-      setSelectedJabatanIds(selectedJabatanIds.filter((jId) => jId !== id));
-    } else {
-      setSelectedJabatanIds([...selectedJabatanIds, id]);
-    }
+    setSelectedJabatanIds((prev) =>
+      prev.includes(id) ? prev.filter((jId) => jId !== id) : [...prev, id]
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -224,21 +222,42 @@ export default function MasterStaffPage() {
 
               {/* Jabatan Multi-select */}
               <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Jabatan Staff (Pilih Minimal 1)
-                </label>
-                <div className="grid grid-cols-2 gap-2 p-3 border border-[var(--border)] rounded-md bg-[var(--bg-subtle)] max-h-40 overflow-y-auto">
-                  {jabatanList.map((j) => (
-                    <label key={j.id} className="flex items-center gap-2 text-xs cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedJabatanIds.includes(j.id)}
-                        onChange={() => toggleJabatan(j.id)}
-                        className="rounded border-gray-300 text-[var(--brand-primary)]"
-                      />
-                      <span className="text-[var(--text-primary)]">{j.nama_jabatan}</span>
-                    </label>
-                  ))}
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-[var(--text-secondary)]">
+                    Jabatan Staff (Pilih Minimal 1)
+                  </label>
+                  {selectedJabatanIds.length === 0 && (
+                    <span className="text-[10px] text-[var(--danger)] font-bold">Wajib pilih minimal 1</span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2 p-3 border border-[var(--border)] rounded-md bg-[var(--bg-subtle)] max-h-48 overflow-y-auto">
+                  {jabatanList.length === 0 ? (
+                    <p className="text-xs text-[var(--text-secondary)] italic">Memuat master data jabatan...</p>
+                  ) : (
+                    jabatanList.map((j) => {
+                      const isSelected = selectedJabatanIds.includes(j.id);
+                      return (
+                        <button
+                          key={j.id}
+                          type="button"
+                          onClick={() => toggleJabatan(j.id)}
+                          className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-[var(--brand-primary)] text-white border-[var(--brand-primary)] shadow-sm'
+                              : 'bg-[var(--bg)] text-[var(--text-primary)] border-[var(--border)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]'
+                          }`}
+                        >
+                          {isSelected ? (
+                            <Check className="w-3.5 h-3.5" />
+                          ) : (
+                            <div className="w-3.5 h-3.5 border border-gray-400 rounded-sm" />
+                          )}
+                          <span>{j.nama_jabatan}</span>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
