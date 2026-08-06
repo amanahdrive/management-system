@@ -145,6 +145,70 @@ export async function upsertJadwalSesi(
   }
 }
 
+export async function upsertJadwalBatch(
+  jadwalList: Partial<JadwalSesi>[]
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createServerClient();
+    const cleanList = jadwalList.map((item: any) => {
+      const { siswa, instruktur, slot_waktu, kendaraan, slot_waktu_akhir, ...clean } = item;
+      return clean;
+    });
+
+    const { error } = await supabase.from('jadwal_sesi').insert(cleanList);
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath('/jadwal');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function updateSesiProgress(
+  siswaId: string,
+  nomorSesiKe: number,
+  tanggalSesi: string,
+  statusSesi: 'selesai' | 'batal' | 'terjadwal'
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createServerClient();
+    const { data: existing } = await supabase
+      .from('jadwal_sesi')
+      .select('id')
+      .eq('siswa_id', siswaId)
+      .eq('nomor_sesi_ke', nomorSesiKe)
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await supabase
+        .from('jadwal_sesi')
+        .update({
+          tanggal_sesi: tanggalSesi,
+          status_sesi: statusSesi,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id);
+      if (error) return { success: false, error: error.message };
+    } else {
+      const { error } = await supabase.from('jadwal_sesi').insert({
+        siswa_id: siswaId,
+        nomor_sesi_ke: nomorSesiKe,
+        tanggal_sesi: tanggalSesi,
+        status_sesi: statusSesi,
+        total_sesi_paket: 10,
+        jenis_mobil: 'manual',
+      });
+      if (error) return { success: false, error: error.message };
+    }
+
+    revalidatePath('/jadwal');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 export async function deleteJadwalSesi(id: string): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createServerClient();

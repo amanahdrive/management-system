@@ -4,20 +4,21 @@ import React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
-import { JadwalSesi, Staff, SlotWaktu, Paket, Promosi, Siswa } from '@/types/database';
+import { JadwalSesi, Staff, SlotWaktu, Siswa } from '@/types/database';
 import {
   getJadwalByTanggal,
   getJadwalByBulan,
-  upsertJadwalSesi,
+  upsertJadwalBatch,
+  updateSesiProgress,
   deleteJadwalSesi,
   generateWhatsAppScheduleText,
 } from '@/lib/actions/jadwal';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { getInstrukturList, getSlotWaktuList, getPaketList, getPromosiList } from '@/lib/actions/master-data';
+import { getInstrukturList, getSlotWaktuList } from '@/lib/actions/master-data';
 import { getSiswaList } from '@/lib/actions/siswa';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
-import { Calendar, Copy, Check, Plus, Eye, Trash2, CalendarDays, AlertTriangle, ChevronLeft, ChevronRight, UserCheck } from 'lucide-react';
+import { Calendar, Copy, Check, Plus, Eye, Trash2, CalendarDays, AlertTriangle, ChevronLeft, ChevronRight, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 const DAY_NAMES = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
@@ -45,15 +46,20 @@ export default function JadwalPage() {
   const [calCurrentMonth, setCalCurrentMonth] = React.useState(new Date().getMonth());
   const [monthlyJadwalList, setMonthlyJadwalList] = React.useState<JadwalSesi[]>([]);
 
-  // Modal Tambah Jadwal State
+  // Modal Progress Sesi State
+  const [progressModalJadwal, setProgressModalJadwal] = React.useState<JadwalSesi | null>(null);
+  const [progressSesiKe, setProgressSesiKe] = React.useState<number>(1);
+  const [progressTanggal, setProgressTanggal] = React.useState<string>(getTodayDateString());
+
+  // Modal Tambah Jadwal Baru State
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [formData, setFormData] = React.useState<Partial<JadwalSesi>>({
     tanggal_sesi: getTodayDateString(),
     jenis_mobil: 'manual',
-    nomor_sesi_ke: 1,
     total_sesi_paket: 10,
     status_sesi: 'terjadwal',
   });
+  const [sessionDates, setSessionDates] = React.useState<string[]>([]);
 
   const loadData = async () => {
     setLoading(true);
@@ -99,22 +105,38 @@ export default function JadwalPage() {
     return siswaList.filter((s) => !scheduledSiswaIds.includes(s.id));
   }, [siswaList, scheduledSiswaIds]);
 
-  // Handle student select & auto-pull paket info
+  // Generate multi-date array for N sessions
+  const generateDatesForCount = (count: number, startDateStr: string) => {
+    const dates: string[] = [];
+    const baseDate = new Date(startDateStr);
+    for (let i = 0; i < count; i++) {
+      const d = new Date(baseDate);
+      d.setDate(d.getDate() + i);
+      dates.push(d.toISOString().slice(0, 10));
+    }
+    return dates;
+  };
+
+  // Handle student selection change in Add Modal
   const handleSiswaSelect = (siswaId: string) => {
     const sObj = siswaList.find((s) => s.id === siswaId);
     const totalSesi = sObj?.paket?.jumlah_sesi || 10;
+    const dates = generateDatesForCount(totalSesi, selectedTanggal);
 
     setFormData((prev) => ({
       ...prev,
       siswa_id: siswaId,
       total_sesi_paket: totalSesi,
     }));
+    setSessionDates(dates);
   };
 
   const handleOpenAddModal = () => {
     const firstAvail = availableSiswaList[0];
     const firstIns = instrukturList[0];
     const firstSlot = slotList[0];
+    const totalSesi = firstAvail?.paket?.jumlah_sesi || 10;
+    const dates = generateDatesForCount(totalSesi, selectedTanggal);
 
     setFormData({
       tanggal_sesi: selectedTanggal,
@@ -122,11 +144,33 @@ export default function JadwalPage() {
       staff_id: firstIns?.id || '',
       slot_waktu_id: firstSlot?.id || '',
       jenis_mobil: 'manual',
-      nomor_sesi_ke: 1,
-      total_sesi_paket: firstAvail?.paket?.jumlah_sesi || 10,
+      total_sesi_paket: totalSesi,
       status_sesi: 'terjadwal',
     });
+    setSessionDates(dates);
     setIsModalOpen(true);
+  };
+
+  // Handle Open Progress Modal
+  const handleOpenProgressModal = (jadwal: JadwalSesi) => {
+    setProgressModalJadwal(jadwal);
+    setProgressSesiKe(jadwal.nomor_sesi_ke || 1);
+    setProgressTanggal(jadwal.tanggal_sesi || getTodayDateString());
+  };
+
+  // Save Progress Action
+  const handleSaveProgressStatus = async (status: 'selesai' | 'batal' | 'terjadwal') => {
+    if (!progressModalJadwal || !progressModalJadwal.siswa_id) return;
+
+    await updateSesiProgress(
+      progressModalJadwal.siswa_id,
+      progressSesiKe,
+      progressTanggal,
+      status
+    );
+
+    setProgressModalJadwal(null);
+    loadData();
   };
 
   const handleCopyWA = async () => {
@@ -136,66 +180,32 @@ export default function JadwalPage() {
     setTimeout(() => setCopied(false), 3000);
   };
 
-  // --- ANTI TABRAKAN LOGIC (COLLISION & AVAILABILITY CHECK) ---
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Submit Multi-Date Schedule Batch
+  const handleSubmitBatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.siswa_id || !formData.staff_id || !formData.slot_waktu_id) {
       alert('Mohon pilih Siswa, Instruktur, dan Slot Waktu!');
       return;
     }
 
-    const selectedInstruktur = instrukturList.find((i) => i.id === formData.staff_id);
-    const selectedSlotObj = slotList.find((sw) => sw.id === formData.slot_waktu_id);
-    const dateObj = new Date(selectedTanggal);
-    const dayOfWeekStr = DAY_NAMES[dateObj.getDay()];
+    const batchPayloads: Partial<JadwalSesi>[] = sessionDates.map((tgl, idx) => ({
+      siswa_id: formData.siswa_id,
+      staff_id: formData.staff_id,
+      slot_waktu_id: formData.slot_waktu_id,
+      jenis_mobil: formData.jenis_mobil || 'manual',
+      tanggal_sesi: tgl,
+      nomor_sesi_ke: idx + 1,
+      total_sesi_paket: sessionDates.length,
+      status_sesi: 'terjadwal',
+    }));
 
-    // Check 1: Instructor Working Day Check
-    if (selectedInstruktur?.hari_kerja && selectedInstruktur.hari_kerja.length > 0) {
-      if (!selectedInstruktur.hari_kerja.includes(dayOfWeekStr)) {
-        alert(
-          `PERINGATAN JADWAL:\nInstruktur ${selectedInstruktur.nama} tidak memiliki jadwal tugas di hari ${dayOfWeekStr.toUpperCase()}!`
-        );
-        return;
-      }
-    }
-
-    // Check 2: Instructor Working Slot Check
-    if (selectedInstruktur?.slot_kerja && selectedInstruktur.slot_kerja.length > 0) {
-      if (!selectedInstruktur.slot_kerja.includes(formData.slot_waktu_id)) {
-        alert(
-          `PERINGATAN JADWAL:\nInstruktur ${selectedInstruktur.nama} tidak bertugas pada ${selectedSlotObj?.nama_slot || 'slot ini'}!`
-        );
-        return;
-      }
-    }
-
-    // Check 3: Anti-Collision (Instructor is ALREADY booked at date + slot)
-    const existingInstructorBooking = jadwalList.find(
-      (j) =>
-        j.staff_id === formData.staff_id &&
-        j.slot_waktu_id === formData.slot_waktu_id &&
-        j.status_sesi === 'terjadwal' &&
-        j.id !== formData.id
-    );
-
-    if (existingInstructorBooking) {
-      alert(
-        `TABRAKAN JADWAL DITOLAK!\nInstruktur ${selectedInstruktur?.nama || 'ini'} SUDAH MENGAMBIL SESI dengan siswa ${existingInstructorBooking.siswa?.nama || ''} pada ${selectedSlotObj?.nama_slot} tanggal ${formatDateIndo(selectedTanggal)}.`
-      );
-      return;
-    }
-
-    await upsertJadwalSesi({
-      ...formData,
-      tanggal_sesi: selectedTanggal,
-    });
+    await upsertJadwalBatch(batchPayloads);
     setIsModalOpen(false);
     loadData();
   };
 
   const selectedSiswaObj = siswaList.find((s) => s.id === formData.siswa_id);
   const isCustomPaket = selectedSiswaObj?.paket?.is_custom === true;
-  const selectedInstrukturObj = instrukturList.find((i) => i.id === formData.staff_id);
 
   const columns: ColumnDef<JadwalSesi>[] = [
     {
@@ -237,16 +247,7 @@ export default function JadwalPage() {
     {
       accessorKey: 'nomor_sesi_ke',
       header: 'Progress Sesi',
-      cell: ({ row }) => `${row.original.nomor_sesi_ke} dari ${row.original.total_sesi_paket}`,
-    },
-    {
-      accessorKey: 'jenis_mobil',
-      header: 'Mobil',
-      cell: ({ row }) => (
-        <span className="uppercase text-xs font-semibold px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">
-          {row.original.jenis_mobil}
-        </span>
-      ),
+      cell: ({ row }) => `Sesi ${row.original.nomor_sesi_ke} dari ${row.original.total_sesi_paket}`,
     },
     {
       accessorKey: 'status_sesi',
@@ -272,17 +273,27 @@ export default function JadwalPage() {
       id: 'actions',
       header: 'Aksi',
       cell: ({ row }) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => handleOpenProgressModal(row.original)}
+            className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-semibold flex items-center gap-1"
+            title="Update Progress Sesi per Siswa"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Progress</span>
+          </button>
+
           <Link
             href={`/jadwal/${row.original.id}`}
-            className="p-1.5 text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)] rounded flex items-center gap-1 text-xs font-semibold"
+            className="p-1 text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)] rounded"
+            title="Lihat Detail"
           >
             <Eye className="w-4 h-4" />
-            <span>Detail</span>
           </Link>
+
           <button
             onClick={() => setDeletingId(row.original.id)}
-            className="p-1.5 text-[var(--danger)] hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded flex items-center gap-1 text-xs font-semibold"
+            className="p-1 text-[var(--danger)] hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded"
             title="Hapus Sesi"
           >
             <Trash2 className="w-4 h-4" />
@@ -377,15 +388,104 @@ export default function JadwalPage() {
         )}
       </div>
 
-      {/* Modal Tambah Sesi Jadwal Baru */}
+      {/* MODAL UPDATE PROGRESS SESI PER SISWA */}
+      {progressModalJadwal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="card-container max-w-md w-full bg-[var(--bg)] shadow-lg space-y-4 text-xs">
+            <h3 className="text-base font-bold text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-amber-600" />
+              Update Progress Sesi per Siswa
+            </h3>
+
+            <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-md space-y-1">
+              <p className="font-bold text-[var(--brand-primary)]">
+                {progressModalJadwal.siswa?.nama} ({progressModalJadwal.siswa?.kode_siswa})
+              </p>
+              <p className="text-[var(--text-secondary)]">
+                Paket: <span className="font-semibold text-[var(--text-primary)]">{progressModalJadwal.siswa?.paket?.nama_paket || 'Paket Sesi'}</span> ({progressModalJadwal.total_sesi_paket} Sesi Total)
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                  Pilih Sesi Ke-X *
+                </label>
+                <select
+                  value={progressSesiKe}
+                  onChange={(e) => setProgressSesiKe(parseInt(e.target.value) || 1)}
+                  className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold"
+                >
+                  {Array.from({ length: progressModalJadwal.total_sesi_paket || 10 }).map((_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                      Sesi Ke-{i + 1} dari {progressModalJadwal.total_sesi_paket || 10}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <DatePickerWIB
+                label="Pilih Tanggal Sesi Ke-X *"
+                value={progressTanggal}
+                onChange={(val) => setProgressTanggal(val)}
+              />
+
+              <div className="pt-2 border-t border-[var(--border)] space-y-2">
+                <label className="block text-xs font-bold text-[var(--text-primary)]">
+                  Pilih Status Progress Sesi:
+                </label>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSaveProgressStatus('selesai')}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold flex items-center justify-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Selesai (Tandai Sesi Selesai)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSaveProgressStatus('terjadwal')}
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold flex items-center justify-center gap-1.5"
+                  >
+                    <Clock className="w-4 h-4" />
+                    <span>Terjadwal / Ubah Tanggal</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSaveProgressStatus('batal')}
+                    className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-md font-bold flex items-center justify-center gap-1.5"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>Batal (Tanggal Maju di Big Calendar)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-[var(--border)]">
+              <button
+                type="button"
+                onClick={() => setProgressModalJadwal(null)}
+                className="px-4 py-1.5 text-xs font-medium border border-[var(--border)] rounded-md"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL TAMBAH SESI JADWAL BARU (MULTI-DATE PICKER MATRIX) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card-container max-w-lg w-full bg-[var(--bg)] shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="card-container max-w-xl w-full bg-[var(--bg)] shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-[var(--text-primary)] border-b border-[var(--border)] pb-2">
-              Tambah Sesi Jadwal Baru ({formatDateIndo(selectedTanggal)})
+              Tambah Sesi Jadwal Baru (Multi-Tanggal)
             </h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* 1. Pilih Siswa (Hanya menampilkan siswa yang BELUM dijadwalkan di tanggal ini) */}
+            <form onSubmit={handleSubmitBatch} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                   Pilih Siswa *
@@ -409,11 +509,10 @@ export default function JadwalPage() {
                 )}
               </div>
 
-              {/* Info Auto-Pull Paket & Total Sesi */}
               {selectedSiswaObj && (
                 <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-md space-y-2 text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[var(--text-secondary)] font-medium">Paket Kursus Siswa:</span>
+                    <span className="text-[var(--text-secondary)] font-medium">Paket Kursus:</span>
                     <span className="font-bold text-[var(--brand-primary)]">
                       {selectedSiswaObj.paket?.nama_paket || 'Paket Khusus'}
                     </span>
@@ -421,51 +520,46 @@ export default function JadwalPage() {
 
                   <div>
                     <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                      Total Sesi Paket Kursus
+                      Jumlah Sesi Paket
                     </label>
                     <input
                       type="number"
                       required
                       readOnly={!isCustomPaket}
-                      value={formData.total_sesi_paket || selectedSiswaObj.paket?.jumlah_sesi || 10}
-                      onChange={(e) =>
-                        setFormData({ ...formData, total_sesi_paket: parseInt(e.target.value) || 10 })
-                      }
+                      value={sessionDates.length}
+                      onChange={(e) => {
+                        const count = parseInt(e.target.value) || 1;
+                        setSessionDates(generateDatesForCount(count, selectedTanggal));
+                      }}
                       className={`w-full px-3 py-1.5 text-xs rounded-md border border-[var(--border)] ${
                         isCustomPaket
                           ? 'bg-[var(--bg)] font-bold text-[var(--text-primary)]'
                           : 'bg-black/5 dark:bg-white/5 font-bold text-[var(--brand-primary)] cursor-not-allowed'
                       }`}
                     />
-                    <p className="text-[10px] text-[var(--text-secondary)] italic mt-1">
-                      {isCustomPaket
-                        ? '* Paket Custom: Total sesi dapat disesuaikan.'
-                        : '* Otomatis ditarik dari data paket siswa (Fixed).'}
-                    </p>
                   </div>
                 </div>
               )}
 
-              {/* 2. Pilih Instruktur */}
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Pilih Instruktur Bertugas *
-                </label>
-                <select
-                  value={formData.staff_id}
-                  onChange={(e) => setFormData({ ...formData, staff_id: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold"
-                >
-                  {instrukturList.map((ins) => (
-                    <option key={ins.id} value={ins.id}>
-                      {ins.nama} (Instruktur)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 3. Slot Waktu & Jenis Mobil */}
+              {/* 2. Pilih Instruktur & Mobil */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    Pilih Instruktur Bertugas *
+                  </label>
+                  <select
+                    value={formData.staff_id}
+                    onChange={(e) => setFormData({ ...formData, staff_id: e.target.value })}
+                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold"
+                  >
+                    {instrukturList.map((ins) => (
+                      <option key={ins.id} value={ins.id}>
+                        {ins.nama} (Instruktur)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                     Slot Waktu Sesi *
@@ -475,44 +569,37 @@ export default function JadwalPage() {
                     onChange={(e) => setFormData({ ...formData, slot_waktu_id: e.target.value })}
                     className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold"
                   >
-                    {slotList.map((sw) => {
-                      const isBooked = jadwalList.some(
-                        (j) =>
-                          j.staff_id === formData.staff_id &&
-                          j.slot_waktu_id === sw.id &&
-                          j.status_sesi === 'terjadwal'
-                      );
-
-                      return (
-                        <option key={sw.id} value={sw.id} disabled={isBooked}>
-                          {sw.nama_slot} ({sw.jam_mulai.substring(0, 5)}) {isBooked ? '— (PENUH)' : '— Tersedia'}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Jenis Mobil
-                  </label>
-                  <select
-                    value={formData.jenis_mobil}
-                    onChange={(e) => setFormData({ ...formData, jenis_mobil: e.target.value as any })}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
-                  >
-                    <option value="manual">Manual</option>
-                    <option value="matic">Matic</option>
-                    <option value="mobil_sendiri">Mobil Sendiri</option>
+                    {slotList.map((sw) => (
+                      <option key={sw.id} value={sw.id}>
+                        {sw.nama_slot} ({sw.jam_mulai.substring(0, 5)})
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
 
-              <div className="p-2.5 rounded bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 text-[11px] text-blue-800 dark:text-blue-300 flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                <span>
-                  Sistem otomatis memvalidasi <b>anti-tabrakan jadwal</b>: instruktur tidak dapat mengajar 2 siswa pada slot waktu yang sama.
-                </span>
+              {/* 3. MULTI-DATE PICKER MATRIX BERDASARKAN TOTAL SESI PAKET */}
+              <div className="space-y-2 border-t border-[var(--border)] pt-3">
+                <label className="block text-xs font-bold text-[var(--text-primary)]">
+                  Setting Tanggal Per Sesi ({sessionDates.length} Sesi Paket) *
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border border-[var(--border)] rounded-md bg-[var(--bg-subtle)]">
+                  {sessionDates.map((d, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-[var(--brand-primary)] w-14 shrink-0">
+                        Sesi {idx + 1}:
+                      </span>
+                      <DatePickerWIB
+                        value={d}
+                        onChange={(val) => {
+                          const newArr = [...sessionDates];
+                          newArr[idx] = val;
+                          setSessionDates(newArr);
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border)]">
@@ -528,7 +615,7 @@ export default function JadwalPage() {
                   disabled={availableSiswaList.length === 0}
                   className="px-4 py-2 text-xs font-semibold bg-[var(--brand-primary)] text-white rounded-md disabled:opacity-50"
                 >
-                  Simpan Sesi Jadwal
+                  Simpan Seluruh Sesi Jadwal ({sessionDates.length} Sesi)
                 </button>
               </div>
             </form>
@@ -620,7 +707,7 @@ export default function JadwalPage() {
 
                 // Filter sessions for this date
                 const daySessions = monthlyJadwalList.filter(
-                  (j) => j.tanggal_sesi === cellDateStr && j.status_sesi !== 'batal'
+                  (j) => j.tanggal_sesi === cellDateStr
                 );
 
                 return (
@@ -655,13 +742,18 @@ export default function JadwalPage() {
 
                           if (session && session.siswa?.nama) {
                             const studentFirstName = session.siswa.nama.trim().split(' ')[0];
+                            const isBatal = session.status_sesi === 'batal';
                             return (
                               <div
                                 key={ins.id}
-                                className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900 truncate"
-                                title={`${ins.nama}: ${session.siswa.nama}`}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold border truncate ${
+                                  isBatal
+                                    ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                    : 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900'
+                                }`}
+                                title={`${ins.nama}: ${session.siswa.nama} (Sesi ${session.nomor_sesi_ke})`}
                               >
-                                {insFirstName}: {studentFirstName}
+                                {insFirstName}: {studentFirstName} (S{session.nomor_sesi_ke})
                               </div>
                             );
                           }
