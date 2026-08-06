@@ -17,101 +17,162 @@ export interface DashboardMetrics {
 }
 
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
   try {
     const supabase = await createServerClient();
 
-    // Fetch data for metrics
-    const { data: siswaData } = await supabase.from('siswa').select('*');
+    // 1. Fetch tables
+    const { data: siswaData } = await supabase.from('siswa').select('*, paket(*)');
     const { data: sesiData } = await supabase.from('jadwal_sesi').select('*');
     const { data: kasData } = await supabase.from('kas_transaksi').select('*');
+    const { data: kendaraanData } = await supabase.from('kendaraan').select('*, status:kendaraan_status(*)');
 
-    if (siswaData && sesiData && kasData) {
-      // Calculate active metrics
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
+    const siswaList = siswaData || [];
+    const sesiList = sesiData || [];
+    const kasList = kasData || [];
+    const kendaraanList = kendaraanData || [];
 
-      const siswaBaruBulanIni = siswaData.filter((s) => {
-        const d = new Date(s.tanggal_booking);
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-      }).length;
+    // Calculate metrics
+    const siswaScheduledIds = new Set(sesiList.map((s) => s.siswa_id));
+    const siswaBelumDijadwalkan = siswaList.filter((s) => !siswaScheduledIds.has(s.id)).length;
 
-      // Group leads
-      const leadsMap = new Map<string, number>();
-      siswaData.forEach((s) => {
-        const key = s.sumber === 'meta_ads' ? 'Meta Ads' : s.sumber === 'tiktok' ? 'TikTok' : s.sumber === 'referensi' ? 'Referensi' : 'Kustom';
-        leadsMap.set(key, (leadsMap.get(key) || 0) + 1);
-      });
-      const sumberLeads = Array.from(leadsMap.entries()).map(([name, value]) => ({ name, value }));
+    const siswaOnProgress = siswaList.filter((s) => siswaScheduledIds.has(s.id)).length;
+    const siswaSelesai = siswaList.filter((s) => s.status_pembayaran_kode === 'lunas' && siswaScheduledIds.has(s.id)).length;
 
-      return {
-        siswaBelumDijadwalkan: 3,
-        siswaOnProgress: 8,
-        siswaSelesai: 12,
-        siswaBaruBulanIni,
-        totalPendapatanBulanIni: 14500000,
-        saldoKasAktif: 28400000,
-        sesiTerjadwalHariIni: 4,
-        sumberLeads: sumberLeads.length > 0 ? sumberLeads : [
-          { name: 'Meta Ads', value: 14 },
-          { name: 'TikTok', value: 8 },
-          { name: 'Referensi', value: 5 },
-          { name: 'Kustom', value: 2 },
-        ],
-        kendaraanPerluPerhatian: [
-          { nama: 'Toyota Calya', plat: 'BG 1234 XY', alasan: 'Servis oli lewat 3.200 km' },
-        ],
-        trenPendaftaran: [
-          { bulan: 'Mar', total: 12 },
-          { bulan: 'Apr', total: 15 },
-          { bulan: 'Mei', total: 18 },
-          { bulan: 'Jun', total: 22 },
-          { bulan: 'Jul', total: 20 },
-          { bulan: 'Agu', total: 25 },
-        ],
-        trenCashflow: [
-          { bulan: 'Mar', pemasukan: 18000000, pengeluaran: 12000000 },
-          { bulan: 'Apr', pemasukan: 22000000, pengeluaran: 14000000 },
-          { bulan: 'Mei', pemasukan: 25000000, pengeluaran: 15000000 },
-          { bulan: 'Jun', pemasukan: 28000000, pengeluaran: 16000000 },
-          { bulan: 'Jul', pemasukan: 26000000, pengeluaran: 17000000 },
-          { bulan: 'Agu', pemasukan: 31000000, pengeluaran: 18000000 },
-        ],
-      };
+    const siswaBaruBulanIni = siswaList.filter((s) => {
+      if (!s.tanggal_booking) return false;
+      const d = new Date(s.tanggal_booking);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    }).length;
+
+    // Financial Metrics
+    let totalPemasukan = 0;
+    let totalPengeluaran = 0;
+    let totalPendapatanBulanIni = 0;
+
+    kasList.forEach((t) => {
+      const d = new Date(t.tanggal);
+      if (t.tipe === 'pemasukan') {
+        totalPemasukan += t.nominal;
+        if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+          totalPendapatanBulanIni += t.nominal;
+        }
+      } else {
+        totalPengeluaran += t.nominal;
+      }
+    });
+
+    const saldoKasAktif = totalPemasukan - totalPengeluaran;
+    const sesiTerjadwalHariIni = sesiList.filter((s) => s.tanggal_sesi === todayStr && s.status_sesi === 'terjadwal').length;
+
+    // Leads Conversion Grouping
+    const leadsMap = new Map<string, number>();
+    siswaList.forEach((s) => {
+      const label =
+        s.sumber === 'meta_ads'
+          ? 'Meta Ads'
+          : s.sumber === 'tiktok'
+          ? 'TikTok'
+          : s.sumber === 'referensi'
+          ? 'Referensi'
+          : s.sumber_kustom_text || 'Lainnya';
+      leadsMap.set(label, (leadsMap.get(label) || 0) + 1);
+    });
+    const sumberLeads = Array.from(leadsMap.entries()).map(([name, value]) => ({ name, value }));
+
+    // Kendaraan Attention List
+    const kendaraanPerluPerhatian: { nama: string; plat: string; alasan: string }[] = [];
+    kendaraanList.forEach((k: any) => {
+      const st = k.status;
+      if (st) {
+        const selisihOli = (st.odometer_terkini || 0) - (st.oli_km_terakhir || 0);
+        if (selisihOli > 5000) {
+          kendaraanPerluPerhatian.push({
+            nama: k.nama_kendaraan,
+            plat: k.plat_nomor,
+            alasan: `Servis oli lewat ${selisihOli.toLocaleString('id-ID')} km`,
+          });
+        }
+      }
+    });
+
+    // Tren Pendaftaran & Cashflow (Past 6 Months)
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const trenPendaftaranMap = new Map<string, number>();
+    const trenCashflowMap = new Map<string, { pemasukan: number; pengeluaran: number }>();
+
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const mLabel = `${monthNames[d.getMonth()]}`;
+      trenPendaftaranMap.set(mLabel, 0);
+      trenCashflowMap.set(mLabel, { pemasukan: 0, pengeluaran: 0 });
     }
-  } catch (e) {}
+
+    siswaList.forEach((s) => {
+      if (s.tanggal_booking) {
+        const d = new Date(s.tanggal_booking);
+        const mLabel = `${monthNames[d.getMonth()]}`;
+        if (trenPendaftaranMap.has(mLabel)) {
+          trenPendaftaranMap.set(mLabel, (trenPendaftaranMap.get(mLabel) || 0) + 1);
+        }
+      }
+    });
+
+    kasList.forEach((t) => {
+      if (t.tanggal) {
+        const d = new Date(t.tanggal);
+        const mLabel = `${monthNames[d.getMonth()]}`;
+        if (trenCashflowMap.has(mLabel)) {
+          const current = trenCashflowMap.get(mLabel)!;
+          if (t.tipe === 'pemasukan') current.pemasukan += t.nominal;
+          else current.pengeluaran += t.nominal;
+        }
+      }
+    });
+
+    const trenPendaftaran = Array.from(trenPendaftaranMap.entries()).map(([bulan, total]) => ({
+      bulan,
+      total,
+    }));
+
+    const trenCashflow = Array.from(trenCashflowMap.entries()).map(([bulan, data]) => ({
+      bulan,
+      pemasukan: data.pemasukan,
+      pengeluaran: data.pengeluaran,
+    }));
+
+    return {
+      siswaBelumDijadwalkan,
+      siswaOnProgress,
+      siswaSelesai,
+      siswaBaruBulanIni,
+      totalPendapatanBulanIni,
+      saldoKasAktif,
+      sesiTerjadwalHariIni,
+      sumberLeads,
+      kendaraanPerluPerhatian,
+      trenPendaftaran,
+      trenCashflow,
+    };
+  } catch (e) {
+    console.error('Error in getDashboardMetrics:', e);
+  }
 
   return {
-    siswaBelumDijadwalkan: 3,
-    siswaOnProgress: 8,
-    siswaSelesai: 12,
-    siswaBaruBulanIni: 6,
-    totalPendapatanBulanIni: 14500000,
-    saldoKasAktif: 28400000,
-    sesiTerjadwalHariIni: 4,
-    sumberLeads: [
-      { name: 'Meta Ads', value: 14 },
-      { name: 'TikTok', value: 8 },
-      { name: 'Referensi', value: 5 },
-      { name: 'Kustom', value: 2 },
-    ],
-    kendaraanPerluPerhatian: [
-      { nama: 'Toyota Calya', plat: 'BG 1234 XY', alasan: 'Servis oli lewat 3.200 km' },
-    ],
-    trenPendaftaran: [
-      { bulan: 'Mar', total: 12 },
-      { bulan: 'Apr', total: 15 },
-      { bulan: 'Mei', total: 18 },
-      { bulan: 'Jun', total: 22 },
-      { bulan: 'Jul', total: 20 },
-      { bulan: 'Agu', total: 25 },
-    ],
-    trenCashflow: [
-      { bulan: 'Mar', pemasukan: 18000000, pengeluaran: 12000000 },
-      { bulan: 'Apr', pemasukan: 22000000, pengeluaran: 14000000 },
-      { bulan: 'Mei', pemasukan: 25000000, pengeluaran: 15000000 },
-      { bulan: 'Jun', pemasukan: 28000000, pengeluaran: 16000000 },
-      { bulan: 'Jul', pemasukan: 26000000, pengeluaran: 17000000 },
-      { bulan: 'Agu', pemasukan: 31000000, pengeluaran: 18000000 },
-    ],
+    siswaBelumDijadwalkan: 0,
+    siswaOnProgress: 0,
+    siswaSelesai: 0,
+    siswaBaruBulanIni: 0,
+    totalPendapatanBulanIni: 0,
+    saldoKasAktif: 0,
+    sesiTerjadwalHariIni: 0,
+    sumberLeads: [],
+    kendaraanPerluPerhatian: [],
+    trenPendaftaran: [],
+    trenCashflow: [],
   };
 }

@@ -1,85 +1,8 @@
 'use server';
 
 import { createServerClient } from '@/lib/supabase/server';
-import { KasTransaksi, Hutang, HutangPembayaran, KasKategori } from '@/types/database';
+import { KasTransaksi, Hutang, KasKategori } from '@/types/database';
 import { revalidatePath } from 'next/cache';
-
-const SEED_KAS_KATEGORI: KasKategori[] = [
-  { id: 'kk1', nama_kategori: 'dp_siswa', tipe: 'pemasukan', created_at: '', updated_at: '' },
-  { id: 'kk2', nama_kategori: 'pelunasan_siswa', tipe: 'pemasukan', created_at: '', updated_at: '' },
-  { id: 'kk3', nama_kategori: 'bbm', tipe: 'pengeluaran', created_at: '', updated_at: '' },
-  { id: 'kk4', nama_kategori: 'operasional', tipe: 'pengeluaran', created_at: '', updated_at: '' },
-  { id: 'kk5', nama_kategori: 'gaji', tipe: 'pengeluaran', created_at: '', updated_at: '' },
-  { id: 'kk6', nama_kategori: 'cicilan_hutang', tipe: 'pengeluaran', created_at: '', updated_at: '' },
-  { id: 'kk7', nama_kategori: 'lainnya', tipe: 'keduanya', created_at: '', updated_at: '' },
-];
-
-const SEED_TRANSAKSI: KasTransaksi[] = [
-  {
-    id: 'kt1',
-    tanggal: '2026-08-01',
-    tipe: 'pemasukan',
-    kategori: 'pelunasan_siswa',
-    keterangan: 'Pelunasan Kursus Siswa - Budi Santoso (SS001)',
-    nominal: 800000,
-    pic_tipe: 'admin',
-    pic_nama: 'Admin Siswa',
-    foto_nota_url: null,
-    siswa_id: 's1',
-    hutang_id: null,
-    sumber_otomatis: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'kt2',
-    tanggal: '2026-08-03',
-    tipe: 'pemasukan',
-    kategori: 'dp_siswa',
-    keterangan: 'DP Kursus Siswa - Siti Rahma (SS002)',
-    nominal: 500000,
-    pic_tipe: 'admin',
-    pic_nama: 'Admin Siswa',
-    foto_nota_url: null,
-    siswa_id: 's2',
-    hutang_id: null,
-    sumber_otomatis: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'kt3',
-    tanggal: '2026-08-05',
-    tipe: 'pengeluaran',
-    kategori: 'bbm',
-    keterangan: 'Isi BBM PERTALITE 15L - Toyota Calya (BG 1234 XY)',
-    nominal: 150000,
-    pic_tipe: 'admin',
-    pic_nama: 'Fleet Admin',
-    foto_nota_url: null,
-    siswa_id: null,
-    hutang_id: null,
-    sumber_otomatis: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
-
-const SEED_HUTANG: Hutang[] = [
-  {
-    id: 'h1',
-    nama_hutang: 'Cicilan Mobil Calya',
-    jenis: 'cicilan_kendaraan',
-    total_hutang: 120000000,
-    sisa_hutang: 45000000,
-    tanggal_mulai: '2025-01-10',
-    jatuh_tempo_bulanan: 10,
-    cicilan_per_bulan: 3500000,
-    status: 'berjalan',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
 
 export async function getKasOverviewMetrics() {
   try {
@@ -119,26 +42,30 @@ export async function getKasOverviewMetrics() {
     }
 
     return {
-      saldoAktif: totalPemasukan - totalPengeluaran || 1150000,
-      totalPiutang: totalPiutang || 1100000,
-      totalHutang: totalHutang || 45000000,
+      saldoAktif: totalPemasukan - totalPengeluaran,
+      totalPiutang,
+      totalHutang,
     };
-  } catch (e) {}
+  } catch (e) {
+    console.error('Error fetching kas overview metrics:', e);
+  }
 
   return {
-    saldoAktif: 1150000,
-    totalPiutang: 1100000,
-    totalHutang: 45000000,
+    saldoAktif: 0,
+    totalPiutang: 0,
+    totalHutang: 0,
   };
 }
 
 export async function getKasKategoriList(): Promise<KasKategori[]> {
   try {
     const supabase = await createServerClient();
-    const { data } = await supabase.from('kas_kategori').select('*').order('nama_kategori');
-    if (data && data.length > 0) return data as KasKategori[];
-  } catch (e) {}
-  return SEED_KAS_KATEGORI;
+    const { data, error } = await supabase.from('kas_kategori').select('*').order('nama_kategori');
+    if (!error && data) return data as KasKategori[];
+  } catch (e) {
+    console.error('Error fetching kas kategori:', e);
+  }
+  return [];
 }
 
 export async function getKasTransaksiList(filters?: {
@@ -162,9 +89,11 @@ export async function getKasTransaksiList(filters?: {
     if (filters?.kategori && filters.kategori !== 'semua') q = q.eq('kategori', filters.kategori);
 
     const { data, error } = await q;
-    if (!error && data && data.length > 0) return data as KasTransaksi[];
-  } catch (e) {}
-  return SEED_TRANSAKSI;
+    if (!error && data) return data as KasTransaksi[];
+  } catch (e) {
+    console.error('Error fetching kas transaksi:', e);
+  }
+  return [];
 }
 
 export async function addKasTransaksi(
@@ -190,9 +119,11 @@ export async function getHutangList(): Promise<Hutang[]> {
   try {
     const supabase = await createServerClient();
     const { data, error } = await supabase.from('hutang').select('*').order('created_at', { ascending: false });
-    if (!error && data && data.length > 0) return data as Hutang[];
-  } catch (e) {}
-  return SEED_HUTANG;
+    if (!error && data) return data as Hutang[];
+  } catch (e) {
+    console.error('Error fetching hutang list:', e);
+  }
+  return [];
 }
 
 export async function addHutang(hutangData: Partial<Hutang>): Promise<{ success: boolean; error?: string }> {
@@ -239,7 +170,7 @@ export async function payHutangCicilan(
         keterangan: `Bayar Cicilan Hutang: ${h.nama_hutang}`,
         nominal,
         pic_tipe: 'finance',
-        pic_nama: 'Lia (Finance)',
+        pic_nama: 'Finance Admin',
         hutang_id: hutangId,
         sumber_otomatis: true,
       })

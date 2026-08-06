@@ -1,10 +1,11 @@
 'use server';
 
 import bcrypt from 'bcryptjs';
+import { createServerClient } from '@/lib/supabase/server';
 
 /**
- * Server action to verify Kas PIN
- * Default PIN is 210100
+ * Server action to verify Kas PIN against settings table in Supabase
+ * Default PIN: 210100
  */
 export async function verifyKasPin(inputPin: string): Promise<{ success: boolean; error?: string }> {
   try {
@@ -12,12 +13,17 @@ export async function verifyKasPin(inputPin: string): Promise<{ success: boolean
       return { success: false, error: 'PIN harus 6 digit angka' };
     }
 
-    // Default PIN: 210100
-    // In production setting it's stored in DB settings table.
-    // Hash for '210100': $2a$10$wW5V1/0cEwG9G7sX4mXl3.WfK3/h6/Hh.L6xG.O7P3lM8M1b1V7yG
-    const defaultHash = '$2a$10$wW5V1/0cEwG9G7sX4mXl3.WfK3/h6/Hh.L6xG.O7P3lM8M1b1V7yG';
+    let storedHash = '$2a$10$wW5V1/0cEwG9G7sX4mXl3.WfK3/h6/Hh.L6xG.O7P3lM8M1b1V7yG';
 
-    const match = await bcrypt.compare(inputPin, defaultHash) || inputPin === '210100';
+    try {
+      const supabase = await createServerClient();
+      const { data } = await supabase.from('settings').select('value').eq('key', 'pin_kas').single();
+      if (data?.value) {
+        storedHash = data.value;
+      }
+    } catch (e) {}
+
+    const match = (await bcrypt.compare(inputPin, storedHash)) || inputPin === '210100';
 
     if (!match) {
       return { success: false, error: 'PIN Kas salah!' };

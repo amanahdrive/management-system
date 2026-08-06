@@ -47,7 +47,7 @@ export default function KendaraanDetailPage() {
   const loadData = async () => {
     setLoading(true);
     const [kList, bbmList] = await Promise.all([getKendaraanMasterList(), getHargaBBMList()]);
-    const found = kList.find((k) => k.id === id) || kList[0];
+    const found = kList.find((k) => k.id === id) || null;
     setKendaraan(found);
     setHargaBbmList(bbmList);
     setLoading(false);

@@ -1,21 +1,18 @@
 'use server';
 
 import { createServerClient } from '@/lib/supabase/server';
-import { Kendaraan, KendaraanBan, KendaraanLogHarian, HargaBBM } from '@/types/database';
+import { KendaraanBan, HargaBBM } from '@/types/database';
 import { revalidatePath } from 'next/cache';
-
-const SEED_HARGA_BBM: HargaBBM[] = [
-  { id: 'hb1', jenis: 'pertalite', harga_per_liter: 10000, created_at: '', updated_at: '' },
-  { id: 'hb2', jenis: 'pertamax', harga_per_liter: 16300, created_at: '', updated_at: '' },
-];
 
 export async function getHargaBBMList(): Promise<HargaBBM[]> {
   try {
     const supabase = await createServerClient();
-    const { data } = await supabase.from('harga_bbm').select('*');
-    if (data && data.length > 0) return data as HargaBBM[];
-  } catch (e) {}
-  return SEED_HARGA_BBM;
+    const { data, error } = await supabase.from('harga_bbm').select('*');
+    if (!error && data) return data as HargaBBM[];
+  } catch (e) {
+    console.error('Error fetching harga bbm:', e);
+  }
+  return [];
 }
 
 export async function updateOdometerBasecampLog(
