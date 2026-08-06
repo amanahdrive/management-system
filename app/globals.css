@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --brand-primary: #0F7A73;
+    --brand-primary-dark: #0B5F59;
+    --brand-primary-light: #E6F3F2;
+    --brand-navy: #0B2545;
+    --brand-navy-dark: #071A33;
+
+    --bg: #FFFFFF;
+    --bg-subtle: #F7F9F9;
+    --border: #E2E8E7;
+    --text-primary: #10231F;
+    --text-secondary: #5C6E6B;
+
+    --success: #1B8A5A;
+    --warning: #B9821B;
+    --danger: #C13D3D;
+    --info: #2563A8;
+  }
+
+  [data-theme="dark"] {
+    --bg: #0B1614;
+    --bg-subtle: #10201D;
+    --border: #1F3230;
+    --text-primary: #EDF5F3;
+    --text-secondary: #9AB1AD;
+    --brand-primary-light: #123531;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+/* Custom Design System Utility Classes */
+.btn-primary {
+  background-color: var(--brand-primary);
+  color: #ffffff;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.btn-primary:hover {
+  background-color: var(--brand-primary-dark);
+}
+
+.card-container {
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+}
+
+@media (min-width: 768px) {
+  .card-container {
+    padding: 24px;
+  }
+}

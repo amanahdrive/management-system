@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/laporan-harian",
+      "schedule": "0 23 * * *"
+    }
+  ]
+}
