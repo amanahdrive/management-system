@@ -73,24 +73,73 @@ export async function getJadwalSesiById(id: string): Promise<JadwalSesi | null> 
   return null;
 }
 
+export async function updateJadwalStatus(
+  id: string,
+  status_sesi: string,
+  catatan_sesi?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createServerClient();
+    const { error } = await supabase
+      .from('jadwal_sesi')
+      .update({
+        status_sesi,
+        catatan_sesi: catatan_sesi || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath('/jadwal');
+    revalidatePath(`/jadwal/${id}`);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 export async function upsertJadwalSesi(
   jadwal: Partial<JadwalSesi>
 ): Promise<{ success: boolean; data?: JadwalSesi; error?: string }> {
   try {
     const supabase = await createServerClient();
-    const { data: saved, error } = await supabase
-      .from('jadwal_sesi')
-      .upsert(jadwal)
-      .select()
-      .single();
 
-    if (error || !saved) return { success: false, error: error?.message || 'Gagal menyimpan jadwal' };
+    // Clean joined objects from payload
+    const {
+      siswa,
+      instruktur,
+      slot_waktu,
+      kendaraan,
+      slot_waktu_akhir,
+      ...cleanPayload
+    } = jadwal as any;
 
-    revalidatePath('/jadwal');
-    revalidatePath(`/jadwal/${saved.id}`);
-    revalidatePath('/dashboard');
+    if (cleanPayload.id) {
+      // Use UPDATE for existing IDs to avoid NOT NULL constraint errors on omitted columns
+      const { data: saved, error } = await supabase
+        .from('jadwal_sesi')
+        .update(cleanPayload)
+        .eq('id', cleanPayload.id)
+        .select()
+        .single();
 
-    return { success: true, data: saved as JadwalSesi };
+      if (error) return { success: false, error: error.message };
+      revalidatePath('/jadwal');
+      revalidatePath(`/jadwal/${cleanPayload.id}`);
+      return { success: true, data: saved as JadwalSesi };
+    } else {
+      // Use INSERT for new records
+      const { data: saved, error } = await supabase
+        .from('jadwal_sesi')
+        .insert(cleanPayload)
+        .select()
+        .single();
+
+      if (error || !saved) return { success: false, error: error?.message || 'Gagal menyimpan jadwal' };
+      revalidatePath('/jadwal');
+      return { success: true, data: saved as JadwalSesi };
+    }
   } catch (err: any) {
     return { success: false, error: err.message };
   }

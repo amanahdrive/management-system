@@ -4,7 +4,7 @@ import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { JadwalSesi } from '@/types/database';
-import { getJadwalSesiById, upsertJadwalSesi } from '@/lib/actions/jadwal';
+import { getJadwalSesiById, updateJadwalStatus } from '@/lib/actions/jadwal';
 import { formatDateIndo } from '@/lib/utils/date';
 import { CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -33,11 +33,7 @@ export default function JadwalDetailPage() {
 
   const handleUpdateStatus = async (status: 'selesai' | 'batal' | 'terjadwal') => {
     if (!sesi) return;
-    const res = await upsertJadwalSesi({
-      id: sesi.id,
-      status_sesi: status,
-      catatan_sesi: catatan,
-    });
+    const res = await updateJadwalStatus(sesi.id, status, catatan);
     if (res.success) {
       alert(`Status sesi berhasil diubah menjadi ${status.toUpperCase()}`);
       loadSesi();
