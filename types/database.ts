@@ -104,6 +104,8 @@ export interface Staff {
   alamat: string;
   tanda_tangan_url: string | null;
   aktif: boolean;
+  hari_kerja?: string[];
+  slot_kerja?: string[];
   created_at: string;
   updated_at: string;
   // Joined fields

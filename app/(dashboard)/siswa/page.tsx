@@ -8,12 +8,12 @@ import { Siswa, Paket, Promosi, StatusPembayaranMaster } from '@/types/database'
 import { deleteSiswa, getSiswaList, createOrUpdateSiswa } from '@/lib/actions/siswa';
 import { getPaketList, getPromosiList, getStatusPembayaranMaster } from '@/lib/actions/master-data';
 import { formatRupiah } from '@/lib/utils/currency';
-import { formatDateIndo } from '@/lib/utils/date';
+import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
 import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
-import { Plus, Eye, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Eye, Edit2, Trash2, CreditCard, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SiswaPage() {
@@ -30,7 +30,7 @@ export default function SiswaPage() {
   const [filterStatus, setFilterStatus] = React.useState('semua');
   const [filterPaket, setFilterPaket] = React.useState('semua');
 
-  // Modal State
+  // Modal State Tambah / Edit Data Diri
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [formData, setFormData] = React.useState<Partial<Siswa>>({
     nama: '',
@@ -47,6 +47,12 @@ export default function SiswaPage() {
     sumber: 'meta_ads',
     catatan: '',
   });
+
+  // Modal State Update Pembayaran
+  const [paymentModalSiswa, setPaymentModalSiswa] = React.useState<Siswa | null>(null);
+  const [paymentStatusKode, setPaymentStatusKode] = React.useState('dp');
+  const [paymentDpNominal, setPaymentDpNominal] = React.useState<number>(500000);
+  const [paymentDpTanggal, setPaymentDpTanggal] = React.useState<string>(getTodayDateString());
 
   const loadData = async () => {
     setLoading(true);
@@ -77,13 +83,75 @@ export default function SiswaPage() {
     loadData();
   }, []);
 
-  // Handle Paket change to recalculate price
+  const handleOpenAdd = () => {
+    const defaultPaket = paketList[0];
+    setFormData({
+      nama: '',
+      no_whatsapp: '',
+      alamat: '',
+      tanggal_booking: getTodayDateString(),
+      tanggal_rencana_mulai: getTodayDateString(),
+      paket_id: defaultPaket?.id || '',
+      promosi_id: null,
+      harga_final: defaultPaket ? defaultPaket.harga_promo || defaultPaket.harga_normal : 0,
+      status_pembayaran_kode: 'belum_bayar',
+      dp_nominal: null,
+      dp_tanggal: null,
+      sumber: 'meta_ads',
+      catatan: '',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditDataDiri = (siswa: Siswa) => {
+    setFormData({
+      id: siswa.id,
+      kode_siswa: siswa.kode_siswa,
+      nama: siswa.nama,
+      no_whatsapp: siswa.no_whatsapp,
+      alamat: siswa.alamat,
+      tanggal_booking: siswa.tanggal_booking,
+      tanggal_rencana_mulai: siswa.tanggal_rencana_mulai,
+      paket_id: siswa.paket_id,
+      promosi_id: siswa.promosi_id,
+      harga_final: siswa.harga_final,
+      status_pembayaran_kode: siswa.status_pembayaran_kode,
+      dp_nominal: siswa.dp_nominal,
+      dp_tanggal: siswa.dp_tanggal,
+      sumber: siswa.sumber,
+      sumber_kustom_text: siswa.sumber_kustom_text,
+      catatan: siswa.catatan,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenUpdatePembayaran = (siswa: Siswa) => {
+    setPaymentModalSiswa(siswa);
+    setPaymentStatusKode(siswa.status_pembayaran_kode || 'dp');
+    setPaymentDpNominal(siswa.dp_nominal || Math.round(siswa.harga_final * 0.5));
+    setPaymentDpTanggal(siswa.dp_tanggal || getTodayDateString());
+  };
+
+  const handleSavePembayaran = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentModalSiswa) return;
+
+    await createOrUpdateSiswa({
+      id: paymentModalSiswa.id,
+      status_pembayaran_kode: paymentStatusKode,
+      dp_nominal: paymentStatusKode === 'dp' || paymentStatusKode === 'lunas' ? paymentDpNominal : null,
+      dp_tanggal: paymentStatusKode === 'dp' || paymentStatusKode === 'lunas' ? paymentDpTanggal : null,
+    });
+
+    setPaymentModalSiswa(null);
+    loadData();
+  };
+
   const handlePaketChange = (paketId: string) => {
     const selectedPaket = paketList.find((p) => p.id === paketId);
     if (selectedPaket) {
       let finalPrice = selectedPaket.harga_promo || selectedPaket.harga_normal;
 
-      // Apply selected promo if exists
       if (formData.promosi_id) {
         const promo = promosiList.find((pr) => pr.id === formData.promosi_id);
         if (promo) {
@@ -176,18 +244,32 @@ export default function SiswaPage() {
       id: 'actions',
       header: 'Aksi',
       cell: ({ row }) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <Link
             href={`/siswa/${row.original.id}`}
             className="p-1.5 text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)] rounded-md flex items-center gap-1 text-xs font-semibold"
+            title="Lihat Detail Siswa"
           >
             <Eye className="w-4 h-4" />
-            <span>Detail</span>
           </Link>
+          <button
+            onClick={() => handleOpenUpdatePembayaran(row.original)}
+            className="p-1.5 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30 rounded-md flex items-center gap-1 text-xs font-semibold"
+            title="Update Pembayaran / DP / Lunas"
+          >
+            <CreditCard className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleOpenEditDataDiri(row.original)}
+            className="p-1.5 text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md flex items-center gap-1 text-xs font-semibold"
+            title="Update Data Diri Siswa"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
           <button
             onClick={() => setDeletingId(row.original.id)}
             className="p-1.5 text-[var(--danger)] hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-md flex items-center gap-1 text-xs font-semibold"
-            title="Hapus Siswa"
+            title="Hapus Data Siswa"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -206,8 +288,9 @@ export default function SiswaPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Data Siswa Mengemudi"
-        description="Kelola pendaftaran siswa baru, paket, promo, dan histori pembayaran"
+        title="Manajemen Data Siswa"
+        description="Kelola pendaftaran siswa baru, paket kursus, promo, dan histori pembayaran"
+        breadcrumbs={[{ label: 'Data Siswa' }]}
         actions={
           <div className="flex items-center gap-3">
             <ExportButton
@@ -217,24 +300,24 @@ export default function SiswaPage() {
               title="Laporan Data Siswa Amanah Drive"
             />
             <button
-              onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-md transition-colors"
+              onClick={handleOpenAdd}
+              className="flex items-center gap-2 px-3 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-md transition-colors"
             >
               <Plus className="w-4 h-4" />
-              <span>+ Tambah Siswa</span>
+              <span>Daftarkan Siswa Baru</span>
             </button>
           </div>
         }
       />
 
-      {/* Filter Toolbar */}
+      {/* Filter Bar */}
       <div className="card-container p-4 flex flex-wrap items-center gap-4 text-xs">
         <div>
           <label className="block text-[var(--text-secondary)] mb-1 font-medium">Filter Status Bayar</label>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+            className="px-3 py-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)]"
           >
             <option value="semua">Semua Status</option>
             {statusList.map((st) => (
@@ -250,7 +333,7 @@ export default function SiswaPage() {
           <select
             value={filterPaket}
             onChange={(e) => setFilterPaket(e.target.value)}
-            className="px-3 py-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+            className="px-3 py-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)]"
           >
             <option value="semua">Semua Paket</option>
             {paketList.map((p) => (
@@ -262,23 +345,25 @@ export default function SiswaPage() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Data Table */}
       <div className="card-container">
         {loading ? (
           <div className="h-64 animate-pulse bg-black/5 dark:bg-white/5 rounded-md" />
         ) : (
-          <DataTable columns={columns} data={filteredData} searchKey="siswa" />
+          <DataTable columns={columns} data={filteredData} searchKey="nama" />
         )}
       </div>
 
-      {/* Modal Form Tambah Siswa */}
+      {/* Modal Form Tambah / Edit Data Diri Siswa */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card-container max-w-xl w-full bg-[var(--bg)] shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-[var(--text-primary)]">Form Pendaftaran Siswa Baru</h3>
+          <div className="card-container max-w-xl w-full bg-[var(--bg)] shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-[var(--text-primary)] border-b border-[var(--border)] pb-2">
+              {formData.id ? `Update Data Diri Siswa (${formData.kode_siswa})` : 'Pendaftaran Siswa Baru'}
+            </h3>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                     Nama Lengkap Siswa *
@@ -288,126 +373,133 @@ export default function SiswaPage() {
                     required
                     value={formData.nama || ''}
                     onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
+                    placeholder="Nama sesuai KTP"
                     className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    No. WhatsApp *
+                    No. WhatsApp Active *
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="0812..."
                     value={formData.no_whatsapp || ''}
                     onChange={(e) => setFormData({ ...formData, no_whatsapp: e.target.value })}
+                    placeholder="08xxxxxxxxxx"
                     className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                  />
+                </div>
+
+                <div>
+                  <DatePickerWIB
+                    label="Tanggal Booking *"
+                    value={formData.tanggal_booking || getTodayDateString()}
+                    onChange={(val) => setFormData({ ...formData, tanggal_booking: val })}
+                  />
+                </div>
+
+                <div>
+                  <DatePickerWIB
+                    label="Rencana Tanggal Mulai *"
+                    value={formData.tanggal_rencana_mulai || getTodayDateString()}
+                    onChange={(val) => setFormData({ ...formData, tanggal_rencana_mulai: val })}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Alamat</label>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                  Alamat Lengkap
+                </label>
                 <textarea
                   rows={2}
-                  required
                   value={formData.alamat || ''}
                   onChange={(e) => setFormData({ ...formData, alamat: e.target.value })}
+                  placeholder="Alamat domisili Palembang"
                   className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <DatePickerWIB
-                  label="Tanggal Booking"
-                  value={formData.tanggal_booking}
-                  onChange={(val) => setFormData({ ...formData, tanggal_booking: val })}
-                />
-                <DatePickerWIB
-                  label="Tgl Rencana Mulai"
-                  value={formData.tanggal_rencana_mulai}
-                  onChange={(val) => setFormData({ ...formData, tanggal_rencana_mulai: val })}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Paket & Promo Selection */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 rounded-md bg-[var(--bg-subtle)] border border-[var(--border)]">
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                     Pilih Paket Kursus *
                   </label>
                   <select
-                    value={formData.paket_id}
+                    value={formData.paket_id || ''}
                     onChange={(e) => handlePaketChange(e.target.value)}
                     className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
                   >
                     {paketList.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.nama_paket} ({formatRupiah(p.harga_promo || p.harga_normal)})
+                        {p.nama_paket} ({p.jumlah_sesi} Sesi) - {formatRupiah(p.harga_promo || p.harga_normal)}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                <CurrencyInput
-                  label="Harga Final (Editable Override)"
-                  value={formData.harga_final}
-                  onChange={(val) => setFormData({ ...formData, harga_final: val, harga_manual_override: true })}
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    Pilih Promo / Campaign
+                  </label>
+                  <select
+                    value={formData.promosi_id || ''}
+                    onChange={(e) => {
+                      const pId = e.target.value || null;
+                      setFormData({ ...formData, promosi_id: pId });
+                      if (formData.paket_id) handlePaketChange(formData.paket_id);
+                    }}
+                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                  >
+                    <option value="">Tanpa Promo</option>
+                    {promosiList.map((pr) => (
+                      <option key={pr.id} value={pr.id}>
+                        {pr.nama_promo} (Potongan {pr.tipe_potongan === 'persen' ? `${pr.nilai_potongan}%` : formatRupiah(pr.nilai_potongan)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <CurrencyInput
+                    label="Harga Final Siswa (Rupiah) *"
+                    value={formData.harga_final || 0}
+                    onChange={(val) => setFormData({ ...formData, harga_final: val, harga_manual_override: true })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                  Sumber Leads / Pemasaran *
+                </label>
+                <select
+                  value={formData.sumber || 'meta_ads'}
+                  onChange={(e) => setFormData({ ...formData, sumber: e.target.value as any })}
+                  className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                >
+                  <option value="meta_ads">Meta Ads (FB/IG)</option>
+                  <option value="tiktok">TikTok Ads / Organic</option>
+                  <option value="referensi">Referensi Teman / Alumni</option>
+                  <option value="kustom">Lainnya / Kustom</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                  Catatan Khusus Siswa
+                </label>
+                <textarea
+                  rows={2}
+                  value={formData.catatan || ''}
+                  onChange={(e) => setFormData({ ...formData, catatan: e.target.value })}
+                  placeholder="Misal: Minta instruktur sabar, latihan di hari libur"
+                  className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
                 />
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Status Pembayaran Initial *
-                  </label>
-                  <select
-                    value={formData.status_pembayaran_kode}
-                    onChange={(e) =>
-                      setFormData({ ...formData, status_pembayaran_kode: e.target.value })
-                    }
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
-                  >
-                    {statusList.map((st) => (
-                      <option key={st.id} value={st.kode}>
-                        {st.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Sumber Leads
-                  </label>
-                  <select
-                    value={formData.sumber}
-                    onChange={(e) => setFormData({ ...formData, sumber: e.target.value as any })}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
-                  >
-                    <option value="meta_ads">Meta Ads (FB/IG)</option>
-                    <option value="tiktok">TikTok</option>
-                    <option value="referensi">Referensi</option>
-                    <option value="kustom">Kustom</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Conditional DP Fields */}
-              {formData.status_pembayaran_kode === 'dp' && (
-                <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-md grid grid-cols-2 gap-3">
-                  <CurrencyInput
-                    label="Nominal DP (Uang Muka) *"
-                    value={formData.dp_nominal}
-                    onChange={(val) => setFormData({ ...formData, dp_nominal: val })}
-                  />
-                  <DatePickerWIB
-                    label="Tanggal Penerimaan DP *"
-                    value={formData.dp_tanggal || new Date().toISOString().slice(0, 10)}
-                    onChange={(val) => setFormData({ ...formData, dp_tanggal: val })}
-                  />
-                </div>
-              )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border)]">
                 <button
@@ -421,7 +513,83 @@ export default function SiswaPage() {
                   type="submit"
                   className="px-4 py-2 text-xs font-semibold bg-[var(--brand-primary)] text-white rounded-md"
                 >
-                  Simpan Siswa & Buat Transaksi
+                  {formData.id ? 'Simpan Perubahan Data Diri' : 'Daftarkan Siswa'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Form Update Pembayaran */}
+      {paymentModalSiswa && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="card-container max-w-md w-full bg-[var(--bg)] shadow-lg space-y-4">
+            <h3 className="text-base font-bold text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-amber-600" />
+              Update Pembayaran Siswa
+            </h3>
+
+            <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-md text-xs space-y-1">
+              <p className="font-bold text-[var(--brand-primary)]">
+                {paymentModalSiswa.nama} ({paymentModalSiswa.kode_siswa})
+              </p>
+              <p className="text-[var(--text-secondary)]">
+                Total Tagihan Kursus: <span className="font-bold text-[var(--text-primary)]">{formatRupiah(paymentModalSiswa.harga_final)}</span>
+              </p>
+            </div>
+
+            <form onSubmit={handleSavePembayaran} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                  Status Pembayaran *
+                </label>
+                <select
+                  value={paymentStatusKode}
+                  onChange={(e) => setPaymentStatusKode(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold"
+                >
+                  {statusList.map((st) => (
+                    <option key={st.id} value={st.kode}>
+                      {st.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {(paymentStatusKode === 'dp' || paymentStatusKode === 'lunas') && (
+                <div className="space-y-3 p-3 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-md">
+                  <CurrencyInput
+                    label={paymentStatusKode === 'dp' ? 'Nominal Uang Muka / DP (Rupiah) *' : 'Nominal Pembayaran / Pelunasan (Rupiah) *'}
+                    value={paymentDpNominal}
+                    onChange={(val) => setPaymentDpNominal(val)}
+                  />
+
+                  <DatePickerWIB
+                    label="Tanggal Pembayaran *"
+                    value={paymentDpTanggal}
+                    onChange={(val) => setPaymentDpTanggal(val)}
+                  />
+
+                  <p className="text-[10px] text-amber-800 dark:text-amber-300 italic">
+                    * Menyimpan status {paymentStatusKode.toUpperCase()} akan secara otomatis mencatat transaksi pemasukan kas baru di Buku Besar Cashflow Keuangan.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => setPaymentModalSiswa(null)}
+                  className="px-4 py-2 text-xs font-medium border border-[var(--border)] rounded-md"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md"
+                >
+                  Simpan Pembayaran
                 </button>
               </div>
             </form>

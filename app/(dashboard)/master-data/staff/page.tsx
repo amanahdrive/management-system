@@ -6,8 +6,27 @@ import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Staff, Jabatan } from '@/types/database';
 import { getStaffList, getJabatanList, upsertStaff } from '@/lib/actions/master-data';
-import { Plus, User, Edit2, Check } from 'lucide-react';
+import { Plus, Edit2, Check, Calendar, Clock } from 'lucide-react';
 import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
+
+const HARI_OPTIONS = [
+  { id: 'senin', label: 'Senin' },
+  { id: 'selasa', label: 'Selasa' },
+  { id: 'rabu', label: 'Rabu' },
+  { id: 'kamis', label: 'Kamis' },
+  { id: 'jumat', label: 'Jumat' },
+  { id: 'sabtu', label: 'Sabtu' },
+  { id: 'minggu', label: 'Minggu' },
+];
+
+const SLOT_OPTIONS = [
+  { id: 'sl1', label: 'Slot 1 (09:00-10:30)' },
+  { id: 'sl2', label: 'Slot 2 (11:00-12:30)' },
+  { id: 'sl3', label: 'Slot 3 (13:30-15:00)' },
+  { id: 'sl4', label: 'Slot 4 (15:30-17:00)' },
+  { id: 'sl5', label: 'Slot 5 (18:30-20:00)' },
+  { id: 'sl6', label: 'Slot 6 (20:15-21:45)' },
+];
 
 export default function MasterStaffPage() {
   const [staffList, setStaffList] = React.useState<Staff[]>([]);
@@ -17,6 +36,8 @@ export default function MasterStaffPage() {
 
   const [editingStaff, setEditingStaff] = React.useState<Partial<Staff>>({});
   const [selectedJabatanIds, setSelectedJabatanIds] = React.useState<string[]>([]);
+  const [selectedHari, setSelectedHari] = React.useState<string[]>([]);
+  const [selectedSlot, setSelectedSlot] = React.useState<string[]>([]);
 
   const loadData = async () => {
     setLoading(true);
@@ -39,12 +60,16 @@ export default function MasterStaffPage() {
       aktif: true,
     });
     setSelectedJabatanIds([]);
+    setSelectedHari(['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu']);
+    setSelectedSlot(['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6']);
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (staff: Staff) => {
     setEditingStaff(staff);
     setSelectedJabatanIds((staff.jabatan_list || []).map((j) => j.id));
+    setSelectedHari(staff.hari_kerja || ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu']);
+    setSelectedSlot(staff.slot_kerja || ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6']);
     setIsModalOpen(true);
   };
 
@@ -54,11 +79,33 @@ export default function MasterStaffPage() {
     );
   };
 
+  const toggleHari = (hId: string) => {
+    setSelectedHari((prev) =>
+      prev.includes(hId) ? prev.filter((h) => h !== hId) : [...prev, hId]
+    );
+  };
+
+  const toggleSlot = (sId: string) => {
+    setSelectedSlot((prev) =>
+      prev.includes(sId) ? prev.filter((s) => s !== sId) : [...prev, sId]
+    );
+  };
+
+  const isInstrukturSelected = selectedJabatanIds.some(
+    (id) => jabatanList.find((j) => j.id === id)?.nama_jabatan === 'Instruktur'
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStaff.nama || selectedJabatanIds.length === 0) return;
 
-    await upsertStaff(editingStaff, selectedJabatanIds);
+    const payload = {
+      ...editingStaff,
+      hari_kerja: selectedHari,
+      slot_kerja: selectedSlot,
+    };
+
+    await upsertStaff(payload, selectedJabatanIds);
     setIsModalOpen(false);
     loadData();
   };
@@ -156,14 +203,14 @@ export default function MasterStaffPage() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="card-container max-w-lg w-full bg-[var(--bg)] shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-[var(--text-primary)]">
+            <h3 className="text-lg font-bold text-[var(--text-primary)] border-b border-[var(--border)] pb-2">
               {editingStaff.id ? 'Edit Data Staff' : 'Tambah Staff Baru'}
             </h3>
 
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Nama Lengkap
+                  Nama Lengkap *
                 </label>
                 <input
                   type="text"
@@ -177,7 +224,7 @@ export default function MasterStaffPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    No. WhatsApp
+                    No. WhatsApp *
                   </label>
                   <input
                     type="text"
@@ -191,7 +238,7 @@ export default function MasterStaffPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Tahun Bergabung
+                    Tahun Bergabung *
                   </label>
                   <input
                     type="number"
@@ -224,7 +271,7 @@ export default function MasterStaffPage() {
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-medium text-[var(--text-secondary)]">
-                    Jabatan Staff (Pilih Minimal 1)
+                    Jabatan Staff (Pilih Minimal 1) *
                   </label>
                   {selectedJabatanIds.length === 0 && (
                     <span className="text-[10px] text-[var(--danger)] font-bold">Wajib pilih minimal 1</span>
@@ -260,6 +307,68 @@ export default function MasterStaffPage() {
                   )}
                 </div>
               </div>
+
+              {/* Section Tambahan Khusus Instruktur: Hari & Slot Kerja */}
+              {isInstrukturSelected && (
+                <div className="p-3 border border-teal-200 dark:border-teal-900 bg-teal-50/50 dark:bg-teal-950/20 rounded-md space-y-3">
+                  <h4 className="text-xs font-bold text-teal-800 dark:text-teal-300 flex items-center gap-1.5 border-b border-teal-200 dark:border-teal-900 pb-1.5">
+                    <Calendar className="w-4 h-4 text-teal-600" />
+                    Jadwal Ketersediaan Instruktur Mengemudi
+                  </h4>
+
+                  {/* Hari Kerja */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                      Hari Kerja Aktif (Pilih Hari Tugas)
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {HARI_OPTIONS.map((h) => {
+                        const isSelected = selectedHari.includes(h.id);
+                        return (
+                          <button
+                            key={h.id}
+                            type="button"
+                            onClick={() => toggleHari(h.id)}
+                            className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
+                              isSelected
+                                ? 'bg-teal-700 text-white border-teal-700 font-semibold'
+                                : 'bg-[var(--bg)] text-[var(--text-secondary)] border-[var(--border)]'
+                            }`}
+                          >
+                            {h.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Slot Kerja */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1 flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> Slot Waktu Mengajar (Slot 1–6)
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {SLOT_OPTIONS.map((s) => {
+                        const isSelected = selectedSlot.includes(s.id);
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => toggleSlot(s.id)}
+                            className={`px-2 py-1 rounded text-[11px] font-medium border transition-colors text-left truncate ${
+                              isSelected
+                                ? 'bg-teal-700 text-white border-teal-700 font-semibold'
+                                : 'bg-[var(--bg)] text-[var(--text-secondary)] border-[var(--border)]'
+                            }`}
+                          >
+                            {s.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border)]">
                 <button
