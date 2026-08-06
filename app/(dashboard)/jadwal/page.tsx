@@ -4,7 +4,7 @@ import React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
-import { JadwalSesi, Staff, SlotWaktu, Paket, Promosi } from '@/types/database';
+import { JadwalSesi, Staff, SlotWaktu, Paket, Promosi, Siswa } from '@/types/database';
 import {
   getJadwalByTanggal,
   getJadwalByBulan,
@@ -17,7 +17,7 @@ import { getInstrukturList, getSlotWaktuList, getPaketList, getPromosiList } fro
 import { getSiswaList } from '@/lib/actions/siswa';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
-import { Calendar, Copy, Check, Plus, Eye, Trash2, CalendarDays, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Copy, Check, Plus, Eye, Trash2, CalendarDays, AlertTriangle, ChevronLeft, ChevronRight, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 
 const DAY_NAMES = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
@@ -32,9 +32,7 @@ export default function JadwalPage() {
   const [jadwalList, setJadwalList] = React.useState<JadwalSesi[]>([]);
   const [instrukturList, setInstrukturList] = React.useState<Staff[]>([]);
   const [slotList, setSlotList] = React.useState<SlotWaktu[]>([]);
-  const [siswaList, setSiswaList] = React.useState<any[]>([]);
-  const [paketList, setPaketList] = React.useState<Paket[]>([]);
-  const [promosiList, setPromosiList] = React.useState<Promosi[]>([]);
+  const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
@@ -49,8 +47,6 @@ export default function JadwalPage() {
 
   // Modal Tambah Jadwal State
   const [isModalOpen, setIsModalOpen] = React.useState(false);
-  const [selectedPaketId, setSelectedPaketId] = React.useState('');
-  const [selectedPromoId, setSelectedPromoId] = React.useState('');
   const [formData, setFormData] = React.useState<Partial<JadwalSesi>>({
     tanggal_sesi: getTodayDateString(),
     jenis_mobil: 'manual',
@@ -61,33 +57,22 @@ export default function JadwalPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const [jList, iList, sList, swList, pkList, prList] = await Promise.all([
+    const [jList, iList, sList, swList] = await Promise.all([
       getJadwalByTanggal(selectedTanggal, selectedStaff),
       getInstrukturList(),
       getSiswaList(),
       getSlotWaktuList(),
-      getPaketList(),
-      getPromosiList(),
     ]);
     setJadwalList(jList);
     setInstrukturList(iList);
     setSiswaList(sList);
     setSlotList(swList);
-    setPaketList(pkList);
-    setPromosiList(prList);
 
     if (iList.length > 0 && !formData.staff_id) {
       setFormData((prev) => ({ ...prev, staff_id: iList[0].id }));
     }
-    if (sList.length > 0 && !formData.siswa_id) {
-      setFormData((prev) => ({ ...prev, siswa_id: sList[0].id }));
-    }
     if (swList.length > 0 && !formData.slot_waktu_id) {
       setFormData((prev) => ({ ...prev, slot_waktu_id: swList[0].id }));
-    }
-    if (pkList.length > 0 && !selectedPaketId) {
-      setSelectedPaketId(pkList[0].id);
-      setFormData((prev) => ({ ...prev, total_sesi_paket: pkList[0].jumlah_sesi }));
     }
 
     setLoading(false);
@@ -105,6 +90,45 @@ export default function JadwalPage() {
     }
   }, [isBigCalendarOpen, calCurrentYear, calCurrentMonth]);
 
+  // --- FILTER SISWA YANG BELUM TERJADWAL DI TANGGAL INI ---
+  const scheduledSiswaIds = React.useMemo(() => {
+    return jadwalList.filter((j) => j.status_sesi !== 'batal').map((j) => j.siswa_id);
+  }, [jadwalList]);
+
+  const availableSiswaList = React.useMemo(() => {
+    return siswaList.filter((s) => !scheduledSiswaIds.includes(s.id));
+  }, [siswaList, scheduledSiswaIds]);
+
+  // Handle student select & auto-pull paket info
+  const handleSiswaSelect = (siswaId: string) => {
+    const sObj = siswaList.find((s) => s.id === siswaId);
+    const totalSesi = sObj?.paket?.jumlah_sesi || 10;
+
+    setFormData((prev) => ({
+      ...prev,
+      siswa_id: siswaId,
+      total_sesi_paket: totalSesi,
+    }));
+  };
+
+  const handleOpenAddModal = () => {
+    const firstAvail = availableSiswaList[0];
+    const firstIns = instrukturList[0];
+    const firstSlot = slotList[0];
+
+    setFormData({
+      tanggal_sesi: selectedTanggal,
+      siswa_id: firstAvail?.id || '',
+      staff_id: firstIns?.id || '',
+      slot_waktu_id: firstSlot?.id || '',
+      jenis_mobil: 'manual',
+      nomor_sesi_ke: 1,
+      total_sesi_paket: firstAvail?.paket?.jumlah_sesi || 10,
+      status_sesi: 'terjadwal',
+    });
+    setIsModalOpen(true);
+  };
+
   const handleCopyWA = async () => {
     const waText = await generateWhatsAppScheduleText(selectedTanggal, selectedStaff);
     await navigator.clipboard.writeText(waText);
@@ -112,19 +136,11 @@ export default function JadwalPage() {
     setTimeout(() => setCopied(false), 3000);
   };
 
-  const handlePaketSelectChange = (paketId: string) => {
-    setSelectedPaketId(paketId);
-    const found = paketList.find((p) => p.id === paketId);
-    if (found) {
-      setFormData((prev) => ({ ...prev, total_sesi_paket: found.jumlah_sesi }));
-    }
-  };
-
   // --- ANTI TABRAKAN LOGIC (COLLISION & AVAILABILITY CHECK) ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.siswa_id || !formData.staff_id || !formData.slot_waktu_id) {
-      alert('Mohon lengkapi Siswa, Instruktur, dan Slot Waktu!');
+      alert('Mohon pilih Siswa, Instruktur, dan Slot Waktu!');
       return;
     }
 
@@ -169,17 +185,6 @@ export default function JadwalPage() {
       return;
     }
 
-    // Check 4: Slot capacity check (max 1 student per instructor)
-    const sameSlotBookings = jadwalList.filter(
-      (j) => j.slot_waktu_id === formData.slot_waktu_id && j.status_sesi === 'terjadwal'
-    );
-    if (sameSlotBookings.length >= instrukturList.length && instrukturList.length > 0) {
-      alert(
-        `KAPASITAS SLOT PENUH!\nSlot ${selectedSlotObj?.nama_slot} sudah terisi ${sameSlotBookings.length} siswa (seluruh ${instrukturList.length} instruktur sudah penuh bertugas).`
-      );
-      return;
-    }
-
     await upsertJadwalSesi({
       ...formData,
       tanggal_sesi: selectedTanggal,
@@ -187,6 +192,10 @@ export default function JadwalPage() {
     setIsModalOpen(false);
     loadData();
   };
+
+  const selectedSiswaObj = siswaList.find((s) => s.id === formData.siswa_id);
+  const isCustomPaket = selectedSiswaObj?.paket?.is_custom === true;
+  const selectedInstrukturObj = instrukturList.find((i) => i.id === formData.staff_id);
 
   const columns: ColumnDef<JadwalSesi>[] = [
     {
@@ -316,7 +325,7 @@ export default function JadwalPage() {
               <span>{copied ? 'Tersalin!' : 'Copy WA Schedule'}</span>
             </button>
             <button
-              onClick={() => setIsModalOpen(true)}
+              onClick={handleOpenAddModal}
               className="flex items-center gap-1.5 px-3.5 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-md transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -368,69 +377,76 @@ export default function JadwalPage() {
         )}
       </div>
 
-      {/* Modal Tambah Sesi Jadwal */}
+      {/* Modal Tambah Sesi Jadwal Baru */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="card-container max-w-lg w-full bg-[var(--bg)] shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-[var(--text-primary)] border-b border-[var(--border)] pb-2">
-              Tambah Sesi Jadwal Baru
+              Tambah Sesi Jadwal Baru ({formatDateIndo(selectedTanggal)})
             </h3>
-            <form onSubmit={handleSubmit} className="space-y-3">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* 1. Pilih Siswa (Hanya menampilkan siswa yang BELUM dijadwalkan di tanggal ini) */}
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                   Pilih Siswa *
                 </label>
-                <select
-                  value={formData.siswa_id}
-                  onChange={(e) => setFormData({ ...formData, siswa_id: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
-                >
-                  {siswaList.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nama} ({s.kode_siswa})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Master Data Paket & Promo Integration */}
-              <div className="grid grid-cols-2 gap-3 p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-md">
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Paket Kursus *
-                  </label>
+                {availableSiswaList.length === 0 ? (
+                  <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold p-2 bg-rose-50 dark:bg-rose-950/30 rounded border border-rose-200">
+                    Seluruh siswa aktif sudah terdaftar jadwal pada tanggal ini ({formatDateIndo(selectedTanggal)}).
+                  </p>
+                ) : (
                   <select
-                    value={selectedPaketId}
-                    onChange={(e) => handlePaketSelectChange(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                    value={formData.siswa_id}
+                    onChange={(e) => handleSiswaSelect(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold"
                   >
-                    {paketList.map((pk) => (
-                      <option key={pk.id} value={pk.id}>
-                        {pk.nama_paket} ({pk.jumlah_sesi} Sesi)
+                    {availableSiswaList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nama} ({s.kode_siswa}) — {s.paket?.nama_paket || 'Paket Sesi'}
                       </option>
                     ))}
                   </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Promo Campaign
-                  </label>
-                  <select
-                    value={selectedPromoId}
-                    onChange={(e) => setSelectedPromoId(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)]"
-                  >
-                    <option value="">Tanpa Promo</option>
-                    {promosiList.map((pr) => (
-                      <option key={pr.id} value={pr.id}>
-                        {pr.nama_promo}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                )}
               </div>
 
+              {/* Info Auto-Pull Paket & Total Sesi */}
+              {selectedSiswaObj && (
+                <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-md space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--text-secondary)] font-medium">Paket Kursus Siswa:</span>
+                    <span className="font-bold text-[var(--brand-primary)]">
+                      {selectedSiswaObj.paket?.nama_paket || 'Paket Khusus'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                      Total Sesi Paket Kursus
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      readOnly={!isCustomPaket}
+                      value={formData.total_sesi_paket || selectedSiswaObj.paket?.jumlah_sesi || 10}
+                      onChange={(e) =>
+                        setFormData({ ...formData, total_sesi_paket: parseInt(e.target.value) || 10 })
+                      }
+                      className={`w-full px-3 py-1.5 text-xs rounded-md border border-[var(--border)] ${
+                        isCustomPaket
+                          ? 'bg-[var(--bg)] font-bold text-[var(--text-primary)]'
+                          : 'bg-black/5 dark:bg-white/5 font-bold text-[var(--brand-primary)] cursor-not-allowed'
+                      }`}
+                    />
+                    <p className="text-[10px] text-[var(--text-secondary)] italic mt-1">
+                      {isCustomPaket
+                        ? '* Paket Custom: Total sesi dapat disesuaikan.'
+                        : '* Otomatis ditarik dari data paket siswa (Fixed).'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Pilih Instruktur */}
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                   Pilih Instruktur Bertugas *
@@ -438,7 +454,7 @@ export default function JadwalPage() {
                 <select
                   value={formData.staff_id}
                   onChange={(e) => setFormData({ ...formData, staff_id: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                  className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold"
                 >
                   {instrukturList.map((ins) => (
                     <option key={ins.id} value={ins.id}>
@@ -448,7 +464,8 @@ export default function JadwalPage() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* 3. Slot Waktu & Jenis Mobil */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                     Slot Waktu Sesi *
@@ -456,13 +473,22 @@ export default function JadwalPage() {
                   <select
                     value={formData.slot_waktu_id}
                     onChange={(e) => setFormData({ ...formData, slot_waktu_id: e.target.value })}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold"
                   >
-                    {slotList.map((sw) => (
-                      <option key={sw.id} value={sw.id}>
-                        {sw.nama_slot} ({sw.jam_mulai.substring(0, 5)})
-                      </option>
-                    ))}
+                    {slotList.map((sw) => {
+                      const isBooked = jadwalList.some(
+                        (j) =>
+                          j.staff_id === formData.staff_id &&
+                          j.slot_waktu_id === sw.id &&
+                          j.status_sesi === 'terjadwal'
+                      );
+
+                      return (
+                        <option key={sw.id} value={sw.id} disabled={isBooked}>
+                          {sw.nama_slot} ({sw.jam_mulai.substring(0, 5)}) {isBooked ? '— (PENUH)' : '— Tersedia'}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -479,35 +505,6 @@ export default function JadwalPage() {
                     <option value="matic">Matic</option>
                     <option value="mobil_sendiri">Mobil Sendiri</option>
                   </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Sesi Ke *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={formData.nomor_sesi_ke || 1}
-                    onChange={(e) =>
-                      setFormData({ ...formData, nomor_sesi_ke: parseInt(e.target.value) || 1 })
-                    }
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Total Sesi Paket
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    readOnly
-                    value={formData.total_sesi_paket || 10}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg-subtle)] font-bold text-[var(--brand-primary)]"
-                  />
                 </div>
               </div>
 
@@ -528,7 +525,8 @@ export default function JadwalPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold bg-[var(--brand-primary)] text-white rounded-md"
+                  disabled={availableSiswaList.length === 0}
+                  className="px-4 py-2 text-xs font-semibold bg-[var(--brand-primary)] text-white rounded-md disabled:opacity-50"
                 >
                   Simpan Sesi Jadwal
                 </button>
