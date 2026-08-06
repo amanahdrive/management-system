@@ -26,17 +26,17 @@ export function DatePickerWIB({
   // Convert YYYY-MM-DD to Indonesian dd/mm/yyyy for display
   const displayFormatted = value ? formatDateIndo(value) : '';
 
-  const handleDisplayClick = () => {
+  const handleOpenPicker = () => {
     if (disabled) return;
     if (hiddenInputRef.current) {
       if (typeof hiddenInputRef.current.showPicker === 'function') {
         try {
           hiddenInputRef.current.showPicker();
         } catch {
-          hiddenInputRef.current.focus();
+          hiddenInputRef.current.click();
         }
       } else {
-        hiddenInputRef.current.focus();
+        hiddenInputRef.current.click();
       }
     }
   };
@@ -49,31 +49,26 @@ export function DatePickerWIB({
         </label>
       )}
 
-      <div className="relative w-full">
-        {/* Visible Input Box displaying strict dd/mm/yyyy format */}
-        <div
-          onClick={handleDisplayClick}
-          className={`w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] font-medium flex items-center justify-between cursor-pointer select-none transition-colors ${
-            disabled ? 'opacity-50 cursor-not-allowed bg-black/5 dark:bg-white/5' : 'hover:border-[var(--brand-primary)]'
-          } ${error ? 'border-[var(--danger)]' : ''} ${className}`}
-        >
-          <span className={displayFormatted ? 'font-semibold text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}>
-            {displayFormatted || 'dd/mm/yyyy'}
-          </span>
-          <Calendar className="w-4 h-4 text-[var(--text-secondary)] shrink-0 ml-2" />
-        </div>
+      <div
+        onClick={handleOpenPicker}
+        className={`relative w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] font-medium flex items-center justify-between cursor-pointer select-none transition-colors ${
+          disabled ? 'opacity-50 cursor-not-allowed bg-black/5 dark:bg-white/5' : 'hover:border-[var(--brand-primary)]'
+        } ${error ? 'border-[var(--danger)]' : ''} ${className}`}
+      >
+        {/* Visible Text formatted as dd/mm/yyyy */}
+        <span className={displayFormatted ? 'font-semibold text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}>
+          {displayFormatted || 'dd/mm/yyyy'}
+        </span>
+        <Calendar className="w-4 h-4 text-[var(--text-secondary)] shrink-0 ml-2" />
 
-        {/* Hidden Native Date Input for Calendar Popover */}
+        {/* Hidden Native Date Input */}
         <input
           ref={hiddenInputRef}
           type="date"
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          tabIndex={-1}
-          aria-hidden="true"
-          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer pointer-events-auto z-10"
-          style={{ clipPath: 'inset(0)' }}
+          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
           {...props}
         />
       </div>

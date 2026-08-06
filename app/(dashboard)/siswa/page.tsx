@@ -499,6 +499,51 @@ export default function SiswaPage() {
                 </div>
               </div>
 
+              {/* Status Pembayaran & Nominal DP / Pelunasan saat Pendaftaran Baru */}
+              <div className="p-3 rounded-md bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                    Status Pembayaran Siswa *
+                  </label>
+                  <select
+                    value={formData.status_pembayaran_kode || 'belum_bayar'}
+                    onChange={(e) => {
+                      const kode = e.target.value;
+                      const defaultDp = kode === 'lunas' ? (formData.harga_final || 0) : Math.round((formData.harga_final || 0) * 0.5);
+                      setFormData({
+                        ...formData,
+                        status_pembayaran_kode: kode,
+                        dp_nominal: kode === 'dp' || kode === 'lunas' ? defaultDp : null,
+                        dp_tanggal: kode === 'dp' || kode === 'lunas' ? getTodayDateString() : null,
+                      });
+                    }}
+                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-[var(--text-primary)]"
+                  >
+                    {statusList.map((st) => (
+                      <option key={st.id} value={st.kode}>
+                        {st.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {(formData.status_pembayaran_kode === 'dp' || formData.status_pembayaran_kode === 'lunas') && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-amber-200 dark:border-amber-900">
+                    <CurrencyInput
+                      label={formData.status_pembayaran_kode === 'dp' ? 'Nominal Uang Muka / DP (Rupiah) *' : 'Nominal Pelunasan (Rupiah) *'}
+                      value={formData.dp_nominal || 0}
+                      onChange={(val) => setFormData({ ...formData, dp_nominal: val })}
+                    />
+
+                    <DatePickerWIB
+                      label="Tanggal Pembayaran *"
+                      value={formData.dp_tanggal || getTodayDateString()}
+                      onChange={(val) => setFormData({ ...formData, dp_tanggal: val })}
+                    />
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                   Sumber Leads / Pemasaran *
