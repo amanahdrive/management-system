@@ -221,6 +221,11 @@ export default function SiswaPage() {
       cell: ({ row }) => row.original.paket?.nama_paket || 'Khusus',
     },
     {
+      accessorKey: 'tanggal_booking',
+      header: 'Tgl Booking',
+      cell: ({ row }) => formatDateIndo(row.original.tanggal_booking),
+    },
+    {
       accessorKey: 'harga_final',
       header: 'Harga Final',
       cell: ({ row }) => formatRupiah(row.original.harga_final),

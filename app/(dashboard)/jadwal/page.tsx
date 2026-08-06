@@ -175,6 +175,11 @@ export default function JadwalPage() {
 
   const columns: ColumnDef<JadwalSesi>[] = [
     {
+      accessorKey: 'tanggal_sesi',
+      header: 'Tanggal Sesi',
+      cell: ({ row }) => formatDateIndo(row.original.tanggal_sesi),
+    },
+    {
       accessorKey: 'siswa',
       header: 'Siswa',
       cell: ({ row }) => (

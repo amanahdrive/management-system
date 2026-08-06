@@ -4,6 +4,7 @@ import React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Kendaraan } from '@/types/database';
 import { getKendaraanMasterList } from '@/lib/actions/master-data';
+import { formatDateIndo } from '@/lib/utils/date';
 import { Car, Fuel, Gauge, Wrench, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
@@ -65,7 +66,7 @@ export default function KendaraanPage() {
                       <Wrench className="w-4 h-4 text-[var(--text-secondary)]" />
                       <div>
                         <span className="text-[var(--text-secondary)] block">Oli Terakhir</span>
-                        <span className="font-semibold">{k.status?.oli_tanggal_terakhir || '-'}</span>
+                        <span className="font-semibold">{formatDateIndo(k.status?.oli_tanggal_terakhir)}</span>
                       </div>
                     </div>
 

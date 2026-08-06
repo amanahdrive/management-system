@@ -9,7 +9,7 @@ import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { formatRupiah } from '@/lib/utils/currency';
 import { getKasOverviewMetrics, getKasTransaksiList, addKasTransaksi, getKasKategoriList, deleteKasTransaksi } from '@/lib/actions/kas';
-import { getTodayDateString } from '@/lib/utils/date';
+import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 import { Wallet, ArrowUpRight, ArrowDownRight, Plus, Camera, FileText, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -295,7 +295,7 @@ export default function KasOverviewPage() {
                     <div>
                       <div className="font-semibold text-xs text-[var(--text-primary)]">{tx.keterangan}</div>
                       <div className="text-[10px] text-[var(--text-secondary)]">
-                        {tx.tanggal} | PIC: {tx.pic_nama}
+                        {formatDateIndo(tx.tanggal)} | PIC: {tx.pic_nama}
                         {tx.sumber_otomatis && (
                           <span className="ml-2 px-1.5 py-0.2 text-[9px] bg-blue-100 text-blue-800 rounded font-semibold">
                             Otomatis

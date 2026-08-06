@@ -8,6 +8,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { KasTransaksi } from '@/types/database';
 import { getKasTransaksiList, getKasKategoriList, deleteKasTransaksi } from '@/lib/actions/kas';
 import { formatRupiah } from '@/lib/utils/currency';
+import { formatDateIndo } from '@/lib/utils/date';
 import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { ArrowLeft, ArrowUpRight, ArrowDownRight, Trash2 } from 'lucide-react';
@@ -58,7 +59,11 @@ export default function CashflowPage() {
   ];
 
   const columns: ColumnDef<KasTransaksi>[] = [
-    { accessorKey: 'tanggal', header: 'Tanggal' },
+    {
+      accessorKey: 'tanggal',
+      header: 'Tanggal',
+      cell: ({ row }) => formatDateIndo(row.original.tanggal),
+    },
     {
       accessorKey: 'tipe',
       header: 'Tipe',
