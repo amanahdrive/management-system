@@ -30,6 +30,31 @@ export async function getJadwalByTanggal(
   return [];
 }
 
+export async function getJadwalByBulan(
+  year: number,
+  monthIndex: number
+): Promise<JadwalSesi[]> {
+  try {
+    const supabase = await createServerClient();
+    const startDate = `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+    const endDate = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    const { data, error } = await supabase
+      .from('jadwal_sesi')
+      .select(
+        '*, siswa(*), instruktur:staff(*), kendaraan(*), slot_waktu:slot_waktu!slot_waktu_id(*)'
+      )
+      .gte('tanggal_sesi', startDate)
+      .lte('tanggal_sesi', endDate);
+
+    if (!error && data) return data as JadwalSesi[];
+  } catch (e) {
+    console.error('Error fetching jadwal by month:', e);
+  }
+  return [];
+}
+
 export async function getJadwalSesiById(id: string): Promise<JadwalSesi | null> {
   try {
     const supabase = await createServerClient();

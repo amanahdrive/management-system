@@ -5,7 +5,13 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { JadwalSesi, Staff, SlotWaktu, Paket, Promosi } from '@/types/database';
-import { getJadwalByTanggal, upsertJadwalSesi, deleteJadwalSesi, generateWhatsAppScheduleText } from '@/lib/actions/jadwal';
+import {
+  getJadwalByTanggal,
+  getJadwalByBulan,
+  upsertJadwalSesi,
+  deleteJadwalSesi,
+  generateWhatsAppScheduleText,
+} from '@/lib/actions/jadwal';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { getInstrukturList, getSlotWaktuList, getPaketList, getPromosiList } from '@/lib/actions/master-data';
 import { getSiswaList } from '@/lib/actions/siswa';
@@ -39,6 +45,7 @@ export default function JadwalPage() {
   const [isBigCalendarOpen, setIsBigCalendarOpen] = React.useState(false);
   const [calCurrentYear, setCalCurrentYear] = React.useState(new Date().getFullYear());
   const [calCurrentMonth, setCalCurrentMonth] = React.useState(new Date().getMonth());
+  const [monthlyJadwalList, setMonthlyJadwalList] = React.useState<JadwalSesi[]>([]);
 
   // Modal Tambah Jadwal State
   const [isModalOpen, setIsModalOpen] = React.useState(false);
@@ -89,6 +96,14 @@ export default function JadwalPage() {
   React.useEffect(() => {
     loadData();
   }, [selectedTanggal, selectedStaff]);
+
+  React.useEffect(() => {
+    if (isBigCalendarOpen) {
+      getJadwalByBulan(calCurrentYear, calCurrentMonth).then((res) => {
+        setMonthlyJadwalList(res);
+      });
+    }
+  }, [isBigCalendarOpen, calCurrentYear, calCurrentMonth]);
 
   const handleCopyWA = async () => {
     const waText = await generateWhatsAppScheduleText(selectedTanggal, selectedStaff);
@@ -605,9 +620,10 @@ export default function JadwalPage() {
                 const dateObj = new Date(calCurrentYear, calCurrentMonth, dayNum);
                 const isSunday = dateObj.getDay() === 0;
 
-                // Total max available slot per day across active instructors = 6 slots * total active instructors
-                const totalActiveInstructors = instrukturList.length || 3;
-                const totalMaxSlotPerDay = totalActiveInstructors * 6;
+                // Filter sessions for this date
+                const daySessions = monthlyJadwalList.filter(
+                  (j) => j.tanggal_sesi === cellDateStr && j.status_sesi !== 'batal'
+                );
 
                 return (
                   <div
@@ -616,30 +632,56 @@ export default function JadwalPage() {
                       setSelectedTanggal(cellDateStr);
                       setIsBigCalendarOpen(false);
                     }}
-                    className={`h-24 p-1.5 rounded-md border cursor-pointer flex flex-col justify-between transition-all ${
+                    className={`min-h-[110px] p-1.5 rounded-md border cursor-pointer flex flex-col justify-between transition-all ${
                       isSelected
-                        ? 'border-2 border-[var(--brand-primary)] bg-[var(--brand-primary-light)]'
+                        ? 'border-2 border-[var(--brand-primary)] bg-[var(--brand-primary-light)] shadow-sm'
                         : 'border-[var(--border)] bg-[var(--bg)] hover:border-blue-500'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between border-b border-[var(--border)] pb-1 mb-1">
                       <span className={`font-bold text-xs ${isSunday ? 'text-rose-600' : 'text-[var(--text-primary)]'}`}>
                         {dayNum}
                       </span>
-                      <span className="text-[9px] px-1 bg-teal-100 text-teal-800 rounded font-semibold">
-                        {totalActiveInstructors} Instruktur
+                      <span className="text-[9px] text-[var(--text-secondary)] font-semibold">
+                        {DAY_NAMES[dateObj.getDay()].substring(0, 3).toUpperCase()}
                       </span>
                     </div>
 
-                    <div className="space-y-0.5 my-auto">
-                      {instrukturList.slice(0, 3).map((ins) => (
-                        <div key={ins.id} className="text-[9px] truncate text-[var(--text-secondary)]">
-                          <span className="font-semibold text-[var(--text-primary)]">{ins.nama}:</span> 6 Slot Avail
-                        </div>
-                      ))}
+                    <div className="space-y-1 my-auto">
+                      {instrukturList.length === 0 ? (
+                        <span className="text-[10px] text-[var(--text-secondary)] italic">Tidak ada instruktur</span>
+                      ) : (
+                        instrukturList.map((ins) => {
+                          const session = daySessions.find((j) => j.staff_id === ins.id);
+                          const insFirstName = ins.nama.trim().split(' ')[0];
+
+                          if (session && session.siswa?.nama) {
+                            const studentFirstName = session.siswa.nama.trim().split(' ')[0];
+                            return (
+                              <div
+                                key={ins.id}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900 truncate"
+                                title={`${ins.nama}: ${session.siswa.nama}`}
+                              >
+                                {insFirstName}: {studentFirstName}
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div
+                              key={ins.id}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 truncate"
+                              title={`${ins.nama}: Tersedia`}
+                            >
+                              {insFirstName}: Tersedia
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
 
-                    <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 text-center border-t border-[var(--border)] pt-0.5">
+                    <div className="text-[9px] font-bold text-[var(--brand-primary)] text-center border-t border-[var(--border)] pt-0.5 mt-1">
                       Pilih Tanggal &rarr;
                     </div>
                   </div>
