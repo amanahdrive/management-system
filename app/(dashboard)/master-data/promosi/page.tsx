@@ -8,6 +8,7 @@ import { Promosi } from '@/types/database';
 import { getPromosiList, upsertPromosi } from '@/lib/actions/master-data';
 import { formatRupiah } from '@/lib/utils/currency';
 import { Plus } from 'lucide-react';
+import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
 
 export default function MasterPromosiPage() {
   const [promosiList, setPromosiList] = React.useState<Promosi[]>([]);
@@ -90,6 +91,8 @@ export default function MasterPromosiPage() {
           </button>
         }
       />
+
+      <MasterDataSubNav />
 
       <div className="card-container">
         {loading ? (

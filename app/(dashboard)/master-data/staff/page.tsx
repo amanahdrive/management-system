@@ -7,6 +7,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Staff, Jabatan } from '@/types/database';
 import { getStaffList, getJabatanList, upsertStaff } from '@/lib/actions/master-data';
 import { Plus, User, Edit2 } from 'lucide-react';
+import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
 
 export default function MasterStaffPage() {
   const [staffList, setStaffList] = React.useState<Staff[]>([]);
@@ -142,6 +143,8 @@ export default function MasterStaffPage() {
           </button>
         }
       />
+
+      <MasterDataSubNav />
 
       <div className="card-container">
         {loading ? (

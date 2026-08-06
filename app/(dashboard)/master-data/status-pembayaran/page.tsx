@@ -6,6 +6,7 @@ import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { StatusPembayaranMaster } from '@/types/database';
 import { getStatusPembayaranMaster } from '@/lib/actions/master-data';
+import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
 
 export default function MasterStatusPembayaranPage() {
   const [list, setList] = React.useState<StatusPembayaranMaster[]>([]);
@@ -43,6 +44,8 @@ export default function MasterStatusPembayaranPage() {
         description="Daftar status pembayaran siswa (Belum Bayar, DP, Lunas, Batal)"
         breadcrumbs={[{ label: 'Master Data' }, { label: 'Status Pembayaran' }]}
       />
+
+      <MasterDataSubNav />
       <div className="card-container">
         {loading ? (
           <div className="h-48 animate-pulse bg-black/5 dark:bg-white/5 rounded-md" />

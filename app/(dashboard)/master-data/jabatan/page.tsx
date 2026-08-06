@@ -7,6 +7,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Jabatan } from '@/types/database';
 import { getJabatanList, upsertJabatan } from '@/lib/actions/master-data';
 import { Plus } from 'lucide-react';
+import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
 
 export default function MasterJabatanPage() {
   const [jabatanList, setJabatanList] = React.useState<Jabatan[]>([]);
@@ -68,6 +69,8 @@ export default function MasterJabatanPage() {
           </button>
         }
       />
+
+      <MasterDataSubNav />
 
       <div className="card-container">
         {loading ? (

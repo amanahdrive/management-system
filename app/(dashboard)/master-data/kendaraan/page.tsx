@@ -8,6 +8,7 @@ import { Kendaraan } from '@/types/database';
 import { getKendaraanMasterList, upsertKendaraanMaster, deleteKendaraan } from '@/lib/actions/master-data';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Plus, Car, Trash2, Edit2 } from 'lucide-react';
+import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
 
 export default function MasterKendaraanPage() {
   const [kendaraanList, setKendaraanList] = React.useState<Kendaraan[]>([]);
@@ -107,6 +108,8 @@ export default function MasterKendaraanPage() {
           </button>
         }
       />
+
+      <MasterDataSubNav />
 
       <div className="card-container">
         {loading ? (

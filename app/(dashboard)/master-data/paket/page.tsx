@@ -10,6 +10,8 @@ import { formatRupiah } from '@/lib/utils/currency';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { Plus, Edit2 } from 'lucide-react';
 
+import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
+
 export default function MasterPaketPage() {
   const [paketList, setPaketList] = React.useState<Paket[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -138,6 +140,8 @@ export default function MasterPaketPage() {
           </button>
         }
       />
+
+      <MasterDataSubNav />
 
       <div className="card-container">
         {loading ? (

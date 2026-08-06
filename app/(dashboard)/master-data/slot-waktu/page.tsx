@@ -7,6 +7,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { SlotWaktu } from '@/types/database';
 import { getSlotWaktuList, upsertSlotWaktu } from '@/lib/actions/master-data';
 import { Plus } from 'lucide-react';
+import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
 
 export default function MasterSlotWaktuPage() {
   const [slotList, setSlotList] = React.useState<SlotWaktu[]>([]);
@@ -57,6 +58,8 @@ export default function MasterSlotWaktuPage() {
         description="Pengaturan jam slot sesi mengemudi harian"
         breadcrumbs={[{ label: 'Master Data' }, { label: 'Slot Waktu' }]}
       />
+
+      <MasterDataSubNav />
 
       <div className="card-container">
         {loading ? (
