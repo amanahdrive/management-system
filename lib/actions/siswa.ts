@@ -125,7 +125,6 @@ export async function createOrUpdateSiswa(
 ): Promise<{ success: boolean; data?: Siswa; error?: string }> {
   try {
     const supabase = await createServerClient();
-    const isNew = !siswaData.id;
 
     // Save Siswa
     const { data: savedSiswa, error } = await supabase
@@ -141,7 +140,6 @@ export async function createOrUpdateSiswa(
     // Automatic Kas Transaction logic
     const statusKode = savedSiswa.status_pembayaran_kode;
     if (statusKode === 'dp' && savedSiswa.dp_nominal) {
-      // Check if DP kas entry exists
       const { data: existingKas } = await supabase
         .from('kas_transaksi')
         .select('id')
@@ -194,6 +192,21 @@ export async function createOrUpdateSiswa(
     revalidatePath('/dashboard');
 
     return { success: true, data: savedSiswa as Siswa };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function deleteSiswa(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createServerClient();
+    const { error } = await supabase.from('siswa').delete().eq('id', id);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath('/siswa');
+    revalidatePath('/dashboard');
+    return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
   }

@@ -5,12 +5,13 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { JadwalSesi, Staff, SlotWaktu } from '@/types/database';
-import { getJadwalByTanggal, upsertJadwalSesi, generateWhatsAppScheduleText } from '@/lib/actions/jadwal';
+import { getJadwalByTanggal, upsertJadwalSesi, deleteJadwalSesi, generateWhatsAppScheduleText } from '@/lib/actions/jadwal';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { getInstrukturList, getSlotWaktuList } from '@/lib/actions/master-data';
 import { getSiswaList } from '@/lib/actions/siswa';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
-import { Calendar, Copy, Check, Plus, Eye, Car } from 'lucide-react';
+import { Calendar, Copy, Check, Plus, Eye, Car, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function JadwalPage() {
@@ -21,6 +22,7 @@ export default function JadwalPage() {
   const [slotList, setSlotList] = React.useState<SlotWaktu[]>([]);
   const [siswaList, setSiswaList] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
   // Copy WA State
   const [copied, setCopied] = React.useState(false);
@@ -154,16 +156,32 @@ export default function JadwalPage() {
       id: 'actions',
       header: 'Aksi',
       cell: ({ row }) => (
-        <Link
-          href={`/jadwal/${row.original.id}`}
-          className="p-1.5 text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)] rounded flex items-center gap-1 text-xs font-semibold"
-        >
-          <Eye className="w-4 h-4" />
-          <span>Detail</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/jadwal/${row.original.id}`}
+            className="p-1.5 text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)] rounded flex items-center gap-1 text-xs font-semibold"
+          >
+            <Eye className="w-4 h-4" />
+            <span>Detail</span>
+          </Link>
+          <button
+            onClick={() => setDeletingId(row.original.id)}
+            className="p-1.5 text-[var(--danger)] hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded flex items-center gap-1 text-xs font-semibold"
+            title="Hapus Sesi"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       ),
     },
   ];
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingId) return;
+    await deleteJadwalSesi(deletingId);
+    setDeletingId(null);
+    loadData();
+  };
 
   return (
     <div className="space-y-6">
@@ -356,6 +374,16 @@ export default function JadwalPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Hapus Jadwal Sesi"
+        description="Apakah Anda yakin ingin menghapus jadwal sesi ini? Aksi ini tidak dapat dibatalkan."
+        confirmText="Hapus Sesi"
+        isDanger
+      />
     </div>
   );
 }

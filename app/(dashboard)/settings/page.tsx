@@ -4,7 +4,9 @@ import React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { sendTelegramMessageAction } from '@/lib/actions/telegram';
 import { verifyKasPin } from '@/lib/actions/kas-pin';
-import { Send, KeyRound, Building, Fuel, Bell, CheckCircle2, AlertCircle } from 'lucide-react';
+import { resetSystemAllData } from '@/lib/actions/reset-system';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { Send, KeyRound, Building, Fuel, Bell, CheckCircle2, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
 
 export default function SettingsPage() {
   // Settings Form State
@@ -31,6 +33,26 @@ export default function SettingsPage() {
   // Telegram Test State
   const [testSending, setTestSending] = React.useState(false);
   const [testResult, setTestResult] = React.useState<{ success: boolean; message?: string } | null>(null);
+
+  // Reset System State
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = React.useState(false);
+  const [resetLoading, setResetLoading] = React.useState(false);
+
+  const handleResetSystem = async () => {
+    setResetLoading(true);
+    const res = await resetSystemAllData();
+    setResetLoading(false);
+    setIsResetConfirmOpen(false);
+
+    if (res.success) {
+      setNamaPerusahaan('');
+      setKota('');
+      alert('Seluruh data sistem berhasil dikosongkan (0 data)!');
+      window.location.href = '/dashboard';
+    } else {
+      alert('Gagal melakukan reset sistem: ' + res.error);
+    }
+  };
 
   const handleTestTelegram = async () => {
     setTestSending(true);
@@ -258,7 +280,44 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
+
+        {/* Section Danger Zone: Reset Sistem */}
+        <div className="card-container space-y-4 md:col-span-2 border-l-4 border-l-[var(--danger)] bg-rose-50/50 dark:bg-rose-950/10">
+          <h3 className="font-bold text-sm text-[var(--danger)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
+            <Trash2 className="w-4 h-4 text-[var(--danger)]" />
+            Zona Bahaya — Reset Sistem Total
+          </h3>
+
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold text-[var(--text-primary)]">Kosongkan Seluruh Data Sistem (Nol Data)</p>
+              <p className="text-xs text-[var(--text-secondary)] mt-1">
+                Tindakan ini akan mengosongkan seluruh data siswa, jadwal, kas, kendaraan, staff, jabatan, dan identitas perusahaan kembali menjadi 0.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsResetConfirmOpen(true)}
+              disabled={resetLoading}
+              className="px-4 py-2.5 bg-[var(--danger)] hover:bg-red-700 disabled:opacity-50 text-white text-xs font-bold rounded-md flex items-center justify-center gap-2 shrink-0 transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${resetLoading ? 'animate-spin' : ''}`} />
+              <span>{resetLoading ? 'Proses Reset...' : 'Reset Semua Data Sistem'}</span>
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Confirm Dialog Reset Sistem */}
+      <ConfirmDialog
+        isOpen={isResetConfirmOpen}
+        onClose={() => setIsResetConfirmOpen(false)}
+        onConfirm={handleResetSystem}
+        title="KONFIRMASI RESET SISTEM TOTAL"
+        description="PERINGATAN: Apakah Anda benar-benar yakin ingin MENGOSONGKAN SELURUH DATA SISTEM? Seluruh data siswa, jadwal, kas, kendaraan, staff, dan pengaturan akan dihapus permanen kembali ke nol."
+        confirmText="Ya, Kosongkan Semua Data"
+        isDanger
+      />
     </div>
   );
 }

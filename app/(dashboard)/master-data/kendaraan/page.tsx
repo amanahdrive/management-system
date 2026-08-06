@@ -5,13 +5,15 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Kendaraan } from '@/types/database';
-import { getKendaraanMasterList, upsertKendaraanMaster } from '@/lib/actions/master-data';
-import { Plus, Car } from 'lucide-react';
+import { getKendaraanMasterList, upsertKendaraanMaster, deleteKendaraan } from '@/lib/actions/master-data';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { Plus, Car, Trash2, Edit2 } from 'lucide-react';
 
 export default function MasterKendaraanPage() {
   const [kendaraanList, setKendaraanList] = React.useState<Kendaraan[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
   const [editing, setEditing] = React.useState<Partial<Kendaraan>>({
     nama_kendaraan: '',
@@ -67,7 +69,27 @@ export default function MasterKendaraanPage() {
       header: 'Kondisi Beli',
       cell: ({ row }) => (row.original.status_pembelian === 'baru' ? 'Baru' : 'Second'),
     },
+    {
+      id: 'actions',
+      header: 'Aksi',
+      cell: ({ row }) => (
+        <button
+          onClick={() => setDeletingId(row.original.id)}
+          className="p-1.5 text-[var(--danger)] hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded flex items-center gap-1 text-xs font-semibold"
+          title="Hapus Kendaraan"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      ),
+    },
   ];
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingId) return;
+    await deleteKendaraan(deletingId);
+    setDeletingId(null);
+    loadData();
+  };
 
   return (
     <div className="space-y-6">
@@ -190,6 +212,16 @@ export default function MasterKendaraanPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Hapus Master Kendaraan"
+        description="Apakah Anda yakin ingin menghapus mobil ini dari data master? Aksi ini tidak dapat dibatalkan."
+        confirmText="Hapus Kendaraan"
+        isDanger
+      />
     </div>
   );
 }

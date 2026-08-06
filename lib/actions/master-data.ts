@@ -391,3 +391,18 @@ export async function upsertKendaraanMaster(kendaraan: Partial<Kendaraan>): Prom
     return { success: false, error: err.message };
   }
 }
+
+export async function deleteKendaraan(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createServerClient();
+    const { error } = await supabase.from('kendaraan').delete().eq('id', id);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath('/master-data/kendaraan');
+    revalidatePath('/kendaraan');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}

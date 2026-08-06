@@ -5,14 +5,15 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Siswa, Paket, Promosi, StatusPembayaranMaster } from '@/types/database';
-import { getSiswaList, createOrUpdateSiswa } from '@/lib/actions/siswa';
+import { deleteSiswa, getSiswaList, createOrUpdateSiswa } from '@/lib/actions/siswa';
 import { getPaketList, getPromosiList, getStatusPembayaranMaster } from '@/lib/actions/master-data';
 import { formatRupiah } from '@/lib/utils/currency';
 import { formatDateIndo } from '@/lib/utils/date';
 import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
-import { Plus, Eye, Edit2 } from 'lucide-react';
+import { Plus, Eye, Edit2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SiswaPage() {
@@ -21,6 +22,9 @@ export default function SiswaPage() {
   const [promosiList, setPromosiList] = React.useState<Promosi[]>([]);
   const [statusList, setStatusList] = React.useState<StatusPembayaranMaster[]>([]);
   const [loading, setLoading] = React.useState(true);
+
+  // Delete Confirm Dialog State
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
   // Filter States
   const [filterStatus, setFilterStatus] = React.useState('semua');
@@ -180,10 +184,24 @@ export default function SiswaPage() {
             <Eye className="w-4 h-4" />
             <span>Detail</span>
           </Link>
+          <button
+            onClick={() => setDeletingId(row.original.id)}
+            className="p-1.5 text-[var(--danger)] hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-md flex items-center gap-1 text-xs font-semibold"
+            title="Hapus Siswa"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       ),
     },
   ];
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingId) return;
+    await deleteSiswa(deletingId);
+    setDeletingId(null);
+    loadData();
+  };
 
   return (
     <div className="space-y-6">
@@ -410,6 +428,17 @@ export default function SiswaPage() {
           </div>
         </div>
       )}
+
+      {/* Confirm Dialog Hapus Siswa */}
+      <ConfirmDialog
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Hapus Data Siswa"
+        description="Apakah Anda yakin ingin menghapus data siswa ini? Aksi ini tidak dapat dibatalkan."
+        confirmText="Hapus Siswa"
+        isDanger
+      />
     </div>
   );
 }

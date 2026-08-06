@@ -179,6 +179,21 @@ export async function upsertJadwalSesi(
   }
 }
 
+export async function deleteJadwalSesi(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createServerClient();
+    const { error } = await supabase.from('jadwal_sesi').delete().eq('id', id);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath('/jadwal');
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 export async function generateWhatsAppScheduleText(
   tanggalStr: string,
   staffId?: string
@@ -186,7 +201,6 @@ export async function generateWhatsAppScheduleText(
   const jadwalList = await getJadwalByTanggal(tanggalStr, staffId);
   const activeSesi = jadwalList.filter((j) => j.status_sesi === 'terjadwal');
 
-  // Group by Instruktur
   const groupMap = new Map<string, { nama: string; list: JadwalSesi[] }>();
 
   activeSesi.forEach((sesi) => {
@@ -204,7 +218,6 @@ export async function generateWhatsAppScheduleText(
     sesiList: g.list,
   }));
 
-  // Get footer template from settings
   let footerTemplate: string | undefined;
   try {
     const supabase = await createServerClient();
