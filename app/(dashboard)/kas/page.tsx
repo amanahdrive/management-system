@@ -93,6 +93,13 @@ export default function KasOverviewPage() {
                 <span>Detail Cashflow</span>
               </Link>
               <Link
+                href="/kas/piutang"
+                className="px-3.5 py-2 bg-amber-600 text-white rounded-md text-xs font-semibold hover:bg-amber-700 flex items-center gap-1.5"
+              >
+                <ArrowUpRight className="w-4 h-4" />
+                <span>Manajemen Piutang</span>
+              </Link>
+              <Link
                 href="/kas/hutang"
                 className="px-3.5 py-2 bg-[var(--brand-primary)] text-white rounded-md text-xs font-semibold hover:bg-[var(--brand-primary-dark)] flex items-center gap-1.5"
               >

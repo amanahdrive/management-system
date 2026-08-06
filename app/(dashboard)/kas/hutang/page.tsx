@@ -130,6 +130,12 @@ export default function HutangPage() {
           breadcrumbs={[{ label: 'Kas', href: '/kas' }, { label: 'Hutang' }]}
           actions={
             <div className="flex items-center gap-3">
+              <Link
+                href="/kas/piutang"
+                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-md flex items-center gap-1.5"
+              >
+                <span>Manajemen Piutang Siswa</span>
+              </Link>
               <button
                 onClick={() => setIsAddModalOpen(true)}
                 className="flex items-center gap-2 px-3.5 py-2 bg-[var(--brand-primary)] text-white text-xs font-semibold rounded-md"
