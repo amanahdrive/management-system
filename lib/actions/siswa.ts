@@ -35,75 +35,157 @@ export async function getSiswaById(id: string): Promise<Siswa | null> {
   return null;
 }
 
+export async function updateSiswaPayment(
+  siswaId: string,
+  statusKode: string,
+  dpNominal: number | null,
+  dpTanggal: string | null
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createServerClient();
+
+    // 1. Fetch current student record
+    const { data: currentSiswa, error: fetchErr } = await supabase
+      .from('siswa')
+      .select('*')
+      .eq('id', siswaId)
+      .single();
+
+    if (fetchErr || !currentSiswa) {
+      return { success: false, error: 'Data siswa tidak ditemukan di database' };
+    }
+
+    // 2. Update student status & payment details in Supabase
+    const { data: updatedSiswa, error: updateErr } = await supabase
+      .from('siswa')
+      .update({
+        status_pembayaran_kode: statusKode,
+        dp_nominal: statusKode === 'dp' || statusKode === 'lunas' ? dpNominal : null,
+        dp_tanggal: statusKode === 'dp' || statusKode === 'lunas' ? dpTanggal : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', siswaId)
+      .select()
+      .single();
+
+    if (updateErr || !updatedSiswa) {
+      return { success: false, error: updateErr?.message || 'Gagal memperbarui status pembayaran' };
+    }
+
+    // 3. Automatically record transaction in Kas & Cashflow
+    if ((statusKode === 'dp' || statusKode === 'lunas') && dpNominal && dpNominal > 0) {
+      const payDate = dpTanggal || new Date().toISOString().slice(0, 10);
+      const isLunas = statusKode === 'lunas';
+      const labelTx = isLunas
+        ? `Pelunasan Kursus - ${updatedSiswa.nama} (${updatedSiswa.kode_siswa})`
+        : `Pembayaran DP Kursus - ${updatedSiswa.nama} (${updatedSiswa.kode_siswa})`;
+
+      await supabase.from('kas_transaksi').insert({
+        tanggal: payDate,
+        tipe: 'pemasukan',
+        kategori: 'pembayaran_siswa',
+        keterangan: labelTx,
+        nominal: dpNominal,
+        pic_tipe: 'admin',
+        pic_nama: 'Admin Staff',
+        siswa_id: updatedSiswa.id,
+        sumber_otomatis: true,
+      });
+    }
+
+    revalidatePath('/siswa');
+    revalidatePath(`/siswa/${siswaId}`);
+    revalidatePath('/kas');
+    revalidatePath('/kas/cashflow');
+    revalidatePath('/kas/piutang');
+    revalidatePath('/dashboard');
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 export async function createOrUpdateSiswa(
   siswaData: Partial<Siswa>
 ): Promise<{ success: boolean; data?: Siswa; error?: string }> {
   try {
     const supabase = await createServerClient();
 
-    // Save Siswa
-    const { data: savedSiswa, error } = await supabase
-      .from('siswa')
-      .upsert(siswaData)
-      .select()
-      .single();
+    // Clean joined objects from payload before upserting
+    const {
+      paket,
+      promosi,
+      status_pembayaran,
+      ...cleanPayload
+    } = siswaData as any;
+
+    let savedSiswa: Siswa | null = null;
+    let error: any = null;
+
+    if (cleanPayload.id) {
+      // UPDATE existing student
+      const res = await supabase
+        .from('siswa')
+        .update({
+          ...cleanPayload,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', cleanPayload.id)
+        .select()
+        .single();
+
+      savedSiswa = res.data as Siswa;
+      error = res.error;
+    } else {
+      // INSERT new student - generate kode_siswa if missing
+      if (!cleanPayload.kode_siswa) {
+        const { count } = await supabase.from('siswa').select('*', { count: 'exact', head: true });
+        cleanPayload.kode_siswa = `SS${String((count || 0) + 1).padStart(3, '0')}`;
+      }
+
+      const res = await supabase
+        .from('siswa')
+        .insert(cleanPayload)
+        .select()
+        .single();
+
+      savedSiswa = res.data as Siswa;
+      error = res.error;
+    }
 
     if (error || !savedSiswa) {
       return { success: false, error: error?.message || 'Gagal menyimpan data siswa' };
     }
 
-    // Automatic Kas Transaction logic
+    // Automatic Kas Transaction logic for new registration or profile edit with payment
     const statusKode = savedSiswa.status_pembayaran_kode;
-    if (statusKode === 'dp' && savedSiswa.dp_nominal) {
-      const { data: existingKas } = await supabase
-        .from('kas_transaksi')
-        .select('id')
-        .eq('siswa_id', savedSiswa.id)
-        .eq('kategori', 'dp_siswa')
-        .single();
+    const nominalPay = savedSiswa.dp_nominal || (statusKode === 'lunas' ? savedSiswa.harga_final : 0);
+    const payDate = savedSiswa.dp_tanggal || new Date().toISOString().slice(0, 10);
 
-      if (!existingKas) {
-        await supabase.from('kas_transaksi').insert({
-          tanggal: savedSiswa.dp_tanggal || new Date().toISOString().slice(0, 10),
-          tipe: 'pemasukan',
-          kategori: 'dp_siswa',
-          keterangan: `DP Kursus Siswa - ${savedSiswa.nama} (${savedSiswa.kode_siswa})`,
-          nominal: savedSiswa.dp_nominal,
-          pic_tipe: 'admin',
-          pic_nama: 'Admin Siswa',
-          siswa_id: savedSiswa.id,
-          sumber_otomatis: true,
-        });
-      }
-    } else if (statusKode === 'lunas') {
-      const pelunasanNominal = savedSiswa.dp_nominal
-        ? savedSiswa.harga_final - savedSiswa.dp_nominal
-        : savedSiswa.harga_final;
+    if ((statusKode === 'dp' || statusKode === 'lunas') && nominalPay > 0) {
+      const isLunas = statusKode === 'lunas';
+      const labelTx = isLunas
+        ? `Pelunasan Kursus - ${savedSiswa.nama} (${savedSiswa.kode_siswa})`
+        : `Pembayaran DP Kursus - ${savedSiswa.nama} (${savedSiswa.kode_siswa})`;
 
-      const { data: existingPelunasan } = await supabase
-        .from('kas_transaksi')
-        .select('id')
-        .eq('siswa_id', savedSiswa.id)
-        .eq('kategori', 'pelunasan_siswa')
-        .single();
-
-      if (!existingPelunasan && pelunasanNominal > 0) {
-        await supabase.from('kas_transaksi').insert({
-          tanggal: new Date().toISOString().slice(0, 10),
-          tipe: 'pemasukan',
-          kategori: 'pelunasan_siswa',
-          keterangan: `Pelunasan Kursus Siswa - ${savedSiswa.nama} (${savedSiswa.kode_siswa})`,
-          nominal: pelunasanNominal,
-          pic_tipe: 'admin',
-          pic_nama: 'Admin Siswa',
-          siswa_id: savedSiswa.id,
-          sumber_otomatis: true,
-        });
-      }
+      await supabase.from('kas_transaksi').insert({
+        tanggal: payDate,
+        tipe: 'pemasukan',
+        kategori: 'pembayaran_siswa',
+        keterangan: labelTx,
+        nominal: nominalPay,
+        pic_tipe: 'admin',
+        pic_nama: 'Admin Staff',
+        siswa_id: savedSiswa.id,
+        sumber_otomatis: true,
+      });
     }
 
     revalidatePath('/siswa');
     revalidatePath('/kas');
+    revalidatePath('/kas/cashflow');
+    revalidatePath('/kas/piutang');
     revalidatePath('/dashboard');
 
     return { success: true, data: savedSiswa as Siswa };

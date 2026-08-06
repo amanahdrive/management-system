@@ -6,7 +6,7 @@ import { PinGateDialog } from '@/components/shared/PinGateDialog';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Siswa } from '@/types/database';
-import { getSiswaList, createOrUpdateSiswa } from '@/lib/actions/siswa';
+import { getSiswaList, updateSiswaPayment } from '@/lib/actions/siswa';
 import { formatRupiah } from '@/lib/utils/currency';
 import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
 import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
@@ -53,12 +53,12 @@ export default function PiutangPage() {
     e.preventDefault();
     if (!selectedSiswa) return;
 
-    await createOrUpdateSiswa({
-      id: selectedSiswa.id,
-      status_pembayaran_kode: 'lunas',
-      dp_nominal: selectedSiswa.harga_final,
-      dp_tanggal: bayarTanggal,
-    });
+    await updateSiswaPayment(
+      selectedSiswa.id,
+      'lunas',
+      selectedSiswa.harga_final,
+      bayarTanggal
+    );
 
     setSelectedSiswa(null);
     loadData();

@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Siswa, Paket, Promosi, StatusPembayaranMaster } from '@/types/database';
-import { deleteSiswa, getSiswaList, createOrUpdateSiswa } from '@/lib/actions/siswa';
+import { deleteSiswa, getSiswaList, createOrUpdateSiswa, updateSiswaPayment } from '@/lib/actions/siswa';
 import { getPaketList, getPromosiList, getStatusPembayaranMaster } from '@/lib/actions/master-data';
 import { formatRupiah } from '@/lib/utils/currency';
 import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
@@ -136,15 +136,19 @@ export default function SiswaPage() {
     e.preventDefault();
     if (!paymentModalSiswa) return;
 
-    await createOrUpdateSiswa({
-      id: paymentModalSiswa.id,
-      status_pembayaran_kode: paymentStatusKode,
-      dp_nominal: paymentStatusKode === 'dp' || paymentStatusKode === 'lunas' ? paymentDpNominal : null,
-      dp_tanggal: paymentStatusKode === 'dp' || paymentStatusKode === 'lunas' ? paymentDpTanggal : null,
-    });
+    const res = await updateSiswaPayment(
+      paymentModalSiswa.id,
+      paymentStatusKode,
+      paymentStatusKode === 'dp' || paymentStatusKode === 'lunas' ? paymentDpNominal : null,
+      paymentStatusKode === 'dp' || paymentStatusKode === 'lunas' ? paymentDpTanggal : null
+    );
 
-    setPaymentModalSiswa(null);
-    loadData();
+    if (res.success) {
+      setPaymentModalSiswa(null);
+      loadData();
+    } else {
+      alert('Gagal menyimpan pembayaran: ' + res.error);
+    }
   };
 
   const calculatePrice = (paketId: string, promoId: string | null): number => {
