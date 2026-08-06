@@ -200,3 +200,19 @@ export async function payHutangCicilan(
     return { success: false, error: err.message };
   }
 }
+
+export async function deleteKasTransaksi(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createServerClient();
+    const { error } = await supabase.from('kas_transaksi').delete().eq('id', id);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath('/kas');
+    revalidatePath('/kas/cashflow');
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}

@@ -6,16 +6,18 @@ import { PinGateDialog } from '@/components/shared/PinGateDialog';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { KasTransaksi } from '@/types/database';
-import { getKasTransaksiList, getKasKategoriList } from '@/lib/actions/kas';
+import { getKasTransaksiList, getKasKategoriList, deleteKasTransaksi } from '@/lib/actions/kas';
 import { formatRupiah } from '@/lib/utils/currency';
 import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
-import { ArrowLeft, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { ArrowLeft, ArrowUpRight, ArrowDownRight, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CashflowPage() {
   const [transaksiList, setTransaksiList] = React.useState<KasTransaksi[]>([]);
   const [kategoriList, setKategoriList] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
   // Filters
   const [filterTipe, setFilterTipe] = React.useState('semua');
@@ -32,6 +34,13 @@ export default function CashflowPage() {
   React.useEffect(() => {
     loadData();
   }, []);
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingId) return;
+    await deleteKasTransaksi(deletingId);
+    setDeletingId(null);
+    loadData();
+  };
 
   const filteredData = transaksiList.filter((tx) => {
     if (filterTipe !== 'semua' && tx.tipe !== filterTipe) return false;
@@ -103,6 +112,19 @@ export default function CashflowPage() {
       ),
     },
     { accessorKey: 'pic_nama', header: 'PIC' },
+    {
+      id: 'actions',
+      header: 'Aksi',
+      cell: ({ row }) => (
+        <button
+          onClick={() => setDeletingId(row.original.id)}
+          className="p-1.5 text-[var(--danger)] hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded flex items-center gap-1 text-xs font-semibold"
+          title="Hapus Transaksi Kas"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      ),
+    },
   ];
 
   return (
@@ -171,6 +193,17 @@ export default function CashflowPage() {
             <DataTable columns={columns} data={filteredData} searchKey="transaksi" />
           )}
         </div>
+
+        {/* Confirm Dialog Hapus Transaksi */}
+        <ConfirmDialog
+          isOpen={!!deletingId}
+          onClose={() => setDeletingId(null)}
+          onConfirm={handleDeleteConfirm}
+          title="Hapus Transaksi Kas"
+          description="Apakah Anda yakin ingin menghapus catatan transaksi kas ini? Aksi ini tidak dapat dibatalkan."
+          confirmText="Hapus Transaksi"
+          isDanger
+        />
       </div>
     </PinGateDialog>
   );

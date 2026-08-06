@@ -6,10 +6,11 @@ import { StatCard } from '@/components/shared/StatCard';
 import { PinGateDialog } from '@/components/shared/PinGateDialog';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { formatRupiah } from '@/lib/utils/currency';
-import { getKasOverviewMetrics, getKasTransaksiList, addKasTransaksi, getKasKategoriList } from '@/lib/actions/kas';
+import { getKasOverviewMetrics, getKasTransaksiList, addKasTransaksi, getKasKategoriList, deleteKasTransaksi } from '@/lib/actions/kas';
 import { getTodayDateString } from '@/lib/utils/date';
-import { Wallet, ArrowUpRight, ArrowDownRight, Plus, Camera, FileText } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownRight, Plus, Camera, FileText, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function KasOverviewPage() {
@@ -17,6 +18,7 @@ export default function KasOverviewPage() {
   const [transaksiList, setTransaksiList] = React.useState<any[]>([]);
   const [kategoriList, setKategoriList] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
   // Form State
   const [formData, setFormData] = React.useState({
@@ -45,6 +47,13 @@ export default function KasOverviewPage() {
   React.useEffect(() => {
     loadData();
   }, []);
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingId) return;
+    await deleteKasTransaksi(deletingId);
+    setDeletingId(null);
+    loadData();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,7 +103,7 @@ export default function KasOverviewPage() {
           }
         />
 
-        {/* 3 Summary Cards */}
+        {/* 3 Main Stat Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StatCard
             label="Total Saldo Kas Aktif"
@@ -289,18 +298,38 @@ export default function KasOverviewPage() {
                     </div>
                   </div>
 
-                  <div
-                    className={`font-bold text-xs ${
-                      tx.tipe === 'pemasukan' ? 'text-emerald-700' : 'text-rose-700'
-                    }`}
-                  >
-                    {tx.tipe === 'pemasukan' ? '+' : '-'} {formatRupiah(tx.nominal)}
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`font-bold text-xs ${
+                        tx.tipe === 'pemasukan' ? 'text-emerald-700' : 'text-rose-700'
+                      }`}
+                    >
+                      {tx.tipe === 'pemasukan' ? '+' : '-'} {formatRupiah(tx.nominal)}
+                    </div>
+                    <button
+                      onClick={() => setDeletingId(tx.id)}
+                      className="p-1 text-[var(--danger)] hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded"
+                      title="Hapus Transaksi Kas"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
         </div>
+
+        {/* Confirm Dialog Hapus Transaksi Kas */}
+        <ConfirmDialog
+          isOpen={!!deletingId}
+          onClose={() => setDeletingId(null)}
+          onConfirm={handleDeleteConfirm}
+          title="Hapus Transaksi Kas"
+          description="Apakah Anda yakin ingin menghapus catatan transaksi kas ini? Aksi ini tidak dapat dibatalkan."
+          confirmText="Hapus Transaksi"
+          isDanger
+        />
       </div>
     </PinGateDialog>
   );
