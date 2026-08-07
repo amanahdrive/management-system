@@ -138,10 +138,23 @@ export async function createOrUpdateSiswa(
       savedSiswa = res.data as Siswa;
       error = res.error;
     } else {
-      // INSERT new student - generate kode_siswa if missing
+      // INSERT new student - generate unique kode_siswa based on latest record to avoid duplicates
       if (!cleanPayload.kode_siswa) {
-        const { count } = await supabase.from('siswa').select('*', { count: 'exact', head: true });
-        cleanPayload.kode_siswa = `SS${String((count || 0) + 1).padStart(3, '0')}`;
+        const { data: latestRecords } = await supabase
+          .from('siswa')
+          .select('kode_siswa')
+          .order('kode_siswa', { ascending: false })
+          .limit(1);
+
+        let nextNum = 1;
+        if (latestRecords && latestRecords.length > 0) {
+          const latestKode = latestRecords[0].kode_siswa || 'SS000';
+          const match = latestKode.match(/\d+/);
+          if (match) {
+            nextNum = parseInt(match[0], 10) + 1;
+          }
+        }
+        cleanPayload.kode_siswa = `SS${String(nextNum).padStart(3, '0')}`;
       }
 
       const res = await supabase

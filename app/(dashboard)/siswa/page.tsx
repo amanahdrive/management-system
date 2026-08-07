@@ -190,11 +190,23 @@ export default function SiswaPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.nama || !formData.paket_id) return;
+    if (!formData.nama || !formData.paket_id) {
+      alert('Nama Siswa dan Paket Kursus wajib diisi!');
+      return;
+    }
 
-    await createOrUpdateSiswa(formData);
-    setIsModalOpen(false);
-    loadData();
+    const payload = {
+      ...formData,
+      harga_manual_override: formData.harga_manual_override ?? false,
+    };
+
+    const res = await createOrUpdateSiswa(payload);
+    if (res.success) {
+      setIsModalOpen(false);
+      loadData();
+    } else {
+      alert('Gagal mendaftarkan siswa: ' + res.error);
+    }
   };
 
   const filteredData = siswaList.filter((s) => {
