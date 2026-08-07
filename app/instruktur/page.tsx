@@ -3,7 +3,7 @@
 import React from 'react';
 import { Staff, JadwalSesi } from '@/types/database';
 import { getInstrukturList } from '@/lib/actions/master-data';
-import { getJadwalByTanggal, getJadwalByBulan } from '@/lib/actions/jadwal';
+import { getJadwalByTanggal, getJadwalByBulan, getJadwalConflictCheckList } from '@/lib/actions/jadwal';
 import { getTodayDateString, formatDateIndo, formatHariTanggalIndo } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
@@ -116,7 +116,7 @@ export default function InstrukturPortalPage() {
     setLoadingSchedule(true);
     const [dayList, monthList] = await Promise.all([
       getJadwalByTanggal(selectedTanggal, selectedInstrukturId),
-      getJadwalByBulan(calCurrentYear, calCurrentMonth),
+      getJadwalConflictCheckList(), // 100% full sync check list
     ]);
 
     setDailyJadwal(dayList);
@@ -125,7 +125,7 @@ export default function InstrukturPortalPage() {
     );
     setMonthlyJadwal(insMonthJadwal);
     setLoadingSchedule(false);
-  }, [selectedInstrukturId, selectedTanggal, calCurrentYear, calCurrentMonth]);
+  }, [selectedInstrukturId, selectedTanggal]);
 
   React.useEffect(() => {
     loadInstructorSchedule();
@@ -380,9 +380,15 @@ export default function InstrukturPortalPage() {
             const isSelected = selectedTanggal === cellDateStr;
             const dateObj = new Date(calCurrentYear, calCurrentMonth, dayNum);
             const isSunday = dateObj.getDay() === 0;
-
             const dateSessions = monthlyJadwal.filter((j) => j.tanggal_sesi === cellDateStr);
             const hasSessions = dateSessions.length > 0;
+
+            const dayNameEng = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'][dateObj.getDay()];
+            const daySlots = selectedInstruktur?.jadwal_ketersediaan?.[dayNameEng] || 
+              (selectedInstruktur?.hari_kerja?.includes(dayNameEng) 
+                ? selectedInstruktur?.slot_kerja || ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6'] 
+                : []);
+            const isOff = !selectedInstruktur?.hari_kerja?.includes(dayNameEng) || daySlots.length === 0;
 
             return (
               <button
@@ -391,6 +397,8 @@ export default function InstrukturPortalPage() {
                 className={`h-11 p-1 rounded-lg border flex flex-col justify-between items-center transition-all ${
                   isSelected
                     ? 'border-2 border-[var(--brand-primary)] bg-[var(--brand-primary-light)] font-bold shadow-sm'
+                    : isOff
+                    ? 'border-gray-200 dark:border-gray-800 bg-gray-100/50 dark:bg-gray-900/30 opacity-70'
                     : 'border-[var(--border)] bg-[var(--bg)] hover:border-emerald-500'
                 }`}
               >
@@ -402,6 +410,8 @@ export default function InstrukturPortalPage() {
                   <span className="px-1 py-0.2 text-[9px] font-extrabold rounded-full bg-emerald-600 text-white truncate max-w-full">
                     {dateSessions.length} Sesi
                   </span>
+                ) : isOff ? (
+                  <span className="text-[8.5px] font-semibold text-gray-500 dark:text-gray-400">Libur</span>
                 ) : (
                   <span className="text-[8px] text-[var(--text-secondary)] opacity-40">-</span>
                 )}

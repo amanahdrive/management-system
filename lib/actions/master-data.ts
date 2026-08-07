@@ -135,49 +135,19 @@ async function saveOrUpdateSetting(supabase: any, key: string, value: string, de
 export async function getStaffList(): Promise<Staff[]> {
   try {
     const supabase = await createServerClient();
-    const [{ data: staffData, error: staffError }, { data: settingsList }] = await Promise.all([
-      supabase
-        .from('staff')
-        .select('*, staff_jabatan(jabatan(*))')
-        .order('nama', { ascending: true }),
-      supabase
-        .from('settings')
-        .select('key, value'),
-    ]);
-
-    const settingsMap = new Map<string, string>();
-    (settingsList || []).forEach((s: any) => {
-      settingsMap.set(s.key, s.value);
-    });
-
-    let globalAvailabilityMap: Record<string, any> = {};
-    const globalRaw = settingsMap.get('instruktur_jadwal_ketersediaan');
-    if (globalRaw) {
-      try {
-        globalAvailabilityMap = JSON.parse(globalRaw);
-      } catch (e) {}
-    }
+    const { data: staffData, error: staffError } = await supabase
+      .from('staff')
+      .select('*, staff_jabatan(jabatan(*))')
+      .order('nama', { ascending: true });
 
     if (!staffError && staffData) {
-      return staffData.map((st: any) => {
-        let customAvail = globalAvailabilityMap[st.id] || {};
-        // Also check individual instructor key
-        const indRaw = settingsMap.get('instruktur_jadwal_' + st.id);
-        if (indRaw) {
-          try {
-            const indParsed = JSON.parse(indRaw);
-            customAvail = { ...customAvail, ...indParsed };
-          } catch (e) {}
-        }
-
-        return {
-          ...st,
-          jabatan_list: st.staff_jabatan ? st.staff_jabatan.map((sj: any) => sj.jabatan) : [],
-          hari_kerja: customAvail.hari_kerja || st.hari_kerja || ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'],
-          slot_kerja: customAvail.slot_kerja || st.slot_kerja || ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6'],
-          jadwal_ketersediaan: customAvail.jadwal_ketersediaan || st.jadwal_ketersediaan || undefined,
-        };
-      });
+      return staffData.map((st: any) => ({
+        ...st,
+        jabatan_list: st.staff_jabatan ? st.staff_jabatan.map((sj: any) => sj.jabatan) : [],
+        hari_kerja: st.hari_kerja || ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'],
+        slot_kerja: st.slot_kerja || ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6'],
+        jadwal_ketersediaan: st.jadwal_ketersediaan || {},
+      }));
     }
   } catch (e) {
     console.error('Error fetching staff:', e);
@@ -199,13 +169,10 @@ export async function upsertStaff(
   try {
     const supabase = await createServerClient();
 
-    // Clean joined / extra non-table columns from staff payload to avoid schema cache errors
+    // Clean relation columns but KEEP the table columns: hari_kerja, slot_kerja, jadwal_ketersediaan
     const {
       jabatan_list,
       staff_jabatan,
-      hari_kerja,
-      slot_kerja,
-      jadwal_ketersediaan,
       ...cleanStaff
     } = staff as any;
 
@@ -235,7 +202,7 @@ export async function upsertStaff(
       savedStaff = data;
     }
 
-    // 1. Update junction staff_jabatan
+    // Update junction staff_jabatan
     if (savedStaff?.id) {
       await supabase.from('staff_jabatan').delete().eq('staff_id', savedStaff.id);
       if (jabatanIds && jabatanIds.length > 0) {
@@ -244,61 +211,6 @@ export async function upsertStaff(
           jabatan_id: jId,
         }));
         await supabase.from('staff_jabatan').insert(inserts);
-      }
-    }
-
-    // 2. Persist Instructor Schedule Availability into settings table for each instructor individually
-    if (savedStaff?.id && (hari_kerja || slot_kerja || jadwal_ketersediaan)) {
-      const instructorSchedulePayload = {
-        hari_kerja: hari_kerja || [],
-        slot_kerja: slot_kerja || [],
-        jadwal_ketersediaan: jadwal_ketersediaan || {},
-      };
-
-      const serializedInd = JSON.stringify(instructorSchedulePayload);
-
-      // Save individual key for this instructor (100% isolated)
-      await saveOrUpdateSetting(
-        supabase,
-        'instruktur_jadwal_' + savedStaff.id,
-        serializedInd,
-        `Jadwal Ketersediaan Instruktur ${savedStaff.nama || savedStaff.id}`
-      );
-
-      // Also update consolidated map
-      try {
-        const { data: existingAll } = await supabase
-          .from('settings')
-          .select('id, value')
-          .eq('key', 'instruktur_jadwal_ketersediaan')
-          .limit(1);
-
-        let map: Record<string, any> = {};
-        if (existingAll && existingAll.length > 0 && existingAll[0].value) {
-          try {
-            map = JSON.parse(existingAll[0].value);
-          } catch (e) {}
-        }
-
-        map[savedStaff.id] = instructorSchedulePayload;
-        const serializedMap = JSON.stringify(map);
-
-        if (existingAll && existingAll.length > 0) {
-          await supabase
-            .from('settings')
-            .update({ value: serializedMap })
-            .eq('id', existingAll[0].id);
-        } else {
-          await supabase
-            .from('settings')
-            .insert({
-              key: 'instruktur_jadwal_ketersediaan',
-              value: serializedMap,
-              deskripsi: 'Ketersediaan Jadwal & Slot Seluruh Instruktur Mengemudi',
-            });
-        }
-      } catch (errSetting) {
-        console.error('Error saving global instructor availability:', errSetting);
       }
     }
 

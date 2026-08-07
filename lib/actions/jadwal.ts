@@ -73,6 +73,39 @@ export async function getJadwalSesiById(id: string): Promise<JadwalSesi | null> 
   return null;
 }
 
+export async function getJadwalBySiswa(siswaId: string): Promise<JadwalSesi[]> {
+  try {
+    const supabase = await createServerClient();
+    const { data, error } = await supabase
+      .from('jadwal_sesi')
+      .select(
+        '*, siswa(*), instruktur:staff(*), kendaraan(*), slot_waktu:slot_waktu!slot_waktu_id(*), slot_waktu_akhir:slot_waktu!slot_waktu_id_akhir(*)'
+      )
+      .eq('siswa_id', siswaId)
+      .order('nomor_sesi_ke', { ascending: true });
+
+    if (!error && data) return data as JadwalSesi[];
+  } catch (e) {
+    console.error('Error fetching schedules by student:', e);
+  }
+  return [];
+}
+
+export async function getJadwalConflictCheckList(): Promise<JadwalSesi[]> {
+  try {
+    const supabase = await createServerClient();
+    const { data, error } = await supabase
+      .from('jadwal_sesi')
+      .select('*, siswa(*), instruktur:staff(*), slot_waktu:slot_waktu!slot_waktu_id(*)')
+      .neq('status_sesi', 'batal');
+
+    if (!error && data) return data as JadwalSesi[];
+  } catch (e) {
+    console.error('Error fetching conflict check list:', e);
+  }
+  return [];
+}
+
 export async function updateJadwalStatus(
   id: string,
   status_sesi: string,

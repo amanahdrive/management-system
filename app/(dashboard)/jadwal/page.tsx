@@ -8,6 +8,7 @@ import { JadwalSesi, Staff, SlotWaktu, Siswa } from '@/types/database';
 import {
   getJadwalByTanggal,
   getJadwalByBulan,
+  getJadwalConflictCheckList,
   upsertJadwalBatch,
   updateSesiProgress,
   deleteJadwalSesi,
@@ -99,7 +100,7 @@ export default function JadwalPage() {
       getInstrukturList(),
       getSiswaList(),
       getSlotWaktuList(),
-      getJadwalByBulan(calCurrentYear, calCurrentMonth),
+      getJadwalConflictCheckList(), // 100% full sync check list
     ]);
     setJadwalList(jList);
     setInstrukturList(iList);
@@ -115,16 +116,11 @@ export default function JadwalPage() {
     }
 
     setLoading(false);
-  }, [selectedTanggal, selectedStaff, calCurrentYear, calCurrentMonth, formData.staff_id, formData.slot_waktu_id]);
+  }, [selectedTanggal, selectedStaff, formData.staff_id, formData.slot_waktu_id]);
 
   React.useEffect(() => {
     loadData();
   }, [loadData]);
-
-  // When calendar month changes, update monthlyJadwalList
-  React.useEffect(() => {
-    getJadwalByBulan(calCurrentYear, calCurrentMonth).then(setMonthlyJadwalList);
-  }, [calCurrentYear, calCurrentMonth]);
 
   // --- FILTER SISWA YANG BELUM TERJADWAL DI TANGGAL INI ---
   const scheduledSiswaIds = React.useMemo(() => {
