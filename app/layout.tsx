@@ -1,6 +1,13 @@
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/shared/ThemeProvider';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Sistem Manajemen Amanah Drive - Admin Panel',
@@ -16,8 +23,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id" suppressHydrationWarning>
-      <body className="antialiased bg-[var(--bg)] text-[var(--text-primary)]">
+    <html lang="id" className={inter.variable} suppressHydrationWarning>
+      <body className={`${inter.className} antialiased bg-[var(--bg)] text-[var(--text-primary)] font-sans`}>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
