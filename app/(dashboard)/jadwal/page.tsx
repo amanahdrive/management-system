@@ -122,10 +122,17 @@ export default function JadwalPage() {
     loadData();
   }, [loadData]);
 
-  // --- FILTER SISWA YANG BELUM TERJADWAL DI TANGGAL INI ---
-  const scheduledSiswaIds = React.useMemo(() => {
-    return jadwalList.filter((j) => j.status_sesi !== 'batal').map((j) => j.siswa_id);
-  }, [jadwalList]);
+  // --- FILTER SISWA YANG BELUM MEMILIKI JADWAL SAMA SEKALI DI SELURUH DATABASE ---
+  const allScheduledSiswaIds = React.useMemo(() => {
+    return Array.from(
+      new Set(
+        monthlyJadwalList
+          .filter((j) => j.status_sesi !== 'batal')
+          .map((j) => j.siswa_id)
+          .filter(Boolean)
+      )
+    );
+  }, [monthlyJadwalList]);
 
   // Group schedule list: 1 row PER STUDENT in main table view
   const displayJadwalList = React.useMemo(() => {
@@ -150,8 +157,8 @@ export default function JadwalPage() {
   }, [jadwalList]);
 
   const availableSiswaList = React.useMemo(() => {
-    return siswaList.filter((s) => !scheduledSiswaIds.includes(s.id));
-  }, [siswaList, scheduledSiswaIds]);
+    return siswaList.filter((s) => !allScheduledSiswaIds.includes(s.id));
+  }, [siswaList, allScheduledSiswaIds]);
 
   // Generate multi-date array for N sessions
   const generateDatesForCount = (count: number, startDateStr: string) => {
