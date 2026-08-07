@@ -104,16 +104,36 @@ export async function upsertJabatan(jabatan: Partial<Jabatan>): Promise<{ succes
 export async function getStaffList(): Promise<Staff[]> {
   try {
     const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('staff')
-      .select('*, staff_jabatan(jabatan(*))')
-      .order('nama', { ascending: true });
+    const [{ data: staffData, error: staffError }, { data: settingsData }] = await Promise.all([
+      supabase
+        .from('staff')
+        .select('*, staff_jabatan(jabatan(*))')
+        .order('nama', { ascending: true }),
+      supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'instruktur_jadwal_ketersediaan')
+        .single(),
+    ]);
 
-    if (!error && data) {
-      return data.map((st: any) => ({
-        ...st,
-        jabatan_list: st.staff_jabatan ? st.staff_jabatan.map((sj: any) => sj.jabatan) : [],
-      }));
+    let availabilityMap: Record<string, any> = {};
+    if (settingsData?.value) {
+      try {
+        availabilityMap = JSON.parse(settingsData.value);
+      } catch (e) {}
+    }
+
+    if (!staffError && staffData) {
+      return staffData.map((st: any) => {
+        const customAvail = availabilityMap[st.id] || {};
+        return {
+          ...st,
+          jabatan_list: st.staff_jabatan ? st.staff_jabatan.map((sj: any) => sj.jabatan) : [],
+          hari_kerja: customAvail.hari_kerja || st.hari_kerja || ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'],
+          slot_kerja: customAvail.slot_kerja || st.slot_kerja || ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6'],
+          jadwal_ketersediaan: customAvail.jadwal_ketersediaan || st.jadwal_ketersediaan || undefined,
+        };
+      });
     }
   } catch (e) {
     console.error('Error fetching staff:', e);
@@ -135,8 +155,15 @@ export async function upsertStaff(
   try {
     const supabase = await createServerClient();
 
-    // Clean joined objects from staff payload
-    const { jabatan_list, staff_jabatan, ...cleanStaff } = staff as any;
+    // Clean joined / extra non-table columns from staff payload to avoid schema cache errors
+    const {
+      jabatan_list,
+      staff_jabatan,
+      hari_kerja,
+      slot_kerja,
+      jadwal_ketersediaan,
+      ...cleanStaff
+    } = staff as any;
 
     let savedStaff: any = null;
 
@@ -164,7 +191,7 @@ export async function upsertStaff(
       savedStaff = data;
     }
 
-    // Update junction staff_jabatan
+    // 1. Update junction staff_jabatan
     if (savedStaff?.id) {
       await supabase.from('staff_jabatan').delete().eq('staff_id', savedStaff.id);
       if (jabatanIds && jabatanIds.length > 0) {
@@ -173,6 +200,39 @@ export async function upsertStaff(
           jabatan_id: jId,
         }));
         await supabase.from('staff_jabatan').insert(inserts);
+      }
+    }
+
+    // 2. Persist Instructor Schedule Availability into settings table
+    if (savedStaff?.id && (hari_kerja || slot_kerja || jadwal_ketersediaan)) {
+      try {
+        const { data: existingSetting } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'instruktur_jadwal_ketersediaan')
+          .single();
+
+        let map: Record<string, any> = {};
+        if (existingSetting?.value) {
+          try {
+            map = JSON.parse(existingSetting.value);
+          } catch (e) {}
+        }
+
+        map[savedStaff.id] = {
+          hari_kerja: hari_kerja || [],
+          slot_kerja: slot_kerja || [],
+          jadwal_ketersediaan: jadwal_ketersediaan || {},
+        };
+
+        const serialized = JSON.stringify(map);
+        await supabase.from('settings').upsert({
+          key: 'instruktur_jadwal_ketersediaan',
+          value: serialized,
+          deskripsi: 'Ketersediaan Jadwal & Slot Instruktur Mengemudi',
+        });
+      } catch (errSetting) {
+        console.error('Error saving instructor availability setting:', errSetting);
       }
     }
 
