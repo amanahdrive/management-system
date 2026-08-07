@@ -6,21 +6,21 @@ import { getInstrukturList } from '@/lib/actions/master-data';
 import { getJadwalByTanggal, getJadwalByBulan } from '@/lib/actions/jadwal';
 import { getTodayDateString, formatDateIndo, formatHariTanggalIndo } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
+import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import {
   Calendar,
   UserCheck,
   MessageSquare,
   MapPin,
-  Phone,
   Car,
   ChevronLeft,
   ChevronRight,
   RefreshCw,
   LogOut,
   Clock,
-  CheckCircle2,
-  XCircle,
   Sparkles,
+  Download,
+  Check,
 } from 'lucide-react';
 
 const MONTH_NAMES_INDO = [
@@ -28,11 +28,16 @@ const MONTH_NAMES_INDO = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
+const DAY_NAMES_INDO = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
 export default function InstrukturPortalPage() {
   const [instrukturList, setInstrukturList] = React.useState<Staff[]>([]);
   const [selectedInstrukturId, setSelectedInstrukturId] = React.useState<string>('');
   const [selectedInstruktur, setSelectedInstruktur] = React.useState<Staff | null>(null);
   const [loadingInstruktur, setLoadingInstruktur] = React.useState(true);
+
+  // Live Date Time & Greeting State
+  const [now, setNow] = React.useState(new Date());
 
   // Calendar & Date State
   const [selectedTanggal, setSelectedTanggal] = React.useState<string>(getTodayDateString());
@@ -43,11 +48,51 @@ export default function InstrukturPortalPage() {
   const [dailyJadwal, setDailyJadwal] = React.useState<JadwalSesi[]>([]);
   const [monthlyJadwal, setMonthlyJadwal] = React.useState<JadwalSesi[]>([]);
   const [loadingSchedule, setLoadingSchedule] = React.useState(false);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
   // Student Detail Modal State
   const [selectedJadwalDetail, setSelectedJadwalDetail] = React.useState<JadwalSesi | null>(null);
 
-  // 1. Initial Load Instruktur List & Saved LocalStorage Selection
+  // PWA Install State
+  const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
+  const [showPwaPopup, setShowPwaPopup] = React.useState(false);
+
+  // 1. Timer for Live Greeting Clock
+  React.useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // 2. PWA Install Prompt Listener
+  React.useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      // Check if not already dismissed in this session
+      const dismissed = sessionStorage.getItem('pwa_prompt_dismissed');
+      if (!dismissed) {
+        setShowPwaPopup(true);
+      }
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Fallback: show custom banner on mobile browsers if standalone mode is not active
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    if (!isStandalone && !sessionStorage.getItem('pwa_prompt_dismissed')) {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        setShowPwaPopup(true);
+      }
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  // 3. Initial Load Instruktur List & Saved Selection
   React.useEffect(() => {
     async function init() {
       setLoadingInstruktur(true);
@@ -65,7 +110,7 @@ export default function InstrukturPortalPage() {
     init();
   }, []);
 
-  // 2. Load Daily & Monthly Schedule for Selected Instructor
+  // 4. Load Schedule Data
   const loadInstructorSchedule = React.useCallback(async () => {
     if (!selectedInstrukturId) return;
     setLoadingSchedule(true);
@@ -75,7 +120,6 @@ export default function InstrukturPortalPage() {
     ]);
 
     setDailyJadwal(dayList);
-    // Filter monthly schedule specifically for this instructor
     const insMonthJadwal = monthList.filter(
       (j) => j.staff_id === selectedInstrukturId && j.status_sesi !== 'batal'
     );
@@ -87,7 +131,20 @@ export default function InstrukturPortalPage() {
     loadInstructorSchedule();
   }, [loadInstructorSchedule]);
 
-  // Handle Instructor Selection Gate
+  // Handle Refresh Action
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await loadInstructorSchedule();
+    setIsRefreshing(false);
+    showToast('Data jadwal berhasil diperbarui!');
+  };
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Handle Instructor Login / Logout
   const handleSelectInstruktur = (id: string) => {
     setSelectedInstrukturId(id);
     const ins = instrukturList.find((i) => i.id === id) || null;
@@ -101,12 +158,45 @@ export default function InstrukturPortalPage() {
     setSelectedInstruktur(null);
   };
 
-  // WhatsApp Helper Format
+  // Handle PWA Install Action
+  const handleInstallPwa = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const choiceResult = await deferredPrompt.userChoice;
+      if (choiceResult.outcome === 'accepted') {
+        showToast('Terima kasih! Aplikasi telah dipasang.');
+      }
+      setDeferredPrompt(null);
+    } else {
+      alert('Untuk memasang di HP: buka menu opsi browser (titik tiga atau tombol Share) lalu pilih "Tambahkan ke Layar Utama" / "Add to Home Screen".');
+    }
+    setShowPwaPopup(false);
+    sessionStorage.setItem('pwa_prompt_dismissed', 'true');
+  };
+
+  // Greeting Text Helper
+  const getGreetingText = () => {
+    const hours = now.getHours();
+    if (hours >= 0 && hours < 11) return 'Selamat pagi';
+    if (hours >= 11 && hours < 15) return 'Selamat siang';
+    if (hours >= 15 && hours < 18) return 'Selamat sore';
+    return 'Selamat malam';
+  };
+
+  // Format Date Time Subtitle: "Jumat, 07/08/2026 11:37 WIB"
+  const getFormattedDateTime = () => {
+    const dayName = DAY_NAMES_INDO[now.getDay()];
+    const dateFormatted = formatDateIndo(now.toISOString().slice(0, 10));
+    const hoursStr = String(now.getHours()).padStart(2, '0');
+    const minsStr = String(now.getMinutes()).padStart(2, '0');
+    return `${dayName}, ${dateFormatted} ${hoursStr}:${minsStr} WIB`;
+  };
+
+  // WhatsApp Link Builder
   const getWhatsAppLink = (siswaNama: string, siswaPhone: string) => {
     const firstNameSiswa = siswaNama.trim().split(' ')[0];
     const firstNameInstruktur = selectedInstruktur?.nama.trim().split(' ')[0] || 'Instruktur';
 
-    // Format phone: convert 08... to 628...
     let cleanPhone = siswaPhone.replace(/\D/g, '');
     if (cleanPhone.startsWith('0')) {
       cleanPhone = '62' + cleanPhone.slice(1);
@@ -116,7 +206,7 @@ export default function InstrukturPortalPage() {
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(defaultMsg)}`;
   };
 
-  // --- GATE 1: PROMPT SELECT INSTRUCTOR IF NOT LOGGED IN ---
+  // --- GATE 1: SELECT INSTRUCTOR LOGIN PROMPT ---
   if (loadingInstruktur) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg-subtle)]">
@@ -177,36 +267,51 @@ export default function InstrukturPortalPage() {
   const firstDayIndex = new Date(calCurrentYear, calCurrentMonth, 1).getDay();
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-3xl mx-auto px-4 py-6 space-y-6 pb-24">
+      {/* Toast Notification Alert */}
+      {toastMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-full shadow-lg flex items-center gap-2 animate-in fade-in zoom-in-95">
+          <Check className="w-4 h-4" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Header Bar */}
-      <header className="flex items-center justify-between p-4 rounded-2xl bg-[var(--bg)] border border-[var(--border)] shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[var(--brand-primary-light)] text-[var(--brand-primary)] flex items-center justify-center font-bold text-sm">
-            {selectedInstruktur.nama.charAt(0).toUpperCase()}
-          </div>
+      <header className="p-4 rounded-2xl bg-[var(--bg)] border border-[var(--border)] shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          {/* Top Left Greeting & Timestamp */}
           <div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-[var(--text-primary)]">
-                Instruktur {selectedInstruktur.nama}
-              </span>
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
-                View-Only
-              </span>
-            </div>
-            <p className="text-[11px] text-[var(--text-secondary)] font-mono">
-              {selectedInstruktur.no_whatsapp || 'Amanah Drive Palembang'}
+            <h1 className="text-xs font-extrabold text-[var(--brand-primary)]">
+              {getGreetingText()}, {selectedInstruktur.nama}
+            </h1>
+            <p className="text-[10px] text-[var(--text-secondary)] font-medium mt-0.5">
+              {getFormattedDateTime()}
             </p>
           </div>
-        </div>
 
-        <button
-          onClick={handleLogoutInstruktur}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium text-[var(--text-secondary)] hover:text-rose-600 hover:border-rose-300 transition-colors"
-          title="Ganti Instruktur"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Ganti</span>
-        </button>
+          {/* Right Header Toolbar: Theme Toggle, Refresh Data, Logout */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              className="p-2 rounded-lg border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-[var(--text-primary)]"
+              title="Refresh Data Terkini"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[var(--brand-primary)]' : ''}`} />
+            </button>
+
+            <ThemeToggle />
+
+            <button
+              onClick={handleLogoutInstruktur}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-xs font-semibold text-[var(--text-secondary)] hover:text-rose-600 hover:border-rose-300 transition-colors"
+              title="Ganti Profile Instruktur"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Ganti</span>
+            </button>
+          </div>
+        </div>
       </header>
 
       {/* Mini Calendar 1-Bulan Grid Feature */}
@@ -276,7 +381,6 @@ export default function InstrukturPortalPage() {
             const dateObj = new Date(calCurrentYear, calCurrentMonth, dayNum);
             const isSunday = dateObj.getDay() === 0;
 
-            // Sessions count for this date
             const dateSessions = monthlyJadwal.filter((j) => j.tanggal_sesi === cellDateStr);
             const hasSessions = dateSessions.length > 0;
 
@@ -487,6 +591,44 @@ export default function InstrukturPortalPage() {
                 Tutup
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MINIMALIST POPUP INSTALL PWA (BRAND COLORED) */}
+      {showPwaPopup && (
+        <div className="fixed bottom-4 left-4 right-4 z-50 max-w-md mx-auto p-4 rounded-2xl bg-[var(--bg)] border border-[var(--brand-primary)] shadow-2xl space-y-3 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[var(--brand-primary-light)] text-[var(--brand-primary)] flex items-center justify-center shrink-0">
+              <Download className="w-5 h-5 text-[var(--brand-primary)]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-xs font-extrabold text-[var(--text-primary)]">
+                Install Aplikasi Instruktur Amanah Drive
+              </h4>
+              <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+                Tambahkan ke layar utama HP Anda untuk akses cepat tanpa perlu membuka browser.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-1 border-t border-[var(--border)]">
+            <button
+              onClick={() => {
+                setShowPwaPopup(false);
+                sessionStorage.setItem('pwa_prompt_dismissed', 'true');
+              }}
+              className="px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            >
+              Nanti Saja
+            </button>
+            <button
+              onClick={handleInstallPwa}
+              className="px-4 py-1.5 text-xs font-extrabold bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white rounded-xl shadow-md transition-all flex items-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Install Sekarang</span>
+            </button>
           </div>
         </div>
       )}
