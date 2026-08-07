@@ -100,32 +100,76 @@ export async function upsertJabatan(jabatan: Partial<Jabatan>): Promise<{ succes
   }
 }
 
+// Helper to safely get or set settings without schema errors
+async function saveOrUpdateSetting(supabase: any, key: string, value: string, deskripsi?: string) {
+  try {
+    const { data: existing } = await supabase
+      .from('settings')
+      .select('id')
+      .eq('key', key)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      await supabase
+        .from('settings')
+        .update({
+          value,
+          deskripsi: deskripsi || 'Setting',
+        })
+        .eq('id', existing[0].id);
+    } else {
+      await supabase
+        .from('settings')
+        .insert({
+          key,
+          value,
+          deskripsi: deskripsi || 'Setting',
+        });
+    }
+  } catch (e) {
+    console.error(`Error saving setting ${key}:`, e);
+  }
+}
+
 // --- STAFF ACTIONS ---
 export async function getStaffList(): Promise<Staff[]> {
   try {
     const supabase = await createServerClient();
-    const [{ data: staffData, error: staffError }, { data: settingsData }] = await Promise.all([
+    const [{ data: staffData, error: staffError }, { data: settingsList }] = await Promise.all([
       supabase
         .from('staff')
         .select('*, staff_jabatan(jabatan(*))')
         .order('nama', { ascending: true }),
       supabase
         .from('settings')
-        .select('value')
-        .eq('key', 'instruktur_jadwal_ketersediaan')
-        .single(),
+        .select('key, value'),
     ]);
 
-    let availabilityMap: Record<string, any> = {};
-    if (settingsData?.value) {
+    const settingsMap = new Map<string, string>();
+    (settingsList || []).forEach((s: any) => {
+      settingsMap.set(s.key, s.value);
+    });
+
+    let globalAvailabilityMap: Record<string, any> = {};
+    const globalRaw = settingsMap.get('instruktur_jadwal_ketersediaan');
+    if (globalRaw) {
       try {
-        availabilityMap = JSON.parse(settingsData.value);
+        globalAvailabilityMap = JSON.parse(globalRaw);
       } catch (e) {}
     }
 
     if (!staffError && staffData) {
       return staffData.map((st: any) => {
-        const customAvail = availabilityMap[st.id] || {};
+        let customAvail = globalAvailabilityMap[st.id] || {};
+        // Also check individual instructor key
+        const indRaw = settingsMap.get('instruktur_jadwal_' + st.id);
+        if (indRaw) {
+          try {
+            const indParsed = JSON.parse(indRaw);
+            customAvail = { ...customAvail, ...indParsed };
+          } catch (e) {}
+        }
+
         return {
           ...st,
           jabatan_list: st.staff_jabatan ? st.staff_jabatan.map((sj: any) => sj.jabatan) : [],
@@ -203,36 +247,58 @@ export async function upsertStaff(
       }
     }
 
-    // 2. Persist Instructor Schedule Availability into settings table
+    // 2. Persist Instructor Schedule Availability into settings table for each instructor individually
     if (savedStaff?.id && (hari_kerja || slot_kerja || jadwal_ketersediaan)) {
+      const instructorSchedulePayload = {
+        hari_kerja: hari_kerja || [],
+        slot_kerja: slot_kerja || [],
+        jadwal_ketersediaan: jadwal_ketersediaan || {},
+      };
+
+      const serializedInd = JSON.stringify(instructorSchedulePayload);
+
+      // Save individual key for this instructor (100% isolated)
+      await saveOrUpdateSetting(
+        supabase,
+        'instruktur_jadwal_' + savedStaff.id,
+        serializedInd,
+        `Jadwal Ketersediaan Instruktur ${savedStaff.nama || savedStaff.id}`
+      );
+
+      // Also update consolidated map
       try {
-        const { data: existingSetting } = await supabase
+        const { data: existingAll } = await supabase
           .from('settings')
-          .select('value')
+          .select('id, value')
           .eq('key', 'instruktur_jadwal_ketersediaan')
-          .single();
+          .limit(1);
 
         let map: Record<string, any> = {};
-        if (existingSetting?.value) {
+        if (existingAll && existingAll.length > 0 && existingAll[0].value) {
           try {
-            map = JSON.parse(existingSetting.value);
+            map = JSON.parse(existingAll[0].value);
           } catch (e) {}
         }
 
-        map[savedStaff.id] = {
-          hari_kerja: hari_kerja || [],
-          slot_kerja: slot_kerja || [],
-          jadwal_ketersediaan: jadwal_ketersediaan || {},
-        };
+        map[savedStaff.id] = instructorSchedulePayload;
+        const serializedMap = JSON.stringify(map);
 
-        const serialized = JSON.stringify(map);
-        await supabase.from('settings').upsert({
-          key: 'instruktur_jadwal_ketersediaan',
-          value: serialized,
-          deskripsi: 'Ketersediaan Jadwal & Slot Instruktur Mengemudi',
-        });
+        if (existingAll && existingAll.length > 0) {
+          await supabase
+            .from('settings')
+            .update({ value: serializedMap })
+            .eq('id', existingAll[0].id);
+        } else {
+          await supabase
+            .from('settings')
+            .insert({
+              key: 'instruktur_jadwal_ketersediaan',
+              value: serializedMap,
+              deskripsi: 'Ketersediaan Jadwal & Slot Seluruh Instruktur Mengemudi',
+            });
+        }
       } catch (errSetting) {
-        console.error('Error saving instructor availability setting:', errSetting);
+        console.error('Error saving global instructor availability:', errSetting);
       }
     }
 
