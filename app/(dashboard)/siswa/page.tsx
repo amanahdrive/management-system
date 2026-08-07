@@ -13,7 +13,7 @@ import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
-import { Plus, Eye, Edit2, Trash2, CreditCard, UserCheck } from 'lucide-react';
+import { Plus, Eye, Edit2, Trash2, CreditCard, UserCheck, Archive } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SiswaPage() {
@@ -23,7 +23,8 @@ export default function SiswaPage() {
   const [statusList, setStatusList] = React.useState<StatusPembayaranMaster[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  // Delete Confirm Dialog State
+  // Archive & Delete States
+  const [showArchived, setShowArchived] = React.useState(false);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
   // Filter States
@@ -197,6 +198,9 @@ export default function SiswaPage() {
   };
 
   const filteredData = siswaList.filter((s) => {
+    const isLunas = s.status_pembayaran_kode === 'lunas';
+    if (!showArchived && isLunas) return false;
+    if (showArchived && !isLunas) return false;
     if (filterStatus !== 'semua' && s.status_pembayaran_kode !== filterStatus) return false;
     if (filterPaket !== 'semua' && s.paket_id !== filterPaket) return false;
     return true;
@@ -314,6 +318,17 @@ export default function SiswaPage() {
         breadcrumbs={[{ label: 'Data Siswa' }]}
         actions={
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowArchived(!showArchived)}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-colors border ${
+                showArchived
+                  ? 'bg-amber-600 text-white border-amber-600'
+                  : 'bg-[var(--bg)] text-[var(--text-primary)] border-[var(--border)] hover:border-amber-600'
+              }`}
+            >
+              <Archive className="w-4 h-4" />
+              <span>{showArchived ? 'Lihat Siswa Aktif' : 'Arsip Siswa Selesai'}</span>
+            </button>
             <ExportButton
               data={filteredData}
               columns={exportColumns}

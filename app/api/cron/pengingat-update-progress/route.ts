@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sendTelegramMessage } from '@/lib/telegram/client';
-import { getTodayDateString } from '@/lib/utils/date';
-import { generateWhatsAppScheduleText } from '@/lib/actions/jadwal';
+import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -12,19 +11,20 @@ export async function GET(request: Request) {
   }
 
   const todayStr = getTodayDateString();
+  const dateFormatted = formatDateIndo(todayStr);
 
   try {
-    const waText = await generateWhatsAppScheduleText(todayStr);
-
-    // Convert markdown asterisks to HTML bold/italic for Telegram API
-    const htmlText = waText
-      .replace(/\*(.*?)\*/g, '<b>$1</b>')
-      .replace(/_(.*?)_/g, '<i>$1</i>');
+    const message =
+      `<b>🔔 PENGINGAT ADMIN & FINANCE AMANAH DRIVE</b>\n` +
+      `Tanggal: <b>${dateFormatted}</b>\n` +
+      `----------------------------------------\n` +
+      `Mohon pastikan seluruh status progress sesi siswa pada jadwal harian hari ini sudah di-update (Selesai / Batal / Reschedule) sebelum jam 12 malam.\n\n` +
+      `<i>Buka menu Jadwal Sesi di sistem manajemen untuk melakukan update progress.</i>`;
 
     const result = await sendTelegramMessage(
-      htmlText,
-      'laporan_harian_06am',
-      'Laporan Operasional Pagi (06:00 WIB)'
+      message,
+      'pengingat_progress_21pm',
+      'Pengingat Progress Sesi (21:00 WIB)'
     );
 
     if (!result.success) {
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, messageId: result.messageId });
   } catch (err: any) {
-    console.error('Error executing Cron Laporan Harian 06 AM:', err);
+    console.error('Error executing Cron Pengingat Progress 21 PM:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

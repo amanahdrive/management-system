@@ -96,11 +96,24 @@ export default function SettingsPage() {
     setPinBaru('');
   };
 
+  const handleSaveAllSettings = () => {
+    alert('Pengaturan Sistem Berhasil Disimpan!');
+  };
+
   return (
     <div className="space-y-6 pb-12">
       <PageHeader
         title="Pengaturan Sistem"
         description="Konfigurasi parameter perusahaan, PIN kas, template WA, master harga BBM, dan Notifikasi Telegram"
+        actions={
+          <button
+            onClick={handleSaveAllSettings}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-bold rounded-md shadow-sm transition-colors"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Simpan Pengaturan</span>
+          </button>
+        }
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

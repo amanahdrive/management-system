@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/laporan-harian",
       "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/pengingat-update-progress",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/rekap-sesi-malam",
+      "schedule": "0 17 * * *"
     }
   ]
 }

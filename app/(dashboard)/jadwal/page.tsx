@@ -39,6 +39,8 @@ export default function JadwalPage() {
 
   // Copy WA State
   const [copied, setCopied] = React.useState(false);
+  const [isCopyWAModalOpen, setIsCopyWAModalOpen] = React.useState(false);
+  const [waDateTarget, setWaDateTarget] = React.useState<string>(getTodayDateString());
 
   // Big Calendar State
   const [isBigCalendarOpen, setIsBigCalendarOpen] = React.useState(false);
@@ -173,11 +175,9 @@ export default function JadwalPage() {
     loadData();
   };
 
-  const handleCopyWA = async () => {
-    const waText = await generateWhatsAppScheduleText(selectedTanggal, selectedStaff);
-    await navigator.clipboard.writeText(waText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
+  const handleCopyWA = () => {
+    setWaDateTarget(selectedTanggal);
+    setIsCopyWAModalOpen(true);
   };
 
   // Submit Multi-Date Schedule Batch
@@ -737,36 +737,64 @@ export default function JadwalPage() {
                         <span className="text-[10px] text-[var(--text-secondary)] italic">Tidak ada instruktur</span>
                       ) : (
                         instrukturList.map((ins) => {
-                          const session = daySessions.find((j) => j.staff_id === ins.id);
                           const insFirstName = ins.nama.trim().split(' ')[0];
+                          const hariKerjaList = ins.hari_kerja || ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
+                          const dayNameEng = DAY_NAMES[dateObj.getDay()];
+                          const isOff = !hariKerjaList.includes(dayNameEng);
 
-                          if (session && session.siswa?.nama) {
-                            const studentFirstName = session.siswa.nama.trim().split(' ')[0];
-                            const isBatal = session.status_sesi === 'batal';
+                          if (isOff) {
                             return (
                               <div
                                 key={ins.id}
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold border truncate ${
-                                  isBatal
-                                    ? 'bg-amber-100 text-amber-800 border-amber-300'
-                                    : 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900'
-                                }`}
-                                title={`${ins.nama}: ${session.siswa.nama} (Sesi ${session.nomor_sesi_ke})`}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 dark:bg-gray-800 text-gray-500 border border-gray-200 dark:border-gray-700 truncate"
+                                title={`${ins.nama}: Libur Operasional`}
                               >
-                                {insFirstName}: {studentFirstName} (S{session.nomor_sesi_ke})
+                                {insFirstName}: Libur
                               </div>
                             );
                           }
 
-                          return (
-                            <div
-                              key={ins.id}
-                              className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 truncate"
-                              title={`${ins.nama}: Tersedia`}
-                            >
-                              {insFirstName}: Tersedia
-                            </div>
-                          );
+                          const maxSlots = ins.slot_kerja?.length || 6;
+                          const insSessions = daySessions.filter((j) => j.staff_id === ins.id && j.status_sesi !== 'batal');
+                          const bookedCount = insSessions.length;
+                          const availCount = Math.max(0, maxSlots - bookedCount);
+
+                          const activeStudentNames = insSessions
+                            .map((j) => j.siswa?.nama?.trim().split(' ')[0])
+                            .filter(Boolean)
+                            .join(', ');
+
+                          if (bookedCount === 0) {
+                            return (
+                              <div
+                                key={ins.id}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 truncate"
+                                title={`${ins.nama}: ${maxSlots} Slot Kosong (Tersedia)`}
+                              >
+                                {insFirstName}: {maxSlots} Slot Avail
+                              </div>
+                            );
+                          } else if (availCount > 0) {
+                            return (
+                              <div
+                                key={ins.id}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-900 truncate"
+                                title={`${ins.nama}: ${availCount} Slot Kosong (${activeStudentNames})`}
+                              >
+                                {insFirstName}: {availCount} Avail ({bookedCount}/{maxSlots})
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div
+                                key={ins.id}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900 truncate"
+                                title={`${ins.nama}: Penuh (${activeStudentNames})`}
+                              >
+                                {insFirstName}: Penuh ({bookedCount}/{maxSlots})
+                              </div>
+                            );
+                          }
                         })
                       )}
                     </div>
@@ -777,6 +805,48 @@ export default function JadwalPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL COPY WA SCHEDULE DENGAN DATE PICKER */}
+      {isCopyWAModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="card-container max-w-sm w-full bg-[var(--bg)] shadow-lg space-y-4 text-xs">
+            <h3 className="text-sm font-bold text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
+              <Copy className="w-4 h-4 text-emerald-600" />
+              Copy WA Schedule (Pilih Tanggal)
+            </h3>
+
+            <DatePickerWIB
+              label="Pilih Tanggal Jadwal WA *"
+              value={waDateTarget}
+              onChange={(val) => setWaDateTarget(val)}
+            />
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border)]">
+              <button
+                type="button"
+                onClick={() => setIsCopyWAModalOpen(false)}
+                className="px-3 py-1.5 border border-[var(--border)] rounded-md font-medium"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const waText = await generateWhatsAppScheduleText(waDateTarget, selectedStaff);
+                  await navigator.clipboard.writeText(waText);
+                  setCopied(true);
+                  setIsCopyWAModalOpen(false);
+                  alert(`Jadwal WA tanggal ${formatDateIndo(waDateTarget)} berhasil disalin ke Clipboard!`);
+                }}
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-md flex items-center gap-1.5"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Salin Markdown WA</span>
+              </button>
             </div>
           </div>
         </div>
