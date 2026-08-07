@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Wallet, Database, Settings, X } from 'lucide-react';
+import { Wallet, Database, Settings, ShieldCheck, X } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
 
 export function MobileDrawer() {
@@ -13,6 +13,7 @@ export function MobileDrawer() {
   if (!mobileDrawerOpen) return null;
 
   const EXTRA_NAV = [
+    { label: 'Portal Instruktur (View)', href: '/instruktur', icon: ShieldCheck },
     { label: 'Kas & Keuangan', href: '/kas', icon: Wallet },
     { label: 'Master Data Paket', href: '/master-data/paket', icon: Database },
     { label: 'Master Data Promosi', href: '/master-data/promosi', icon: Database },

@@ -201,6 +201,19 @@ export function Sidebar() {
         </div>
 
         <Link
+          href="/instruktur"
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
+            pathname.startsWith('/instruktur')
+              ? 'bg-[var(--brand-primary)] text-white font-semibold'
+              : 'text-[var(--text-primary)] hover:bg-[var(--brand-primary-light)] hover:text-[var(--brand-primary)]'
+          }`}
+          title={!sidebarOpen ? 'Portal Instruktur' : undefined}
+        >
+          <ShieldCheck className="w-5 h-5 min-w-[20px]" />
+          {sidebarOpen && <span className="whitespace-nowrap">Portal Instruktur</span>}
+        </Link>
+
+        <Link
           href="/settings"
           className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
             pathname.startsWith('/settings')
