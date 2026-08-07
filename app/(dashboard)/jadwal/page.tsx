@@ -196,7 +196,28 @@ export default function JadwalPage() {
         };
       }
 
-      if (!daySlots.includes(slotId)) {
+      // Map slot UUID to code 'sl1'..'sl6' based on matching slot name or urutan
+      const slotObj = slotList.find((s) => s.id === slotId);
+      let mappedSlotCode = slotId; // default fallback
+      if (slotObj) {
+        if (slotObj.urutan === 1) mappedSlotCode = 'sl1';
+        else if (slotObj.urutan === 2) mappedSlotCode = 'sl2';
+        else if (slotObj.urutan === 3) mappedSlotCode = 'sl3';
+        else if (slotObj.urutan === 4) mappedSlotCode = 'sl4';
+        else if (slotObj.urutan === 5) mappedSlotCode = 'sl5';
+        else if (slotObj.urutan === 6) mappedSlotCode = 'sl6';
+        else {
+          const slotName = slotObj.nama_slot?.toLowerCase() || '';
+          if (slotName.includes('slot 1')) mappedSlotCode = 'sl1';
+          else if (slotName.includes('slot 2')) mappedSlotCode = 'sl2';
+          else if (slotName.includes('slot 3')) mappedSlotCode = 'sl3';
+          else if (slotName.includes('slot 4')) mappedSlotCode = 'sl4';
+          else if (slotName.includes('slot 5')) mappedSlotCode = 'sl5';
+          else if (slotName.includes('slot 6')) mappedSlotCode = 'sl6';
+        }
+      }
+
+      if (!daySlots.includes(mappedSlotCode)) {
         return {
           status: 'off',
           message: `${selectedIns?.nama} tidak aktif di slot ini pada hari ${DAY_NAMES_INDO[dayIdx]}`,
