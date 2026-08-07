@@ -209,14 +209,24 @@ export async function updateSesiProgress(
   }
 }
 
-export async function deleteJadwalSesi(id: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteJadwalSesi(
+  id: string,
+  siswaId?: string
+): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createServerClient();
-    const { error } = await supabase.from('jadwal_sesi').delete().eq('id', id);
+    let query = supabase.from('jadwal_sesi').delete();
+    if (siswaId) {
+      query = query.eq('siswa_id', siswaId);
+    } else {
+      query = query.eq('id', id);
+    }
+    const { error } = await query;
 
     if (error) return { success: false, error: error.message };
 
     revalidatePath('/jadwal');
+    revalidatePath('/instruktur');
     revalidatePath('/dashboard');
     return { success: true };
   } catch (err: any) {

@@ -18,7 +18,22 @@ import { getInstrukturList, getSlotWaktuList } from '@/lib/actions/master-data';
 import { getSiswaList } from '@/lib/actions/siswa';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
-import { Calendar, Copy, Check, Plus, Eye, Trash2, CalendarDays, AlertTriangle, ChevronLeft, ChevronRight, CheckCircle2, XCircle, Clock, Sparkles } from 'lucide-react';
+import {
+  Calendar,
+  Copy,
+  Check,
+  Plus,
+  Eye,
+  Trash2,
+  CalendarDays,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Sparkles,
+} from 'lucide-react';
 import Link from 'next/link';
 
 const DAY_NAMES = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
@@ -27,6 +42,17 @@ const MONTH_NAMES_INDO = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
+
+// Timezone-safe local day-of-week resolver:
+const getDayIndexFromDateStr = (dateStr: string) => {
+  if (!dateStr) return 0;
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return 0;
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  return new Date(y, m, d).getDay(); // 0 = Minggu, 1 = Senin, ... 6 = Sabtu
+};
 
 export default function JadwalPage() {
   const [selectedTanggal, setSelectedTanggal] = React.useState(getTodayDateString());
@@ -37,6 +63,7 @@ export default function JadwalPage() {
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [deletingSiswaId, setDeletingSiswaId] = React.useState<string | null>(null);
 
   // Copy WA State
   const [copied, setCopied] = React.useState(false);
@@ -64,18 +91,21 @@ export default function JadwalPage() {
   });
   const [sessionDates, setSessionDates] = React.useState<string[]>([]);
 
-  const loadData = async () => {
+  // Comprehensive fresh load
+  const loadData = React.useCallback(async () => {
     setLoading(true);
-    const [jList, iList, sList, swList] = await Promise.all([
+    const [jList, iList, sList, swList, mList] = await Promise.all([
       getJadwalByTanggal(selectedTanggal, selectedStaff),
       getInstrukturList(),
       getSiswaList(),
       getSlotWaktuList(),
+      getJadwalByBulan(calCurrentYear, calCurrentMonth),
     ]);
     setJadwalList(jList);
     setInstrukturList(iList);
     setSiswaList(sList);
     setSlotList(swList);
+    setMonthlyJadwalList(mList);
 
     if (iList.length > 0 && !formData.staff_id) {
       setFormData((prev) => ({ ...prev, staff_id: iList[0].id }));
@@ -85,19 +115,16 @@ export default function JadwalPage() {
     }
 
     setLoading(false);
-  };
+  }, [selectedTanggal, selectedStaff, calCurrentYear, calCurrentMonth, formData.staff_id, formData.slot_waktu_id]);
 
   React.useEffect(() => {
     loadData();
-  }, [selectedTanggal, selectedStaff]);
+  }, [loadData]);
 
+  // When calendar month changes, update monthlyJadwalList
   React.useEffect(() => {
-    if (isBigCalendarOpen) {
-      getJadwalByBulan(calCurrentYear, calCurrentMonth).then((res) => {
-        setMonthlyJadwalList(res);
-      });
-    }
-  }, [isBigCalendarOpen, calCurrentYear, calCurrentMonth]);
+    getJadwalByBulan(calCurrentYear, calCurrentMonth).then(setMonthlyJadwalList);
+  }, [calCurrentYear, calCurrentMonth]);
 
   // --- FILTER SISWA YANG BELUM TERJADWAL DI TANGGAL INI ---
   const scheduledSiswaIds = React.useMemo(() => {
@@ -133,11 +160,19 @@ export default function JadwalPage() {
   // Generate multi-date array for N sessions
   const generateDatesForCount = (count: number, startDateStr: string) => {
     const dates: string[] = [];
-    const baseDate = new Date(startDateStr);
+    const parts = startDateStr.split('-');
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    const baseDate = new Date(y, m, d);
+
     for (let i = 0; i < count; i++) {
-      const d = new Date(baseDate);
-      d.setDate(d.getDate() + i);
-      dates.push(d.toISOString().slice(0, 10));
+      const cur = new Date(baseDate);
+      cur.setDate(cur.getDate() + i);
+      const curY = cur.getFullYear();
+      const curM = String(cur.getMonth() + 1).padStart(2, '0');
+      const curD = String(cur.getDate()).padStart(2, '0');
+      dates.push(`${curY}-${curM}-${curD}`);
     }
     return dates;
   };
@@ -147,8 +182,8 @@ export default function JadwalPage() {
     (dateStr: string, staffId: string, slotId: string) => {
       if (!dateStr || !staffId || !slotId) return { status: 'available', message: 'Tersedia' };
 
-      const dateObj = new Date(dateStr);
-      const dayNameEng = DAY_NAMES[dateObj.getDay()];
+      const dayIdx = getDayIndexFromDateStr(dateStr);
+      const dayNameEng = DAY_NAMES[dayIdx];
       const selectedIns = instrukturList.find((i) => i.id === staffId);
 
       // 1. Check Hari Kerja & Slot Ketersediaan Instruktur Per Hari
@@ -161,18 +196,18 @@ export default function JadwalPage() {
       if (!selectedIns?.hari_kerja?.includes(dayNameEng) || daySlots.length === 0) {
         return {
           status: 'off',
-          message: `${selectedIns?.nama || 'Instruktur'} Libur (Off) pada hari ${DAY_NAMES_INDO[dateObj.getDay()]}`,
+          message: `${selectedIns?.nama || 'Instruktur'} Libur pada hari ${DAY_NAMES_INDO[dayIdx]}`,
         };
       }
 
       if (!daySlots.includes(slotId)) {
         return {
           status: 'off',
-          message: `${selectedIns?.nama} tidak aktif di slot ini pada hari ${DAY_NAMES_INDO[dateObj.getDay()]}`,
+          message: `${selectedIns?.nama} tidak aktif di slot ini pada hari ${DAY_NAMES_INDO[dayIdx]}`,
         };
       }
 
-      // 2. Check Double Booking Slot Collision
+      // 2. Check Double Booking Slot Collision against fresh monthly schedule
       const conflict = monthlyJadwalList.find(
         (j) =>
           j.staff_id === staffId &&
@@ -199,16 +234,27 @@ export default function JadwalPage() {
     if (!formData.staff_id || !formData.slot_waktu_id) return;
     const count = sessionDates.length || 10;
     const validDates: string[] = [];
-    let currDate = new Date(selectedTanggal);
 
-    while (validDates.length < count) {
-      const dateStr = currDate.toISOString().slice(0, 10);
+    const parts = selectedTanggal.split('-');
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    const currDate = new Date(y, m, d);
+
+    let iterations = 0;
+    while (validDates.length < count && iterations < 90) {
+      const curY = currDate.getFullYear();
+      const curM = String(currDate.getMonth() + 1).padStart(2, '0');
+      const curD = String(currDate.getDate()).padStart(2, '0');
+      const dateStr = `${curY}-${curM}-${curD}`;
+
       const check = getSlotValidationStatus(dateStr, formData.staff_id, formData.slot_waktu_id);
 
       if (check.status === 'available') {
         validDates.push(dateStr);
       }
       currDate.setDate(currDate.getDate() + 1);
+      iterations++;
     }
 
     setSessionDates(validDates);
@@ -273,6 +319,19 @@ export default function JadwalPage() {
   const handleCopyWA = () => {
     setWaDateTarget(selectedTanggal);
     setIsCopyWAModalOpen(true);
+  };
+
+  const handleExecuteCopyWA = async () => {
+    const text = await generateWhatsAppScheduleText(
+      waDateTarget,
+      selectedStaff !== 'semua' ? selectedStaff : undefined
+    );
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => {
+      setCopied(false);
+      setIsCopyWAModalOpen(false);
+    }, 2000);
   };
 
   // Submit Multi-Date Schedule Batch
@@ -400,9 +459,12 @@ export default function JadwalPage() {
           </Link>
 
           <button
-            onClick={() => setDeletingId(row.original.id)}
+            onClick={() => {
+              setDeletingId(row.original.id);
+              setDeletingSiswaId(row.original.siswa_id || null);
+            }}
             className="p-1 text-[var(--danger)] hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded"
-            title="Hapus Sesi"
+            title="Hapus Sesi Siswa"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -411,14 +473,7 @@ export default function JadwalPage() {
     },
   ];
 
-  const handleDeleteConfirm = async () => {
-    if (!deletingId) return;
-    await deleteJadwalSesi(deletingId);
-    setDeletingId(null);
-    loadData();
-  };
-
-  // --- BIG CALENDAR HELPER DATA ---
+  // Calendar Calculation for Big Calendar Modal
   const daysInMonth = new Date(calCurrentYear, calCurrentMonth + 1, 0).getDate();
   const firstDayIndex = new Date(calCurrentYear, calCurrentMonth, 1).getDay();
 
@@ -426,23 +481,26 @@ export default function JadwalPage() {
     <div className="space-y-6">
       <PageHeader
         title="Jadwal Sesi Mengemudi"
-        description="Kelola plotting sesi harian siswa, slot instruktur, dan kalkulasi anti-tabrakan"
+        description="Kelola penugasan siswa, instruktur, mobil, dan slot waktu harian"
+        breadcrumbs={[{ label: 'Operasional' }, { label: 'Jadwal Sesi' }]}
         actions={
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setIsBigCalendarOpen(true)}
               className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md transition-colors"
             >
               <CalendarDays className="w-4 h-4" />
-              <span>Big Calendar (Bulanan)</span>
+              <span>Big Calendar</span>
             </button>
+
             <button
               onClick={handleCopyWA}
               className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-md transition-colors"
             >
-              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              <span>{copied ? 'Tersalin!' : 'Copy WA Schedule'}</span>
+              <Copy className="w-4 h-4" />
+              <span>Copy WA Jadwal</span>
             </button>
+
             <button
               onClick={handleOpenAddModal}
               className="flex items-center gap-1.5 px-3.5 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-md transition-colors"
@@ -510,76 +568,116 @@ export default function JadwalPage() {
                 {progressModalJadwal.siswa?.nama} ({progressModalJadwal.siswa?.kode_siswa})
               </p>
               <p className="text-[var(--text-secondary)]">
-                Paket: <span className="font-semibold text-[var(--text-primary)]">{progressModalJadwal.siswa?.paket?.nama_paket || 'Paket Sesi'}</span> ({progressModalJadwal.total_sesi_paket} Sesi Total)
+                Paket: {progressModalJadwal.siswa?.paket?.nama_paket || 'Paket Sesi'} ({progressModalJadwal.total_sesi_paket} Total Sesi)
               </p>
             </div>
 
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                  Pilih Sesi Ke-X *
+                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                  Pilih Nomor Sesi
                 </label>
                 <select
                   value={progressSesiKe}
-                  onChange={(e) => setProgressSesiKe(parseInt(e.target.value) || 1)}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold"
+                  onChange={(e) => setProgressSesiKe(parseInt(e.target.value))}
+                  className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-[var(--brand-primary)]"
                 >
-                  {Array.from({ length: progressModalJadwal.total_sesi_paket || 10 }).map((_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                      Sesi Ke-{i + 1} dari {progressModalJadwal.total_sesi_paket || 10}
+                  {Array.from({ length: progressModalJadwal.total_sesi_paket || 10 }).map((_, idx) => (
+                    <option key={idx + 1} value={idx + 1}>
+                      Sesi {idx + 1}
                     </option>
                   ))}
                 </select>
               </div>
 
-              <DatePickerWIB
-                label="Pilih Tanggal Sesi Ke-X *"
-                value={progressTanggal}
-                onChange={(val) => setProgressTanggal(val)}
-              />
-
-              <div className="pt-2 border-t border-[var(--border)] space-y-2">
-                <label className="block text-xs font-bold text-[var(--text-primary)]">
-                  Pilih Status Progress Sesi:
-                </label>
-                <div className="grid grid-cols-1 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSaveProgressStatus('selesai')}
-                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold flex items-center justify-center gap-1.5"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Selesai (Tandai Sesi Selesai)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSaveProgressStatus('terjadwal')}
-                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold flex items-center justify-center gap-1.5"
-                  >
-                    <Clock className="w-4 h-4" />
-                    <span>Terjadwal / Ubah Tanggal</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSaveProgressStatus('batal')}
-                    className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-md font-bold flex items-center justify-center gap-1.5"
-                  >
-                    <XCircle className="w-4 h-4" />
-                    <span>Batal (Tanggal Maju di Big Calendar)</span>
-                  </button>
-                </div>
+              <div>
+                <DatePickerWIB
+                  label="Tanggal Sesi"
+                  value={progressTanggal}
+                  onChange={(val) => setProgressTanggal(val)}
+                />
               </div>
             </div>
 
-            <div className="flex justify-end pt-3 border-t border-[var(--border)]">
+            <div className="pt-2 border-t border-[var(--border)] space-y-2">
+              <p className="font-semibold text-[var(--text-primary)]">Pilih Status Aksi Sesi Ini:</p>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSaveProgressStatus('selesai')}
+                  className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-md flex items-center justify-center gap-1 shadow-sm"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Selesai</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveProgressStatus('terjadwal')}
+                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md flex items-center justify-center gap-1 shadow-sm"
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Terjadwal</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveProgressStatus('batal')}
+                  className="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-md flex items-center justify-center gap-1 shadow-sm"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  <span>Batal</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
               <button
                 type="button"
                 onClick={() => setProgressModalJadwal(null)}
-                className="px-4 py-1.5 text-xs font-medium border border-[var(--border)] rounded-md"
+                className="px-4 py-1.5 border border-[var(--border)] rounded-md font-medium"
               >
                 Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL COPY WA SCHEDULE DENGAN DATE PICKER */}
+      {isCopyWAModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="card-container max-w-sm w-full bg-[var(--bg)] shadow-lg space-y-4 text-xs">
+            <h3 className="text-sm font-bold text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
+              <Copy className="w-4 h-4 text-emerald-600" />
+              Copy WhatsApp Jadwal Instruktur
+            </h3>
+
+            <div className="space-y-3">
+              <DatePickerWIB
+                label="Pilih Tanggal Jadwal yang Akan di-Copy"
+                value={waDateTarget}
+                onChange={(val) => setWaDateTarget(val)}
+              />
+
+              <p className="text-[11px] text-[var(--text-secondary)]">
+                Jadwal mengemudi pada tanggal <span className="font-bold text-[var(--text-primary)]">{formatDateIndo(waDateTarget)}</span> akan disalin dalam format markdown rapi per instruktur.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border)]">
+              <button
+                type="button"
+                onClick={() => setIsCopyWAModalOpen(false)}
+                className="px-3 py-1.5 border border-[var(--border)] rounded-md font-medium"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteCopyWA}
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-md flex items-center gap-1.5"
+              >
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                <span>{copied ? 'Tersalin!' : 'Copy Sekarang'}</span>
               </button>
             </div>
           </div>
@@ -788,6 +886,7 @@ export default function JadwalPage() {
                   Big Calendar — Diagram Slot Kosong Instruktur
                 </h3>
               </div>
+
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
@@ -798,12 +897,12 @@ export default function JadwalPage() {
                       setCalCurrentMonth(calCurrentMonth - 1);
                     }
                   }}
-                  className="p-1.5 border border-[var(--border)] rounded hover:bg-black/5 dark:hover:bg-white/5"
+                  className="p-1 rounded border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                <span className="text-xs font-bold text-[var(--brand-primary)] w-36 text-center">
+                <span className="text-xs font-bold text-[var(--text-primary)] min-w-[120px] text-center">
                   {MONTH_NAMES_INDO[calCurrentMonth]} {calCurrentYear}
                 </span>
 
@@ -816,16 +915,16 @@ export default function JadwalPage() {
                       setCalCurrentMonth(calCurrentMonth + 1);
                     }
                   }}
-                  className="p-1.5 border border-[var(--border)] rounded hover:bg-black/5 dark:hover:bg-white/5"
+                  className="p-1 rounded border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
 
                 <button
                   onClick={() => setIsBigCalendarOpen(false)}
-                  className="px-3 py-1.5 text-xs font-semibold border border-[var(--border)] rounded-md ml-4"
+                  className="ml-4 text-xs font-semibold px-2.5 py-1 rounded bg-black/5 dark:bg-white/10"
                 >
-                  Tutup
+                  ✕ Tutup
                 </button>
               </div>
             </div>
@@ -856,12 +955,12 @@ export default function JadwalPage() {
                 const cellDateStr = `${calCurrentYear}-${mStr}-${dStr}`;
 
                 const isSelected = selectedTanggal === cellDateStr;
-                const dateObj = new Date(calCurrentYear, calCurrentMonth, dayNum);
-                const isSunday = dateObj.getDay() === 0;
+                const dayOfWeekIndex = getDayIndexFromDateStr(cellDateStr);
+                const isSunday = dayOfWeekIndex === 0;
 
-                // Filter sessions for this date
+                // Filter sessions for this date (excluding cancelled)
                 const daySessions = monthlyJadwalList.filter(
-                  (j) => j.tanggal_sesi === cellDateStr
+                  (j) => j.tanggal_sesi === cellDateStr && j.status_sesi !== 'batal'
                 );
 
                 return (
@@ -882,7 +981,7 @@ export default function JadwalPage() {
                         {dayNum}
                       </span>
                       <span className="text-[9px] text-[var(--text-secondary)] font-semibold">
-                        {DAY_NAMES[dateObj.getDay()].substring(0, 3).toUpperCase()}
+                        {DAY_NAMES[dayOfWeekIndex].substring(0, 3).toUpperCase()}
                       </span>
                     </div>
 
@@ -892,7 +991,7 @@ export default function JadwalPage() {
                       ) : (
                         instrukturList.map((ins) => {
                           const insFirstName = ins.nama.trim().split(' ')[0];
-                          const dayNameEng = DAY_NAMES[dateObj.getDay()];
+                          const dayNameEng = DAY_NAMES[dayOfWeekIndex];
                           const daySlots =
                             ins.jadwal_ketersediaan?.[dayNameEng] ||
                             (ins.hari_kerja?.includes(dayNameEng)
@@ -906,7 +1005,7 @@ export default function JadwalPage() {
                               <div
                                 key={ins.id}
                                 className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 dark:bg-gray-800 text-gray-500 border border-gray-200 dark:border-gray-700 truncate"
-                                title={`${ins.nama}: Libur Operasional pada hari ${DAY_NAMES_INDO[dateObj.getDay()]}`}
+                                title={`${ins.nama}: Libur Operasional pada hari ${DAY_NAMES_INDO[dayOfWeekIndex]}`}
                               >
                                 {insFirstName}: Libur
                               </div>
@@ -938,7 +1037,7 @@ export default function JadwalPage() {
                               <div
                                 key={ins.id}
                                 className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-900 truncate"
-                                title={`${ins.nama}: ${availCount} Slot Kosong (${activeStudentNames})`}
+                                title={`${ins.nama}: ${availCount} Slot Kosong, ${bookedCount} Terisi (${activeStudentNames})`}
                               >
                                 {insFirstName}: {availCount} Avail ({bookedCount}/{maxSlots})
                               </div>
@@ -947,8 +1046,8 @@ export default function JadwalPage() {
                             return (
                               <div
                                 key={ins.id}
-                                className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900 truncate"
-                                title={`${ins.nama}: Penuh (${activeStudentNames})`}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 truncate"
+                                title={`${ins.nama}: Penuh (${bookedCount}/${maxSlots}) - Siswa: ${activeStudentNames}`}
                               >
                                 {insFirstName}: Penuh ({bookedCount}/{maxSlots})
                               </div>
@@ -958,8 +1057,8 @@ export default function JadwalPage() {
                       )}
                     </div>
 
-                    <div className="text-[9px] font-bold text-[var(--brand-primary)] text-center border-t border-[var(--border)] pt-0.5 mt-1">
-                      Pilih Tanggal &rarr;
+                    <div className="text-[9px] text-[var(--text-secondary)] border-t border-[var(--border)] pt-0.5 text-right font-medium">
+                      {daySessions.length} Sesi Terjadwal
                     </div>
                   </div>
                 );
@@ -969,57 +1068,25 @@ export default function JadwalPage() {
         </div>
       )}
 
-      {/* MODAL COPY WA SCHEDULE DENGAN DATE PICKER */}
-      {isCopyWAModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card-container max-w-sm w-full bg-[var(--bg)] shadow-lg space-y-4 text-xs">
-            <h3 className="text-sm font-bold text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
-              <Copy className="w-4 h-4 text-emerald-600" />
-              Copy WA Schedule (Pilih Tanggal)
-            </h3>
-
-            <DatePickerWIB
-              label="Pilih Tanggal Jadwal WA *"
-              value={waDateTarget}
-              onChange={(val) => setWaDateTarget(val)}
-            />
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border)]">
-              <button
-                type="button"
-                onClick={() => setIsCopyWAModalOpen(false)}
-                className="px-3 py-1.5 border border-[var(--border)] rounded-md font-medium"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const waText = await generateWhatsAppScheduleText(waDateTarget, selectedStaff);
-                  await navigator.clipboard.writeText(waText);
-                  setCopied(true);
-                  setIsCopyWAModalOpen(false);
-                  alert(`Jadwal WA tanggal ${formatDateIndo(waDateTarget)} berhasil disalin ke Clipboard!`);
-                }}
-                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-md flex items-center gap-1.5"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                <span>Salin Markdown WA</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confirm Dialog Hapus Sesi */}
+      {/* CONFIRM DELETE DIALOG */}
       <ConfirmDialog
         isOpen={!!deletingId}
-        onClose={() => setDeletingId(null)}
-        onConfirm={handleDeleteConfirm}
-        title="Hapus Jadwal Sesi"
-        description="Apakah Anda yakin ingin menghapus jadwal sesi ini? Aksi ini tidak dapat dibatalkan."
-        confirmText="Hapus Sesi"
-        isDanger
+        title="Hapus Jadwal Sesi Siswa"
+        description="Apakah Anda yakin ingin menghapus jadwal sesi siswa ini? Tindakan ini akan membersihkan seluruh data sesi siswa tersebut dari kalender dan database secara permanen."
+        confirmText="Hapus Jadwal"
+        isDanger={true}
+        onConfirm={async () => {
+          if (deletingId) {
+            await deleteJadwalSesi(deletingId, deletingSiswaId || undefined);
+            setDeletingId(null);
+            setDeletingSiswaId(null);
+            loadData();
+          }
+        }}
+        onClose={() => {
+          setDeletingId(null);
+          setDeletingSiswaId(null);
+        }}
       />
     </div>
   );
