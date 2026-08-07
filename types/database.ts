@@ -106,6 +106,7 @@ export interface Staff {
   aktif: boolean;
   hari_kerja?: string[];
   slot_kerja?: string[];
+  jadwal_ketersediaan?: Record<string, string[]>;
   created_at: string;
   updated_at: string;
   // Joined fields

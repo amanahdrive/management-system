@@ -6,7 +6,7 @@ import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Staff, Jabatan } from '@/types/database';
 import { getStaffList, getJabatanList, upsertStaff } from '@/lib/actions/master-data';
-import { Plus, Edit2, Check, Calendar, Clock } from 'lucide-react';
+import { Plus, Edit2, Check, Calendar, Clock, Sparkles } from 'lucide-react';
 import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
 
 const HARI_OPTIONS = [
@@ -20,13 +20,23 @@ const HARI_OPTIONS = [
 ];
 
 const SLOT_OPTIONS = [
-  { id: 'sl1', label: 'Slot 1 (09:00-10:30)' },
-  { id: 'sl2', label: 'Slot 2 (11:00-12:30)' },
-  { id: 'sl3', label: 'Slot 3 (13:30-15:00)' },
-  { id: 'sl4', label: 'Slot 4 (15:30-17:00)' },
-  { id: 'sl5', label: 'Slot 5 (18:30-20:00)' },
-  { id: 'sl6', label: 'Slot 6 (20:15-21:45)' },
+  { id: 'sl1', label: 'Slot 1 (09:00)' },
+  { id: 'sl2', label: 'Slot 2 (11:00)' },
+  { id: 'sl3', label: 'Slot 3 (13:30)' },
+  { id: 'sl4', label: 'Slot 4 (15:30)' },
+  { id: 'sl5', label: 'Slot 5 (18:30)' },
+  { id: 'sl6', label: 'Slot 6 (20:15)' },
 ];
+
+const DEFAULT_JADWAL_KETERSEDIAAN: Record<string, string[]> = {
+  senin: ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6'],
+  selasa: ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6'],
+  rabu: ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6'],
+  kamis: ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6'],
+  jumat: ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6'],
+  sabtu: ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6'],
+  minggu: [],
+};
 
 export default function MasterStaffPage() {
   const [staffList, setStaffList] = React.useState<Staff[]>([]);
@@ -36,8 +46,7 @@ export default function MasterStaffPage() {
 
   const [editingStaff, setEditingStaff] = React.useState<Partial<Staff>>({});
   const [selectedJabatanIds, setSelectedJabatanIds] = React.useState<string[]>([]);
-  const [selectedHari, setSelectedHari] = React.useState<string[]>([]);
-  const [selectedSlot, setSelectedSlot] = React.useState<string[]>([]);
+  const [jadwalKetersediaan, setJadwalKetersediaan] = React.useState<Record<string, string[]>>(DEFAULT_JADWAL_KETERSEDIAAN);
 
   const loadData = async () => {
     setLoading(true);
@@ -60,16 +69,27 @@ export default function MasterStaffPage() {
       aktif: true,
     });
     setSelectedJabatanIds([]);
-    setSelectedHari(['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu']);
-    setSelectedSlot(['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6']);
+    setJadwalKetersediaan({ ...DEFAULT_JADWAL_KETERSEDIAAN });
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (staff: Staff) => {
     setEditingStaff(staff);
     setSelectedJabatanIds((staff.jabatan_list || []).map((j) => j.id));
-    setSelectedHari(staff.hari_kerja || ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu']);
-    setSelectedSlot(staff.slot_kerja || ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6']);
+
+    if (staff.jadwal_ketersediaan && typeof staff.jadwal_ketersediaan === 'object') {
+      setJadwalKetersediaan(staff.jadwal_ketersediaan);
+    } else {
+      // Fallback from staff.hari_kerja & staff.slot_kerja
+      const activeHari = staff.hari_kerja || ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
+      const activeSlot = staff.slot_kerja || ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6'];
+      const initial: Record<string, string[]> = {};
+      HARI_OPTIONS.forEach((h) => {
+        initial[h.id] = activeHari.includes(h.id) ? [...activeSlot] : [];
+      });
+      setJadwalKetersediaan(initial);
+    }
+
     setIsModalOpen(true);
   };
 
@@ -79,16 +99,35 @@ export default function MasterStaffPage() {
     );
   };
 
-  const toggleHari = (hId: string) => {
-    setSelectedHari((prev) =>
-      prev.includes(hId) ? prev.filter((h) => h !== hId) : [...prev, hId]
-    );
+  // Toggle active day
+  const toggleDayActive = (dayId: string) => {
+    setJadwalKetersediaan((prev) => {
+      const current = prev[dayId] || [];
+      if (current.length > 0) {
+        return { ...prev, [dayId]: [] };
+      } else {
+        return { ...prev, [dayId]: ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6'] };
+      }
+    });
   };
 
-  const toggleSlot = (sId: string) => {
-    setSelectedSlot((prev) =>
-      prev.includes(sId) ? prev.filter((s) => s !== sId) : [...prev, sId]
-    );
+  // Toggle specific slot on a specific day
+  const toggleDaySlot = (dayId: string, slotId: string) => {
+    setJadwalKetersediaan((prev) => {
+      const current = prev[dayId] || [];
+      const updated = current.includes(slotId)
+        ? current.filter((s) => s !== slotId)
+        : [...current, slotId];
+      return { ...prev, [dayId]: updated };
+    });
+  };
+
+  // Set preset slots for a specific day
+  const setDayPreset = (dayId: string, slots: string[]) => {
+    setJadwalKetersediaan((prev) => ({
+      ...prev,
+      [dayId]: slots,
+    }));
   };
 
   const isInstrukturSelected = selectedJabatanIds.some(
@@ -99,15 +138,26 @@ export default function MasterStaffPage() {
     e.preventDefault();
     if (!editingStaff.nama || selectedJabatanIds.length === 0) return;
 
+    // Calculate active days & all unique slots from jadwalKetersediaan
+    const activeDays = Object.keys(jadwalKetersediaan).filter(
+      (d) => (jadwalKetersediaan[d] || []).length > 0
+    );
+    const allSlots = Array.from(new Set(Object.values(jadwalKetersediaan).flat()));
+
     const payload = {
       ...editingStaff,
-      hari_kerja: selectedHari,
-      slot_kerja: selectedSlot,
+      hari_kerja: activeDays,
+      slot_kerja: allSlots,
+      jadwal_ketersediaan: jadwalKetersediaan,
     };
 
-    await upsertStaff(payload, selectedJabatanIds);
-    setIsModalOpen(false);
-    loadData();
+    const res = await upsertStaff(payload, selectedJabatanIds);
+    if (res.success) {
+      setIsModalOpen(false);
+      loadData();
+    } else {
+      alert('Gagal menyimpan staff: ' + res.error);
+    }
   };
 
   const columns: ColumnDef<Staff>[] = [
@@ -133,8 +183,8 @@ export default function MasterStaffPage() {
               key={j.id}
               className={`px-2 py-0.5 text-[10px] rounded font-medium ${
                 j.nama_jabatan === 'Instruktur'
-                  ? 'bg-teal-100 text-teal-800'
-                  : 'bg-blue-100 text-blue-800'
+                  ? 'bg-teal-100 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300'
+                  : 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
               }`}
             >
               {j.nama_jabatan}
@@ -151,7 +201,7 @@ export default function MasterStaffPage() {
       cell: ({ row }) => (
         <span
           className={`px-2 py-0.5 text-xs rounded font-medium ${
-            row.original.aktif ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'
+            row.original.aktif ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-gray-100 text-gray-600'
           }`}
         >
           {row.original.aktif ? 'Aktif' : 'Resign / Nonaktif'}
@@ -165,6 +215,7 @@ export default function MasterStaffPage() {
         <button
           onClick={() => handleOpenEdit(row.original)}
           className="p-1 text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)] rounded"
+          title="Edit Staff"
         >
           <Edit2 className="w-4 h-4" />
         </button>
@@ -181,7 +232,7 @@ export default function MasterStaffPage() {
         actions={
           <button
             onClick={handleOpenAdd}
-            className="flex items-center gap-2 px-3 py-2 bg-[var(--brand-primary)] text-white text-xs font-semibold rounded-md"
+            className="flex items-center gap-2 px-3 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-md transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span>Tambah Staff</span>
@@ -202,9 +253,9 @@ export default function MasterStaffPage() {
       {/* Modal Form Tambah/Edit Staff */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card-container max-w-lg w-full bg-[var(--bg)] shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="card-container max-w-2xl w-full bg-[var(--bg)] shadow-xl space-y-4 max-h-[92vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-[var(--text-primary)] border-b border-[var(--border)] pb-2">
-              {editingStaff.id ? 'Edit Data Staff' : 'Tambah Staff Baru'}
+              {editingStaff.id ? 'Edit Data Staff & Instruktur' : 'Tambah Staff Baru'}
             </h3>
 
             <form onSubmit={handleSubmit} className="space-y-3">
@@ -308,64 +359,109 @@ export default function MasterStaffPage() {
                 </div>
               </div>
 
-              {/* Section Tambahan Khusus Instruktur: Hari & Slot Kerja */}
+              {/* Section Fleksibel: Ketersediaan Slot per Hari untuk Instruktur */}
               {isInstrukturSelected && (
-                <div className="p-3 border border-teal-200 dark:border-teal-900 bg-teal-50/50 dark:bg-teal-950/20 rounded-md space-y-3">
-                  <h4 className="text-xs font-bold text-teal-800 dark:text-teal-300 flex items-center gap-1.5 border-b border-teal-200 dark:border-teal-900 pb-1.5">
-                    <Calendar className="w-4 h-4 text-teal-600" />
-                    Jadwal Ketersediaan Instruktur Mengemudi
-                  </h4>
-
-                  {/* Hari Kerja */}
-                  <div>
-                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
-                      Hari Kerja Aktif (Pilih Hari Tugas)
-                    </label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {HARI_OPTIONS.map((h) => {
-                        const isSelected = selectedHari.includes(h.id);
-                        return (
-                          <button
-                            key={h.id}
-                            type="button"
-                            onClick={() => toggleHari(h.id)}
-                            className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
-                              isSelected
-                                ? 'bg-teal-700 text-white border-teal-700 font-semibold'
-                                : 'bg-[var(--bg)] text-[var(--text-secondary)] border-[var(--border)]'
-                            }`}
-                          >
-                            {h.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                <div className="p-3.5 border border-teal-200 dark:border-teal-900 bg-teal-50/50 dark:bg-teal-950/20 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between border-b border-teal-200 dark:border-teal-900 pb-2">
+                    <h4 className="text-xs font-bold text-teal-800 dark:text-teal-300 flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-teal-600" />
+                      Jadwal Ketersediaan Slot per Hari (Fleksibel)
+                    </h4>
+                    <span className="text-[10px] text-teal-700 dark:text-teal-400 italic">
+                      Setting slot mandiri per tiap hari
+                    </span>
                   </div>
 
-                  {/* Slot Kerja */}
-                  <div>
-                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1 flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> Slot Waktu Mengajar (Slot 1–6)
-                    </label>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {SLOT_OPTIONS.map((s) => {
-                        const isSelected = selectedSlot.includes(s.id);
-                        return (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => toggleSlot(s.id)}
-                            className={`px-2 py-1 rounded text-[11px] font-medium border transition-colors text-left truncate ${
-                              isSelected
-                                ? 'bg-teal-700 text-white border-teal-700 font-semibold'
-                                : 'bg-[var(--bg)] text-[var(--text-secondary)] border-[var(--border)]'
-                            }`}
-                          >
-                            {s.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                  <div className="space-y-2.5">
+                    {HARI_OPTIONS.map((h) => {
+                      const daySlots = jadwalKetersediaan[h.id] || [];
+                      const isDayActive = daySlots.length > 0;
+
+                      return (
+                        <div
+                          key={h.id}
+                          className={`p-2.5 rounded-lg border transition-all space-y-2 ${
+                            isDayActive
+                              ? 'bg-[var(--bg)] border-teal-300 dark:border-teal-800 shadow-xs'
+                              : 'bg-[var(--bg-subtle)] border-[var(--border)] opacity-60'
+                          }`}
+                        >
+                          {/* Day Header Bar */}
+                          <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={isDayActive}
+                                onChange={() => toggleDayActive(h.id)}
+                                className="w-4 h-4 rounded border-[var(--border)] text-teal-600 focus:ring-teal-500"
+                              />
+                              <span className="text-xs font-bold text-[var(--text-primary)]">
+                                {h.label}
+                              </span>
+                            </label>
+
+                            {isDayActive ? (
+                              <div className="flex items-center gap-1 text-[10px]">
+                                <span className="font-semibold text-teal-700 dark:text-teal-400 mr-1">
+                                  {daySlots.length} Slot Aktif
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setDayPreset(h.id, ['sl1', 'sl2', 'sl3', 'sl4'])}
+                                  className="px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--bg)] hover:bg-teal-50 dark:hover:bg-teal-950 font-medium"
+                                  title="Slot 1-4 (Siang)"
+                                >
+                                  1–4
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDayPreset(h.id, ['sl5', 'sl6'])}
+                                  className="px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--bg)] hover:bg-teal-50 dark:hover:bg-teal-950 font-medium"
+                                  title="Slot 5-6 (Malam)"
+                                >
+                                  5–6
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDayPreset(h.id, ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6'])}
+                                  className="px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--bg)] hover:bg-teal-50 dark:hover:bg-teal-950 font-medium"
+                                  title="Semua Slot (1-6)"
+                                >
+                                  Semua
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-[var(--text-secondary)] italic">
+                                Libur / Tidak Bertugas
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Slot Selector Grid */}
+                          {isDayActive && (
+                            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 pt-1 border-t border-[var(--border)]">
+                              {SLOT_OPTIONS.map((slot) => {
+                                const isSlotSelected = daySlots.includes(slot.id);
+                                return (
+                                  <button
+                                    key={slot.id}
+                                    type="button"
+                                    onClick={() => toggleDaySlot(h.id, slot.id)}
+                                    className={`px-1.5 py-1 rounded text-[10px] font-semibold border transition-all text-center truncate ${
+                                      isSlotSelected
+                                        ? 'bg-teal-700 text-white border-teal-700 shadow-xs'
+                                        : 'bg-[var(--bg)] text-[var(--text-secondary)] border-[var(--border)] hover:border-teal-500'
+                                    }`}
+                                  >
+                                    {slot.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -374,16 +470,16 @@ export default function MasterStaffPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-medium border border-[var(--border)] rounded-md"
+                  className="px-4 py-2 text-xs font-medium border border-[var(--border)] rounded-md hover:bg-black/5 dark:hover:bg-white/5"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={selectedJabatanIds.length === 0}
-                  className="px-4 py-2 text-xs font-semibold bg-[var(--brand-primary)] text-white rounded-md disabled:opacity-50"
+                  className="px-4 py-2 text-xs font-semibold bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white rounded-md disabled:opacity-50 transition-colors"
                 >
-                  Simpan Staff
+                  Simpan Data Staff
                 </button>
               </div>
             </form>

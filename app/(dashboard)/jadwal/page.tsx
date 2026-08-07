@@ -22,6 +22,7 @@ import { Calendar, Copy, Check, Plus, Eye, Trash2, CalendarDays, AlertTriangle, 
 import Link from 'next/link';
 
 const DAY_NAMES = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
+const DAY_NAMES_INDO = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 const MONTH_NAMES_INDO = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
@@ -141,7 +142,7 @@ export default function JadwalPage() {
     return dates;
   };
 
-  // Smart Instructor Slot Validation & Collision Detection
+  // Smart Instructor Slot Validation & Collision Detection (Per-Day Flexible Slot Matrix)
   const getSlotValidationStatus = React.useCallback(
     (dateStr: string, staffId: string, slotId: string) => {
       if (!dateStr || !staffId || !slotId) return { status: 'available', message: 'Tersedia' };
@@ -150,12 +151,24 @@ export default function JadwalPage() {
       const dayNameEng = DAY_NAMES[dateObj.getDay()];
       const selectedIns = instrukturList.find((i) => i.id === staffId);
 
-      // 1. Check Hari Kerja Instruktur
-      const hariKerjaList = selectedIns?.hari_kerja || ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
-      if (!hariKerjaList.includes(dayNameEng)) {
+      // 1. Check Hari Kerja & Slot Ketersediaan Instruktur Per Hari
+      const daySlots =
+        selectedIns?.jadwal_ketersediaan?.[dayNameEng] ||
+        (selectedIns?.hari_kerja?.includes(dayNameEng)
+          ? selectedIns?.slot_kerja || ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6']
+          : []);
+
+      if (!selectedIns?.hari_kerja?.includes(dayNameEng) || daySlots.length === 0) {
         return {
           status: 'off',
-          message: `${selectedIns?.nama || 'Instruktur'} Libur (Off)`,
+          message: `${selectedIns?.nama || 'Instruktur'} Libur (Off) pada hari ${DAY_NAMES_INDO[dateObj.getDay()]}`,
+        };
+      }
+
+      if (!daySlots.includes(slotId)) {
+        return {
+          status: 'off',
+          message: `${selectedIns?.nama} tidak aktif di slot ini pada hari ${DAY_NAMES_INDO[dateObj.getDay()]}`,
         };
       }
 
@@ -879,23 +892,28 @@ export default function JadwalPage() {
                       ) : (
                         instrukturList.map((ins) => {
                           const insFirstName = ins.nama.trim().split(' ')[0];
-                          const hariKerjaList = ins.hari_kerja || ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
                           const dayNameEng = DAY_NAMES[dateObj.getDay()];
-                          const isOff = !hariKerjaList.includes(dayNameEng);
+                          const daySlots =
+                            ins.jadwal_ketersediaan?.[dayNameEng] ||
+                            (ins.hari_kerja?.includes(dayNameEng)
+                              ? ins.slot_kerja || ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6']
+                              : []);
+
+                          const isOff = !ins.hari_kerja?.includes(dayNameEng) || daySlots.length === 0;
 
                           if (isOff) {
                             return (
                               <div
                                 key={ins.id}
                                 className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 dark:bg-gray-800 text-gray-500 border border-gray-200 dark:border-gray-700 truncate"
-                                title={`${ins.nama}: Libur Operasional`}
+                                title={`${ins.nama}: Libur Operasional pada hari ${DAY_NAMES_INDO[dateObj.getDay()]}`}
                               >
                                 {insFirstName}: Libur
                               </div>
                             );
                           }
 
-                          const maxSlots = ins.slot_kerja?.length || 6;
+                          const maxSlots = daySlots.length;
                           const insSessions = daySessions.filter((j) => j.staff_id === ins.id && j.status_sesi !== 'batal');
                           const bookedCount = insSessions.length;
                           const availCount = Math.max(0, maxSlots - bookedCount);

@@ -134,20 +134,52 @@ export async function upsertStaff(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createServerClient();
-    const { data: savedStaff, error } = await supabase.from('staff').upsert(staff).select().single();
-    if (error || !savedStaff) return { success: false, error: error?.message || 'Gagal menyimpan staff' };
+
+    // Clean joined objects from staff payload
+    const { jabatan_list, staff_jabatan, ...cleanStaff } = staff as any;
+
+    let savedStaff: any = null;
+
+    if (cleanStaff.id) {
+      const { data, error } = await supabase
+        .from('staff')
+        .update({
+          ...cleanStaff,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', cleanStaff.id)
+        .select()
+        .single();
+
+      if (error) return { success: false, error: error.message };
+      savedStaff = data;
+    } else {
+      const { data, error } = await supabase
+        .from('staff')
+        .insert(cleanStaff)
+        .select()
+        .single();
+
+      if (error || !data) return { success: false, error: error?.message || 'Gagal menyimpan data staff' };
+      savedStaff = data;
+    }
 
     // Update junction staff_jabatan
-    await supabase.from('staff_jabatan').delete().eq('staff_id', savedStaff.id);
-    if (jabatanIds && jabatanIds.length > 0) {
-      const inserts = jabatanIds.map((jId) => ({
-        staff_id: savedStaff.id,
-        jabatan_id: jId,
-      }));
-      await supabase.from('staff_jabatan').insert(inserts);
+    if (savedStaff?.id) {
+      await supabase.from('staff_jabatan').delete().eq('staff_id', savedStaff.id);
+      if (jabatanIds && jabatanIds.length > 0) {
+        const inserts = jabatanIds.map((jId) => ({
+          staff_id: savedStaff.id,
+          jabatan_id: jId,
+        }));
+        await supabase.from('staff_jabatan').insert(inserts);
+      }
     }
 
     revalidatePath('/master-data/staff');
+    revalidatePath('/jadwal');
+    revalidatePath('/instruktur');
+    revalidatePath('/dashboard');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
