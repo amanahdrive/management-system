@@ -18,7 +18,7 @@ import { getInstrukturList, getSlotWaktuList } from '@/lib/actions/master-data';
 import { getSiswaList } from '@/lib/actions/siswa';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
-import { Calendar, Copy, Check, Plus, Eye, Trash2, CalendarDays, AlertTriangle, ChevronLeft, ChevronRight, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Calendar, Copy, Check, Plus, Eye, Trash2, CalendarDays, AlertTriangle, ChevronLeft, ChevronRight, CheckCircle2, XCircle, Clock, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 const DAY_NAMES = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
@@ -141,6 +141,66 @@ export default function JadwalPage() {
     return dates;
   };
 
+  // Smart Instructor Slot Validation & Collision Detection
+  const getSlotValidationStatus = React.useCallback(
+    (dateStr: string, staffId: string, slotId: string) => {
+      if (!dateStr || !staffId || !slotId) return { status: 'available', message: 'Tersedia' };
+
+      const dateObj = new Date(dateStr);
+      const dayNameEng = DAY_NAMES[dateObj.getDay()];
+      const selectedIns = instrukturList.find((i) => i.id === staffId);
+
+      // 1. Check Hari Kerja Instruktur
+      const hariKerjaList = selectedIns?.hari_kerja || ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
+      if (!hariKerjaList.includes(dayNameEng)) {
+        return {
+          status: 'off',
+          message: `${selectedIns?.nama || 'Instruktur'} Libur (Off)`,
+        };
+      }
+
+      // 2. Check Double Booking Slot Collision
+      const conflict = monthlyJadwalList.find(
+        (j) =>
+          j.staff_id === staffId &&
+          j.slot_waktu_id === slotId &&
+          j.tanggal_sesi === dateStr &&
+          j.status_sesi !== 'batal'
+      );
+
+      if (conflict) {
+        return {
+          status: 'conflict',
+          message: `Slot terisi oleh ${conflict.siswa?.nama || 'Siswa lain'}`,
+          studentName: conflict.siswa?.nama,
+        };
+      }
+
+      return { status: 'available', message: 'Slot Available (Bebas Bentrok)' };
+    },
+    [instrukturList, monthlyJadwalList]
+  );
+
+  // Auto Adjust Dates: Find N valid dates without collision / off days
+  const handleAutoAdjustDates = () => {
+    if (!formData.staff_id || !formData.slot_waktu_id) return;
+    const count = sessionDates.length || 10;
+    const validDates: string[] = [];
+    let currDate = new Date(selectedTanggal);
+
+    while (validDates.length < count) {
+      const dateStr = currDate.toISOString().slice(0, 10);
+      const check = getSlotValidationStatus(dateStr, formData.staff_id, formData.slot_waktu_id);
+
+      if (check.status === 'available') {
+        validDates.push(dateStr);
+      }
+      currDate.setDate(currDate.getDate() + 1);
+    }
+
+    setSessionDates(validDates);
+  };
+
   // Handle student selection change in Add Modal
   const handleSiswaSelect = (siswaId: string) => {
     const sObj = siswaList.find((s) => s.id === siswaId);
@@ -207,6 +267,19 @@ export default function JadwalPage() {
     e.preventDefault();
     if (!formData.siswa_id || !formData.staff_id || !formData.slot_waktu_id) {
       alert('Mohon pilih Siswa, Instruktur, dan Slot Waktu!');
+      return;
+    }
+
+    const hasConflictOrOff = sessionDates.some(
+      (d) =>
+        getSlotValidationStatus(d, formData.staff_id || '', formData.slot_waktu_id || '').status !==
+        'available'
+    );
+
+    if (hasConflictOrOff) {
+      alert(
+        'Terdapat tanggal sesi yang bentrok atau di luar hari kerja instruktur. Silakan klik tombol "Auto-Adjust Tanggal Bebas Bentrok" untuk menyesuaikan tanggal secara otomatis.'
+      );
       return;
     }
 
@@ -602,25 +675,71 @@ export default function JadwalPage() {
 
               {/* 3. MULTI-DATE PICKER MATRIX BERDASARKAN TOTAL SESI PAKET */}
               <div className="space-y-2 border-t border-[var(--border)] pt-3">
-                <label className="block text-xs font-bold text-[var(--text-primary)]">
-                  Setting Tanggal Per Sesi ({sessionDates.length} Sesi Paket) *
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border border-[var(--border)] rounded-md bg-[var(--bg-subtle)]">
-                  {sessionDates.map((d, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <span className="text-[11px] font-bold text-[var(--brand-primary)] w-14 shrink-0">
-                        Sesi {idx + 1}:
-                      </span>
-                      <DatePickerWIB
-                        value={d}
-                        onChange={(val) => {
-                          const newArr = [...sessionDates];
-                          newArr[idx] = val;
-                          setSessionDates(newArr);
-                        }}
-                      />
-                    </div>
-                  ))}
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-[var(--text-primary)]">
+                    Setting Tanggal Per Sesi ({sessionDates.length} Sesi Paket) *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleAutoAdjustDates}
+                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold flex items-center gap-1 shadow-sm transition-colors"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Auto-Adjust Tanggal Bebas Bentrok</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-2 border border-[var(--border)] rounded-md bg-[var(--bg-subtle)]">
+                  {sessionDates.map((d, idx) => {
+                    const check = getSlotValidationStatus(
+                      d,
+                      formData.staff_id || '',
+                      formData.slot_waktu_id || ''
+                    );
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-2 border rounded-md bg-[var(--bg)] space-y-1 ${
+                          check.status === 'conflict'
+                            ? 'border-rose-300 dark:border-rose-900 bg-rose-50/20'
+                            : check.status === 'off'
+                            ? 'border-amber-300 dark:border-amber-900 bg-amber-50/20'
+                            : 'border-[var(--border)]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-bold text-[var(--brand-primary)]">
+                            Sesi {idx + 1}:
+                          </span>
+                          <span
+                            className={`px-1.5 py-0.2 text-[9px] font-bold rounded ${
+                              check.status === 'available'
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                : check.status === 'off'
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                                : 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+                            }`}
+                          >
+                            {check.status === 'available'
+                              ? '✓ Available'
+                              : check.status === 'off'
+                              ? '⚪ Libur'
+                              : `✕ Bentrok (${check.studentName || 'Terisi'})`}
+                          </span>
+                        </div>
+
+                        <DatePickerWIB
+                          value={d}
+                          onChange={(val) => {
+                            const newArr = [...sessionDates];
+                            newArr[idx] = val;
+                            setSessionDates(newArr);
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
