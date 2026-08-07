@@ -103,6 +103,28 @@ export default function JadwalPage() {
     return jadwalList.filter((j) => j.status_sesi !== 'batal').map((j) => j.siswa_id);
   }, [jadwalList]);
 
+  // Group schedule list: 1 row PER STUDENT in main table view
+  const displayJadwalList = React.useMemo(() => {
+    const studentMap = new Map<string, JadwalSesi>();
+
+    jadwalList.forEach((item) => {
+      const key = item.siswa_id || item.id;
+      if (!studentMap.has(key)) {
+        studentMap.set(key, item);
+      } else {
+        const existing = studentMap.get(key)!;
+        // Prioritize active scheduled session or latest session progress over completed ones
+        if (existing.status_sesi === 'selesai' && item.status_sesi === 'terjadwal') {
+          studentMap.set(key, item);
+        } else if (item.nomor_sesi_ke > existing.nomor_sesi_ke && item.status_sesi !== 'batal') {
+          studentMap.set(key, item);
+        }
+      }
+    });
+
+    return Array.from(studentMap.values());
+  }, [jadwalList]);
+
   const availableSiswaList = React.useMemo(() => {
     return siswaList.filter((s) => !scheduledSiswaIds.includes(s.id));
   }, [siswaList, scheduledSiswaIds]);
@@ -375,7 +397,7 @@ export default function JadwalPage() {
         </div>
 
         <div className="text-xs text-[var(--text-secondary)] font-medium">
-          Total Sesi Hari Ini: <span className="font-bold text-[var(--text-primary)]">{jadwalList.length}</span>
+          Total Siswa Terjadwal: <span className="font-bold text-[var(--text-primary)]">{displayJadwalList.length} Siswa</span>
         </div>
       </div>
 
@@ -384,7 +406,7 @@ export default function JadwalPage() {
         {loading ? (
           <div className="h-64 animate-pulse bg-black/5 dark:bg-white/5 rounded-md" />
         ) : (
-          <DataTable columns={columns} data={jadwalList} searchKey="jadwal" />
+          <DataTable columns={columns} data={displayJadwalList} searchKey="jadwal" />
         )}
       </div>
 
