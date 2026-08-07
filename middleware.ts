@@ -4,8 +4,11 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
 
-  // If request comes via instruktur. subdomain, rewrite root to /instruktur
-  if (hostname.startsWith('instruktur.')) {
+  // Matches instruktur.management-amanahdrive.vercel.app or any instruktur.* subdomain
+  if (
+    hostname.startsWith('instruktur.') ||
+    hostname.includes('instruktur.management-amanahdrive.vercel.app')
+  ) {
     const url = request.nextUrl.clone();
     if (url.pathname === '/') {
       url.pathname = '/instruktur';
