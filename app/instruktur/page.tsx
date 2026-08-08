@@ -3,7 +3,7 @@
 import React from 'react';
 import { Staff, JadwalSesi } from '@/types/database';
 import { getInstrukturList } from '@/lib/actions/master-data';
-import { getJadwalByTanggal, getJadwalByBulan, getJadwalConflictCheckList } from '@/lib/actions/jadwal';
+import { getJadwalByTanggal, getJadwalByBulan, getJadwalConflictCheckList, getJadwalBySiswa, updateJadwalStatus, upsertJadwalSesi } from '@/lib/actions/jadwal';
 import { getTodayDateString, formatDateIndo, formatHariTanggalIndo } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
@@ -53,6 +53,36 @@ export default function InstrukturPortalPage() {
 
   // Student Detail Modal State
   const [selectedJadwalDetail, setSelectedJadwalDetail] = React.useState<JadwalSesi | null>(null);
+  const [rescheduleDate, setRescheduleDate] = React.useState<string>('');
+  const [isRescheduling, setIsRescheduling] = React.useState(false);
+
+  const getRescheduledDefaultDate = async (siswaId: string) => {
+    const list = await getJadwalBySiswa(siswaId);
+    const active = list.filter((j) => j.status_sesi !== 'batal');
+    if (active.length === 0) {
+      const tom = new Date();
+      tom.setDate(tom.getDate() + 1);
+      return tom.toISOString().split('T')[0];
+    }
+    const dates = active.map((j) => j.tanggal_sesi);
+    dates.sort();
+    const latestDateStr = dates[dates.length - 1];
+    
+    const [y, m, d] = latestDateStr.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    dateObj.setDate(dateObj.getDate() + 1);
+    
+    const nextY = dateObj.getFullYear();
+    const nextM = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const nextD = String(dateObj.getDate()).padStart(2, '0');
+    return `${nextY}-${nextM}-${nextD}`;
+  };
+
+  const handleOpenReschedule = async (siswaId: string) => {
+    const defaultDate = await getRescheduledDefaultDate(siswaId);
+    setRescheduleDate(defaultDate);
+    setIsRescheduling(true);
+  };
 
   // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
@@ -590,12 +620,99 @@ export default function InstrukturPortalPage() {
                   </a>
                 </div>
               )}
+
+              {/* STATUS & PROGRESS ACTIONS */}
+              <div className="pt-3 border-t border-[var(--border)] space-y-2">
+                <p className="font-bold text-xs text-[var(--text-primary)]">Update Status Sesi Latihan:</p>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={async () => {
+                      if (confirm('Tandai sesi ini telah selesai?')) {
+                        const res = await updateJadwalStatus(selectedJadwalDetail.id, 'selesai');
+                        if (res.success) {
+                          showToast('Sesi ditandai SELESAI!');
+                          setSelectedJadwalDetail(null);
+                          loadInstructorSchedule();
+                        } else {
+                          alert('Gagal memperbarui status: ' + res.error);
+                        }
+                      }
+                    }}
+                    className="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm transition-colors text-xs"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Selesai</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleOpenReschedule(selectedJadwalDetail.siswa_id || '')}
+                    className="py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm transition-colors text-xs"
+                  >
+                    <Clock className="w-4 h-4" />
+                    <span>Ditunda / Reschedule</span>
+                  </button>
+                </div>
+
+                {isRescheduling && (
+                  <div className="p-3 bg-[var(--bg-subtle)] border border-amber-300 dark:border-amber-900 rounded-xl space-y-3 mt-2 animate-in fade-in zoom-in-95">
+                    <div>
+                      <p className="text-[10px] text-[var(--text-secondary)] font-medium">Tanggal Sesi Saat Ini (Tetap):</p>
+                      <p className="font-bold text-xs text-[var(--text-primary)] mt-0.5">
+                        {formatDateIndo(selectedJadwalDetail.tanggal_sesi)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-[var(--text-secondary)] font-semibold mb-1">
+                        Pilih Tanggal Dilanjutkan Kembali:
+                      </label>
+                      <DatePickerWIB
+                        value={rescheduleDate}
+                        onChange={(val) => setRescheduleDate(val)}
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-1 border-t border-[var(--border)]">
+                      <button
+                        onClick={() => setIsRescheduling(false)}
+                        className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-xs"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const res = await upsertJadwalSesi({
+                            id: selectedJadwalDetail.id,
+                            tanggal_sesi: rescheduleDate,
+                            status_sesi: 'terjadwal'
+                          });
+                          if (res.success) {
+                            showToast('Jadwal sesi berhasil ditunda/reschedule!');
+                            setIsRescheduling(false);
+                            setSelectedJadwalDetail(null);
+                            loadInstructorSchedule();
+                          } else {
+                            alert('Gagal reschedule: ' + res.error);
+                          }
+                        }}
+                        className="px-4.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs shadow-sm"
+                      >
+                        Simpan Penundaan
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex justify-end pt-2 border-t border-[var(--border)]">
               <button
                 type="button"
-                onClick={() => setSelectedJadwalDetail(null)}
+                onClick={() => {
+                  setSelectedJadwalDetail(null);
+                  setIsRescheduling(false);
+                }}
                 className="px-4 py-2 border border-[var(--border)] rounded-md font-semibold text-xs"
               >
                 Tutup

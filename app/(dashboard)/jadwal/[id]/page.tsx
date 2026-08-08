@@ -279,7 +279,11 @@ export default function JadwalDetailPage() {
                       </span>
                       {!isEditing && (
                         <span className="text-[var(--text-secondary)] font-medium">
-                          • {formatDateIndo(sesi.tanggal_sesi)} • {sesi.slot_waktu?.nama_slot} ({sesi.slot_waktu?.jam_mulai?.substring(0, 5)}-{sesi.slot_waktu?.jam_selesai?.substring(0, 5)} WIB)
+                          • {formatDateIndo(sesi.tanggal_sesi)} •{' '}
+                          {sesi.slot_waktu?.nama_slot}{' '}
+                          {sesi.slot_waktu_akhir && sesi.slot_waktu_akhir.id !== sesi.slot_waktu?.id
+                            ? `s/d ${sesi.slot_waktu_akhir.nama_slot} (${sesi.slot_waktu?.jam_mulai?.substring(0, 5) || ''} - ${sesi.slot_waktu_akhir.jam_selesai?.substring(0, 5) || ''} WIB)`
+                            : `(${sesi.slot_waktu?.jam_mulai?.substring(0, 5) || ''} - ${sesi.slot_waktu?.jam_selesai?.substring(0, 5) || ''} WIB)`}
                         </span>
                       )}
                     </div>
@@ -353,7 +357,7 @@ export default function JadwalDetailPage() {
 
                   {/* Editing Mode Fields */}
                   {isEditing && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-2 border-t border-[var(--brand-primary)]/20">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs pt-2 border-t border-[var(--brand-primary)]/20">
                       <div>
                         <DatePickerWIB
                           label="Pilih Tanggal Sesi"
@@ -364,7 +368,7 @@ export default function JadwalDetailPage() {
 
                       <div>
                         <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                          Slot Waktu
+                          Slot Mulai
                         </label>
                         <select
                           value={editFormData.slot_waktu_id || ''}
@@ -373,7 +377,25 @@ export default function JadwalDetailPage() {
                         >
                           {slotList.map((sw) => (
                             <option key={sw.id} value={sw.id}>
-                              {sw.nama_slot} ({sw.jam_mulai.substring(0, 5)}-{sw.jam_selesai.substring(0, 5)})
+                              {sw.nama_slot} ({sw.jam_mulai.substring(0, 5)})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                          Slot Akhir (Opsional)
+                        </label>
+                        <select
+                          value={editFormData.slot_waktu_id_akhir || ''}
+                          onChange={(e) => setEditFormData((prev) => ({ ...prev, slot_waktu_id_akhir: e.target.value || null }))}
+                          className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                        >
+                          <option value="">-- Hanya 1 Slot --</option>
+                          {slotList.map((sw) => (
+                            <option key={sw.id} value={sw.id}>
+                              {sw.nama_slot} ({sw.jam_selesai.substring(0, 5)})
                             </option>
                           ))}
                         </select>
@@ -396,7 +418,7 @@ export default function JadwalDetailPage() {
                         </select>
                       </div>
 
-                      <div className="md:col-span-2">
+                      <div className="md:col-span-3">
                         <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
                           Catatan Sesi
                         </label>
@@ -404,7 +426,7 @@ export default function JadwalDetailPage() {
                           type="text"
                           value={editFormData.catatan_sesi || ''}
                           onChange={(e) => setEditFormData((prev) => ({ ...prev, catatan_sesi: e.target.value }))}
-                          placeholder="Materi pelajaran atau kendala siswa..."
+                          placeholder="Materi pelajaran..."
                           className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
                         />
                       </div>

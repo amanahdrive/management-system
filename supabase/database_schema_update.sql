@@ -24,3 +24,7 @@ CREATE INDEX IF NOT EXISTS idx_jadwal_sesi_tanggal_staff ON jadwal_sesi(tanggal_
 CREATE INDEX IF NOT EXISTS idx_jadwal_sesi_siswa ON jadwal_sesi(siswa_id);
 CREATE INDEX IF NOT EXISTS idx_settings_key ON settings(key);
 CREATE INDEX IF NOT EXISTS idx_kas_transaksi_tanggal ON kas_transaksi(tanggal);
+
+-- 4. Tambah kolom slot_waktu_id_akhir ke tabel jadwal_sesi untuk mendukung sesi double slot
+ALTER TABLE IF EXISTS jadwal_sesi
+  ADD COLUMN IF NOT EXISTS slot_waktu_id_akhir uuid REFERENCES slot_waktu(id) ON DELETE SET NULL;

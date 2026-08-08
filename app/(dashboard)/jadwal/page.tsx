@@ -182,63 +182,78 @@ export default function JadwalPage() {
 
   // Smart Instructor Slot Validation & Collision Detection (Per-Day Flexible Slot Matrix)
   const getSlotValidationStatus = React.useCallback(
-    (dateStr: string, staffId: string, slotId: string) => {
+    (dateStr: string, staffId: string, slotId: string, slotIdAkhir?: string | null) => {
       if (!dateStr || !staffId || !slotId) return { status: 'available', message: 'Tersedia' };
 
       const dayIdx = getDayIndexFromDateStr(dateStr);
       const dayNameEng = DAY_NAMES[dayIdx];
       const selectedIns = instrukturList.find((i) => i.id === staffId);
 
-      // 1. Check Hari Kerja & Slot Ketersediaan Instruktur Per Hari
-      const daySlots =
-        selectedIns?.jadwal_ketersediaan?.[dayNameEng] ||
-        (selectedIns?.hari_kerja?.includes(dayNameEng)
-          ? selectedIns?.slot_kerja || ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6']
-          : []);
+      const checkSingleSlot = (sId: string) => {
+        const daySlots =
+          selectedIns?.jadwal_ketersediaan?.[dayNameEng] ||
+          (selectedIns?.hari_kerja?.includes(dayNameEng)
+            ? selectedIns?.slot_kerja || ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6']
+            : []);
 
-      if (!selectedIns?.hari_kerja?.includes(dayNameEng) || daySlots.length === 0) {
-        return {
-          status: 'off',
-          message: `${selectedIns?.nama || 'Instruktur'} Libur pada hari ${DAY_NAMES_INDO[dayIdx]}`,
-        };
-      }
-
-      // Map slot UUID to code 'sl1'..'sl6' based on matching slot name or urutan
-      const slotObj = slotList.find((s) => s.id === slotId);
-      let mappedSlotCode = slotId; // default fallback
-      if (slotObj) {
-        if (slotObj.urutan === 1) mappedSlotCode = 'sl1';
-        else if (slotObj.urutan === 2) mappedSlotCode = 'sl2';
-        else if (slotObj.urutan === 3) mappedSlotCode = 'sl3';
-        else if (slotObj.urutan === 4) mappedSlotCode = 'sl4';
-        else if (slotObj.urutan === 5) mappedSlotCode = 'sl5';
-        else if (slotObj.urutan === 6) mappedSlotCode = 'sl6';
-        else {
-          const slotName = slotObj.nama_slot?.toLowerCase() || '';
-          if (slotName.includes('slot 1')) mappedSlotCode = 'sl1';
-          else if (slotName.includes('slot 2')) mappedSlotCode = 'sl2';
-          else if (slotName.includes('slot 3')) mappedSlotCode = 'sl3';
-          else if (slotName.includes('slot 4')) mappedSlotCode = 'sl4';
-          else if (slotName.includes('slot 5')) mappedSlotCode = 'sl5';
-          else if (slotName.includes('slot 6')) mappedSlotCode = 'sl6';
+        if (!selectedIns?.hari_kerja?.includes(dayNameEng) || daySlots.length === 0) {
+          return {
+            status: 'off',
+            message: `${selectedIns?.nama || 'Instruktur'} Libur pada hari ${DAY_NAMES_INDO[dayIdx]}`,
+          };
         }
+
+        const slotObj = slotList.find((s) => s.id === sId);
+        let mappedSlotCode = sId;
+        if (slotObj) {
+          if (slotObj.urutan === 1) mappedSlotCode = 'sl1';
+          else if (slotObj.urutan === 2) mappedSlotCode = 'sl2';
+          else if (slotObj.urutan === 3) mappedSlotCode = 'sl3';
+          else if (slotObj.urutan === 4) mappedSlotCode = 'sl4';
+          else if (slotObj.urutan === 5) mappedSlotCode = 'sl5';
+          else if (slotObj.urutan === 6) mappedSlotCode = 'sl6';
+          else {
+            const slotName = slotObj.nama_slot?.toLowerCase() || '';
+            if (slotName.includes('slot 1')) mappedSlotCode = 'sl1';
+            else if (slotName.includes('slot 2')) mappedSlotCode = 'sl2';
+            else if (slotName.includes('slot 3')) mappedSlotCode = 'sl3';
+            else if (slotName.includes('slot 4')) mappedSlotCode = 'sl4';
+            else if (slotName.includes('slot 5')) mappedSlotCode = 'sl5';
+            else if (slotName.includes('slot 6')) mappedSlotCode = 'sl6';
+          }
+        }
+
+        if (!daySlots.includes(mappedSlotCode)) {
+          return {
+            status: 'off',
+            message: `${selectedIns?.nama} tidak aktif di slot ini pada hari ${DAY_NAMES_INDO[dayIdx]}`,
+          };
+        }
+        return null;
+      };
+
+      // Check start slot
+      const startCheck = checkSingleSlot(slotId);
+      if (startCheck) return startCheck;
+
+      // Check end slot if provided
+      if (slotIdAkhir && slotIdAkhir !== slotId) {
+        const endCheck = checkSingleSlot(slotIdAkhir);
+        if (endCheck) return endCheck;
       }
 
-      if (!daySlots.includes(mappedSlotCode)) {
-        return {
-          status: 'off',
-          message: `${selectedIns?.nama} tidak aktif di slot ini pada hari ${DAY_NAMES_INDO[dayIdx]}`,
-        };
-      }
+      // 2. Check Double Booking Slot Collision (including double-slot overlays)
+      const conflict = monthlyJadwalList.find((j) => {
+        if (j.tanggal_sesi !== dateStr || j.status_sesi === 'batal' || j.staff_id !== staffId) return false;
 
-      // 2. Check Double Booking Slot Collision against fresh monthly schedule
-      const conflict = monthlyJadwalList.find(
-        (j) =>
-          j.staff_id === staffId &&
-          j.slot_waktu_id === slotId &&
-          j.tanggal_sesi === dateStr &&
-          j.status_sesi !== 'batal'
-      );
+        const jSlots = [j.slot_waktu_id];
+        if (j.slot_waktu_id_akhir) jSlots.push(j.slot_waktu_id_akhir);
+
+        const candSlots = [slotId];
+        if (slotIdAkhir && slotIdAkhir !== slotId) candSlots.push(slotIdAkhir);
+
+        return candSlots.some((cs) => jSlots.includes(cs));
+      });
 
       if (conflict) {
         return {
@@ -250,7 +265,7 @@ export default function JadwalPage() {
 
       return { status: 'available', message: 'Slot Available (Bebas Bentrok)' };
     },
-    [instrukturList, monthlyJadwalList]
+    [instrukturList, monthlyJadwalList, slotList]
   );
 
   // Auto Adjust Dates: Find N valid dates without collision / off days
@@ -272,7 +287,12 @@ export default function JadwalPage() {
       const curD = String(currDate.getDate()).padStart(2, '0');
       const dateStr = `${curY}-${curM}-${curD}`;
 
-      const check = getSlotValidationStatus(dateStr, formData.staff_id, formData.slot_waktu_id);
+      const check = getSlotValidationStatus(
+        dateStr,
+        formData.staff_id || '',
+        formData.slot_waktu_id || '',
+        formData.slot_waktu_id_akhir || null
+      );
 
       if (check.status === 'available') {
         validDates.push(dateStr);
@@ -368,8 +388,12 @@ export default function JadwalPage() {
 
     const hasConflictOrOff = sessionDates.some(
       (d) =>
-        getSlotValidationStatus(d, formData.staff_id || '', formData.slot_waktu_id || '').status !==
-        'available'
+        getSlotValidationStatus(
+          d,
+          formData.staff_id || '',
+          formData.slot_waktu_id || '',
+          formData.slot_waktu_id_akhir || null
+        ).status !== 'available'
     );
 
     if (hasConflictOrOff) {
@@ -383,6 +407,7 @@ export default function JadwalPage() {
       siswa_id: formData.siswa_id,
       staff_id: formData.staff_id,
       slot_waktu_id: formData.slot_waktu_id,
+      slot_waktu_id_akhir: formData.slot_waktu_id_akhir || null,
       jenis_mobil: formData.jenis_mobil || 'manual',
       tanggal_sesi: tgl,
       nomor_sesi_ke: idx + 1,
@@ -771,8 +796,8 @@ export default function JadwalPage() {
                 </div>
               )}
 
-              {/* 2. Pilih Instruktur & Mobil */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* 2. Pilih Instruktur & Slot Waktu */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                     Pilih Instruktur Bertugas *
@@ -792,7 +817,7 @@ export default function JadwalPage() {
 
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Slot Waktu Sesi *
+                    Slot Waktu Mulai *
                   </label>
                   <select
                     value={formData.slot_waktu_id}
@@ -802,6 +827,24 @@ export default function JadwalPage() {
                     {slotList.map((sw) => (
                       <option key={sw.id} value={sw.id}>
                         {sw.nama_slot} ({sw.jam_mulai.substring(0, 5)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    Slot Waktu Selesai (Opsional)
+                  </label>
+                  <select
+                    value={formData.slot_waktu_id_akhir || ''}
+                    onChange={(e) => setFormData({ ...formData, slot_waktu_id_akhir: e.target.value || null })}
+                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold"
+                  >
+                    <option value="">-- Hanya 1 Slot --</option>
+                    {slotList.map((sw) => (
+                      <option key={sw.id} value={sw.id}>
+                        {sw.nama_slot} ({sw.jam_selesai.substring(0, 5)})
                       </option>
                     ))}
                   </select>
@@ -829,7 +872,8 @@ export default function JadwalPage() {
                     const check = getSlotValidationStatus(
                       d,
                       formData.staff_id || '',
-                      formData.slot_waktu_id || ''
+                      formData.slot_waktu_id || '',
+                      formData.slot_waktu_id_akhir || null
                     );
 
                     return (
@@ -1038,7 +1082,13 @@ export default function JadwalPage() {
 
                           const maxSlots = daySlots.length;
                           const insSessions = daySessions.filter((j) => j.staff_id === ins.id && j.status_sesi !== 'batal');
-                          const bookedCount = insSessions.length;
+                          const bookedCount = insSessions.reduce((acc, curr) => {
+                            let count = 1;
+                            if (curr.slot_waktu_id_akhir && curr.slot_waktu_id_akhir !== curr.slot_waktu_id) {
+                              count = 2;
+                            }
+                            return acc + count;
+                          }, 0);
                           const availCount = Math.max(0, maxSlots - bookedCount);
 
                           const activeStudentNames = insSessions
