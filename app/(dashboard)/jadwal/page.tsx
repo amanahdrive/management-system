@@ -396,12 +396,8 @@ export default function JadwalPage() {
         ).status !== 'available'
     );
 
-    if (hasConflictOrOff) {
-      alert(
-        'Terdapat tanggal sesi yang bentrok atau di luar hari kerja instruktur. Silakan klik tombol "Auto-Adjust Tanggal Bebas Bentrok" untuk menyesuaikan tanggal secara otomatis.'
-      );
-      return;
-    }
+    // Tidak lagi memblokir proses — warning akan ditampilkan langsung di list sesi
+    // Proses tetap berjalan; pengguna bisa edit tanggal lewat halaman detail
 
     const batchPayloads: Partial<JadwalSesi>[] = sessionDates.map((tgl, idx) => ({
       siswa_id: formData.siswa_id,
@@ -427,7 +423,47 @@ export default function JadwalPage() {
     {
       accessorKey: 'tanggal_sesi',
       header: 'Tanggal Sesi',
-      cell: ({ row }) => formatDateIndo(row.original.tanggal_sesi),
+      cell: ({ row }) => {
+        const sesi = row.original;
+        const check = sesi.staff_id && sesi.slot_waktu_id
+          ? getSlotValidationStatus(
+              sesi.tanggal_sesi,
+              sesi.staff_id,
+              sesi.slot_waktu_id,
+              sesi.slot_waktu_id_akhir || null
+            )
+          : null;
+
+        const isConflict = check?.status === 'conflict';
+        const isOff = check?.status === 'off';
+        const hasWarning = isConflict || isOff;
+
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className={`font-medium ${
+              isConflict ? 'text-[var(--danger)]' : isOff ? 'text-[var(--warning)]' : 'text-[var(--text-primary)]'
+            }`}>
+              {formatDateIndo(sesi.tanggal_sesi)}
+            </span>
+            {hasWarning && (
+              <Link
+                href={`/jadwal/${sesi.id}`}
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold w-fit ${
+                  isConflict
+                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 hover:bg-rose-200'
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400 hover:bg-amber-200'
+                }`}
+                title="Klik untuk edit tanggal sesi"
+              >
+                <AlertTriangle className="w-2.5 h-2.5" />
+                {isConflict
+                  ? `⚠ Bentrok${check?.studentName ? ` (${check.studentName})` : ''} — Edit`
+                  : '⚠ Hari Libur — Edit'}
+              </Link>
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'siswa',
@@ -921,6 +957,34 @@ export default function JadwalPage() {
                   })}
                 </div>
               </div>
+
+              {/* Warning Banner jika ada tanggal bermasalah */}
+              {(() => {
+                const problemCount = sessionDates.filter((d) => {
+                  const c = getSlotValidationStatus(
+                    d,
+                    formData.staff_id || '',
+                    formData.slot_waktu_id || '',
+                    formData.slot_waktu_id_akhir || null
+                  );
+                  return c.status !== 'available';
+                }).length;
+
+                if (problemCount === 0) return null;
+
+                return (
+                  <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                    <div className="text-xs text-amber-800 dark:text-amber-300">
+                      <span className="font-bold">{problemCount} sesi</span> memiliki tanggal{' '}
+                      <span className="font-semibold">bentrok atau hari libur instruktur</span>.{' '}
+                      Jadwal tetap akan disimpan — perbaiki tanggalnya melalui{' '}
+                      <span className="font-semibold">halaman detail sesi</span> setelah disimpan,
+                      atau gunakan <span className="font-semibold">Auto-Adjust</span> di atas.
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border)]">
                 <button
