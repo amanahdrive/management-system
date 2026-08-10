@@ -182,7 +182,7 @@ export default function JadwalPage() {
 
   // Smart Instructor Slot Validation & Collision Detection (Per-Day Flexible Slot Matrix)
   const getSlotValidationStatus = React.useCallback(
-    (dateStr: string, staffId: string, slotId: string, slotIdAkhir?: string | null) => {
+    (dateStr: string, staffId: string, slotId: string, slotIdAkhir?: string | null, excludeId?: string) => {
       if (!dateStr || !staffId || !slotId) return { status: 'available', message: 'Tersedia' };
 
       const dayIdx = getDayIndexFromDateStr(dateStr);
@@ -242,9 +242,11 @@ export default function JadwalPage() {
         if (endCheck) return endCheck;
       }
 
-      // 2. Check Double Booking Slot Collision (including double-slot overlays)
+      // 2. Check Double Booking Slot Collision
+      // excludeId: skip the current session itself to prevent self-conflict detection
       const conflict = monthlyJadwalList.find((j) => {
         if (j.tanggal_sesi !== dateStr || j.status_sesi === 'batal' || j.staff_id !== staffId) return false;
+        if (excludeId && j.id === excludeId) return false; // exclude self
 
         const jSlots = [j.slot_waktu_id];
         if (j.slot_waktu_id_akhir) jSlots.push(j.slot_waktu_id_akhir);
@@ -425,12 +427,14 @@ export default function JadwalPage() {
       header: 'Tanggal Sesi',
       cell: ({ row }) => {
         const sesi = row.original;
+        // Pass sesi.id as excludeId to prevent self-conflict detection
         const check = sesi.staff_id && sesi.slot_waktu_id
           ? getSlotValidationStatus(
               sesi.tanggal_sesi,
               sesi.staff_id,
               sesi.slot_waktu_id,
-              sesi.slot_waktu_id_akhir || null
+              sesi.slot_waktu_id_akhir || null,
+              sesi.id  // exclude self from conflict check
             )
           : null;
 
