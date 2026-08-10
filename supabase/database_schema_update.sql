@@ -102,8 +102,17 @@ CREATE INDEX IF NOT EXISTS idx_notifikasi_log_dikirim ON notifikasi_log(dikirim_
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- 4a. Pastikan kode_siswa unik di tabel siswa
-ALTER TABLE siswa
-  ADD CONSTRAINT IF NOT EXISTS siswa_kode_siswa_unique UNIQUE (kode_siswa);
+--     (PostgreSQL tidak mendukung ADD CONSTRAINT IF NOT EXISTS, gunakan DO block)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'siswa_kode_siswa_unique'
+      AND conrelid = 'siswa'::regclass
+  ) THEN
+    ALTER TABLE siswa ADD CONSTRAINT siswa_kode_siswa_unique UNIQUE (kode_siswa);
+  END IF;
+END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- VERIFIKASI (Optional — jalankan setelah script ini berhasil)
