@@ -94,12 +94,23 @@ export async function getJadwalBySiswa(siswaId: string): Promise<JadwalSesi[]> {
 export async function getJadwalConflictCheckList(): Promise<JadwalSesi[]> {
   try {
     const supabase = await createServerClient();
+    // Limit to a 120-day window (30 past + 90 future) for performance — avoids full table scan
+    const today = new Date();
+    const past = new Date(today); past.setDate(today.getDate() - 30);
+    const future = new Date(today); future.setDate(today.getDate() + 90);
+    const pastStr = past.toISOString().slice(0, 10);
+    const futureStr = future.toISOString().slice(0, 10);
+
     const { data, error } = await supabase
       .from('jadwal_sesi')
-      .select('*, siswa(*), instruktur:staff(*), slot_waktu:slot_waktu!slot_waktu_id(*)')
-      .neq('status_sesi', 'batal');
+      .select(
+        'id, siswa_id, staff_id, tanggal_sesi, slot_waktu_id, slot_waktu_id_akhir, status_sesi, nomor_sesi_ke, total_sesi_paket, siswa(id, nama, kode_siswa), instruktur:staff(id, nama), slot_waktu:slot_waktu!slot_waktu_id(id, nama_slot, jam_mulai, jam_selesai)'
+      )
+      .neq('status_sesi', 'batal')
+      .gte('tanggal_sesi', pastStr)
+      .lte('tanggal_sesi', futureStr);
 
-    if (!error && data) return data as JadwalSesi[];
+    if (!error && data) return data as unknown as JadwalSesi[];
   } catch (e) {
     console.error('Error fetching conflict check list:', e);
   }
@@ -113,6 +124,14 @@ export async function updateJadwalStatus(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createServerClient();
+
+    // Fetch the session first to get siswa_id for complete path revalidation
+    const { data: existing } = await supabase
+      .from('jadwal_sesi')
+      .select('siswa_id')
+      .eq('id', id)
+      .single();
+
     const { error } = await supabase
       .from('jadwal_sesi')
       .update({
@@ -124,8 +143,14 @@ export async function updateJadwalStatus(
 
     if (error) return { success: false, error: error.message };
 
+    // Full cross-section revalidation for progress sync
     revalidatePath('/jadwal');
-    revalidatePath(`/jadwal/${id}`);
+    revalidatePath('/instruktur');
+    revalidatePath('/dashboard');
+    revalidatePath('/siswa');
+    if (existing?.siswa_id) {
+      revalidatePath(`/jadwal/${existing.siswa_id}`);
+    }
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -206,6 +231,16 @@ export async function updateSesiProgress(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createServerClient();
+
+    // Fetch siswa data for accurate defaults (no hardcoding)
+    const { data: siswaRecord } = await supabase
+      .from('siswa')
+      .select('paket(jumlah_sesi)')
+      .eq('id', siswaId)
+      .single();
+
+    const totalSesiPaket = (siswaRecord?.paket as any)?.jumlah_sesi || 10;
+
     const { data: existing } = await supabase
       .from('jadwal_sesi')
       .select('id')
@@ -224,18 +259,24 @@ export async function updateSesiProgress(
         .eq('id', existing.id);
       if (error) return { success: false, error: error.message };
     } else {
+      // Use data from siswa record, not hardcoded defaults
       const { error } = await supabase.from('jadwal_sesi').insert({
         siswa_id: siswaId,
         nomor_sesi_ke: nomorSesiKe,
         tanggal_sesi: tanggalSesi,
         status_sesi: statusSesi,
-        total_sesi_paket: 10,
+        total_sesi_paket: totalSesiPaket,
         jenis_mobil: 'manual',
       });
       if (error) return { success: false, error: error.message };
     }
 
+    // Full sync revalidation
     revalidatePath('/jadwal');
+    revalidatePath(`/jadwal/${siswaId}`);
+    revalidatePath('/instruktur');
+    revalidatePath('/dashboard');
+    revalidatePath('/siswa');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };

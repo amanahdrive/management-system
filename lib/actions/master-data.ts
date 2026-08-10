@@ -287,8 +287,10 @@ export async function upsertKendaraanMaster(kendaraan: Partial<Kendaraan>): Prom
     const { data: saved, error } = await supabase.from('kendaraan').upsert(kendaraan).select().single();
     if (error || !saved) return { success: false, error: error?.message || 'Gagal menyimpan kendaraan' };
 
-    // Ensure status row exists
-    await supabase.from('kendaraan_status').insert({ kendaraan_id: saved.id }).single();
+    // Ensure status row exists (upsert to avoid duplicate key error on update)
+    await supabase
+      .from('kendaraan_status')
+      .upsert({ kendaraan_id: saved.id }, { onConflict: 'kendaraan_id', ignoreDuplicates: true });
 
     revalidatePath('/master-data/kendaraan');
     revalidatePath('/kendaraan');

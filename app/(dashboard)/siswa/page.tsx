@@ -7,6 +7,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Siswa, Paket, Promosi, StatusPembayaranMaster } from '@/types/database';
 import { deleteSiswa, getSiswaList, createOrUpdateSiswa, updateSiswaPayment } from '@/lib/actions/siswa';
 import { getPaketList, getPromosiList, getStatusPembayaranMaster } from '@/lib/actions/master-data';
+import { getJadwalBySiswa } from '@/lib/actions/jadwal';
 import { formatRupiah } from '@/lib/utils/currency';
 import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
 import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
@@ -21,6 +22,8 @@ export default function SiswaPage() {
   const [paketList, setPaketList] = React.useState<Paket[]>([]);
   const [promosiList, setPromosiList] = React.useState<Promosi[]>([]);
   const [statusList, setStatusList] = React.useState<StatusPembayaranMaster[]>([]);
+  // Track session completion per siswa: key=siswa_id, value={ selesai, total, hasPending }
+  const [siswaSessionMap, setSiswaSessionMap] = React.useState<Record<string, { selesai: number; total: number; hasPending: boolean }>>({});
   const [loading, setLoading] = React.useState(true);
 
   // Archive & Delete States
@@ -67,6 +70,24 @@ export default function SiswaPage() {
     setPaketList(pData);
     setPromosiList(prData);
     setStatusList(stData);
+
+    // Load session summary for all lunas students (for correct archive logic)
+    const lunasStudents = sData.filter((s) => s.status_pembayaran_kode === 'lunas');
+    if (lunasStudents.length > 0) {
+      const sessionResults = await Promise.all(
+        lunasStudents.map(async (s) => {
+          const sessions = await getJadwalBySiswa(s.id);
+          const activeSessions = sessions.filter((j) => j.status_sesi !== 'batal');
+          const selesai = activeSessions.filter((j) => j.status_sesi === 'selesai').length;
+          const total = activeSessions.length > 0 ? activeSessions[0].total_sesi_paket : s.paket?.jumlah_sesi || 0;
+          const hasPending = activeSessions.some((j) => j.status_sesi === 'terjadwal');
+          return { id: s.id, selesai, total, hasPending };
+        })
+      );
+      const map: Record<string, { selesai: number; total: number; hasPending: boolean }> = {};
+      sessionResults.forEach((r) => { map[r.id] = r; });
+      setSiswaSessionMap(map);
+    }
 
     if (pData.length > 0 && !formData.paket_id) {
       const defaultPaket = pData[0];
@@ -211,8 +232,15 @@ export default function SiswaPage() {
 
   const filteredData = siswaList.filter((s) => {
     const isLunas = s.status_pembayaran_kode === 'lunas';
-    if (!showArchived && isLunas) return false;
-    if (showArchived && !isLunas) return false;
+    // Smart archive: only truly archived if lunas AND all sessions completed (no pending)
+    const sessionInfo = siswaSessionMap[s.id];
+    const isFullyDone = isLunas && sessionInfo
+      ? (sessionInfo.selesai >= sessionInfo.total && !sessionInfo.hasPending && sessionInfo.total > 0)
+      : false;
+    const isArchivedStudent = isLunas && isFullyDone;
+
+    if (!showArchived && isArchivedStudent) return false;
+    if (showArchived && !isArchivedStudent) return false;
     if (filterStatus !== 'semua' && s.status_pembayaran_kode !== filterStatus) return false;
     if (filterPaket !== 'semua' && s.paket_id !== filterPaket) return false;
     return true;
