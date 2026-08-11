@@ -80,6 +80,10 @@ export default function JadwalPage() {
   const [isCopyWAModalOpen, setIsCopyWAModalOpen] = React.useState(false);
   const [waDateTarget, setWaDateTarget] = React.useState<string>(getTodayDateString());
 
+  // Recap Panel State
+  const [recapDate, setRecapDate] = React.useState(getTodayDateString());
+  const [recapStaff, setRecapStaff] = React.useState('semua');
+
   // Big Calendar State
   const [isBigCalendarOpen, setIsBigCalendarOpen] = React.useState(false);
   const [calCurrentYear, setCalCurrentYear] = React.useState(new Date().getFullYear());
@@ -840,6 +844,162 @@ export default function JadwalPage() {
           <DataTable columns={columns} data={displayJadwalList} searchKey="jadwal" />
         )}
       </div>
+
+      {/* ── Rekap Penyelesaian Slot Harian ── */}
+      {(() => {
+        // Compute recap from monthlyJadwalList (or jadwalList for selected date)
+        const recapSessions = monthlyJadwalList.filter((j) => {
+          if (j.tanggal_sesi !== recapDate) return false;
+          if (j.status_sesi === 'batal') return false;
+          if (recapStaff !== 'semua' && j.staff_id !== recapStaff) return false;
+          return true;
+        });
+
+        // Group by slot (using slot_waktu urutan for sorting)
+        const slotMap = new Map<string, {
+          slotId: string;
+          namaSlot: string;
+          jamMulai: string;
+          jamSelesai: string;
+          urutan: number;
+          sessions: typeof recapSessions;
+        }>();
+
+        recapSessions.forEach((j) => {
+          const slotId = j.slot_waktu_id;
+          const slot = j.slot_waktu;
+          if (!slotMap.has(slotId)) {
+            slotMap.set(slotId, {
+              slotId,
+              namaSlot: slot?.nama_slot || slotId,
+              jamMulai: slot?.jam_mulai?.substring(0, 5) || '',
+              jamSelesai: slot?.jam_selesai?.substring(0, 5) || '',
+              urutan: slot?.urutan ?? 99,
+              sessions: [],
+            });
+          }
+          slotMap.get(slotId)!.sessions.push(j);
+          // Also index in slot_akhir if double-slot
+          if (j.slot_waktu_id_akhir && j.slot_waktu_id_akhir !== slotId) {
+            const slotAkhirId = j.slot_waktu_id_akhir;
+            if (!slotMap.has(slotAkhirId)) {
+              const slotAkhir = j.slot_waktu_akhir;
+              slotMap.set(slotAkhirId, {
+                slotId: slotAkhirId,
+                namaSlot: slotAkhir?.nama_slot || slotAkhirId,
+                jamMulai: slotAkhir?.jam_mulai?.substring(0, 5) || '',
+                jamSelesai: slotAkhir?.jam_selesai?.substring(0, 5) || '',
+                urutan: slotAkhir?.urutan ?? 99,
+                sessions: [],
+              });
+            }
+            // Don't double-add; slot akhir is accounted in slot mulai
+          }
+        });
+
+        const sortedSlots = Array.from(slotMap.values()).sort((a, b) => a.urutan - b.urutan);
+        const totalSelesai = recapSessions.filter((j) => j.status_sesi === 'selesai').length;
+        const totalTerjadwal = recapSessions.filter((j) => j.status_sesi === 'terjadwal').length;
+
+        return (
+          <div className="card-container space-y-4">
+            {/* Header */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-bold text-sm text-[var(--text-primary)]">Rekap Penyelesaian Slot Harian</h3>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="w-40">
+                  <DatePickerWIB
+                    label="Pilih Tanggal"
+                    value={recapDate}
+                    onChange={(val) => setRecapDate(val)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-[var(--text-secondary)] mb-1 uppercase tracking-wide">Instruktur</label>
+                  <select
+                    value={recapStaff}
+                    onChange={(e) => setRecapStaff(e.target.value)}
+                    className="px-3 py-1.5 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+                  >
+                    <option value="semua">Semua Instruktur</option>
+                    {instrukturList.map((ins) => (
+                      <option key={ins.id} value={ins.id}>{ins.nama}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-3 text-xs font-medium">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span className="text-[var(--text-secondary)]">Selesai: <strong className="text-emerald-600">{totalSelesai}</strong></span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    <span className="text-[var(--text-secondary)]">Terjadwal: <strong className="text-amber-600">{totalTerjadwal}</strong></span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {sortedSlots.length === 0 ? (
+              <div className="py-8 text-center text-xs text-[var(--text-secondary)] font-medium">
+                Tidak ada sesi pada tanggal ini.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {sortedSlots.map((slotEntry) => {
+                  const selesai = slotEntry.sessions.filter((j) => j.status_sesi === 'selesai').length;
+                  const total = slotEntry.sessions.length;
+                  const pct = total > 0 ? Math.round((selesai / total) * 100) : 0;
+                  return (
+                    <div key={slotEntry.slotId} className="border border-[var(--border)] rounded-lg overflow-hidden">
+                      {/* Slot Header */}
+                      <div className={`px-3 py-2 flex items-center justify-between ${
+                        pct === 100 ? 'bg-emerald-50 dark:bg-emerald-950/30 border-b border-emerald-200 dark:border-emerald-900'
+                        : pct > 0   ? 'bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-900'
+                        : 'bg-[var(--bg-subtle)] border-b border-[var(--border)]'
+                      }`}>
+                        <div>
+                          <span className="font-bold text-xs text-[var(--text-primary)]">{slotEntry.namaSlot}</span>
+                          <span className="ml-2 text-[10px] text-[var(--text-secondary)]">
+                            {slotEntry.jamMulai}{slotEntry.jamSelesai ? `–${slotEntry.jamSelesai}` : ''} WIB
+                          </span>
+                        </div>
+                        <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
+                          pct === 100 ? 'bg-emerald-600 text-white' : pct > 0 ? 'bg-amber-500 text-white' : 'bg-[var(--text-muted)] text-white'
+                        }`}>
+                          {selesai}/{total}
+                        </span>
+                      </div>
+                      {/* Session List */}
+                      <div className="divide-y divide-[var(--border)]">
+                        {slotEntry.sessions.map((j) => (
+                          <div key={j.id} className="px-3 py-1.5 flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-xs text-[var(--text-primary)] truncate">{j.siswa?.nama || '-'}</p>
+                              <p className="text-[10px] text-[var(--text-secondary)]">
+                                {j.instruktur?.nama || '-'} • Sesi {j.nomor_sesi_ke}/{j.total_sesi_paket}
+                              </p>
+                            </div>
+                            <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              j.status_sesi === 'selesai' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
+                            }`}>
+                              {j.status_sesi === 'selesai' ? '✓ Selesai' : '⏳ Terjadwal'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* MODAL UPDATE PROGRESS SESI PER SISWA */}
       {progressModalJadwal && (

@@ -14,7 +14,7 @@ import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
-import { Plus, Eye, Edit2, Trash2, CreditCard, UserCheck, Archive } from 'lucide-react';
+import { Plus, Eye, Edit2, Trash2, CreditCard, UserCheck, Archive, Search, Filter, X, Calendar } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SiswaPage() {
@@ -33,6 +33,11 @@ export default function SiswaPage() {
   // Filter States
   const [filterStatus, setFilterStatus] = React.useState('semua');
   const [filterPaket, setFilterPaket] = React.useState('semua');
+  const [filterSumber, setFilterSumber] = React.useState('semua');
+  const [filterNama, setFilterNama] = React.useState('');
+  const [filterDateFrom, setFilterDateFrom] = React.useState('');
+  const [filterDateTo, setFilterDateTo] = React.useState('');
+  const [filterDateField, setFilterDateField] = React.useState<'tanggal_booking' | 'tanggal_rencana_mulai'>('tanggal_booking');
 
   // Modal State Tambah / Edit Data Diri
   const [isModalOpen, setIsModalOpen] = React.useState(false);
@@ -230,21 +235,42 @@ export default function SiswaPage() {
     }
   };
 
-  const filteredData = siswaList.filter((s) => {
-    const isLunas = s.status_pembayaran_kode === 'lunas';
-    // Smart archive: only truly archived if lunas AND all sessions completed (no pending)
-    const sessionInfo = siswaSessionMap[s.id];
-    const isFullyDone = isLunas && sessionInfo
-      ? (sessionInfo.selesai >= sessionInfo.total && !sessionInfo.hasPending && sessionInfo.total > 0)
-      : false;
-    const isArchivedStudent = isLunas && isFullyDone;
+  const filteredData = React.useMemo(() => {
+    return siswaList.filter((s) => {
+      const isLunas = s.status_pembayaran_kode === 'lunas';
+      const sessionInfo = siswaSessionMap[s.id];
+      const isFullyDone = isLunas && sessionInfo
+        ? (sessionInfo.selesai >= sessionInfo.total && !sessionInfo.hasPending && sessionInfo.total > 0)
+        : false;
+      const isArchivedStudent = isLunas && isFullyDone;
 
-    if (!showArchived && isArchivedStudent) return false;
-    if (showArchived && !isArchivedStudent) return false;
-    if (filterStatus !== 'semua' && s.status_pembayaran_kode !== filterStatus) return false;
-    if (filterPaket !== 'semua' && s.paket_id !== filterPaket) return false;
-    return true;
-  });
+      if (!showArchived && isArchivedStudent) return false;
+      if (showArchived && !isArchivedStudent) return false;
+      if (filterStatus !== 'semua' && s.status_pembayaran_kode !== filterStatus) return false;
+      if (filterPaket !== 'semua' && s.paket_id !== filterPaket) return false;
+      if (filterSumber !== 'semua' && s.sumber !== filterSumber) return false;
+
+      // Name/code search
+      if (filterNama.trim()) {
+        const q = filterNama.trim().toLowerCase();
+        const matchNama = s.nama.toLowerCase().includes(q);
+        const matchKode = (s.kode_siswa || '').toLowerCase().includes(q);
+        const matchWA = (s.no_whatsapp || '').includes(q);
+        if (!matchNama && !matchKode && !matchWA) return false;
+      }
+
+      // Date range filter
+      if (filterDateFrom || filterDateTo) {
+        const dateVal = filterDateField === 'tanggal_booking'
+          ? s.tanggal_booking
+          : s.tanggal_rencana_mulai;
+        if (filterDateFrom && dateVal < filterDateFrom) return false;
+        if (filterDateTo && dateVal > filterDateTo) return false;
+      }
+
+      return true;
+    });
+  }, [siswaList, siswaSessionMap, showArchived, filterStatus, filterPaket, filterSumber, filterNama, filterDateFrom, filterDateTo, filterDateField]);
 
   const exportColumns: ExportColumn[] = [
     { header: 'Kode Siswa', key: 'kode_siswa', width: 15 },
@@ -283,7 +309,24 @@ export default function SiswaPage() {
     {
       accessorKey: 'tanggal_booking',
       header: 'Tgl Booking',
-      cell: ({ row }) => formatDateIndo(row.original.tanggal_booking),
+      cell: ({ row }) => (
+        <div className="text-xs">
+          <div className="font-medium text-[var(--text-primary)]">{formatDateIndo(row.original.tanggal_booking)}</div>
+          <div className="text-[var(--text-muted)] mt-0.5">Booking</div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'tanggal_rencana_mulai',
+      header: 'Rencana Mulai',
+      cell: ({ row }) => (
+        <div className="text-xs">
+          <div className="font-semibold text-[var(--brand-primary)]">
+            {row.original.tanggal_rencana_mulai ? formatDateIndo(row.original.tanggal_rencana_mulai) : <span className="text-[var(--text-muted)] italic">Belum diset</span>}
+          </div>
+          <div className="text-[var(--text-muted)] mt-0.5">Rencana mulai</div>
+        </div>
+      ),
     },
     {
       accessorKey: 'harga_final',
@@ -386,38 +429,110 @@ export default function SiswaPage() {
         }
       />
 
-      {/* Filter Bar */}
-      <div className="card-container p-4 flex flex-wrap items-center gap-4 text-xs">
-        <div>
-          <label className="block text-[var(--text-secondary)] mb-1 font-medium">Filter Status Bayar</label>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)]"
-          >
-            <option value="semua">Semua Status</option>
-            {statusList.map((st) => (
-              <option key={st.id} value={st.kode}>
-                {st.label}
-              </option>
-            ))}
-          </select>
+      {/* ── Filter Bar ── */}
+      <div className="card-container space-y-3">
+        {/* Row 1: Search + Sumber */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-muted)]" />
+            <input
+              type="text"
+              placeholder="Cari nama, kode, atau WhatsApp..."
+              value={filterNama}
+              onChange={(e) => setFilterNama(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+            />
+            {filterNama && (
+              <button onClick={() => setFilterNama('')} className="absolute right-2 top-1/2 -translate-y-1/2">
+                <X className="w-3 h-3 text-[var(--text-muted)] hover:text-[var(--danger)]" />
+              </button>
+            )}
+          </div>
+
+          <div>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+            >
+              <option value="semua">Semua Status</option>
+              {statusList.map((st) => (
+                <option key={st.id} value={st.kode}>{st.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <select
+              value={filterPaket}
+              onChange={(e) => setFilterPaket(e.target.value)}
+              className="px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+            >
+              <option value="semua">Semua Paket</option>
+              {paketList.map((p) => (
+                <option key={p.id} value={p.id}>{p.nama_paket}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <select
+              value={filterSumber}
+              onChange={(e) => setFilterSumber(e.target.value)}
+              className="px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+            >
+              <option value="semua">Semua Sumber</option>
+              <option value="meta_ads">Meta Ads (FB/IG)</option>
+              <option value="tiktok">TikTok</option>
+              <option value="referensi">Referensi</option>
+              <option value="kustom">Lainnya</option>
+            </select>
+          </div>
+
+          <div className="ml-auto text-xs text-[var(--text-secondary)] font-medium">
+            <span className="font-bold text-[var(--text-primary)]">{filteredData.length}</span> siswa
+          </div>
         </div>
 
-        <div>
-          <label className="block text-[var(--text-secondary)] mb-1 font-medium">Filter Paket</label>
-          <select
-            value={filterPaket}
-            onChange={(e) => setFilterPaket(e.target.value)}
-            className="px-3 py-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)]"
-          >
-            <option value="semua">Semua Paket</option>
-            {paketList.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nama_paket}
-              </option>
-            ))}
-          </select>
+        {/* Row 2: Date Range Filter */}
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[var(--border)]">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+            <span className="text-xs font-semibold text-[var(--text-secondary)]">Filter Tanggal:</span>
+            <select
+              value={filterDateField}
+              onChange={(e) => setFilterDateField(e.target.value as any)}
+              className="px-2.5 py-1.5 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+            >
+              <option value="tanggal_booking">Tgl Booking</option>
+              <option value="tanggal_rencana_mulai">Rencana Mulai</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[var(--text-muted)]">Dari</span>
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="px-2.5 py-1.5 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+            />
+            <span className="text-xs text-[var(--text-muted)]">s/d</span>
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              className="px-2.5 py-1.5 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+            />
+            {(filterDateFrom || filterDateTo) && (
+              <button
+                onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); }}
+                className="flex items-center gap-1 px-2 py-1 text-xs text-rose-600 border border-rose-200 rounded-md hover:bg-rose-50"
+              >
+                <X className="w-3 h-3" /> Reset
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

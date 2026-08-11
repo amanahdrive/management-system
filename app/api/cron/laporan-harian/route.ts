@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sendTelegramMessage } from '@/lib/telegram/client';
-import { getTodayDateString } from '@/lib/utils/date';
+import { getTodayDateString, formatDateLongIndo } from '@/lib/utils/date';
 import { createServerClient } from '@/lib/supabase/server';
-import { formatDateLongIndo } from '@/lib/utils/date';
 
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -17,18 +16,27 @@ export async function GET(request: Request) {
   try {
     const supabase = await createServerClient();
 
-    // Fetch today's scheduled sessions with full details
+    // Fetch today's sessions — order by slot urutan for correct time ordering
     const { data: sessions, error: sessionsError } = await supabase
       .from('jadwal_sesi')
       .select(
-        'id, status_sesi, nomor_sesi_ke, total_sesi_paket, staff_id, siswa(nama, kode_siswa), instruktur:staff(id, nama), slot_waktu:slot_waktu!slot_waktu_id(nama_slot, jam_mulai, jam_selesai), slot_waktu_akhir:slot_waktu!slot_waktu_id_akhir(nama_slot, jam_selesai)'
+        `id, status_sesi, nomor_sesi_ke, total_sesi_paket, staff_id,
+         siswa(nama, kode_siswa),
+         instruktur:staff(id, nama),
+         slot_waktu:slot_waktu!slot_waktu_id(nama_slot, jam_mulai, jam_selesai, urutan),
+         slot_waktu_akhir:slot_waktu!slot_waktu_id_akhir(nama_slot, jam_selesai, urutan)`
       )
       .eq('tanggal_sesi', todayStr)
-      .neq('status_sesi', 'batal')
-      .order('staff_id')
-      .order('slot_waktu_id');
+      .neq('status_sesi', 'batal');
 
     if (sessionsError) throw sessionsError;
+
+    // Also fetch all active instructors to order them properly
+    const { data: instrukturDb } = await supabase
+      .from('staff')
+      .select('id, nama')
+      .eq('aktif', true)
+      .order('nama', { ascending: true });
 
     const activeSessions = sessions || [];
 
@@ -45,8 +53,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: result.success, messageId: result.messageId });
     }
 
-    // Group by instructor
+    // Group sessions by instructor
     const instrukturMap = new Map<string, { nama: string; sessions: typeof activeSessions }>();
+
     activeSessions.forEach((s) => {
       const instId = s.staff_id;
       const instNama = (s.instruktur as any)?.nama || 'Instruktur';
@@ -56,8 +65,30 @@ export async function GET(request: Request) {
       instrukturMap.get(instId)!.sessions.push(s);
     });
 
-    const lines: string[] = [];
+    // Sort each instructor's sessions by slot urutan
     instrukturMap.forEach((inst) => {
+      inst.sessions.sort((a, b) => {
+        const urutanA = (a.slot_waktu as any)?.urutan ?? 99;
+        const urutanB = (b.slot_waktu as any)?.urutan ?? 99;
+        return urutanA - urutanB;
+      });
+    });
+
+    // Order instructors alphabetically (using instrukturDb ordering)
+    const orderedInstrukturIds = (instrukturDb || [])
+      .filter((ins) => instrukturMap.has(ins.id))
+      .map((ins) => ins.id);
+
+    // Append any session instructors not in active staff list (edge case)
+    instrukturMap.forEach((_, id) => {
+      if (!orderedInstrukturIds.includes(id)) orderedInstrukturIds.push(id);
+    });
+
+    const lines: string[] = [];
+    orderedInstrukturIds.forEach((instId) => {
+      const inst = instrukturMap.get(instId);
+      if (!inst) return;
+
       lines.push(`\n<b>👤 ${inst.nama.toUpperCase()}</b>`);
       inst.sessions.forEach((s, i) => {
         const slot = s.slot_waktu as any;
@@ -69,26 +100,31 @@ export async function GET(request: Request) {
           ? slot.jam_selesai.substring(0, 5)
           : '-';
         const namaSlot = slot?.nama_slot || '-';
+        const namaSlotAkhir = slotAkhir?.nama_slot;
+        const slotLabel = namaSlotAkhir && namaSlotAkhir !== namaSlot
+          ? `${namaSlot} s/d ${namaSlotAkhir}`
+          : namaSlot;
         const siswa = s.siswa as any;
-        const nomorSesi = s.nomor_sesi_ke || '-';
-        const totalSesi = s.total_sesi_paket || '-';
+        const nomorSesi = s.nomor_sesi_ke ?? '-';
+        const totalSesi = s.total_sesi_paket ?? '-';
 
         lines.push(
           `  ${i + 1}. <b>${siswa?.nama || '-'}</b> (${siswa?.kode_siswa || '-'})\n` +
-          `     📍 ${namaSlot} — ${jamMulai}–${jamSelesai} WIB\n` +
+          `     🕐 ${slotLabel} — ${jamMulai}–${jamSelesai} WIB\n` +
           `     📊 Sesi ke-${nomorSesi} dari ${totalSesi}`
         );
       });
     });
 
     const totalSesi = activeSessions.length;
+    const totalInstruktur = instrukturMap.size;
     const message =
       `<b>☀️ JADWAL OPERASIONAL PAGI</b>\n` +
       `Tanggal: <b>${formatDateLongIndo(todayStr)}</b>\n` +
       `${'─'.repeat(30)}\n` +
       `${lines.join('\n')}\n\n` +
       `${'─'.repeat(30)}\n` +
-      `<b>📌 Total: ${totalSesi} Sesi</b> dari ${instrukturMap.size} instruktur\n` +
+      `<b>📌 Total: ${totalSesi} Sesi</b> oleh ${totalInstruktur} instruktur\n` +
       `🕕 Semangat bertugas! 💪`;
 
     const result = await sendTelegramMessage(

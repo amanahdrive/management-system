@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sendTelegramMessage } from '@/lib/telegram/client';
-import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
+import { getTodayDateString, formatDateIndo, formatDateLongIndo } from '@/lib/utils/date';
 import { createServerClient } from '@/lib/supabase/server';
 
 export async function GET(request: Request) {
@@ -17,45 +17,90 @@ export async function GET(request: Request) {
   try {
     const supabase = await createServerClient();
 
-    // Query today's sessions with student names — fix: use 'aktif' not 'is_active'
+    // Fetch all today's sessions with full joined data — include urutan for proper sort
     const { data: sessions } = await supabase
       .from('jadwal_sesi')
-      .select('*, instruktur:staff(id, nama), siswa(nama, kode_siswa), slot_waktu:slot_waktu!slot_waktu_id(nama_slot, jam_mulai)')
+      .select(
+        `id, status_sesi, nomor_sesi_ke, total_sesi_paket, staff_id,
+         siswa(nama, kode_siswa),
+         instruktur:staff(id, nama),
+         slot_waktu:slot_waktu!slot_waktu_id(nama_slot, jam_mulai, jam_selesai, urutan),
+         slot_waktu_akhir:slot_waktu!slot_waktu_id_akhir(nama_slot, jam_selesai, urutan)`
+      )
       .eq('tanggal_sesi', todayStr);
 
+    // Fetch active instructors ordered alphabetically for consistent listing
     const { data: staffList } = await supabase
       .from('staff')
       .select('id, nama')
-      .eq('aktif', true); // ← FIX: was `is_active`, correct column is `aktif`
+      .eq('aktif', true)
+      .order('nama', { ascending: true });
 
+    const allSessions = sessions || [];
     const instructors = staffList || [];
+
     let totalCompleted = 0;
     let totalTerjadwal = 0;
+    let totalBatal = 0;
     const breakdownLines: string[] = [];
 
     instructors.forEach((ins) => {
-      const insSessions = (sessions || []).filter((j) => j.staff_id === ins.id);
-      const completedSessions = insSessions.filter((j) => j.status_sesi === 'selesai');
-      const scheduledSessions = insSessions.filter((j) => j.status_sesi === 'terjadwal');
+      const insSessions = allSessions.filter((j) => j.staff_id === ins.id);
+      if (insSessions.length === 0) return;
+
+      // Sort sessions by slot urutan
+      const sorted = [...insSessions].sort((a, b) => {
+        const ua = (a.slot_waktu as any)?.urutan ?? 99;
+        const ub = (b.slot_waktu as any)?.urutan ?? 99;
+        return ua - ub;
+      });
+
+      const completedSessions = sorted.filter((j) => j.status_sesi === 'selesai');
+      const scheduledSessions = sorted.filter((j) => j.status_sesi === 'terjadwal');
+      const batalSessions = sorted.filter((j) => j.status_sesi === 'batal');
 
       totalCompleted += completedSessions.length;
       totalTerjadwal += scheduledSessions.length;
+      totalBatal += batalSessions.length;
 
-      if (insSessions.length === 0) return;
+      const activeSorted = sorted.filter((j) => j.status_sesi !== 'batal');
 
-      const sessionLines = completedSessions.map((j) => {
-        const namaSlot = j.slot_waktu?.nama_slot || '-';
-        const jamMulai = j.slot_waktu?.jam_mulai ? j.slot_waktu.jam_mulai.substring(0, 5) : '-';
-        return `  ✅ ${j.siswa?.nama || '-'} (${j.siswa?.kode_siswa || '-'}) — ${namaSlot} ${jamMulai} WIB`;
+      breakdownLines.push(
+        `\n<b>${ins.nama.toUpperCase()}</b> — ${completedSessions.length}/${activeSorted.length} Selesai`
+      );
+
+      activeSorted.forEach((j) => {
+        const slot = j.slot_waktu as any;
+        const slotAkhir = j.slot_waktu_akhir as any;
+        const jamMulai = slot?.jam_mulai ? slot.jam_mulai.substring(0, 5) : '-';
+        const jamSelesai = slotAkhir?.jam_selesai
+          ? slotAkhir.jam_selesai.substring(0, 5)
+          : slot?.jam_selesai
+          ? slot.jam_selesai.substring(0, 5)
+          : '-';
+
+        const namaSlot = slot?.nama_slot || '-';
+        const namaSlotAkhir = slotAkhir?.nama_slot;
+        const slotLabel = namaSlotAkhir && namaSlotAkhir !== namaSlot
+          ? `${namaSlot} s/d ${namaSlotAkhir}`
+          : namaSlot;
+
+        const icon = j.status_sesi === 'selesai' ? '✅' : '⏳';
+        const statusLabel = j.status_sesi === 'selesai' ? 'Selesai' : 'Belum diupdate';
+        const siswa = j.siswa as any;
+        const nomorSesi = j.nomor_sesi_ke ?? '-';
+        const totalSesi = j.total_sesi_paket ?? '-';
+
+        breakdownLines.push(
+          `  ${icon} <b>${siswa?.nama || '-'}</b> (${siswa?.kode_siswa || '-'})\n` +
+          `      🕐 ${slotLabel} ${jamMulai}–${jamSelesai} WIB • Sesi ke-${nomorSesi}/${totalSesi}\n` +
+          `      📌 ${statusLabel}`
+        );
       });
 
-      const pendingLines = scheduledSessions.map((j) => {
-        return `  ⏳ ${j.siswa?.nama || '-'} (${j.siswa?.kode_siswa || '-'}) — Belum Update`;
-      });
-
-      breakdownLines.push(`\n<b>${ins.nama.toUpperCase()}</b> (${completedSessions.length}/${insSessions.length} Selesai)`);
-      if (sessionLines.length > 0) breakdownLines.push(...sessionLines);
-      if (pendingLines.length > 0) breakdownLines.push(...pendingLines);
+      if (batalSessions.length > 0) {
+        breakdownLines.push(`  🚫 ${batalSessions.length} sesi dibatalkan`);
+      }
     });
 
     const statusIcon = totalTerjadwal === 0 ? '🟢' : '🟡';
@@ -63,10 +108,12 @@ export async function GET(request: Request) {
       `<b>📊 REKAP SESI HARIAN — MALAM</b>\n` +
       `Tanggal: <b>${dateFormatted}</b>\n` +
       `${'─'.repeat(30)}\n` +
-      `${breakdownLines.length > 0 ? breakdownLines.join('\n') : 'Tidak ada sesi hari ini.'}\n\n` +
+      `${breakdownLines.length > 0 ? breakdownLines.join('\n') : '  Tidak ada sesi hari ini.'}\n\n` +
       `${'─'.repeat(30)}\n` +
-      `${statusIcon} <b>Total Selesai: ${totalCompleted} Sesi</b>\n` +
-      (totalTerjadwal > 0 ? `⚠️ Belum diupdate: ${totalTerjadwal} sesi` : `✅ Semua sesi telah diperbarui`);
+      `${statusIcon} <b>Selesai: ${totalCompleted} Sesi</b>\n` +
+      (totalTerjadwal > 0
+        ? `⚠️ Belum diupdate: <b>${totalTerjadwal} sesi</b> — mohon segera update progress!`
+        : `✅ Semua sesi telah diperbarui hari ini`);
 
     const result = await sendTelegramMessage(
       message,
