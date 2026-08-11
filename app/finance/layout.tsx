@@ -2,13 +2,13 @@ import React from 'react';
 import type { Metadata, Viewport } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Portal Jadwal Instruktur — Amanah Drive',
-  description: 'Portal jadwal harian dan sesi mengemudi Instruktur Amanah Drive Palembang',
-  manifest: '/manifest-instruktur.json',
+  title: 'Portal Finance — Amanah Drive',
+  description: 'PWA Pencatatan Kas dan Keuangan Amanah Drive Palembang',
+  manifest: '/manifest-finance.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Instruktur AD',
+    title: 'Finance AD',
   },
   icons: {
     icon: '/assets/app-icon-1024.png',
@@ -24,9 +24,9 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-export default function InstrukturLayout({ children }: { children: React.ReactNode }) {
+export default function FinanceLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[var(--bg-subtle)] text-[var(--text-primary)] font-sans antialiased">
+    <div className="min-h-screen bg-[var(--bg)] text-[var(--text-primary)] font-sans antialiased transition-colors duration-200">
       {children}
     </div>
   );

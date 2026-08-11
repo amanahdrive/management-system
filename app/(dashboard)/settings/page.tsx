@@ -255,20 +255,15 @@ export default function SettingsPage() {
         <div className="card-container space-y-4">
           <h3 className="font-bold text-sm text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
             <Bell className="w-4 h-4 text-blue-600" />
-            Notifikasi Telegram & Laporan Harian
+            Notifikasi Telegram
           </h3>
-
-          <p className="text-xs text-[var(--text-secondary)]">
-            Laporan harian dikirim otomatis via Vercel Cron setiap jam <b>06:00 WIB</b> (00:00 UTC).
-          </p>
 
           <div className="space-y-2 text-xs">
             <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-md">
-              <span className="font-semibold text-[var(--text-primary)] block mb-1">Status Environment Variables:</span>
               <ul className="space-y-1 text-[var(--text-secondary)]">
-                <li>• TELEGRAM_BOT_TOKEN: {process.env.TELEGRAM_BOT_TOKEN ? 'Terpasang' : 'Terkonfigurasi di Vercel'}</li>
+                <li>• TELEGRAM_BOT_TOKEN: {process.env.TELEGRAM_BOT_TOKEN ? 'Terpasang' : 'Terkonfigurasi'}</li>
                 <li>• TELEGRAM_CHAT_ID: 8333108212</li>
-                <li>• Schedule Cron: 0 23 * * * (06.00 WIB)</li>
+                <li>• Jadwal Cron: 06.00 WIB (Harian)</li>
               </ul>
             </div>
 
@@ -309,10 +304,7 @@ export default function SettingsPage() {
 
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <p className="text-xs font-bold text-[var(--text-primary)]">Kosongkan Seluruh Data Sistem (Nol Data)</p>
-              <p className="text-xs text-[var(--text-secondary)] mt-1">
-                Tindakan ini akan mengosongkan seluruh data siswa, jadwal, kas, kendaraan, staff, jabatan, dan identitas perusahaan kembali menjadi 0.
-              </p>
+              <p className="text-xs font-bold text-[var(--text-primary)]">Kosongkan Seluruh Data Sistem</p>
             </div>
 
             <button

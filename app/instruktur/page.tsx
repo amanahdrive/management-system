@@ -7,6 +7,7 @@ import { getJadwalByTanggal, getJadwalByBulan, getJadwalConflictCheckList, getJa
 import { getTodayDateString, formatDateIndo, formatHariTanggalIndo } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
+import { PwaInstallModal } from '@/components/shared/PwaInstallModal';
 import {
   Calendar,
   UserCheck,
@@ -21,6 +22,7 @@ import {
   Sparkles,
   Download,
   Check,
+  X,
 } from 'lucide-react';
 
 const MONTH_NAMES_INDO = [
@@ -87,6 +89,7 @@ export default function InstrukturPortalPage() {
   // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
   const [showPwaPopup, setShowPwaPopup] = React.useState(false);
+  const [showInstallModal, setShowInstallModal] = React.useState(false);
 
   // 1. Timer for Live Greeting Clock
   React.useEffect(() => {
@@ -282,10 +285,6 @@ export default function InstrukturPortalPage() {
                 ))}
               </select>
             </div>
-
-            <p className="text-[11px] text-gray-400 italic text-center">
-              Pilihan nama instruktur akan tersimpan otomatis untuk akses berikutnya.
-            </p>
           </div>
         </div>
       </div>
@@ -722,39 +721,47 @@ export default function InstrukturPortalPage() {
         </div>
       )}
 
-      {/* MINIMALIST POPUP INSTALL PWA (BRAND COLORED) */}
+      {/* PWA INSTALL MODAL (IOS & ANDROID UNIVERSAL) */}
+      <PwaInstallModal
+        appName="Portal Instruktur — Amanah Drive"
+        appDescription="Jadwal mengemudi dan kontak siswa"
+        isOpen={showInstallModal}
+        onClose={() => setShowInstallModal(false)}
+        deferredPrompt={deferredPrompt}
+        onInstalled={() => showToast('Aplikasi instruktur berhasil dipasang!')}
+      />
+
+      {/* MINIMALIST POPUP INSTALL PWA */}
       {showPwaPopup && (
-        <div className="fixed bottom-4 left-4 right-4 z-50 max-w-md mx-auto p-4 rounded-2xl bg-[var(--bg)] border border-[var(--brand-primary)] shadow-2xl space-y-3 animate-in fade-in slide-in-from-bottom-4">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[var(--brand-primary-light)] text-[var(--brand-primary)] flex items-center justify-center shrink-0">
-              <Download className="w-5 h-5 text-[var(--brand-primary)]" />
+        <div className="fixed bottom-4 left-4 right-4 z-50 max-w-md mx-auto p-3.5 rounded-2xl bg-[var(--bg-subtle)] border border-[var(--brand-primary)] shadow-2xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-[var(--brand-primary-light)] text-[var(--brand-primary)] flex items-center justify-center shrink-0">
+              <Download className="w-4 h-4" />
             </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="text-xs font-extrabold text-[var(--text-primary)]">
-                Install Aplikasi Instruktur Amanah Drive
+            <div className="min-w-0">
+              <h4 className="text-xs font-bold text-[var(--text-primary)] truncate">
+                Pasang Aplikasi Instruktur
               </h4>
-              <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                Tambahkan ke layar utama HP Anda untuk akses cepat tanpa perlu membuka browser.
-              </p>
+              <p className="text-[10px] text-[var(--text-secondary)]">Akses cepat di layar utama HP</p>
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-1 border-t border-[var(--border)]">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={() => {
                 setShowPwaPopup(false);
                 sessionStorage.setItem('pwa_prompt_dismissed', 'true');
               }}
-              className="px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              className="p-1.5 text-xs text-[var(--text-secondary)]"
             >
-              Nanti Saja
+              <X className="w-4 h-4" />
             </button>
             <button
-              onClick={handleInstallPwa}
-              className="px-4 py-1.5 text-xs font-extrabold bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white rounded-xl shadow-md transition-all flex items-center gap-1.5"
+              onClick={() => setShowInstallModal(true)}
+              className="px-3.5 py-1.5 text-xs font-bold bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white rounded-xl shadow-md transition-all flex items-center gap-1"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Install Sekarang</span>
+              <span>Pasang</span>
             </button>
           </div>
         </div>

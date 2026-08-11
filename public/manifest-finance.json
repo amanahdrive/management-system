@@ -1,0 +1,32 @@
+{
+  "id": "/finance",
+  "name": "Portal Finance — Amanah Drive",
+  "short_name": "Finance",
+  "description": "Aplikasi pencatatan kas dan saldo keuangan Amanah Drive Palembang",
+  "start_url": "/finance",
+  "scope": "/finance",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#071413",
+  "theme_color": "#0F7A73",
+  "categories": ["finance", "business"],
+  "icons": [
+    {
+      "src": "/assets/app-icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "256x256",
+      "type": "image/x-icon"
+    }
+  ]
+}

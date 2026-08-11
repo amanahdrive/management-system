@@ -12,6 +12,8 @@ import { verifyKasPin } from '@/lib/actions/kas-pin';
 import { formatRupiah } from '@/lib/utils/currency';
 import { getTodayDateString, formatDateIndo, formatDateLongIndo } from '@/lib/utils/date';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
+import { ThemeToggle } from '@/components/shared/ThemeToggle';
+import { PwaInstallModal } from '@/components/shared/PwaInstallModal';
 import {
   TrendingUp,
   TrendingDown,
@@ -44,8 +46,8 @@ function fmt(n: number): string {
 }
 
 const JENIS_PEMBAYARAN_OPTIONS = [
-  { value: 'tunai', label: '💵 Tunai (Cash)', color: '#0F7A73' },
-  { value: 'non_tunai', label: '🏦 Non-Tunai (Transfer/QRIS)', color: '#2563EB' },
+  { value: 'tunai', label: '💵 Tunai (Cash)' },
+  { value: 'non_tunai', label: '🏦 Non-Tunai' },
 ];
 
 const TODAY = getTodayDateString();
@@ -58,7 +60,7 @@ const GREETING = (() => {
 })();
 
 export default function FinancePortalPage() {
-  // Auth gate – Synchronized with main system Kas PIN
+  // PIN Auth Gate
   const [pinVerified, setPinVerified] = React.useState(false);
   const [pinInput, setPinInput] = React.useState('');
   const [pinError, setPinError] = React.useState<string | null>(null);
@@ -78,11 +80,12 @@ export default function FinancePortalPage() {
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [toast, setToast] = React.useState<string | null>(null);
 
-  // PWA install state
+  // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
-  const [showInstallBanner, setShowInstallBanner] = React.useState(false);
+  const [showInstallModal, setShowInstallModal] = React.useState(false);
+  const [showPwaBanner, setShowPwaBanner] = React.useState(false);
 
-  // Add transaction bottom sheet
+  // Add Transaction Bottom Sheet
   const [showAddForm, setShowAddForm] = React.useState(false);
   const [formData, setFormData] = React.useState({
     tanggal: TODAY,
@@ -97,10 +100,10 @@ export default function FinancePortalPage() {
   });
   const [submitting, setSubmitting] = React.useState(false);
 
-  // Active Tab
+  // Tab State
   const [activeTab, setActiveTab] = React.useState<'dashboard' | 'riwayat'>('dashboard');
 
-  // ── Auth Check on Mount (Session valid for 8 hours) ──
+  // Check PIN session on mount (8-hour session)
   React.useEffect(() => {
     const saved = localStorage.getItem('amanah_finance_pin_ok');
     const savedTime = localStorage.getItem('amanah_finance_pin_time');
@@ -121,22 +124,31 @@ export default function FinancePortalPage() {
     loadData();
   }, [pinVerified]);
 
-  // ── PWA Install Prompt Listener ──
+  // PWA beforeinstallprompt Listener
   React.useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      if (!sessionStorage.getItem('fin_pwa_dismissed')) setShowInstallBanner(true);
+      if (!sessionStorage.getItem('fin_pwa_dismissed')) {
+        setShowPwaBanner(true);
+      }
     };
     window.addEventListener('beforeinstallprompt', handler);
-    const standalone = window.matchMedia('(display-mode: standalone)').matches;
-    if (!standalone && !sessionStorage.getItem('fin_pwa_dismissed')) {
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) setShowInstallBanner(true);
+
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+
+    if (!isStandalone && !sessionStorage.getItem('fin_pwa_dismissed')) {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        setShowPwaBanner(true);
+      }
     }
+
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  // ── Data Loading ──
+  // Load Data
   const loadData = async () => {
     setLoading(true);
     const [m, txList, kList] = await Promise.all([
@@ -157,7 +169,7 @@ export default function FinancePortalPage() {
     setIsRefreshing(true);
     await loadData();
     setIsRefreshing(false);
-    showToast('Data keuangan berhasil disinkronkan!');
+    showToast('Data kas berhasil diperbarui');
   };
 
   const showToast = (msg: string) => {
@@ -165,11 +177,11 @@ export default function FinancePortalPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // ── PIN Verification Handler ──
+  // PIN Verification
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pinInput.length !== 6) {
-      setPinError('PIN harus 6 digit angka');
+      setPinError('PIN harus 6 digit');
       return;
     }
 
@@ -185,7 +197,7 @@ export default function FinancePortalPage() {
       localStorage.setItem('amanah_finance_pin_time', Date.now().toString());
       setPinInput('');
     } else {
-      setPinError(res.error || 'PIN Kas salah!');
+      setPinError(res.error || 'PIN Salah');
       setPinInput('');
     }
   };
@@ -197,11 +209,11 @@ export default function FinancePortalPage() {
     setPinInput('');
   };
 
-  // ── Form Submit ──
+  // Submit Transaction
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.keterangan || formData.nominal <= 0) {
-      showToast('Mohon lengkapi nominal dan keterangan transaksi!');
+      showToast('Lengkapi nominal & keterangan');
       return;
     }
     setSubmitting(true);
@@ -211,29 +223,16 @@ export default function FinancePortalPage() {
     });
     setSubmitting(false);
     if (res.success) {
-      showToast(formData.tipe === 'pemasukan' ? '✅ Pemasukan kas berhasil dicatat!' : '✅ Pengeluaran kas berhasil dicatat!');
+      showToast(formData.tipe === 'pemasukan' ? 'Pemasukan tersimpan' : 'Pengeluaran tersimpan');
       setFormData((prev) => ({ ...prev, keterangan: '', nominal: 0 }));
       setShowAddForm(false);
       await loadData();
     } else {
-      showToast('❌ Gagal: ' + res.error);
+      showToast('Gagal: ' + res.error);
     }
   };
 
-  // ── PWA Install Action ──
-  const handleInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-      setDeferredPrompt(null);
-    } else {
-      alert('Untuk memasang di HP: Buka menu opsi browser (titik tiga atau tombol Share) lalu pilih "Tambahkan ke Layar Utama" / "Add to Home Screen".');
-    }
-    setShowInstallBanner(false);
-    sessionStorage.setItem('fin_pwa_dismissed', 'true');
-  };
-
-  // ── Computed 7-day Bar Chart ──
+  // 7-day Bar Chart Data
   const last7Days = React.useMemo(() => {
     const days: { date: string; masuk: number; keluar: number }[] = [];
     for (let i = 6; i >= 0; i--) {
@@ -253,38 +252,23 @@ export default function FinancePortalPage() {
   const maxBar = Math.max(...last7Days.map((d) => Math.max(d.masuk, d.keluar)), 1);
 
   // ────────────────────────────────────────
-  // RENDER: PIN Gate Screen (Amanah Brand)
+  // RENDER: PIN Gate Screen
   // ────────────────────────────────────────
   if (!pinVerified) {
     return (
-      <div className="fin-root min-h-screen flex items-center justify-center p-4">
-        <div className="fin-card max-w-sm w-full p-8 rounded-3xl space-y-6 text-center shadow-2xl border border-[var(--border-strong)]">
-          {/* Logo & Shield Icon */}
-          <div
-            className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
-            style={{
-              background: 'linear-gradient(135deg, rgba(15, 122, 115, 0.25), rgba(11, 37, 69, 0.4))',
-              border: '1.5px solid rgba(26, 173, 164, 0.4)',
-            }}
-          >
-            <Lock className="w-8 h-8 text-[#1AADA4]" />
+      <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg-subtle)] text-[var(--text-primary)]">
+        <div className="card-container max-w-sm w-full p-8 rounded-3xl space-y-6 text-center shadow-xl border border-[var(--border)]">
+          <div className="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center bg-[var(--brand-primary-light)] text-[var(--brand-primary)]">
+            <Lock className="w-7 h-7" />
           </div>
 
           <div>
-            <span className="text-[10px] uppercase font-bold tracking-widest text-[#1AADA4] px-2.5 py-1 rounded-full bg-[#1AADA4]/10 border border-[#1AADA4]/20 inline-block mb-2">
-              Amanah Drive Palembang
-            </span>
-            <h1 className="fin-display text-xl font-bold text-[#F0FAF9]">Portal Finance</h1>
-            <p className="fin-label text-xs mt-1 text-[#8EA8A5]">
-              Sistem Input & Monitoring Kas Operasional
-            </p>
+            <h1 className="text-xl font-bold text-[var(--text-primary)]">Portal Finance</h1>
+            <p className="text-xs text-[var(--text-secondary)] mt-1">Amanah Drive Palembang</p>
           </div>
 
-          <form onSubmit={handlePinSubmit} className="space-y-5">
+          <form onSubmit={handlePinSubmit} className="space-y-4">
             <div>
-              <label className="fin-label text-xs font-semibold mb-2 block text-[#8EA8A5]">
-                Masukkan 6 Digit PIN Kas
-              </label>
               <div className="relative">
                 <input
                   type="password"
@@ -296,40 +280,27 @@ export default function FinancePortalPage() {
                     setPinError(null);
                   }}
                   placeholder="••••••"
-                  className="fin-input w-full text-center text-2xl tracking-[0.35em] font-mono font-bold py-3.5 pl-10 pr-4 rounded-xl"
+                  className="w-full text-center text-2xl tracking-[0.3em] font-mono font-bold py-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-primary)]"
                   autoFocus
                 />
-                <KeyRound className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8EA8A5] opacity-50" />
+                <KeyRound className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] opacity-50" />
               </div>
 
               {pinError && (
-                <p className="text-xs mt-2 font-medium flex items-center justify-center gap-1.5 text-[#F43F5E] animate-shake">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
+                <p className="text-xs mt-2 font-medium flex items-center justify-center gap-1 text-[var(--danger)]">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   <span>{pinError}</span>
                 </p>
               )}
-
-              <p className="text-[11px] text-[#5A7774] mt-2.5">
-                PIN ini sama dengan PIN Kas di Dashboard Utama (dapat diubah di menu Pengaturan).
-              </p>
             </div>
 
             <button
               type="submit"
               disabled={pinLoading || pinInput.length !== 6}
-              className="fin-btn-primary w-full py-3.5 text-sm font-bold flex items-center justify-center gap-2 rounded-xl transition-all shadow-md disabled:opacity-50"
+              className="w-full py-3 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-sm font-bold flex items-center justify-center gap-2 rounded-xl transition-all shadow-md disabled:opacity-50"
             >
-              {pinLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Memverifikasi PIN...</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Buka Akses Finance</span>
-                </>
-              )}
+              {pinLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+              <span>{pinLoading ? 'Memverifikasi...' : 'Buka Akses Finance'}</span>
             </button>
           </form>
         </div>
@@ -338,227 +309,193 @@ export default function FinancePortalPage() {
   }
 
   // ────────────────────────────────────────
-  // RENDER: Main Finance Portal (Amanah Brand)
+  // RENDER: Main Finance Portal
   // ────────────────────────────────────────
   return (
-    <div className="fin-root min-h-screen pb-28 text-[#F0FAF9]">
-      {/* Toast Notification Alert */}
+    <div className="max-w-3xl mx-auto px-4 py-6 space-y-5 pb-28 min-h-screen bg-[var(--bg)] text-[var(--text-primary)]">
+      {/* Toast Alert */}
       {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full text-xs font-bold flex items-center gap-2 shadow-2xl fin-toast animate-in fade-in zoom-in-95">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-full shadow-lg flex items-center gap-2 animate-in fade-in">
           <Check className="w-4 h-4" />
           <span>{toast}</span>
         </div>
       )}
 
-      {/* PWA Install Banner */}
-      {showInstallBanner && (
-        <div className="fixed bottom-20 left-4 right-4 z-50 max-w-md mx-auto fin-card p-4 space-y-3 rounded-2xl border border-[#1AADA4]/30 shadow-2xl animate-in slide-in-from-bottom-4">
-          <div className="flex items-start gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: 'rgba(15, 122, 115, 0.2)', border: '1px solid rgba(26, 173, 164, 0.4)' }}
-            >
-              <Download className="w-5 h-5 text-[#1AADA4]" />
+      {/* PWA Install Modal (iOS + Android) */}
+      <PwaInstallModal
+        appName="Portal Finance — Amanah Drive"
+        appDescription="Pencatatan kas dan monitoring saldo realtime"
+        isOpen={showInstallModal}
+        onClose={() => setShowInstallModal(false)}
+        deferredPrompt={deferredPrompt}
+        onInstalled={() => showToast('Aplikasi finance berhasil dipasang!')}
+      />
+
+      {/* PWA Bottom Banner */}
+      {showPwaBanner && (
+        <div className="p-3.5 rounded-2xl bg-[var(--bg-subtle)] border border-[var(--brand-primary)] flex items-center justify-between gap-3 shadow-sm animate-in slide-in-from-bottom-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-[var(--brand-primary-light)] text-[var(--brand-primary)] flex items-center justify-center shrink-0">
+              <Download className="w-4 h-4" />
             </div>
-            <div>
-              <p className="text-xs font-bold text-[#F0FAF9]">Install PWA Finance Amanah Drive</p>
-              <p className="text-[11px] mt-0.5 text-[#8EA8A5]">
-                Tambahkan ke layar utama HP untuk akses cepat pencatatan kas tanpa browser.
-              </p>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-[var(--text-primary)] truncate">Pasang Aplikasi Finance</p>
+              <p className="text-[10px] text-[var(--text-secondary)]">Akses cepat di layar utama HP</p>
             </div>
           </div>
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#1A3B37]">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={() => {
-                setShowInstallBanner(false);
+                setShowPwaBanner(false);
                 sessionStorage.setItem('fin_pwa_dismissed', 'true');
               }}
-              className="px-3 py-1.5 text-xs font-semibold text-[#8EA8A5] hover:text-[#F0FAF9]"
+              className="p-1.5 text-xs text-[var(--text-secondary)]"
             >
-              Nanti Saja
+              <X className="w-4 h-4" />
             </button>
             <button
-              onClick={handleInstall}
-              className="fin-btn-primary px-4 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
+              onClick={() => setShowInstallModal(true)}
+              className="px-3 py-1.5 text-xs font-bold bg-[var(--brand-primary)] text-white rounded-xl hover:bg-[var(--brand-primary-dark)]"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>Install Sekarang</span>
+              Pasang
             </button>
           </div>
         </div>
       )}
 
       {/* ── HEADER ── */}
-      <header className="px-4 pt-6 pb-4 space-y-2">
+      <header className="p-4 rounded-2xl bg-[var(--bg-elevated)] border border-[var(--border)] shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-[#8EA8A5]">{GREETING}, Tim Finance</p>
-            <h1 className="fin-display font-extrabold text-base mt-0.5 text-[#F0FAF9] flex items-center gap-2">
-              <span>Amanah Drive Finance</span>
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#0F7A73]/30 text-[#1AADA4] border border-[#0F7A73]/40">
-                PWA
-              </span>
-            </h1>
+            <p className="text-xs font-semibold text-[var(--text-secondary)]">{GREETING}, Tim Finance</p>
+            <h1 className="text-sm font-extrabold text-[var(--brand-primary)] mt-0.5">Portal Kas & Keuangan</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="fin-icon-btn text-[#1AADA4]"
-              title="Sinkronkan Data Terkini"
+              className="p-2 rounded-lg border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-primary)]"
+              title="Refresh"
             >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[var(--brand-primary)]' : ''}`} />
             </button>
+
+            {/* LIGHT / DARK THEME TOGGLE */}
+            <ThemeToggle />
+
             <button
               onClick={handleLogout}
-              className="fin-icon-btn text-[#8EA8A5] hover:text-[#F43F5E]"
-              title="Kunci / Logout"
+              className="p-2 rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:text-rose-600 hover:border-rose-300"
+              title="Kunci / Keluar"
             >
               <Lock className="w-4 h-4" />
             </button>
           </div>
         </div>
-        <p className="text-xs text-[#8EA8A5] flex items-center gap-1">
-          <Clock className="w-3.5 h-3.5 text-[#1AADA4]" />
+        <p className="text-[11px] text-[var(--text-secondary)] flex items-center gap-1">
+          <Clock className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
           <span>{formatDateLongIndo(TODAY)}</span>
         </p>
       </header>
 
-      {/* ── BALANCE HERO CARD (Signature Teal to Navy Gradient) ── */}
-      <div className="px-4 mb-4">
-        <div className="fin-balance-hero rounded-[26px] p-6 relative overflow-hidden shadow-xl border border-[#1AADA4]/30">
-          {/* Luminous Glow Ambient Orbs */}
-          <div className="fin-glow-teal" />
-          <div className="fin-glow-navy" />
+      {/* ── BALANCE HERO CARD ── */}
+      <div className="rounded-3xl p-6 bg-gradient-to-br from-[#0F7A73] via-[#0c4a45] to-[#0B2545] text-white shadow-xl relative overflow-hidden">
+        <div className="flex items-center justify-between mb-1 text-xs font-bold uppercase tracking-wider text-emerald-100 opacity-90">
+          <span>Total Saldo Kas Aktif</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/20 text-white font-semibold">Real-Time</span>
+        </div>
 
-          <div className="flex items-center justify-between relative z-10 mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#A5E3DE]">
-              Total Saldo Kas Aktif
-            </span>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-black/20 text-[#A5E3DE] border border-white/10">
-              Live Real-Time
-            </span>
+        <p className="text-3xl font-extrabold tracking-tight tabular-nums mt-1">
+          {loading ? '...' : formatRupiah(metrics.saldoAktif)}
+        </p>
+
+        {/* Breakdown Tunai & Non-Tunai */}
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <div className="p-3 rounded-2xl bg-black/25 border border-white/10">
+            <div className="flex items-center gap-1.5 mb-1 text-[11px] font-bold text-emerald-200">
+              <Banknote className="w-4 h-4 text-emerald-300" />
+              <span>Kas Tunai</span>
+            </div>
+            <p className="text-sm font-extrabold tabular-nums">
+              {loading ? '...' : formatRupiah(metrics.saldoTunai)}
+            </p>
           </div>
 
-          <p
-            className="fin-display font-extrabold text-3xl relative z-10 text-white tracking-tight"
-            style={{ fontVariantNumeric: 'tabular-nums' }}
-          >
-            {loading ? 'Memuat...' : formatRupiah(metrics.saldoAktif)}
-          </p>
-
-          {/* Saldo Breakdown: Tunai vs Non-Tunai */}
-          <div className="mt-5 grid grid-cols-2 gap-3 relative z-10">
-            <div className="fin-sub-stat rounded-2xl p-3.5 transition-all">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Banknote className="w-4 h-4 text-[#1AADA4]" />
-                <span className="text-[11px] font-bold text-[#A5E3DE]">Kas Tunai</span>
-              </div>
-              <p
-                className="fin-display font-extrabold text-base"
-                style={{
-                  color: metrics.saldoTunai >= 0 ? '#10B981' : '#F43F5E',
-                  fontVariantNumeric: 'tabular-nums',
-                }}
-              >
-                {loading ? '...' : formatRupiah(metrics.saldoTunai)}
-              </p>
+          <div className="p-3 rounded-2xl bg-black/25 border border-white/10">
+            <div className="flex items-center gap-1.5 mb-1 text-[11px] font-bold text-blue-200">
+              <CreditCard className="w-4 h-4 text-blue-300" />
+              <span>Non-Tunai</span>
             </div>
-
-            <div className="fin-sub-stat rounded-2xl p-3.5 transition-all">
-              <div className="flex items-center gap-1.5 mb-1">
-                <CreditCard className="w-4 h-4 text-[#60A5FA]" />
-                <span className="text-[11px] font-bold text-[#BFDBFE]">Non-Tunai</span>
-              </div>
-              <p
-                className="fin-display font-extrabold text-base"
-                style={{
-                  color: metrics.saldoNonTunai >= 0 ? '#60A5FA' : '#F43F5E',
-                  fontVariantNumeric: 'tabular-nums',
-                }}
-              >
-                {loading ? '...' : formatRupiah(metrics.saldoNonTunai)}
-              </p>
-            </div>
+            <p className="text-sm font-extrabold tabular-nums">
+              {loading ? '...' : formatRupiah(metrics.saldoNonTunai)}
+            </p>
           </div>
         </div>
       </div>
 
       {/* ── QUICK METRIC CHIPS ── */}
-      <div className="px-4 mb-4 grid grid-cols-2 gap-3">
-        <div className="fin-card rounded-2xl p-4 space-y-1">
-          <div className="flex items-center gap-1.5">
-            <ArrowUpRight className="w-4 h-4 text-[#F59E0B]" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8EA8A5]">
-              Piutang Siswa
-            </span>
+      <div className="grid grid-cols-2 gap-3 text-xs">
+        <div className="card-container p-4 space-y-1">
+          <div className="flex items-center gap-1.5 text-amber-600 font-bold uppercase tracking-wider text-[10px]">
+            <ArrowUpRight className="w-3.5 h-3.5" />
+            <span>Piutang Siswa</span>
           </div>
-          <p
-            className="fin-display font-extrabold text-sm text-[#F59E0B]"
-            style={{ fontVariantNumeric: 'tabular-nums' }}
-          >
+          <p className="text-sm font-bold text-amber-600 tabular-nums">
             {loading ? '...' : formatRupiah(metrics.totalPiutang)}
           </p>
-          <p className="text-[10px] text-[#5A7774]">Tagihan belum lunas</p>
+          <p className="text-[10px] text-[var(--text-secondary)]">Belum lunas</p>
         </div>
 
-        <div className="fin-card rounded-2xl p-4 space-y-1">
-          <div className="flex items-center gap-1.5">
-            <ArrowDownRight className="w-4 h-4 text-[#F43F5E]" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8EA8A5]">
-              Sisa Hutang
-            </span>
+        <div className="card-container p-4 space-y-1">
+          <div className="flex items-center gap-1.5 text-rose-600 font-bold uppercase tracking-wider text-[10px]">
+            <ArrowDownRight className="w-3.5 h-3.5" />
+            <span>Sisa Hutang</span>
           </div>
-          <p
-            className="fin-display font-extrabold text-sm text-[#F43F5E]"
-            style={{ fontVariantNumeric: 'tabular-nums' }}
-          >
+          <p className="text-sm font-bold text-rose-600 tabular-nums">
             {loading ? '...' : formatRupiah(metrics.totalHutang)}
           </p>
-          <p className="text-[10px] text-[#5A7774]">Cicilan & pinjaman aktif</p>
+          <p className="text-[10px] text-[var(--text-secondary)]">Cicilan berjalan</p>
         </div>
       </div>
 
-      {/* ── TAB NAVIGATION ── */}
-      <div className="px-4 mb-4">
-        <div className="flex rounded-2xl p-1 bg-[#0E2321] border border-[#1A3B37]">
-          {[
-            { id: 'dashboard', label: 'Ringkasan & Grafik', icon: BarChart3 },
-            { id: 'riwayat', label: 'Riwayat Transaksi', icon: Clock },
-          ].map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  isActive
-                    ? 'bg-[#0F7A73] text-white shadow-md'
-                    : 'text-[#8EA8A5] hover:text-[#F0FAF9]'
-                }`}
-              >
-                <tab.icon className="w-4 h-4" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
+      {/* ── TAB NAV ── */}
+      <div className="flex rounded-2xl p-1 bg-[var(--bg-subtle)] border border-[var(--border)]">
+        {[
+          { id: 'dashboard', label: 'Ringkasan & Grafik', icon: BarChart3 },
+          { id: 'riwayat', label: 'Riwayat Transaksi', icon: Clock },
+        ].map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${
+                isActive
+                  ? 'bg-[var(--brand-primary)] text-white shadow-sm'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── TAB: DASHBOARD ── */}
       {activeTab === 'dashboard' && (
-        <div className="px-4 space-y-4">
+        <div className="space-y-4">
           {/* 7-day Bar Chart */}
-          <div className="fin-card rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-bold text-[#F0FAF9]">Arus Kas 7 Hari Terakhir</h3>
-              <div className="flex items-center gap-3 text-[10px] text-[#8EA8A5]">
+          <div className="card-container p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-[var(--text-primary)]">Arus Kas 7 Hari Terakhir</h3>
+              <div className="flex items-center gap-3 text-[10px] text-[var(--text-secondary)]">
                 <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-full inline-block bg-[#10B981]"></span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
                   Masuk
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-full inline-block bg-[#F43F5E]"></span>
+                  <span className="w-2 h-2 rounded-full bg-rose-600"></span>
                   Keluar
                 </span>
               </div>
@@ -576,27 +513,17 @@ export default function FinancePortalPage() {
                   <div key={day.date} className="flex-1 flex flex-col items-center gap-1.5">
                     <div className="w-full flex items-end justify-center gap-1" style={{ height: '95px' }}>
                       <div
-                        className="w-[45%] rounded-t-md transition-all"
-                        style={{
-                          height: `${masukH}%`,
-                          background: isToday ? '#10B981' : 'rgba(16, 185, 129, 0.45)',
-                          minHeight: 3,
-                        }}
-                        title={`Masuk: ${formatRupiah(day.masuk)}`}
+                        className="w-[45%] rounded-t-md transition-all bg-emerald-500/80"
+                        style={{ height: `${masukH}%`, minHeight: 3 }}
                       />
                       <div
-                        className="w-[45%] rounded-t-md transition-all"
-                        style={{
-                          height: `${keluarH}%`,
-                          background: 'rgba(244, 63, 94, 0.55)',
-                          minHeight: 3,
-                        }}
-                        title={`Keluar: ${formatRupiah(day.keluar)}`}
+                        className="w-[45%] rounded-t-md transition-all bg-rose-500/80"
+                        style={{ height: `${keluarH}%`, minHeight: 3 }}
                       />
                     </div>
                     <span
                       className={`text-[9.5px] font-bold ${
-                        isToday ? 'text-[#1AADA4] underline underline-offset-2' : 'text-[#8EA8A5]'
+                        isToday ? 'text-[var(--brand-primary)]' : 'text-[var(--text-secondary)]'
                       }`}
                     >
                       {isToday ? 'Hari ini' : dayLabel}
@@ -608,62 +535,52 @@ export default function FinancePortalPage() {
           </div>
 
           {/* Today's Transactions */}
-          <div className="fin-card rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between border-b border-[#1A3B37] pb-2">
-              <h3 className="text-xs font-bold text-[#F0FAF9] flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-[#1AADA4]" />
-                <span>Transaksi Kas Hari Ini</span>
+          <div className="card-container p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+              <h3 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                <span>Transaksi Hari Ini</span>
               </h3>
-              <span className="text-[10px] text-[#8EA8A5] font-semibold">
-                {recentTx.filter((t) => t.tanggal === TODAY).length} transaksi
+              <span className="text-[10px] text-[var(--text-secondary)] font-semibold">
+                {recentTx.filter((t) => t.tanggal === TODAY).length} data
               </span>
             </div>
 
             {(() => {
               const todayTx = recentTx.filter((t) => t.tanggal === TODAY);
-              if (loading) return <div className="h-20 fin-skeleton rounded-xl" />;
+              if (loading) return <div className="h-16 animate-pulse bg-black/5 dark:bg-white/5 rounded-xl" />;
               if (todayTx.length === 0) {
-                return (
-                  <div className="text-center py-6 space-y-1">
-                    <p className="text-xs font-medium text-[#8EA8A5]">Belum ada transaksi kas yang dicatat hari ini.</p>
-                    <p className="text-[11px] text-[#5A7774]">Tekan tombol (+) di bawah untuk mencatat transaksi baru.</p>
-                  </div>
-                );
+                return <p className="text-xs text-center py-5 text-[var(--text-secondary)]">Tidak ada transaksi hari ini.</p>;
               }
               return (
                 <div className="space-y-2">
                   {todayTx.map((tx) => (
-                    <div key={tx.id} className="fin-tx-row flex items-center gap-3 p-3 rounded-xl">
-                      <div
-                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                        style={{
-                          background: tx.tipe === 'pemasukan' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)',
-                        }}
-                      >
-                        {tx.tipe === 'pemasukan' ? (
-                          <TrendingUp className="w-4 h-4 text-[#10B981]" />
-                        ) : (
-                          <TrendingDown className="w-4 h-4 text-[#F43F5E]" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-[#F0FAF9] truncate">{tx.keterangan}</p>
-                        <p className="text-[10px] text-[#8EA8A5] mt-0.5">
-                          {tx.kategori.replace(/_/g, ' ').toUpperCase()} •{' '}
-                          <span
-                            className={`px-1.5 py-0.2 rounded font-semibold ${
-                              (tx.jenis_pembayaran || 'tunai') === 'tunai'
-                                ? 'bg-[#0F7A73]/20 text-[#1AADA4]'
-                                : 'bg-blue-900/30 text-blue-400'
-                            }`}
-                          >
-                            {(tx.jenis_pembayaran || 'tunai') === 'tunai' ? '💵 Tunai' : '🏦 Non-Tunai'}
-                          </span>
-                        </p>
+                    <div
+                      key={tx.id}
+                      className="flex items-center justify-between p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)]"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                            tx.tipe === 'pemasukan' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400'
+                          }`}
+                        >
+                          {tx.tipe === 'pemasukan' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-[var(--text-primary)] truncate">{tx.keterangan}</p>
+                          <p className="text-[10px] text-[var(--text-secondary)]">
+                            {tx.kategori.replace(/_/g, ' ').toUpperCase()} •{' '}
+                            <span className="font-semibold">
+                              {(tx.jenis_pembayaran || 'tunai') === 'tunai' ? '💵 Tunai' : '🏦 Non-Tunai'}
+                            </span>
+                          </p>
+                        </div>
                       </div>
                       <span
-                        className="fin-display text-xs font-bold tabular-nums shrink-0"
-                        style={{ color: tx.tipe === 'pemasukan' ? '#10B981' : '#F43F5E' }}
+                        className={`text-xs font-extrabold tabular-nums shrink-0 ml-2 ${
+                          tx.tipe === 'pemasukan' ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'
+                        }`}
                       >
                         {tx.tipe === 'pemasukan' ? '+' : '−'} {fmt(tx.nominal)}
                       </span>
@@ -678,52 +595,47 @@ export default function FinancePortalPage() {
 
       {/* ── TAB: RIWAYAT ── */}
       {activeTab === 'riwayat' && (
-        <div className="px-4 space-y-2">
-          <p className="text-xs font-semibold mb-2 text-[#8EA8A5]">30 Catatan Transaksi Kas Terbaru</p>
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-[var(--text-secondary)]">30 Transaksi Terbaru</p>
           {loading ? (
             <div className="space-y-2">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-16 fin-skeleton rounded-xl" />
+                <div key={i} className="h-16 animate-pulse bg-black/5 dark:bg-white/5 rounded-xl" />
               ))}
             </div>
           ) : recentTx.length === 0 ? (
-            <div className="fin-card rounded-2xl p-8 text-center text-xs text-[#8EA8A5]">
-              Belum ada riwayat transaksi kas tercatat.
+            <div className="card-container p-8 text-center text-xs text-[var(--text-secondary)]">
+              Belum ada riwayat transaksi.
             </div>
           ) : (
             <div className="space-y-2">
               {recentTx.map((tx) => (
-                <div key={tx.id} className="fin-tx-row flex items-center gap-3 p-3 rounded-xl fin-card">
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                    style={{
-                      background: tx.tipe === 'pemasukan' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)',
-                    }}
-                  >
-                    {tx.tipe === 'pemasukan' ? (
-                      <TrendingUp className="w-4 h-4 text-[#10B981]" />
-                    ) : (
-                      <TrendingDown className="w-4 h-4 text-[#F43F5E]" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-[#F0FAF9] truncate">{tx.keterangan}</p>
-                    <p className="text-[10px] text-[#8EA8A5] mt-0.5">
-                      {formatDateIndo(tx.tanggal)} • {tx.kategori.replace(/_/g, ' ').toUpperCase()} •{' '}
-                      <span
-                        className={`px-1.5 py-0.2 rounded font-semibold ${
-                          (tx.jenis_pembayaran || 'tunai') === 'tunai'
-                            ? 'bg-[#0F7A73]/20 text-[#1AADA4]'
-                            : 'bg-blue-900/30 text-blue-400'
-                        }`}
-                      >
-                        {(tx.jenis_pembayaran || 'tunai') === 'tunai' ? '💵 Tunai' : '🏦 Non-Tunai'}
-                      </span>
-                    </p>
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between p-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border)]"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        tx.tipe === 'pemasukan' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400'
+                      }`}
+                    >
+                      {tx.tipe === 'pemasukan' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-[var(--text-primary)] truncate">{tx.keterangan}</p>
+                      <p className="text-[10px] text-[var(--text-secondary)]">
+                        {formatDateIndo(tx.tanggal)} • {tx.kategori.replace(/_/g, ' ').toUpperCase()} •{' '}
+                        <span className="font-semibold">
+                          {(tx.jenis_pembayaran || 'tunai') === 'tunai' ? '💵 Tunai' : '🏦 Non-Tunai'}
+                        </span>
+                      </p>
+                    </div>
                   </div>
                   <span
-                    className="fin-display text-xs font-bold tabular-nums shrink-0"
-                    style={{ color: tx.tipe === 'pemasukan' ? '#10B981' : '#F43F5E' }}
+                    className={`text-xs font-extrabold tabular-nums shrink-0 ml-2 ${
+                      tx.tipe === 'pemasukan' ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'
+                    }`}
                   >
                     {tx.tipe === 'pemasukan' ? '+' : '−'} {fmt(tx.nominal)}
                   </span>
@@ -737,64 +649,59 @@ export default function FinancePortalPage() {
       {/* ── FLOATING ACTION BUTTON (+) ── */}
       <button
         onClick={() => setShowAddForm(true)}
-        className="fixed bottom-6 right-4 w-14 h-14 rounded-full flex items-center justify-center z-40 transition-transform active:scale-95 shadow-2xl fin-fab"
-        title="Catat Transaksi Kas Baru"
+        className="fixed bottom-6 right-4 w-14 h-14 rounded-full bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white flex items-center justify-center z-40 transition-transform active:scale-95 shadow-xl"
+        title="Catat Transaksi"
       >
-        <Plus className="w-7 h-7 text-white" />
+        <Plus className="w-7 h-7" />
       </button>
 
       {/* ── ADD TRANSACTION BOTTOM SHEET ── */}
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setShowAddForm(false)} />
-          <div className="relative w-full max-w-lg fin-sheet rounded-t-3xl p-6 space-y-4 max-h-[90vh] overflow-y-auto border-t border-[#1AADA4]/30 shadow-2xl animate-in slide-in-from-bottom-6">
-            {/* Sheet Handle */}
-            <div className="w-12 h-1 rounded-full mx-auto mb-2 bg-[#1A3B37]" />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddForm(false)} />
+          <div className="relative w-full max-w-lg bg-[var(--bg-elevated)] border-t border-[var(--border)] rounded-t-3xl p-6 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl animate-in slide-in-from-bottom-6 text-xs">
+            <div className="w-12 h-1 rounded-full mx-auto mb-2 bg-[var(--border-strong)]" />
 
-            <div className="flex items-center justify-between border-b border-[#1A3B37] pb-3">
-              <h3 className="fin-display font-extrabold text-base text-[#F0FAF9] flex items-center gap-2">
-                <Wallet className="w-5 h-5 text-[#1AADA4]" />
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <h3 className="font-bold text-sm text-[var(--text-primary)] flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-[var(--brand-primary)]" />
                 <span>Catat Transaksi Kas</span>
               </h3>
-              <button onClick={() => setShowAddForm(false)} className="fin-icon-btn">
-                <X className="w-4 h-4 text-[#8EA8A5]" />
+              <button onClick={() => setShowAddForm(false)} className="p-1 rounded text-[var(--text-secondary)]">
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              {/* Tipe Toggle: Pengeluaran vs Pemasukan */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Tipe */}
               <div>
-                <label className="block text-xs font-semibold mb-1.5 text-[#8EA8A5]">Tipe Transaksi *</label>
-                <div className="flex rounded-xl p-1 bg-[#0E2321] border border-[#1A3B37]">
+                <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">Tipe Transaksi *</label>
+                <div className="flex rounded-xl p-1 bg-[var(--bg-subtle)] border border-[var(--border)]">
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, tipe: 'pengeluaran' })}
-                    className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                      formData.tipe === 'pengeluaran'
-                        ? 'bg-[#F43F5E] text-white shadow-md'
-                        : 'text-[#8EA8A5] hover:text-white'
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                      formData.tipe === 'pengeluaran' ? 'bg-rose-600 text-white shadow-sm' : 'text-[var(--text-secondary)]'
                     }`}
                   >
-                    − Pengeluaran Kas
+                    − Pengeluaran
                   </button>
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, tipe: 'pemasukan' })}
-                    className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                      formData.tipe === 'pemasukan'
-                        ? 'bg-[#10B981] text-white shadow-md'
-                        : 'text-[#8EA8A5] hover:text-white'
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                      formData.tipe === 'pemasukan' ? 'bg-emerald-600 text-white shadow-sm' : 'text-[var(--text-secondary)]'
                     }`}
                   >
-                    + Pemasukan Kas
+                    + Pemasukan
                   </button>
                 </div>
               </div>
 
-              {/* Jenis Pembayaran: Tunai vs Non-Tunai */}
+              {/* Jenis Pembayaran */}
               <div>
-                <label className="block text-xs font-semibold mb-1.5 text-[#8EA8A5]">Jenis Pembayaran *</label>
-                <div className="flex rounded-xl p-1 bg-[#0E2321] border border-[#1A3B37]">
+                <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">Jenis Pembayaran *</label>
+                <div className="flex rounded-xl p-1 bg-[var(--bg-subtle)] border border-[var(--border)]">
                   {JENIS_PEMBAYARAN_OPTIONS.map((opt) => {
                     const isSelected = formData.jenis_pembayaran === opt.value;
                     return (
@@ -802,10 +709,8 @@ export default function FinancePortalPage() {
                         key={opt.value}
                         type="button"
                         onClick={() => setFormData({ ...formData, jenis_pembayaran: opt.value as any })}
-                        className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                          isSelected
-                            ? 'bg-[#0F7A73] text-white shadow-md'
-                            : 'text-[#8EA8A5] hover:text-white'
+                        className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                          isSelected ? 'bg-[var(--brand-primary)] text-white shadow-sm' : 'text-[var(--text-secondary)]'
                         }`}
                       >
                         {opt.label}
@@ -815,216 +720,76 @@ export default function FinancePortalPage() {
                 </div>
               </div>
 
-              {/* Nominal Currency Input */}
+              {/* Nominal */}
               <div>
-                <label className="block text-xs font-semibold mb-1.5 text-[#8EA8A5]">Nominal Rupiah (Rp) *</label>
-                <div className="fin-input-wrap">
-                  <CurrencyInput
-                    label=""
-                    value={formData.nominal}
-                    onChange={(val) => setFormData({ ...formData, nominal: val })}
-                  />
-                </div>
+                <CurrencyInput
+                  label="Nominal Rupiah (Rp) *"
+                  value={formData.nominal}
+                  onChange={(val) => setFormData({ ...formData, nominal: val })}
+                />
               </div>
 
-              {/* Tanggal Transaksi */}
+              {/* Tanggal */}
               <div>
-                <label className="block text-xs font-semibold mb-1.5 text-[#8EA8A5]">Tanggal Transaksi *</label>
+                <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">Tanggal Transaksi *</label>
                 <input
                   type="date"
                   value={formData.tanggal}
                   onChange={(e) => setFormData({ ...formData, tanggal: e.target.value })}
-                  className="fin-input w-full"
+                  className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] text-xs"
                 />
               </div>
 
               {/* Kategori */}
               <div>
-                <label className="block text-xs font-semibold mb-1.5 text-[#8EA8A5]">Kategori Kas *</label>
+                <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">Kategori Kas *</label>
                 <div className="relative">
                   <select
                     value={formData.kategori}
                     onChange={(e) => setFormData({ ...formData, kategori: e.target.value })}
-                    className="fin-input w-full appearance-none pr-8 capitalize"
+                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] text-xs appearance-none pr-8"
                   >
                     {kategoriList.map((k) => (
-                      <option key={k.id} value={k.nama_kategori} className="bg-[#0E2321] text-white">
+                      <option key={k.id} value={k.nama_kategori}>
                         {k.nama_kategori.replace(/_/g, ' ').toUpperCase()}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-[#8EA8A5]" />
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-[var(--text-secondary)]" />
                 </div>
               </div>
 
-              {/* Keterangan Transaksi */}
+              {/* Keterangan */}
               <div>
-                <label className="block text-xs font-semibold mb-1.5 text-[#8EA8A5]">Keterangan Transaksi *</label>
+                <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">Keterangan Transaksi *</label>
                 <input
                   type="text"
                   required
                   value={formData.keterangan}
                   onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
-                  placeholder="Misal: Pembelian BBM Avanza / Pembayaran Kursus"
-                  className="fin-input w-full"
+                  placeholder="Keterangan transaksi"
+                  className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] text-xs"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="fin-btn-primary w-full py-3.5 rounded-xl font-bold text-sm transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg mt-2"
+                className="w-full py-3 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md disabled:opacity-60 transition-all"
               >
                 {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Menyimpan ke Database...</span>
-                  </>
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 ) : formData.tipe === 'pemasukan' ? (
-                  <>
-                    <TrendingUp className="w-4 h-4" />
-                    <span>+ Simpan Pemasukan Kas</span>
-                  </>
+                  <TrendingUp className="w-4 h-4" />
                 ) : (
-                  <>
-                    <TrendingDown className="w-4 h-4" />
-                    <span>− Simpan Pengeluaran Kas</span>
-                  </>
+                  <TrendingDown className="w-4 h-4" />
                 )}
+                <span>{submitting ? 'Menyimpan...' : 'Simpan Transaksi Kas'}</span>
               </button>
             </form>
           </div>
         </div>
       )}
-
-      {/* ── STYLES (Amanah Drive Brand System) ── */}
-      <style>{`
-        .fin-root {
-          background: #071413;
-          font-family: var(--font-inter), 'Inter', -apple-system, sans-serif;
-        }
-        .fin-display {
-          font-family: var(--font-space-grotesk), var(--font-inter), sans-serif;
-          font-variant-numeric: tabular-nums;
-        }
-        .fin-label {
-          font-family: var(--font-inter), sans-serif;
-        }
-        .fin-card {
-          background: #0F2220;
-          border: 1px solid #1A3B37;
-        }
-        .fin-balance-hero {
-          background: linear-gradient(135deg, #0F7A73 0%, #0c3d38 50%, #0B2545 100%);
-          border: 1px solid rgba(26, 173, 164, 0.35);
-          position: relative;
-          overflow: hidden;
-        }
-        .fin-glow-teal {
-          position: absolute;
-          top: -40px;
-          right: -20px;
-          width: 170px;
-          height: 170px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(26, 173, 164, 0.45) 0%, transparent 70%);
-          pointer-events: none;
-        }
-        .fin-glow-navy {
-          position: absolute;
-          bottom: -30px;
-          left: 20px;
-          width: 140px;
-          height: 140px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(11, 37, 69, 0.7) 0%, transparent 70%);
-          pointer-events: none;
-        }
-        .fin-sub-stat {
-          background: rgba(0, 0, 0, 0.25);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-        }
-        .fin-icon-btn {
-          width: 38px;
-          height: 38px;
-          border-radius: 12px;
-          border: 1px solid #1A3B37;
-          background: #0F2220;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.15s ease-in-out;
-        }
-        .fin-icon-btn:hover {
-          background: #14302D;
-          border-color: #1AADA4;
-        }
-        .fin-btn-primary {
-          background: #0F7A73;
-          color: #FFFFFF;
-          border: none;
-          border-radius: 12px;
-          font-weight: 700;
-          transition: all 0.15s ease-in-out;
-        }
-        .fin-btn-primary:hover {
-          background: #0A5954;
-        }
-        .fin-fab {
-          background: #0F7A73;
-          box-shadow: 0 8px 25px rgba(15, 122, 115, 0.45);
-        }
-        .fin-fab:hover {
-          background: #0A5954;
-        }
-        .fin-input {
-          background: #0E2321;
-          border: 1px solid #1A3B37;
-          border-radius: 12px;
-          padding: 12px 16px;
-          font-size: 13px;
-          outline: none;
-          width: 100%;
-          transition: border-color 0.15s;
-          color: #F0FAF9;
-        }
-        .fin-input:focus {
-          border-color: #1AADA4;
-          box-shadow: 0 0 0 2px rgba(26, 173, 164, 0.2);
-        }
-        .fin-input::placeholder {
-          color: #5A7774;
-        }
-        .fin-sheet {
-          background: #071413;
-          border-top: 1px solid #1A3B37;
-        }
-        .fin-tx-row {
-          background: #0E2321;
-          border: 1px solid #1A3B37;
-          transition: background 0.15s;
-        }
-        .fin-tx-row:hover {
-          background: #132D2A;
-        }
-        .fin-toast {
-          background: #0F7A73;
-          color: #FFFFFF;
-          border: 1px solid #1AADA4;
-        }
-        .fin-skeleton {
-          background: linear-gradient(90deg, #0F2220 25%, #153330 50%, #0F2220 75%);
-          background-size: 200% 100%;
-          animation: fin-shimmer 1.5s infinite;
-        }
-        @keyframes fin-shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-        .fin-input-wrap label {
-          display: none !important;
-        }
-      `}</style>
     </div>
   );
 }

@@ -55,10 +55,9 @@ export function PinGateDialog({ children }: PinGateDialogProps) {
           <Lock className="w-6 h-6" />
         </div>
 
-        <h2 className="text-xl font-bold text-[var(--text-primary)]">Akses Terkunci PIN Kas</h2>
-        <p className="text-xs text-[var(--text-secondary)] mt-1 mb-6">
-          Masukkan 6 digit PIN untuk membuka data kas & keuangan sensitif.
-        </p>
+        <h2 className="text-lg font-bold text-[var(--text-primary)]">Verifikasi PIN Kas</h2>
+        <p className="text-xs text-[var(--text-secondary)] mt-1 mb-5">Otorisasi Akses Keuangan</p>
+
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
