@@ -9,6 +9,7 @@ import {
   getJadwalBySiswa,
   upsertJadwalSesi,
   deleteJadwalSesi,
+  getJadwalConflictCheckList,
 } from '@/lib/actions/jadwal';
 import { getInstrukturList, getSlotWaktuList } from '@/lib/actions/master-data';
 import { formatDateIndo } from '@/lib/utils/date';
@@ -24,8 +25,20 @@ import {
   Calendar,
   User,
   Info,
+  AlertTriangle,
 } from 'lucide-react';
 import Link from 'next/link';
+
+const DAY_NAMES = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
+const DAY_NAMES_INDO = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+const getDayIndexFromDateStr = (dateStr: string) => {
+  if (!dateStr) return 0;
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return 0;
+  return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)).getDay();
+};
+
 
 export default function JadwalDetailPage() {
   const params = useParams();
@@ -36,6 +49,7 @@ export default function JadwalDetailPage() {
   const [allSesi, setAllSesi] = React.useState<JadwalSesi[]>([]);
   const [instrukturList, setInstrukturList] = React.useState<Staff[]>([]);
   const [slotList, setSlotList] = React.useState<SlotWaktu[]>([]);
+  const [conflictList, setConflictList] = React.useState<JadwalSesi[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   // Edit State per Sesi ID
@@ -48,17 +62,19 @@ export default function JadwalDetailPage() {
     const data = await getJadwalSesiById(id);
     setMainSesi(data);
 
+    const [insList, swList, cList] = await Promise.all([
+      getInstrukturList(),
+      getSlotWaktuList(),
+      getJadwalConflictCheckList(),
+    ]);
+    setInstrukturList(insList);
+    setSlotList(swList);
+    setConflictList(cList);
+
     if (data?.siswa_id) {
       const studentSessions = await getJadwalBySiswa(data.siswa_id);
       setAllSesi(studentSessions);
     }
-
-    const [insList, swList] = await Promise.all([
-      getInstrukturList(),
-      getSlotWaktuList(),
-    ]);
-    setInstrukturList(insList);
-    setSlotList(swList);
 
     setLoading(false);
   }, [id]);
@@ -259,12 +275,47 @@ export default function JadwalDetailPage() {
             {allSesi.map((sesi, index) => {
               const isEditing = editingSesiId === sesi.id;
 
+              // --- Conflict detection for this session ---
+              const checkConflict = (() => {
+                if (!sesi.staff_id || !sesi.slot_waktu_id || sesi.status_sesi === 'batal') return null;
+                const dayIdx = getDayIndexFromDateStr(sesi.tanggal_sesi);
+                const dayNameEng = DAY_NAMES[dayIdx];
+                const ins = instrukturList.find((i) => i.id === sesi.staff_id);
+
+                if (!ins) return null;
+
+                // Check hari kerja
+                if (!ins.hari_kerja?.includes(dayNameEng)) {
+                  return { type: 'off', msg: `${ins.nama} libur hari ${DAY_NAMES_INDO[dayIdx]}` };
+                }
+
+                // Check slot conflict (same day, same staff, same slot, different session)
+                const conflict = conflictList.find((j) => {
+                  if (j.id === sesi.id) return false; // exclude self
+                  if (j.tanggal_sesi !== sesi.tanggal_sesi) return false;
+                  if (j.status_sesi === 'batal') return false;
+                  if (j.staff_id !== sesi.staff_id) return false;
+                  const jSlots = [j.slot_waktu_id, j.slot_waktu_id_akhir].filter(Boolean);
+                  const mySlots = [sesi.slot_waktu_id, sesi.slot_waktu_id_akhir].filter(Boolean);
+                  return mySlots.some((s) => jSlots.includes(s));
+                });
+
+                if (conflict) {
+                  return { type: 'conflict', msg: `Bentrok dengan ${conflict.siswa?.nama || 'siswa lain'}` };
+                }
+                return null;
+              })();
+
               return (
                 <div
                   key={sesi.id}
                   className={`p-4 border rounded-lg transition-all space-y-3 ${
                     isEditing
                       ? 'border-2 border-[var(--brand-primary)] bg-[var(--brand-primary-light)]/20'
+                      : checkConflict?.type === 'conflict'
+                      ? 'border-rose-300 dark:border-rose-800 bg-rose-50/20 dark:bg-rose-950/10'
+                      : checkConflict?.type === 'off'
+                      ? 'border-amber-300 dark:border-amber-800 bg-amber-50/20 dark:bg-amber-950/10'
                       : sesi.status_sesi === 'selesai'
                       ? 'border-emerald-200 dark:border-emerald-950/60 bg-emerald-50/10'
                       : sesi.status_sesi === 'batal'
@@ -273,7 +324,7 @@ export default function JadwalDetailPage() {
                   }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-extrabold text-sm text-[var(--brand-primary)] bg-[var(--brand-primary-light)] px-2 py-0.5 rounded">
                         Sesi {sesi.nomor_sesi_ke}
                       </span>
@@ -285,6 +336,22 @@ export default function JadwalDetailPage() {
                             ? `s/d ${sesi.slot_waktu_akhir.nama_slot} (${sesi.slot_waktu?.jam_mulai?.substring(0, 5) || ''} - ${sesi.slot_waktu_akhir.jam_selesai?.substring(0, 5) || ''} WIB)`
                             : `(${sesi.slot_waktu?.jam_mulai?.substring(0, 5) || ''} - ${sesi.slot_waktu?.jam_selesai?.substring(0, 5) || ''} WIB)`}
                         </span>
+                      )}
+                      {/* Conflict warning badge */}
+                      {!isEditing && checkConflict && (
+                        <button
+                          onClick={() => handleStartEdit(sesi)}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
+                            checkConflict.type === 'conflict'
+                              ? 'bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-950/50 dark:text-rose-400 dark:border-rose-800 hover:bg-rose-200'
+                              : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 hover:bg-amber-200'
+                          }`}
+                          title="Klik untuk ubah tanggal/slot sesi ini"
+                        >
+                          <AlertTriangle className="w-2.5 h-2.5" />
+                          {checkConflict.type === 'conflict' ? `⚠ ${checkConflict.msg}` : `⚠ ${checkConflict.msg}`}
+                          {' '}— Perbaiki
+                        </button>
                       )}
                     </div>
 

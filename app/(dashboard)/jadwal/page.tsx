@@ -34,6 +34,8 @@ import {
   XCircle,
   Clock,
   Sparkles,
+  Filter,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -56,8 +58,15 @@ const getDayIndexFromDateStr = (dateStr: string) => {
 };
 
 export default function JadwalPage() {
+  // ── Filter State ──────────────────────────────────────────
+  // filterMode: 'single' | 'range' | 'week' | 'month' | '3month' | '6month' | 'year'
+  const [filterMode, setFilterMode] = React.useState<'single' | 'range' | 'week' | 'month' | '3month' | '6month' | 'year'>('single');
   const [selectedTanggal, setSelectedTanggal] = React.useState(getTodayDateString());
+  const [dateFrom, setDateFrom] = React.useState(getTodayDateString());
+  const [dateTo, setDateTo] = React.useState(getTodayDateString());
   const [selectedStaff, setSelectedStaff] = React.useState('semua');
+  const [filterBentrok, setFilterBentrok] = React.useState(false);
+
   const [jadwalList, setJadwalList] = React.useState<JadwalSesi[]>([]);
   const [instrukturList, setInstrukturList] = React.useState<Staff[]>([]);
   const [slotList, setSlotList] = React.useState<SlotWaktu[]>([]);
@@ -92,16 +101,93 @@ export default function JadwalPage() {
   });
   const [sessionDates, setSessionDates] = React.useState<string[]>([]);
 
-  // Comprehensive fresh load
+  // ── Compute effective date range from filterMode ───────────────────────
+  const getEffectiveDateRange = React.useCallback((): { from: string; to: string } => {
+    const today = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    if (filterMode === 'single') return { from: selectedTanggal, to: selectedTanggal };
+    if (filterMode === 'range') return { from: dateFrom, to: dateTo };
+
+    // Quick ranges — all start from today
+    const daysAgo = (n: number) => { const d = new Date(today); d.setDate(today.getDate() - 0); return d; };
+    const daysLater = (n: number) => { const d = new Date(today); d.setDate(today.getDate() + n); return d; };
+
+    if (filterMode === 'week') {
+      // This week: Mon-Sun
+      const day = today.getDay() === 0 ? 7 : today.getDay();
+      const mon = new Date(today); mon.setDate(today.getDate() - day + 1);
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+      return { from: fmt(mon), to: fmt(sun) };
+    }
+    if (filterMode === 'month') {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      return { from: fmt(start), to: fmt(end) };
+    }
+    if (filterMode === '3month') return { from: fmt(today), to: fmt(daysLater(90)) };
+    if (filterMode === '6month') return { from: fmt(today), to: fmt(daysLater(180)) };
+    if (filterMode === 'year') return { from: fmt(today), to: fmt(daysLater(365)) };
+    return { from: selectedTanggal, to: selectedTanggal };
+  }, [filterMode, selectedTanggal, dateFrom, dateTo]);
+
+  // Comprehensive fresh load — supports single date, date range, and quick period
   const loadData = React.useCallback(async () => {
     setLoading(true);
-    const [jList, iList, sList, swList, mList] = await Promise.all([
-      getJadwalByTanggal(selectedTanggal, selectedStaff),
+    const { from, to } = getEffectiveDateRange();
+
+    // Fetch all sessions in the date range
+    let jList: JadwalSesi[] = [];
+    if (from === to) {
+      // Single date — use targeted query
+      jList = await getJadwalByTanggal(from, selectedStaff);
+    } else {
+      // Range — use conflict list filtered by range + staff
+      // We reuse monthlyJadwal approach: fetch conflict list which covers 120-day window
+      // For ranges beyond that, fallback to conflict check list and filter client-side
+      jList = await getJadwalByBulan(
+        new Date(from).getFullYear(),
+        new Date(from).getMonth()
+      );
+      // Extend across multiple months if range spans them
+      const fromDate = new Date(from);
+      const toDate = new Date(to);
+      let curYear = fromDate.getFullYear();
+      let curMonth = fromDate.getMonth();
+      const extraFetches: Promise<JadwalSesi[]>[] = [];
+
+      while (curYear < toDate.getFullYear() || (curYear === toDate.getFullYear() && curMonth < toDate.getMonth())) {
+        curMonth++;
+        if (curMonth > 11) { curMonth = 0; curYear++; }
+        extraFetches.push(getJadwalByBulan(curYear, curMonth));
+      }
+
+      if (extraFetches.length > 0) {
+        const extras = await Promise.all(extraFetches);
+        extras.forEach((e) => { jList = [...jList, ...e]; });
+      }
+
+      // Deduplicate by ID
+      const seen = new Set<string>();
+      jList = jList.filter((j) => { if (seen.has(j.id)) return false; seen.add(j.id); return true; });
+
+      // Filter by date range
+      jList = jList.filter((j) => j.tanggal_sesi >= from && j.tanggal_sesi <= to);
+
+      // Filter by staff if not 'semua'
+      if (selectedStaff && selectedStaff !== 'semua') {
+        jList = jList.filter((j) => j.staff_id === selectedStaff);
+      }
+    }
+
+    const [iList, sList, swList, mList] = await Promise.all([
       getInstrukturList(),
       getSiswaList(),
       getSlotWaktuList(),
-      getJadwalConflictCheckList(), // 100% full sync check list
+      getJadwalConflictCheckList(),
     ]);
+
     setJadwalList(jList);
     setInstrukturList(iList);
     setSiswaList(sList);
@@ -116,7 +202,7 @@ export default function JadwalPage() {
     }
 
     setLoading(false);
-  }, [selectedTanggal, selectedStaff, formData.staff_id, formData.slot_waktu_id]);
+  }, [getEffectiveDateRange, selectedStaff, formData.staff_id, formData.slot_waktu_id]);
 
   React.useEffect(() => {
     loadData();
@@ -134,27 +220,60 @@ export default function JadwalPage() {
     );
   }, [monthlyJadwalList]);
 
-  // Group schedule list: 1 row PER STUDENT in main table view
+  // Group schedule list: show all rows when in range mode, 1-per-student in single date mode
   const displayJadwalList = React.useMemo(() => {
-    const studentMap = new Map<string, JadwalSesi>();
+    let list: JadwalSesi[];
 
-    jadwalList.forEach((item) => {
-      const key = item.siswa_id || item.id;
-      if (!studentMap.has(key)) {
-        studentMap.set(key, item);
-      } else {
-        const existing = studentMap.get(key)!;
-        // Prioritize active scheduled session or latest session progress over completed ones
-        if (existing.status_sesi === 'selesai' && item.status_sesi === 'terjadwal') {
+    if (filterMode === 'single') {
+      // Single date: group 1 row per student
+      const studentMap = new Map<string, JadwalSesi>();
+      jadwalList.forEach((item) => {
+        const key = item.siswa_id || item.id;
+        if (!studentMap.has(key)) {
           studentMap.set(key, item);
-        } else if (item.nomor_sesi_ke > existing.nomor_sesi_ke && item.status_sesi !== 'batal') {
-          studentMap.set(key, item);
+        } else {
+          const existing = studentMap.get(key)!;
+          if (existing.status_sesi === 'selesai' && item.status_sesi === 'terjadwal') {
+            studentMap.set(key, item);
+          } else if (item.nomor_sesi_ke > existing.nomor_sesi_ke && item.status_sesi !== 'batal') {
+            studentMap.set(key, item);
+          }
         }
-      }
-    });
+      });
+      list = Array.from(studentMap.values());
+    } else {
+      // Range mode: show all individual sessions, sorted by date
+      list = [...jadwalList].sort((a, b) => a.tanggal_sesi.localeCompare(b.tanggal_sesi));
+    }
 
-    return Array.from(studentMap.values());
-  }, [jadwalList]);
+    // Filter bentrok: only show sessions with conflict or off-day
+    if (filterBentrok) {
+      list = list.filter((sesi) => {
+        if (!sesi.staff_id || !sesi.slot_waktu_id || sesi.status_sesi === 'batal') return false;
+        const dayIdx = (() => {
+          const parts = sesi.tanggal_sesi.split('-');
+          return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)).getDay();
+        })();
+        const dayNames = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
+        const dayNameEng = dayNames[dayIdx];
+        const ins = instrukturList.find((i) => i.id === sesi.staff_id);
+        if (!ins) return false;
+        // Off day
+        if (!ins.hari_kerja?.includes(dayNameEng)) return true;
+        // Slot conflict
+        const hasConflict = monthlyJadwalList.some((j) => {
+          if (j.id === sesi.id || j.tanggal_sesi !== sesi.tanggal_sesi) return false;
+          if (j.status_sesi === 'batal' || j.staff_id !== sesi.staff_id) return false;
+          const jSlots = [j.slot_waktu_id, j.slot_waktu_id_akhir].filter(Boolean);
+          const mySlots = [sesi.slot_waktu_id, sesi.slot_waktu_id_akhir].filter(Boolean);
+          return mySlots.some((s) => jSlots.includes(s));
+        });
+        return hasConflict;
+      });
+    }
+
+    return list;
+  }, [jadwalList, filterMode, filterBentrok, instrukturList, monthlyJadwalList]);
 
   const availableSiswaList = React.useMemo(() => {
     return siswaList.filter((s) => !allScheduledSiswaIds.includes(s.id));
@@ -601,36 +720,115 @@ export default function JadwalPage() {
         }
       />
 
-      {/* Date & Instructor Filters Toolbar */}
-      <div className="card-container p-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-4 text-xs">
-          <div className="w-48">
-            <DatePickerWIB
-              label="Pilih Tanggal Sesi"
-              value={selectedTanggal}
-              onChange={(val) => setSelectedTanggal(val)}
-            />
-          </div>
+      {/* ── Filter Toolbar ── */}
+      <div className="card-container space-y-3">
+        {/* Row 1: Period Quick-Select Pills */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-[var(--text-secondary)] shrink-0">Rentang:</span>
+          {([
+            { key: 'single', label: 'Tanggal' },
+            { key: 'range',  label: 'Dari — Ke' },
+            { key: 'week',   label: 'Minggu Ini' },
+            { key: 'month',  label: 'Bulan Ini' },
+            { key: '3month', label: '3 Bulan' },
+            { key: '6month', label: '6 Bulan' },
+            { key: 'year',   label: '1 Tahun' },
+          ] as const).map((opt) => (
+            <button
+              key={opt.key}
+              onClick={() => setFilterMode(opt.key)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+                filterMode === opt.key
+                  ? 'bg-[var(--brand-primary)] text-white border-[var(--brand-primary)]'
+                  : 'bg-[var(--bg)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
 
+        {/* Row 2: Date Inputs + Instruktur + Bentrok Toggle */}
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Date Picker(s) */}
+          {filterMode === 'single' && (
+            <div className="w-44">
+              <DatePickerWIB
+                label="Pilih Tanggal Sesi"
+                value={selectedTanggal}
+                onChange={(val) => setSelectedTanggal(val)}
+              />
+            </div>
+          )}
+          {filterMode === 'range' && (
+            <>
+              <div className="w-44">
+                <DatePickerWIB
+                  label="Dari Tanggal"
+                  value={dateFrom}
+                  onChange={(val) => setDateFrom(val)}
+                />
+              </div>
+              <div className="w-44">
+                <DatePickerWIB
+                  label="Sampai Tanggal"
+                  value={dateTo}
+                  onChange={(val) => setDateTo(val)}
+                />
+              </div>
+            </>
+          )}
+          {!['single', 'range'].includes(filterMode) && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg-subtle)] text-xs text-[var(--text-secondary)]">
+              <Calendar className="w-3.5 h-3.5" />
+              <span className="font-medium">
+                {(() => {
+                  const { from, to } = getEffectiveDateRange();
+                  return `${formatDateIndo(from)} — ${formatDateIndo(to)}`;
+                })()}
+              </span>
+            </div>
+          )}
+
+          {/* Instruktur Filter */}
           <div>
-            <label className="block text-[var(--text-secondary)] mb-1 font-medium">Filter Instruktur</label>
+            <label className="block text-[10px] font-semibold text-[var(--text-secondary)] mb-1 uppercase tracking-wide">Instruktur</label>
             <select
               value={selectedStaff}
               onChange={(e) => setSelectedStaff(e.target.value)}
-              className="px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+              className="px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] font-medium"
             >
-              <option value="semua">Semua Instruktur ({instrukturList.length})</option>
+              <option value="semua">Semua ({instrukturList.length})</option>
               {instrukturList.map((ins) => (
-                <option key={ins.id} value={ins.id}>
-                  {ins.nama}
-                </option>
+                <option key={ins.id} value={ins.id}>{ins.nama}</option>
               ))}
             </select>
           </div>
-        </div>
 
-        <div className="text-xs text-[var(--text-secondary)] font-medium">
-          Total Siswa Terjadwal: <span className="font-bold text-[var(--text-primary)]">{displayJadwalList.length} Siswa</span>
+          {/* Filter Bentrok Toggle */}
+          <button
+            onClick={() => setFilterBentrok((prev) => !prev)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-md border text-xs font-semibold transition-all ${
+              filterBentrok
+                ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                : 'bg-[var(--bg)] text-[var(--text-secondary)] border-[var(--border)] hover:border-rose-400 hover:text-rose-600'
+            }`}
+            title="Tampilkan hanya jadwal yang bentrok atau di hari libur instruktur"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span>{filterBentrok ? 'Hanya Bentrok' : 'Filter Bentrok'}</span>
+            {filterBentrok && (
+              <X className="w-3 h-3 ml-0.5" onClick={(e) => { e.stopPropagation(); setFilterBentrok(false); }} />
+            )}
+          </button>
+
+          {/* Result count */}
+          <div className="ml-auto text-xs text-[var(--text-secondary)] font-medium">
+            Menampilkan{' '}
+            <span className="font-bold text-[var(--text-primary)]">{displayJadwalList.length}</span>
+            {' '}jadwal
+            {filterBentrok && <span className="ml-1 text-rose-600 font-bold">(bentrok)</span>}
+          </div>
         </div>
       </div>
 
