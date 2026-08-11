@@ -3,10 +3,10 @@
 import React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { sendTelegramMessageAction } from '@/lib/actions/telegram';
-import { verifyKasPin } from '@/lib/actions/kas-pin';
+import { verifyKasPin, updateKasPin } from '@/lib/actions/kas-pin';
 import { resetSystemAllData } from '@/lib/actions/reset-system';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { Send, KeyRound, Building, Fuel, Bell, CheckCircle2, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { Send, KeyRound, Building, Fuel, Bell, CheckCircle2, AlertCircle, RefreshCw, Trash2, Loader2 } from 'lucide-react';
 
 export default function SettingsPage() {
   // Settings Form State
@@ -27,6 +27,7 @@ export default function SettingsPage() {
   // PIN Change State
   const [pinLama, setPinLama] = React.useState('');
   const [pinBaru, setPinBaru] = React.useState('');
+  const [pinLoading, setPinLoading] = React.useState(false);
   const [pinSuccess, setPinSuccess] = React.useState<string | null>(null);
   const [pinError, setPinError] = React.useState<string | null>(null);
 
@@ -80,18 +81,21 @@ export default function SettingsPage() {
     setPinError(null);
     setPinSuccess(null);
 
-    if (pinBaru.length !== 6) {
-      setPinError('PIN baru harus 6 digit angka');
+    if (pinLama.length !== 6 || pinBaru.length !== 6) {
+      setPinError('PIN lama dan PIN baru harus tepat 6 digit angka');
       return;
     }
 
-    const check = await verifyKasPin(pinLama);
-    if (!check.success) {
-      setPinError('PIN lama tidak cocok');
+    setPinLoading(true);
+    const res = await updateKasPin(pinLama, pinBaru);
+    setPinLoading(false);
+
+    if (!res.success) {
+      setPinError(res.error || 'Gagal memperbarui PIN');
       return;
     }
 
-    setPinSuccess('PIN Kas berhasil diperbarui!');
+    setPinSuccess('PIN Kas & PWA Finance berhasil diperbarui di sistem!');
     setPinLama('');
     setPinBaru('');
   };
@@ -238,9 +242,11 @@ export default function SettingsPage() {
 
             <button
               type="submit"
-              className="px-4 py-2 bg-[var(--brand-primary)] text-white text-xs font-semibold rounded-md hover:bg-[var(--brand-primary-dark)]"
+              disabled={pinLoading || pinLama.length !== 6 || pinBaru.length !== 6}
+              className="px-4 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] disabled:opacity-50 text-white text-xs font-semibold rounded-md flex items-center gap-1.5 transition-colors"
             >
-              Perbarui PIN Kas
+              {pinLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              <span>{pinLoading ? 'Memproses...' : 'Perbarui PIN Kas & PWA Finance'}</span>
             </button>
           </form>
         </div>
