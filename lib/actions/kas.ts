@@ -8,14 +8,23 @@ export async function getKasOverviewMetrics() {
   try {
     const supabase = await createServerClient();
 
-    // Query Saldo
-    const { data: txList } = await supabase.from('kas_transaksi').select('tipe, nominal');
+    // Query Saldo — breakdown by tipe and jenis_pembayaran
+    const { data: txList } = await supabase
+      .from('kas_transaksi')
+      .select('tipe, nominal, jenis_pembayaran');
+
     let totalPemasukan = 0;
     let totalPengeluaran = 0;
+    let saldoTunai = 0;
+    let saldoNonTunai = 0;
+
     if (txList) {
       txList.forEach((t) => {
+        const signed = t.tipe === 'pemasukan' ? t.nominal : -t.nominal;
         if (t.tipe === 'pemasukan') totalPemasukan += t.nominal;
         else totalPengeluaran += t.nominal;
+        if (t.jenis_pembayaran === 'non_tunai') saldoNonTunai += signed;
+        else saldoTunai += signed;
       });
     }
 
@@ -43,6 +52,8 @@ export async function getKasOverviewMetrics() {
 
     return {
       saldoAktif: totalPemasukan - totalPengeluaran,
+      saldoTunai,
+      saldoNonTunai,
       totalPiutang,
       totalHutang,
     };
@@ -52,6 +63,8 @@ export async function getKasOverviewMetrics() {
 
   return {
     saldoAktif: 0,
+    saldoTunai: 0,
+    saldoNonTunai: 0,
     totalPiutang: 0,
     totalHutang: 0,
   };
@@ -195,6 +208,29 @@ export async function payHutangCicilan(
 
     revalidatePath('/kas/hutang');
     revalidatePath('/kas');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function updateKasTransaksi(
+  id: string,
+  updates: Partial<KasTransaksi>
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createServerClient();
+    const { siswa, hutang, ...cleanUpdates } = updates as any;
+    const { error } = await supabase
+      .from('kas_transaksi')
+      .update({ ...cleanUpdates, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath('/kas');
+    revalidatePath('/kas/cashflow');
+    revalidatePath('/dashboard');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };

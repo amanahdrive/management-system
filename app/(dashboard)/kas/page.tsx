@@ -14,7 +14,7 @@ import { Wallet, ArrowUpRight, ArrowDownRight, Plus, Camera, FileText, Trash2 } 
 import Link from 'next/link';
 
 export default function KasOverviewPage() {
-  const [metrics, setMetrics] = React.useState({ saldoAktif: 0, totalPiutang: 0, totalHutang: 0 });
+  const [metrics, setMetrics] = React.useState({ saldoAktif: 0, saldoTunai: 0, saldoNonTunai: 0, totalPiutang: 0, totalHutang: 0 });
   const [transaksiList, setTransaksiList] = React.useState<any[]>([]);
   const [kategoriList, setKategoriList] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -27,6 +27,7 @@ export default function KasOverviewPage() {
     kategori: 'operasional',
     keterangan: '',
     nominal: 0,
+    jenis_pembayaran: 'tunai' as 'tunai' | 'non_tunai',
     pic_tipe: 'admin' as 'admin' | 'finance',
     pic_nama: '',
   });
@@ -70,6 +71,7 @@ export default function KasOverviewPage() {
       kategori: 'operasional',
       keterangan: '',
       nominal: 0,
+      jenis_pembayaran: 'tunai',
       pic_tipe: 'admin',
       pic_nama: '',
     });
@@ -110,12 +112,12 @@ export default function KasOverviewPage() {
           }
         />
 
-        {/* 3 Main Stat Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* 3+2 Main Stat Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <StatCard
             label="Total Saldo Kas Aktif"
             value={formatRupiah(metrics.saldoAktif)}
-            description="Akumulasi pemasukan dikurangi pengeluaran"
+            description={`Tunai: ${formatRupiah(metrics.saldoTunai)} | Non-Tunai: ${formatRupiah(metrics.saldoNonTunai)}`}
             icon={<Wallet className="w-5 h-5 text-teal-600" />}
           />
           <StatCard
@@ -209,6 +211,37 @@ export default function KasOverviewPage() {
                 value={formData.nominal}
                 onChange={(val) => setFormData({ ...formData, nominal: val })}
               />
+
+              {/* Jenis Pembayaran */}
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                  Jenis Pembayaran *
+                </label>
+                <div className="flex rounded-md p-1 bg-[var(--bg-subtle)] border border-[var(--border)] text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, jenis_pembayaran: 'tunai' })}
+                    className={`flex-1 py-1.5 rounded-md transition-colors ${
+                      formData.jenis_pembayaran === 'tunai'
+                        ? 'bg-[var(--brand-primary)] text-white'
+                        : 'text-[var(--text-secondary)]'
+                    }`}
+                  >
+                    💵 Tunai (Cash)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, jenis_pembayaran: 'non_tunai' })}
+                    className={`flex-1 py-1.5 rounded-md transition-colors ${
+                      formData.jenis_pembayaran === 'non_tunai'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-[var(--text-secondary)]'
+                    }`}
+                  >
+                    🏦 Non-Tunai
+                  </button>
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

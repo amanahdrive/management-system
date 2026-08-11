@@ -246,6 +246,7 @@ export interface KasTransaksi {
   kategori: string;
   keterangan: string;
   nominal: number;
+  jenis_pembayaran: 'tunai' | 'non_tunai';
   pic_tipe: PicTipeEnum;
   pic_nama: string;
   foto_nota_url: string | null;
