@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { Kendaraan } from '@/types/database';
 import { getKendaraanMasterList } from '@/lib/actions/master-data';
 import { formatDateIndo } from '@/lib/utils/date';
-import { Car, Fuel, Gauge, Wrench, ArrowRight } from 'lucide-react';
+import { Car, Fuel, Gauge, Wrench, ArrowRight, AlertOctagon } from 'lucide-react';
 import Link from 'next/link';
 
 export default function KendaraanPage() {
@@ -24,6 +24,15 @@ export default function KendaraanPage() {
       <PageHeader
         title="Kendaraan Operasional"
         description="Pantau odometer harian, jadwal servis oli, penggantian ban, cuci, dan BBM armada mobil"
+        actions={
+          <Link
+            href="/insiden"
+            className="flex items-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all"
+          >
+            <AlertOctagon className="w-4 h-4" />
+            <span>Pencatatan Insiden</span>
+          </Link>
+        }
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

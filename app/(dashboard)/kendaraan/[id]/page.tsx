@@ -17,7 +17,8 @@ import { formatRupiah } from '@/lib/utils/currency';
 import { getTodayDateString } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
-import { Gauge, Wrench, Fuel, Sparkles, Disc, ArrowLeft, Plus } from 'lucide-react';
+import { Gauge, Wrench, Fuel, Sparkles, Disc, ArrowLeft, Plus, AlertOctagon } from 'lucide-react';
+import Link from 'next/link';
 
 export default function KendaraanDetailPage() {
   const params = useParams();
@@ -118,7 +119,7 @@ export default function KendaraanDetailPage() {
       />
 
       {/* Action Quick Buttons */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
         <button
           onClick={() => setModalType('odometer')}
           className="p-3 card-container hover:border-[var(--brand-primary)] flex flex-col items-center gap-1.5 text-center text-xs font-semibold text-[var(--brand-primary)]"
@@ -153,11 +154,19 @@ export default function KendaraanDetailPage() {
 
         <button
           onClick={() => setModalType('bbm')}
-          className="p-3 card-container hover:border-[var(--brand-primary)] flex flex-col items-center gap-1.5 text-center text-xs font-semibold text-emerald-700 dark:text-emerald-400 col-span-2 sm:col-span-1"
+          className="p-3 card-container hover:border-[var(--brand-primary)] flex flex-col items-center gap-1.5 text-center text-xs font-semibold text-emerald-700 dark:text-emerald-400"
         >
           <Fuel className="w-5 h-5" />
           <span>Isi BBM</span>
         </button>
+
+        <Link
+          href="/insiden"
+          className="p-3 card-container hover:border-rose-500 flex flex-col items-center gap-1.5 text-center text-xs font-semibold text-rose-700 dark:text-rose-400"
+        >
+          <AlertOctagon className="w-5 h-5" />
+          <span>Log Insiden</span>
+        </Link>
       </div>
 
       {/* Vehicle Current Status Cards */}

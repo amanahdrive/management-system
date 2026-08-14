@@ -288,3 +288,65 @@ export interface NotifikasiLog {
   error_message: string | null;
   dikirim_at: string;
 }
+
+export type KategoriInsidenEnum =
+  | 'tabrakan'
+  | 'senggolan'
+  | 'kerusakan_mesin'
+  | 'baret_bodi'
+  | 'ban_pecah'
+  | 'tilang'
+  | 'kendala_siswa'
+  | 'kehilangan'
+  | 'lainnya';
+
+export type TingkatKeparahanEnum = 'ringan' | 'sedang' | 'berat' | 'kritis';
+
+export type StatusPenangananEnum =
+  | 'dilaporkan'
+  | 'dalam_investigasi'
+  | 'dalam_perbaikan'
+  | 'selesai'
+  | 'klaim_asuransi'
+  | 'ditolak';
+
+export type PenanggungBiayaEnum =
+  | 'perusahaan'
+  | 'instruktur'
+  | 'siswa'
+  | 'pihak_ketiga'
+  | 'asuransi'
+  | 'bersama';
+
+export interface Insiden {
+  id: string;
+  kode_insiden: string;
+  tanggal_insiden: string;
+  jam_insiden: string;
+  kendaraan_id: string | null;
+  staff_id: string | null;
+  siswa_id: string | null;
+  jadwal_sesi_id: string | null;
+  kategori: KategoriInsidenEnum;
+  tingkat_keparahan: TingkatKeparahanEnum;
+  lokasi_kejadian: string;
+  deskripsi_kejadian: string;
+  kronologi_singkat: string | null;
+  kondisi_kendaraan: string | null;
+  kondisi_pengemudi: string | null;
+  estimasi_biaya: number;
+  biaya_aktual: number | null;
+  penanggung_biaya: PenanggungBiayaEnum;
+  status_penanganan: StatusPenangananEnum;
+  tindakan_penanganan: string | null;
+  foto_bukti_urls: string[] | null;
+  catatan: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined fields
+  kendaraan?: Kendaraan;
+  staff?: Staff;
+  siswa?: Siswa;
+  jadwal_sesi?: JadwalSesi;
+}
+

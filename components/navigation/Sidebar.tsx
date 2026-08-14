@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   CreditCard,
   Clock,
+  AlertOctagon,
 } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
 
@@ -139,6 +140,19 @@ export function Sidebar() {
         >
           <Car className="w-5 h-5 min-w-[20px]" />
           {sidebarOpen && <span className="whitespace-nowrap">Kendaraan</span>}
+        </Link>
+
+        <Link
+          href="/insiden"
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
+            pathname.startsWith('/insiden')
+              ? 'bg-[var(--brand-primary)] text-white font-semibold'
+              : 'text-[var(--text-primary)] hover:bg-[var(--brand-primary-light)] hover:text-[var(--brand-primary)]'
+          }`}
+          title={!sidebarOpen ? 'Data Insiden' : undefined}
+        >
+          <AlertOctagon className="w-5 h-5 min-w-[20px]" />
+          {sidebarOpen && <span className="whitespace-nowrap">Data Insiden</span>}
         </Link>
 
         <Link
