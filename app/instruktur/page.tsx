@@ -3,8 +3,8 @@
 import React from 'react';
 import { Staff, JadwalSesi } from '@/types/database';
 import { getInstrukturList } from '@/lib/actions/master-data';
-import { getJadwalByTanggal, getJadwalByBulan, getJadwalConflictCheckList, getJadwalBySiswa, updateJadwalStatus, upsertJadwalSesi } from '@/lib/actions/jadwal';
-import { getTodayDateString, formatDateIndo, formatHariTanggalIndo } from '@/lib/utils/date';
+import { getJadwalByTanggal, getJadwalByBulan, getJadwalConflictCheckList, getJadwalBySiswa, updateJadwalStatus, upsertJadwalSesi, rescheduleSesiShiftCascade } from '@/lib/actions/jadwal';
+import { getTodayDateString, formatDateIndo, formatHariTanggalIndo, addDaysToDateStr } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { PwaInstallModal } from '@/components/shared/PwaInstallModal';
@@ -58,31 +58,10 @@ export default function InstrukturPortalPage() {
   const [rescheduleDate, setRescheduleDate] = React.useState<string>('');
   const [isRescheduling, setIsRescheduling] = React.useState(false);
 
-  const getRescheduledDefaultDate = async (siswaId: string) => {
-    const list = await getJadwalBySiswa(siswaId);
-    const active = list.filter((j) => j.status_sesi !== 'batal');
-    if (active.length === 0) {
-      const tom = new Date();
-      tom.setDate(tom.getDate() + 1);
-      return tom.toISOString().split('T')[0];
-    }
-    const dates = active.map((j) => j.tanggal_sesi);
-    dates.sort();
-    const latestDateStr = dates[dates.length - 1];
-    
-    const [y, m, d] = latestDateStr.split('-').map(Number);
-    const dateObj = new Date(y, m - 1, d);
-    dateObj.setDate(dateObj.getDate() + 1);
-    
-    const nextY = dateObj.getFullYear();
-    const nextM = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const nextD = String(dateObj.getDate()).padStart(2, '0');
-    return `${nextY}-${nextM}-${nextD}`;
-  };
+  const [rescheduleShiftDays, setRescheduleShiftDays] = React.useState<number>(1);
 
-  const handleOpenReschedule = async (siswaId: string) => {
-    const defaultDate = await getRescheduledDefaultDate(siswaId);
-    setRescheduleDate(defaultDate);
+  const handleOpenReschedule = () => {
+    setRescheduleShiftDays(1);
     setIsRescheduling(true);
   };
 
@@ -645,7 +624,7 @@ export default function InstrukturPortalPage() {
                   </button>
 
                   <button
-                    onClick={() => handleOpenReschedule(selectedJadwalDetail.siswa_id || '')}
+                    onClick={handleOpenReschedule}
                     className="py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm transition-colors text-xs"
                   >
                     <Clock className="w-4 h-4" />
@@ -655,21 +634,53 @@ export default function InstrukturPortalPage() {
 
                 {isRescheduling && (
                   <div className="p-3 bg-[var(--bg-subtle)] border border-amber-300 dark:border-amber-900 rounded-xl space-y-3 mt-2 animate-in fade-in zoom-in-95">
-                    <div>
-                      <p className="text-[10px] text-[var(--text-secondary)] font-medium">Tanggal Sesi Saat Ini (Tetap):</p>
-                      <p className="font-bold text-xs text-[var(--text-primary)] mt-0.5">
-                        {formatDateIndo(selectedJadwalDetail.tanggal_sesi)}
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Reschedule & Majukan Jadwal</span>
                       </p>
                     </div>
 
                     <div>
                       <label className="block text-[10px] text-[var(--text-secondary)] font-semibold mb-1">
-                        Pilih Tanggal Dilanjutkan Kembali:
+                        Majukan Jadwal Siswa Sebanyak:
                       </label>
-                      <DatePickerWIB
-                        value={rescheduleDate}
-                        onChange={(val) => setRescheduleDate(val)}
-                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setRescheduleShiftDays(Math.max(1, rescheduleShiftDays - 1))}
+                          className="w-8 h-8 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-bold text-sm flex items-center justify-center hover:bg-black/5"
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          min="1"
+                          value={rescheduleShiftDays}
+                          onChange={(e) => setRescheduleShiftDays(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-16 text-center px-2 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-bold text-sm text-[var(--brand-primary)]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setRescheduleShiftDays(rescheduleShiftDays + 1)}
+                          className="w-8 h-8 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-bold text-sm flex items-center justify-center hover:bg-black/5"
+                        >
+                          +
+                        </button>
+                        <span className="font-bold text-xs text-[var(--text-primary)]">Hari</span>
+                      </div>
+                    </div>
+
+                    <div className="p-2 bg-[var(--bg)] rounded-lg border border-[var(--border)] text-[11px] space-y-1">
+                      <p className="text-[var(--text-secondary)]">
+                        Sesi {selectedJadwalDetail.nomor_sesi_ke}: <span className="line-through">{formatDateIndo(selectedJadwalDetail.tanggal_sesi)}</span> ➔{' '}
+                        <span className="font-bold text-amber-600 dark:text-amber-400">
+                          {formatDateIndo(addDaysToDateStr(selectedJadwalDetail.tanggal_sesi, rescheduleShiftDays))}
+                        </span>
+                      </p>
+                      <p className="text-[10px] text-[var(--text-secondary)]">
+                        Seluruh sesi berikutnya (sesi {selectedJadwalDetail.nomor_sesi_ke} dst) akan otomatis maju +{rescheduleShiftDays} hari.
+                      </p>
                     </div>
 
                     <div className="flex justify-end gap-2 pt-1 border-t border-[var(--border)]">
@@ -681,13 +692,14 @@ export default function InstrukturPortalPage() {
                       </button>
                       <button
                         onClick={async () => {
-                          const res = await upsertJadwalSesi({
-                            id: selectedJadwalDetail.id,
-                            tanggal_sesi: rescheduleDate,
-                            status_sesi: 'terjadwal'
-                          });
+                          if (!selectedJadwalDetail.siswa_id) return;
+                          const res = await rescheduleSesiShiftCascade(
+                            selectedJadwalDetail.siswa_id,
+                            selectedJadwalDetail.nomor_sesi_ke || 1,
+                            rescheduleShiftDays
+                          );
                           if (res.success) {
-                            showToast('Jadwal sesi berhasil ditunda/reschedule!');
+                            showToast(`Jadwal sesi berhasil dimajukan +${rescheduleShiftDays} hari!`);
                             setIsRescheduling(false);
                             setSelectedJadwalDetail(null);
                             loadInstructorSchedule();
@@ -695,9 +707,9 @@ export default function InstrukturPortalPage() {
                             alert('Gagal reschedule: ' + res.error);
                           }
                         }}
-                        className="px-4.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs shadow-sm"
+                        className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs shadow-sm"
                       >
-                        Simpan Penundaan
+                        Simpan Reschedule (+{rescheduleShiftDays} Hari)
                       </button>
                     </div>
                   </div>

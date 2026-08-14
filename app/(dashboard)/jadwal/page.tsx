@@ -12,6 +12,7 @@ import {
   upsertJadwalBatch,
   upsertJadwalSesi,
   updateSesiProgress,
+  rescheduleSesiShiftCascade,
   deleteJadwalSesi,
   generateWhatsAppScheduleText,
   generateWhatsAppWeeklyScheduleText,
@@ -20,7 +21,7 @@ import {
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { getInstrukturList, getSlotWaktuList } from '@/lib/actions/master-data';
 import { getSiswaList } from '@/lib/actions/siswa';
-import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
+import { getTodayDateString, formatDateIndo, addDaysToDateStr } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import {
   Calendar,
@@ -109,7 +110,7 @@ export default function JadwalPage() {
   const [progressSesiKe, setProgressSesiKe] = React.useState<number>(1);
   const [progressTanggal, setProgressTanggal] = React.useState<string>(getTodayDateString());
   const [isReschedulingProgress, setIsReschedulingProgress] = React.useState<boolean>(false);
-  const [rescheduleTargetDate, setRescheduleTargetDate] = React.useState<string>(getTodayDateString());
+  const [rescheduleShiftDays, setRescheduleShiftDays] = React.useState<number>(1);
 
   // Modal Tambah Jadwal Baru State
   const [isModalOpen, setIsModalOpen] = React.useState(false);
@@ -485,11 +486,7 @@ export default function JadwalPage() {
     setProgressSesiKe(jadwal.nomor_sesi_ke || 1);
     setProgressTanggal(jadwal.tanggal_sesi || getTodayDateString());
     setIsReschedulingProgress(false);
-
-    // Default reschedule: tomorrow
-    const tom = new Date();
-    tom.setDate(tom.getDate() + 1);
-    setRescheduleTargetDate(tom.toISOString().split('T')[0]);
+    setRescheduleShiftDays(1);
   };
 
   // Save Progress Action
@@ -508,20 +505,23 @@ export default function JadwalPage() {
     loadData();
   };
 
-  // Save Reschedule Action
+  // Save Reschedule Action with Cascading Shift (+N Days)
   const handleSaveReschedule = async () => {
     if (!progressModalJadwal || !progressModalJadwal.siswa_id) return;
 
-    await updateSesiProgress(
+    const res = await rescheduleSesiShiftCascade(
       progressModalJadwal.siswa_id,
       progressSesiKe,
-      rescheduleTargetDate,
-      'terjadwal'
+      rescheduleShiftDays
     );
 
-    setProgressModalJadwal(null);
-    setIsReschedulingProgress(false);
-    loadData();
+    if (res.success) {
+      setProgressModalJadwal(null);
+      setIsReschedulingProgress(false);
+      loadData();
+    } else {
+      alert('Gagal reschedule: ' + res.error);
+    }
   };
 
   const handleCopyWA = () => {
@@ -1152,24 +1152,56 @@ export default function JadwalPage() {
                 </button>
               </div>
 
-              {/* RESCHEDULE DATE PICKER PANEL */}
+              {/* RESCHEDULE NUMBER BOX PANEL */}
               {isReschedulingProgress && (
                 <div className="p-3.5 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-900 rounded-xl space-y-3 animate-in fade-in zoom-in-95">
                   <div className="flex items-center justify-between border-b border-amber-200 dark:border-amber-900/50 pb-1.5">
                     <span className="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
                       <Clock className="w-4 h-4 text-amber-600" />
-                      Penundaan / Reschedule Jadwal
+                      Reschedule & Majukan Jadwal Sesi
                     </span>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
-                      Pilih Tanggal Baru Dilanjutkan:
+                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1.5">
+                      Majukan Jadwal Siswa Sebanyak:
                     </label>
-                    <DatePickerWIB
-                      value={rescheduleTargetDate}
-                      onChange={(val) => setRescheduleTargetDate(val)}
-                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setRescheduleShiftDays(Math.max(1, rescheduleShiftDays - 1))}
+                        className="w-8 h-8 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-bold text-base flex items-center justify-center hover:bg-black/5"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        value={rescheduleShiftDays}
+                        onChange={(e) => setRescheduleShiftDays(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-20 text-center px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-bold text-sm text-[var(--brand-primary)]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setRescheduleShiftDays(rescheduleShiftDays + 1)}
+                        className="w-8 h-8 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-bold text-base flex items-center justify-center hover:bg-black/5"
+                      >
+                        +
+                      </button>
+                      <span className="font-bold text-xs text-[var(--text-primary)]">Hari</span>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 bg-[var(--bg)] rounded-lg border border-[var(--border)] text-[11px] space-y-1">
+                    <p className="text-[var(--text-secondary)]">
+                      Sesi {progressSesiKe}: <span className="line-through">{formatDateIndo(progressTanggal)}</span> ➔{' '}
+                      <span className="font-bold text-amber-600 dark:text-amber-400">
+                        {formatDateIndo(addDaysToDateStr(progressTanggal, rescheduleShiftDays))}
+                      </span>
+                    </p>
+                    <p className="text-[10px] text-[var(--text-secondary)]">
+                      Seluruh sesi berikutnya (sesi {progressSesiKe} dst) akan otomatis maju +{rescheduleShiftDays} hari.
+                    </p>
                   </div>
 
                   <div className="flex justify-end gap-2 pt-1 border-t border-amber-200 dark:border-amber-900/50">
@@ -1186,7 +1218,7 @@ export default function JadwalPage() {
                       className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs shadow-sm flex items-center gap-1.5"
                     >
                       <Check className="w-3.5 h-3.5" />
-                      <span>Simpan Reschedule</span>
+                      <span>Terapkan Reschedule (+{rescheduleShiftDays} Hari)</span>
                     </button>
                   </div>
                 </div>

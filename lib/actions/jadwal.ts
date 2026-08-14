@@ -10,6 +10,7 @@ import {
   InstrukturJadwalGroup,
   sortSesiBySlotUrutan,
 } from '../utils/whatsapp-markdown';
+import { addDaysToDateStr } from '../utils/date';
 
 export async function getJadwalByTanggal(
   tanggal: string,
@@ -286,6 +287,64 @@ export async function updateSesiProgress(
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Reschedule a session by shifting it and all subsequent sessions of the student forward by +N days.
+ * If shiftDays is 1, today's session moves to tomorrow (+1 day), and all remaining sessions after it also advance +1 day.
+ */
+export async function rescheduleSesiShiftCascade(
+  siswaId: string,
+  fromNomorSesiKe: number,
+  shiftDays: number
+): Promise<{ success: boolean; error?: string; count?: number }> {
+  try {
+    if (!shiftDays || shiftDays <= 0) {
+      return { success: false, error: 'Jumlah pergeseran hari harus minimal 1 hari' };
+    }
+
+    const supabase = await createServerClient();
+
+    // Fetch all active/terjadwal sessions for this student starting from fromNomorSesiKe
+    const { data: sessions, error: fetchErr } = await supabase
+      .from('jadwal_sesi')
+      .select('id, nomor_sesi_ke, tanggal_sesi, status_sesi')
+      .eq('siswa_id', siswaId)
+      .gte('nomor_sesi_ke', fromNomorSesiKe)
+      .neq('status_sesi', 'selesai')
+      .order('nomor_sesi_ke', { ascending: true });
+
+    if (fetchErr) return { success: false, error: fetchErr.message };
+    if (!sessions || sessions.length === 0) {
+      return { success: false, error: 'Tidak ada sesi yang ditemukan untuk di-reschedule' };
+    }
+
+    // Update each session with shifted date
+    for (const sesi of sessions) {
+      const newDate = addDaysToDateStr(sesi.tanggal_sesi, shiftDays);
+      const { error: updateErr } = await supabase
+        .from('jadwal_sesi')
+        .update({
+          tanggal_sesi: newDate,
+          status_sesi: 'terjadwal',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', sesi.id);
+
+      if (updateErr) return { success: false, error: updateErr.message };
+    }
+
+    // Revalidate paths so UI & conflict checks immediately reflect the new dates
+    revalidatePath('/jadwal');
+    revalidatePath(`/jadwal/${siswaId}`);
+    revalidatePath('/instruktur');
+    revalidatePath('/dashboard');
+    revalidatePath('/siswa');
+
+    return { success: true, count: sessions.length };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Terjadi kesalahan saat reschedule jadwal' };
   }
 }
 
