@@ -30,7 +30,8 @@ export function sortSesiBySlotUrutan(list: JadwalSesi[]): JadwalSesi[] {
 export function generateWhatsAppJadwalMarkdown(
   tanggalStr: string,
   groupedData: InstrukturJadwalGroup[],
-  footerTemplate?: string
+  footerTemplate?: string,
+  staffFilterNama?: string
 ): string {
   const tglFormatted = formatHariTanggalIndo(tanggalStr);
 
@@ -43,20 +44,39 @@ export function generateWhatsAppJadwalMarkdown(
 
   const catatanFooter = footerTemplate?.trim() || defaultFooter;
 
-  let body = `*JADWAL OPERASIONAL AMANAH DRIVE*\n`;
-  body += `Tanggal: *${tglFormatted}*\n`;
-  body += `────────────────────────\n\n`;
+  // Calculate stats
+  let totalSesi = 0;
+  let totalSelesai = 0;
+  let totalTerjadwal = 0;
+  let totalBatal = 0;
 
-  if (groupedData.length === 0) {
+  groupedData.forEach((g) => {
+    g.sesiList.forEach((s) => {
+      totalSesi++;
+      if (s.status_sesi === 'selesai') totalSelesai++;
+      else if (s.status_sesi === 'batal') totalBatal++;
+      else totalTerjadwal++;
+    });
+  });
+
+  let body = `*JADWAL OPERASIONAL HARIAN AMANAH DRIVE*\n`;
+  body += `Tanggal: *${tglFormatted}*\n`;
+  if (staffFilterNama) {
+    body += `Instruktur: *${staffFilterNama.toUpperCase()}*\n`;
+  }
+  body += `────────────────────────\n`;
+  body += `📊 *Ringkasan Sesi:* ${totalSesi} Total | ✅ ${totalSelesai} Selesai | ⏳ ${totalTerjadwal} Terjadwal`;
+  if (totalBatal > 0) body += ` | ❌ ${totalBatal} Batal`;
+  body += `\n────────────────────────\n\n`;
+
+  if (groupedData.length === 0 || totalSesi === 0) {
     body += `_Tidak ada sesi mengemudi terjadwal pada tanggal ini._\n\n`;
   } else {
-    // Sort groups alphabetically by instructor name
     const sortedGroups = [...groupedData].sort((a, b) =>
       a.instrukturNama.localeCompare(b.instrukturNama)
     );
 
     sortedGroups.forEach((group) => {
-      // Sort sessions strictly by slot 1..N
       const sortedSesi = sortSesiBySlotUrutan(group.sesiList);
 
       body += `🚗 Instruktur: *${group.instrukturNama.toUpperCase()}*\n`;
@@ -72,7 +92,7 @@ export function generateWhatsAppJadwalMarkdown(
         const noWa = sesi.siswa?.no_whatsapp || '-';
         const alamat = sesi.siswa?.alamat || '-';
 
-        const totalSesi = sesi.total_sesi_paket || 10;
+        const totalPaket = sesi.total_sesi_paket || 10;
         const sesiKe = sesi.nomor_sesi_ke || 1;
 
         let slotDisplay = '';
@@ -101,9 +121,11 @@ export function generateWhatsAppJadwalMarkdown(
         if (sesi.jenis_mobil === 'matic') jenisMobilLabel = 'Matic';
         if (sesi.jenis_mobil === 'mobil_sendiri') jenisMobilLabel = 'Mobil Sendiri';
 
-        body += `• *${slotDisplay}* (${jamMulai} - ${jamSelesai} WIB)\n`;
+        const statusIcon = sesi.status_sesi === 'selesai' ? '✅' : sesi.status_sesi === 'batal' ? '❌' : '⏳';
+
+        body += `• ${statusIcon} *${slotDisplay}* (${jamMulai} - ${jamSelesai} WIB)\n`;
         body += `  👤 Siswa: *${namaSiswa}* (${kodeSiswa})\n`;
-        body += `  📊 Sesi: ${sesiKe}/${totalSesi} | Mobil: ${jenisMobilLabel}\n`;
+        body += `  📊 Sesi: ${sesiKe}/${totalPaket} | Mobil: ${jenisMobilLabel}\n`;
         body += `  📍 Alamat: ${alamat}\n`;
         body += `  📱 No. WA: ${noWa}\n\n`;
       });
@@ -118,65 +140,133 @@ export function generateWhatsAppJadwalMarkdown(
 }
 
 /**
- * Generates Weekly WhatsApp Schedule Markdown
+ * Generates Weekly or Custom Range WhatsApp Schedule Markdown
+ */
+export function generateWhatsAppRangeScheduleMarkdown(
+  startDateStr: string,
+  endDateStr: string,
+  daysData: { tanggal: string; groups: InstrukturJadwalGroup[] }[],
+  isWeeklySundaySaturday: boolean = false,
+  staffFilterNama?: string,
+  footerTemplate?: string
+): string {
+  const startFmt = formatHariTanggalIndo(startDateStr);
+  const endFmt = formatHariTanggalIndo(endDateStr);
+
+  const titleHeader = isWeeklySundaySaturday
+    ? '*REKAP JADWAL MINGGUAN (MINGGU - SABTU)*'
+    : '*REKAP JADWAL SESI (RENTANG TANGGAL)*';
+
+  // Compute total statistics across all days
+  let grandTotal = 0;
+  let totalSelesai = 0;
+  let totalTerjadwal = 0;
+  let totalBatal = 0;
+
+  daysData.forEach((day) => {
+    day.groups.forEach((g) => {
+      g.sesiList.forEach((s) => {
+        grandTotal++;
+        if (s.status_sesi === 'selesai') totalSelesai++;
+        else if (s.status_sesi === 'batal') totalBatal++;
+        else totalTerjadwal++;
+      });
+    });
+  });
+
+  let body = `${titleHeader}\n`;
+  body += `Amanah Drive Palembang\n`;
+  body += `Periode: *${startFmt}* s/d *${endFmt}*\n`;
+  if (staffFilterNama) {
+    body += `Instruktur: *${staffFilterNama.toUpperCase()}*\n`;
+  }
+  body += `════════════════════════\n`;
+  body += `📊 *Ringkasan Periode:*\n`;
+  body += `• Total Sesi: *${grandTotal} Sesi*\n`;
+  body += `• Selesai: *${totalSelesai}*\n`;
+  body += `• Terjadwal: *${totalTerjadwal}*\n`;
+  if (totalBatal > 0) body += `• Batal: *${totalBatal}*\n`;
+  body += `════════════════════════\n\n`;
+
+  if (grandTotal === 0) {
+    body += `_Tidak ada jadwal sesi mengemudi pada rentang periode ini._\n\n`;
+  } else {
+    daysData.forEach((day) => {
+      const tglHeader = formatHariTanggalIndo(day.tanggal);
+      const dayTotalSesi = day.groups.reduce((acc, g) => acc + g.sesiList.length, 0);
+
+      body += `📅 *${tglHeader.toUpperCase()}* (${dayTotalSesi} Sesi)\n`;
+      body += `────────────────────────\n`;
+
+      if (day.groups.length === 0 || dayTotalSesi === 0) {
+        body += `  _Tidak ada jadwal sesi / Libur_\n\n`;
+        return;
+      }
+
+      const sortedGroups = [...day.groups].sort((a, b) =>
+        a.instrukturNama.localeCompare(b.instrukturNama)
+      );
+
+      sortedGroups.forEach((group) => {
+        const sortedSesi = sortSesiBySlotUrutan(group.sesiList);
+
+        body += `🚗 *${group.instrukturNama.toUpperCase()}*:\n`;
+
+        if (sortedSesi.length === 0) {
+          body += `  _Libur / Kosong_\n`;
+        } else {
+          sortedSesi.forEach((sesi) => {
+            const namaSiswa = sesi.siswa?.nama || 'Siswa';
+            const kodeSiswa = sesi.siswa?.kode_siswa || '-';
+            const noWa = sesi.siswa?.no_whatsapp || '-';
+            const alamat = sesi.siswa?.alamat || '-';
+            const slotNama = sesi.slot_waktu?.nama_slot || 'Slot';
+            const jamMulai = sesi.slot_waktu?.jam_mulai?.substring(0, 5) || '';
+            const jamSelesai = (sesi.slot_waktu_akhir || sesi.slot_waktu)?.jam_selesai?.substring(0, 5) || '';
+            const sesiKe = sesi.nomor_sesi_ke || 1;
+            const totalSesi = sesi.total_sesi_paket || 10;
+            const statusIcon = sesi.status_sesi === 'selesai' ? '✅' : sesi.status_sesi === 'batal' ? '❌' : '⏳';
+
+            body += `  ${statusIcon} *${slotNama}* (${jamMulai}-${jamSelesai} WIB)\n`;
+            body += `     👤 ${namaSiswa} (${kodeSiswa}) [Sesi ${sesiKe}/${totalSesi}]\n`;
+            body += `     📍 ${alamat} | 📱 ${noWa}\n`;
+          });
+        }
+        body += `\n`;
+      });
+    });
+  }
+
+  const defaultFooter =
+    '• Minta share lokasi kepada klien sebelum berangkat.\n' +
+    '• Laporan keluar Basecamp beserta foto odometer.\n' +
+    '• Laporan saat sesi dimulai dan selesai.';
+  const catatanFooter = footerTemplate?.trim() || defaultFooter;
+
+  body += `════════════════════════\n`;
+  body += `*SOP Instruktur:*\n${catatanFooter}`;
+
+  return body;
+}
+
+/**
+ * Legacy wrapper for Weekly WhatsApp Schedule
  */
 export function generateWhatsAppWeeklyScheduleMarkdown(
   startDateStr: string,
   endDateStr: string,
   daysData: { tanggal: string; groups: InstrukturJadwalGroup[] }[],
-  footerTemplate?: string
+  footerTemplate?: string,
+  staffFilterNama?: string
 ): string {
-  const startFmt = formatDateIndo(startDateStr);
-  const endFmt = formatDateIndo(endDateStr);
-
-  let body = `*REKAP JADWAL MINGGUAN AMANAH DRIVE*\n`;
-  body += `Periode: *${startFmt}* s/d *${endFmt}*\n`;
-  body += `════════════════════════\n\n`;
-
-  daysData.forEach((day) => {
-    const tglHeader = formatHariTanggalIndo(day.tanggal);
-    body += `📅 *${tglHeader.toUpperCase()}*\n`;
-    body += `────────────────────────\n`;
-
-    if (day.groups.length === 0) {
-      body += `_Tidak ada jadwal sesi mengemudi._\n\n`;
-      return;
-    }
-
-    const sortedGroups = [...day.groups].sort((a, b) =>
-      a.instrukturNama.localeCompare(b.instrukturNama)
-    );
-
-    sortedGroups.forEach((group) => {
-      const sortedSesi = sortSesiBySlotUrutan(group.sesiList);
-
-      body += `*${group.instrukturNama.toUpperCase()}*:\n`;
-
-      if (sortedSesi.length === 0) {
-        body += `  _Libur / Kosong_\n`;
-      } else {
-        sortedSesi.forEach((sesi) => {
-          const namaSiswa = sesi.siswa?.nama || 'Siswa';
-          const slotNama = sesi.slot_waktu?.nama_slot || 'Slot';
-          const jamMulai = sesi.slot_waktu?.jam_mulai.substring(0, 5) || '';
-          const jamSelesai = (sesi.slot_waktu_akhir || sesi.slot_waktu)?.jam_selesai.substring(0, 5) || '';
-          const sesiKe = sesi.nomor_sesi_ke || 1;
-          const totalSesi = sesi.total_sesi_paket || 10;
-          const statusIcon = sesi.status_sesi === 'selesai' ? '✅' : sesi.status_sesi === 'batal' ? '❌' : '⏳';
-
-          body += `  ${statusIcon} ${slotNama} (${jamMulai}-${jamSelesai}): *${namaSiswa}* [Sesi ${sesiKe}/${totalSesi}]\n`;
-        });
-      }
-      body += `\n`;
-    });
-  });
-
-  if (footerTemplate) {
-    body += `════════════════════════\n`;
-    body += `*Catatan:*\n${footerTemplate.trim()}`;
-  }
-
-  return body;
+  return generateWhatsAppRangeScheduleMarkdown(
+    startDateStr,
+    endDateStr,
+    daysData,
+    true,
+    staffFilterNama,
+    footerTemplate
+  );
 }
 
 /**
@@ -184,7 +274,8 @@ export function generateWhatsAppWeeklyScheduleMarkdown(
  */
 export function generateWhatsAppRecapMarkdown(
   tanggalStr: string,
-  groupedData: InstrukturJadwalGroup[]
+  groupedData: InstrukturJadwalGroup[],
+  staffFilterNama?: string
 ): string {
   const tglFormatted = formatHariTanggalIndo(tanggalStr);
 
@@ -203,6 +294,9 @@ export function generateWhatsAppRecapMarkdown(
   let body = `*REKAP PENYELESAIAN SLOT HARIAN*\n`;
   body += `Amanah Drive Palembang\n`;
   body += `Tanggal: *${tglFormatted}*\n`;
+  if (staffFilterNama) {
+    body += `Instruktur: *${staffFilterNama.toUpperCase()}*\n`;
+  }
   body += `────────────────────────\n`;
   body += `📊 *Ringkasan Status:*\n`;
   body += `✅ Selesai: *${totalSelesai} Sesi*\n`;

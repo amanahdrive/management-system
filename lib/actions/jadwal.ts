@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import {
   generateWhatsAppJadwalMarkdown,
   generateWhatsAppWeeklyScheduleMarkdown,
+  generateWhatsAppRangeScheduleMarkdown,
   generateWhatsAppRecapMarkdown,
   InstrukturJadwalGroup,
   sortSesiBySlotUrutan,
@@ -379,8 +380,19 @@ export async function generateWhatsAppScheduleText(
   tanggalStr: string,
   staffId?: string
 ): Promise<string> {
+  const supabase = await createServerClient();
+  let staffFilterNama: string | undefined;
+  if (staffId && staffId !== 'semua') {
+    const { data: staffData } = await supabase
+      .from('staff')
+      .select('nama')
+      .eq('id', staffId)
+      .single();
+    if (staffData?.nama) staffFilterNama = staffData.nama;
+  }
+
   const jadwalList = await getJadwalByTanggal(tanggalStr, staffId);
-  const activeSesi = jadwalList.filter((j) => j.status_sesi === 'terjadwal');
+  const activeSesi = jadwalList.filter((j) => j.status_sesi !== 'batal');
 
   const groupMap = new Map<string, { nama: string; list: JadwalSesi[] }>();
 
@@ -401,7 +413,6 @@ export async function generateWhatsAppScheduleText(
 
   let footerTemplate: string | undefined;
   try {
-    const supabase = await createServerClient();
     const { data } = await supabase
       .from('settings')
       .select('value')
@@ -410,7 +421,7 @@ export async function generateWhatsAppScheduleText(
     if (data?.value) footerTemplate = data.value;
   } catch (e) {}
 
-  return generateWhatsAppJadwalMarkdown(tanggalStr, groupedData, footerTemplate);
+  return generateWhatsAppJadwalMarkdown(tanggalStr, groupedData, footerTemplate, staffFilterNama);
 }
 
 export async function generateWhatsAppWeeklyScheduleText(
@@ -420,6 +431,16 @@ export async function generateWhatsAppWeeklyScheduleText(
 ): Promise<string> {
   try {
     const supabase = await createServerClient();
+    let staffFilterNama: string | undefined;
+    if (staffId && staffId !== 'semua') {
+      const { data: staffData } = await supabase
+        .from('staff')
+        .select('nama')
+        .eq('id', staffId)
+        .single();
+      if (staffData?.nama) staffFilterNama = staffData.nama;
+    }
+
     let query = supabase
       .from('jadwal_sesi')
       .select(
@@ -427,7 +448,6 @@ export async function generateWhatsAppWeeklyScheduleText(
       )
       .gte('tanggal_sesi', startDateStr)
       .lte('tanggal_sesi', endDateStr)
-      .neq('status_sesi', 'batal')
       .order('tanggal_sesi', { ascending: true });
 
     if (staffId && staffId !== 'semua') {
@@ -481,9 +501,104 @@ export async function generateWhatsAppWeeklyScheduleText(
       if (data?.value) footerTemplate = data.value;
     } catch (e) {}
 
-    return generateWhatsAppWeeklyScheduleMarkdown(startDateStr, endDateStr, daysData, footerTemplate);
+    return generateWhatsAppRangeScheduleMarkdown(
+      startDateStr,
+      endDateStr,
+      daysData,
+      true, // weekly Sunday-Saturday mode
+      staffFilterNama,
+      footerTemplate
+    );
   } catch (err: any) {
     return 'Terjadi kesalahan saat membuat format WA mingguan';
+  }
+}
+
+export async function generateWhatsAppCustomRangeText(
+  startDateStr: string,
+  endDateStr: string,
+  staffId?: string
+): Promise<string> {
+  try {
+    const supabase = await createServerClient();
+    let staffFilterNama: string | undefined;
+    if (staffId && staffId !== 'semua') {
+      const { data: staffData } = await supabase
+        .from('staff')
+        .select('nama')
+        .eq('id', staffId)
+        .single();
+      if (staffData?.nama) staffFilterNama = staffData.nama;
+    }
+
+    let query = supabase
+      .from('jadwal_sesi')
+      .select(
+        '*, siswa(*), instruktur:staff(*), kendaraan(*), slot_waktu:slot_waktu!slot_waktu_id(*), slot_waktu_akhir:slot_waktu!slot_waktu_id_akhir(*)'
+      )
+      .gte('tanggal_sesi', startDateStr)
+      .lte('tanggal_sesi', endDateStr)
+      .order('tanggal_sesi', { ascending: true });
+
+    if (staffId && staffId !== 'semua') {
+      query = query.eq('staff_id', staffId);
+    }
+
+    const { data: list, error } = await query;
+    if (error || !list) return 'Gagal memuat jadwal rentang tanggal';
+
+    const dateMap = new Map<string, JadwalSesi[]>();
+    list.forEach((s) => {
+      const tgl = s.tanggal_sesi;
+      if (!dateMap.has(tgl)) dateMap.set(tgl, []);
+      dateMap.get(tgl)!.push(s as JadwalSesi);
+    });
+
+    const daysData: { tanggal: string; groups: InstrukturJadwalGroup[] }[] = [];
+
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const tglStr = d.toISOString().split('T')[0];
+      const daySessions = dateMap.get(tglStr) || [];
+
+      const instMap = new Map<string, { nama: string; list: JadwalSesi[] }>();
+      daySessions.forEach((sesi) => {
+        const instNama = sesi.instruktur?.nama || 'Instruktur';
+        const instId = sesi.staff_id;
+        if (!instMap.has(instId)) instMap.set(instId, { nama: instNama, list: [] });
+        instMap.get(instId)!.list.push(sesi);
+      });
+
+      daysData.push({
+        tanggal: tglStr,
+        groups: Array.from(instMap.values()).map((g) => ({
+          instrukturNama: g.nama,
+          sesiList: sortSesiBySlotUrutan(g.list),
+        })),
+      });
+    }
+
+    let footerTemplate: string | undefined;
+    try {
+      const { data } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'wa_footer_template')
+        .single();
+      if (data?.value) footerTemplate = data.value;
+    } catch (e) {}
+
+    return generateWhatsAppRangeScheduleMarkdown(
+      startDateStr,
+      endDateStr,
+      daysData,
+      false, // custom range mode
+      staffFilterNama,
+      footerTemplate
+    );
+  } catch (err: any) {
+    return 'Terjadi kesalahan saat membuat format WA rentang tanggal';
   }
 }
 
@@ -491,6 +606,17 @@ export async function generateWhatsAppRecapText(
   tanggalStr: string,
   staffId?: string
 ): Promise<string> {
+  const supabase = await createServerClient();
+  let staffFilterNama: string | undefined;
+  if (staffId && staffId !== 'semua') {
+    const { data: staffData } = await supabase
+      .from('staff')
+      .select('nama')
+      .eq('id', staffId)
+      .single();
+    if (staffData?.nama) staffFilterNama = staffData.nama;
+  }
+
   const jadwalList = await getJadwalByTanggal(tanggalStr, staffId);
 
   const groupMap = new Map<string, { nama: string; list: JadwalSesi[] }>();
@@ -509,6 +635,7 @@ export async function generateWhatsAppRecapText(
     sesiList: sortSesiBySlotUrutan(g.list),
   }));
 
-  return generateWhatsAppRecapMarkdown(tanggalStr, groupedData);
+  return generateWhatsAppRecapMarkdown(tanggalStr, groupedData, staffFilterNama);
 }
+
 

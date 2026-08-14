@@ -85,3 +85,31 @@ export function addDaysToDateStr(dateStr: string, days: number): string {
   return `${nextY}-${nextM}-${nextD}`;
 }
 
+/**
+ * Calculate the calendar week range starting from Sunday to Saturday for a given date.
+ */
+export function getWeekSundayToSaturday(dateStr: string): { startSunday: string; endSaturday: string } {
+  if (!dateStr) dateStr = getTodayDateString();
+  const parts = dateStr.split('-');
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  const current = new Date(y, m, d);
+  const dayOfWeek = current.getDay(); // 0 = Minggu, 1 = Senin, ..., 6 = Sabtu
+
+  const sun = new Date(current);
+  sun.setDate(current.getDate() - dayOfWeek);
+
+  const sat = new Date(sun);
+  sat.setDate(sun.getDate() + 6);
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const fmt = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+
+  return {
+    startSunday: fmt(sun),
+    endSaturday: fmt(sat),
+  };
+}
+
+

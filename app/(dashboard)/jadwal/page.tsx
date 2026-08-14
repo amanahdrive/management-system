@@ -16,12 +16,19 @@ import {
   deleteJadwalSesi,
   generateWhatsAppScheduleText,
   generateWhatsAppWeeklyScheduleText,
+  generateWhatsAppCustomRangeText,
   generateWhatsAppRecapText,
 } from '@/lib/actions/jadwal';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { getInstrukturList, getSlotWaktuList } from '@/lib/actions/master-data';
 import { getSiswaList } from '@/lib/actions/siswa';
-import { getTodayDateString, formatDateIndo, addDaysToDateStr } from '@/lib/utils/date';
+import {
+  getTodayDateString,
+  formatDateIndo,
+  formatHariTanggalIndo,
+  addDaysToDateStr,
+  getWeekSundayToSaturday,
+} from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import {
   Calendar,
@@ -83,10 +90,11 @@ export default function JadwalPage() {
   // Copy WA State
   const [copied, setCopied] = React.useState(false);
   const [isCopyWAModalOpen, setIsCopyWAModalOpen] = React.useState(false);
-  const [waCopyMode, setWaCopyMode] = React.useState<'harian' | 'mingguan' | 'rekap_slot'>('harian');
+  const [waCopyMode, setWaCopyMode] = React.useState<'harian' | 'mingguan' | 'custom' | 'rekap_slot'>('harian');
   const [waDateTarget, setWaDateTarget] = React.useState<string>(getTodayDateString());
-  const [waDateFrom, setWaDateFrom] = React.useState<string>(getTodayDateString());
-  const [waDateTo, setWaDateTo] = React.useState<string>(() => {
+  const [waWeekAnchor, setWaWeekAnchor] = React.useState<string>(getTodayDateString());
+  const [waCustomDateFrom, setWaCustomDateFrom] = React.useState<string>(getTodayDateString());
+  const [waCustomDateTo, setWaCustomDateTo] = React.useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() + 6);
     return d.toISOString().split('T')[0];
@@ -526,10 +534,9 @@ export default function JadwalPage() {
 
   const handleCopyWA = () => {
     setWaDateTarget(selectedTanggal);
-    setWaDateFrom(selectedTanggal);
-    const d = new Date(selectedTanggal);
-    d.setDate(d.getDate() + 6);
-    setWaDateTo(d.toISOString().split('T')[0]);
+    setWaWeekAnchor(selectedTanggal);
+    setWaCustomDateFrom(dateFrom || selectedTanggal);
+    setWaCustomDateTo(dateTo || selectedTanggal);
     setWaSelectedStaff(selectedStaff);
     setIsCopyWAModalOpen(true);
   };
@@ -543,14 +550,17 @@ export default function JadwalPage() {
     if (waCopyMode === 'harian') {
       text = await generateWhatsAppScheduleText(waDateTarget, staffParam);
     } else if (waCopyMode === 'mingguan') {
-      text = await generateWhatsAppWeeklyScheduleText(waDateFrom, waDateTo, staffParam);
+      const { startSunday, endSaturday } = getWeekSundayToSaturday(waWeekAnchor);
+      text = await generateWhatsAppWeeklyScheduleText(startSunday, endSaturday, staffParam);
+    } else if (waCopyMode === 'custom') {
+      text = await generateWhatsAppCustomRangeText(waCustomDateFrom, waCustomDateTo, staffParam);
     } else if (waCopyMode === 'rekap_slot') {
       text = await generateWhatsAppRecapText(waDateTarget, staffParam);
     }
 
     setWaPreviewText(text);
     setLoadingWAPreview(false);
-  }, [waCopyMode, waDateTarget, waDateFrom, waDateTo, waSelectedStaff]);
+  }, [waCopyMode, waDateTarget, waWeekAnchor, waCustomDateFrom, waCustomDateTo, waSelectedStaff]);
 
   React.useEffect(() => {
     if (isCopyWAModalOpen) {
@@ -1241,14 +1251,14 @@ export default function JadwalPage() {
         </div>
       )}
 
-      {/* MODAL COPY WA SCHEDULE (HARIAN, MINGGUAN & REKAP STATUS) */}
+      {/* MODAL COPY WA SCHEDULE (HARIAN, MINGGUAN MINGGU-SABTU, RENTANG TANGGAL, & REKAP SLOT) */}
       {isCopyWAModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card-container max-w-lg w-full bg-[var(--bg)] shadow-2xl space-y-4 text-xs max-h-[90vh] overflow-y-auto">
+          <div className="card-container max-w-xl w-full bg-[var(--bg)] shadow-2xl space-y-4 text-xs max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
               <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                 <Copy className="w-4 h-4 text-emerald-600" />
-                <span>Salin Jadwal WhatsApp (Markdown)</span>
+                <span>Salin Rekap Jadwal WhatsApp (Markdown)</span>
               </h3>
               <button
                 onClick={() => setIsCopyWAModalOpen(false)}
@@ -1259,33 +1269,44 @@ export default function JadwalPage() {
             </div>
 
             {/* Mode Switcher Tabs */}
-            <div className="flex rounded-xl p-1 bg-[var(--bg-subtle)] border border-[var(--border)]">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl">
               <button
                 type="button"
                 onClick={() => setWaCopyMode('harian')}
-                className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                className={`py-1.5 px-2 rounded-lg font-bold text-xs transition-all ${
                   waCopyMode === 'harian'
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                📅 Harian
+                📅 Per Hari
               </button>
               <button
                 type="button"
                 onClick={() => setWaCopyMode('mingguan')}
-                className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                className={`py-1.5 px-2 rounded-lg font-bold text-xs transition-all ${
                   waCopyMode === 'mingguan'
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                🗓️ Mingguan (7 Hari)
+                🗓️ Per Minggu (Min-Sab)
+              </button>
+              <button
+                type="button"
+                onClick={() => setWaCopyMode('custom')}
+                className={`py-1.5 px-2 rounded-lg font-bold text-xs transition-all ${
+                  waCopyMode === 'custom'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                📆 Rentang Tanggal
               </button>
               <button
                 type="button"
                 onClick={() => setWaCopyMode('rekap_slot')}
-                className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                className={`py-1.5 px-2 rounded-lg font-bold text-xs transition-all ${
                   waCopyMode === 'rekap_slot'
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -1295,63 +1316,162 @@ export default function JadwalPage() {
               </button>
             </div>
 
-            {/* Filter Date & Staff Controls */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {waCopyMode === 'mingguan' ? (
-                <>
+            {/* Controls per Selected Mode */}
+            <div className="space-y-3 p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl">
+              {/* Mode 1: Harian & Rekap Slot */}
+              {(waCopyMode === 'harian' || waCopyMode === 'rekap_slot') && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <DatePickerWIB
-                      label="Tanggal Mulai"
-                      value={waDateFrom}
-                      onChange={(val) => setWaDateFrom(val)}
+                      label="Pilih Tanggal Sesi"
+                      value={waDateTarget}
+                      onChange={(val) => setWaDateTarget(val)}
                     />
                   </div>
                   <div>
-                    <DatePickerWIB
-                      label="Tanggal Selesai"
-                      value={waDateTo}
-                      onChange={(val) => setWaDateTo(val)}
-                    />
+                    <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                      Filter Instruktur
+                    </label>
+                    <select
+                      value={waSelectedStaff}
+                      onChange={(e) => setWaSelectedStaff(e.target.value)}
+                      className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-xs"
+                    >
+                      <option value="semua">Semua Instruktur</option>
+                      {instrukturList.map((ins) => (
+                        <option key={ins.id} value={ins.id}>
+                          {ins.nama} (Instruktur)
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </>
-              ) : (
-                <div>
-                  <DatePickerWIB
-                    label="Pilih Tanggal Jadwal"
-                    value={waDateTarget}
-                    onChange={(val) => setWaDateTarget(val)}
-                  />
                 </div>
               )}
 
-              <div>
-                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                  Pilih Instruktur
-                </label>
-                <select
-                  value={waSelectedStaff}
-                  onChange={(e) => setWaSelectedStaff(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold"
-                >
-                  <option value="semua">Semua Instruktur</option>
-                  {instrukturList.map((ins) => (
-                    <option key={ins.id} value={ins.id}>
-                      {ins.nama} (Instruktur)
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Mode 2: Per Minggu (Minggu - Sabtu) */}
+              {waCopyMode === 'mingguan' && (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-semibold text-[var(--text-secondary)]">
+                      Navigasi Rentang Minggu:
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setWaWeekAnchor(addDaysToDateStr(waWeekAnchor, -7))}
+                        className="px-2.5 py-1 rounded border border-[var(--border)] bg-[var(--bg)] font-semibold hover:bg-black/5"
+                      >
+                        ◀ Minggu Lalu
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWaWeekAnchor(getTodayDateString())}
+                        className="px-2.5 py-1 rounded border border-[var(--border)] bg-[var(--bg)] font-bold text-[var(--brand-primary)] hover:bg-black/5"
+                      >
+                        Minggu Ini
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWaWeekAnchor(addDaysToDateStr(waWeekAnchor, 7))}
+                        className="px-2.5 py-1 rounded border border-[var(--border)] bg-[var(--bg)] font-semibold hover:bg-black/5"
+                      >
+                        Minggu Depan ▶
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <DatePickerWIB
+                        label="Pilih Tanggal Acuan Minggu"
+                        value={waWeekAnchor}
+                        onChange={(val) => setWaWeekAnchor(val)}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                        Filter Instruktur
+                      </label>
+                      <select
+                        value={waSelectedStaff}
+                        onChange={(e) => setWaSelectedStaff(e.target.value)}
+                        className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-xs"
+                      >
+                        <option value="semua">Semua Instruktur</option>
+                        {instrukturList.map((ins) => (
+                          <option key={ins.id} value={ins.id}>
+                            {ins.nama} (Instruktur)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {(() => {
+                    const { startSunday, endSaturday } = getWeekSundayToSaturday(waWeekAnchor);
+                    return (
+                      <div className="p-2 bg-[var(--bg)] border border-[var(--brand-primary)]/40 rounded-lg text-center font-bold text-[var(--brand-primary)]">
+                        🗓️ Periode: Minggu, {formatDateIndo(startSunday)} s/d Sabtu, {formatDateIndo(endSaturday)}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Mode 3: Rentang Tanggal (Custom Range) */}
+              {waCopyMode === 'custom' && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <DatePickerWIB
+                        label="Dari Tanggal"
+                        value={waCustomDateFrom}
+                        onChange={(val) => setWaCustomDateFrom(val)}
+                      />
+                    </div>
+                    <div>
+                      <DatePickerWIB
+                        label="Sampai Tanggal"
+                        value={waCustomDateTo}
+                        onChange={(val) => setWaCustomDateTo(val)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                        Filter Instruktur
+                      </label>
+                      <select
+                        value={waSelectedStaff}
+                        onChange={(e) => setWaSelectedStaff(e.target.value)}
+                        className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-xs"
+                      >
+                        <option value="semua">Semua Instruktur</option>
+                        {instrukturList.map((ins) => (
+                          <option key={ins.id} value={ins.id}>
+                            {ins.nama} (Instruktur)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="p-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-center text-[11px] font-semibold text-[var(--text-secondary)]">
+                    📆 Rentang: {formatHariTanggalIndo(waCustomDateFrom)} s/d {formatHariTanggalIndo(waCustomDateTo)}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Live Markdown Preview */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="font-semibold text-[var(--text-secondary)]">
-                  Preview Format WhatsApp:
+                  Preview Format Markdown WhatsApp:
                 </label>
                 {loadingWAPreview && (
                   <span className="text-[10px] text-[var(--brand-primary)] font-semibold flex items-center gap-1">
-                    <RefreshCw className="w-3 h-3 animate-spin" /> Memuat format...
+                    <RefreshCw className="w-3 h-3 animate-spin" /> Mengkalkulasi rekap...
                   </span>
                 )}
               </div>
@@ -1378,8 +1498,8 @@ export default function JadwalPage() {
                 disabled={loadingWAPreview || !waPreviewText}
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center gap-2 shadow-md transition-all disabled:opacity-50"
               >
-                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                <span>{copied ? 'Tersalin ke WhatsApp!' : 'Salin ke Clipboard'}</span>
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4 text-white" />}
+                <span>{copied ? 'Tersalin ke WhatsApp!' : 'Salin Format WhatsApp'}</span>
               </button>
             </div>
           </div>
