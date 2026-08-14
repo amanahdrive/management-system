@@ -10,9 +10,12 @@ import {
   getJadwalByBulan,
   getJadwalConflictCheckList,
   upsertJadwalBatch,
+  upsertJadwalSesi,
   updateSesiProgress,
   deleteJadwalSesi,
   generateWhatsAppScheduleText,
+  generateWhatsAppWeeklyScheduleText,
+  generateWhatsAppRecapText,
 } from '@/lib/actions/jadwal';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { getInstrukturList, getSlotWaktuList } from '@/lib/actions/master-data';
@@ -36,6 +39,7 @@ import {
   Sparkles,
   Filter,
   X,
+  RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -78,7 +82,17 @@ export default function JadwalPage() {
   // Copy WA State
   const [copied, setCopied] = React.useState(false);
   const [isCopyWAModalOpen, setIsCopyWAModalOpen] = React.useState(false);
+  const [waCopyMode, setWaCopyMode] = React.useState<'harian' | 'mingguan' | 'rekap_slot'>('harian');
   const [waDateTarget, setWaDateTarget] = React.useState<string>(getTodayDateString());
+  const [waDateFrom, setWaDateFrom] = React.useState<string>(getTodayDateString());
+  const [waDateTo, setWaDateTo] = React.useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 6);
+    return d.toISOString().split('T')[0];
+  });
+  const [waSelectedStaff, setWaSelectedStaff] = React.useState<string>('semua');
+  const [waPreviewText, setWaPreviewText] = React.useState<string>('');
+  const [loadingWAPreview, setLoadingWAPreview] = React.useState<boolean>(false);
 
   // Recap Panel State
   const [recapDate, setRecapDate] = React.useState(getTodayDateString());
@@ -94,6 +108,8 @@ export default function JadwalPage() {
   const [progressModalJadwal, setProgressModalJadwal] = React.useState<JadwalSesi | null>(null);
   const [progressSesiKe, setProgressSesiKe] = React.useState<number>(1);
   const [progressTanggal, setProgressTanggal] = React.useState<string>(getTodayDateString());
+  const [isReschedulingProgress, setIsReschedulingProgress] = React.useState<boolean>(false);
+  const [rescheduleTargetDate, setRescheduleTargetDate] = React.useState<string>(getTodayDateString());
 
   // Modal Tambah Jadwal Baru State
   const [isModalOpen, setIsModalOpen] = React.useState(false);
@@ -468,6 +484,12 @@ export default function JadwalPage() {
     setProgressModalJadwal(jadwal);
     setProgressSesiKe(jadwal.nomor_sesi_ke || 1);
     setProgressTanggal(jadwal.tanggal_sesi || getTodayDateString());
+    setIsReschedulingProgress(false);
+
+    // Default reschedule: tomorrow
+    const tom = new Date();
+    tom.setDate(tom.getDate() + 1);
+    setRescheduleTargetDate(tom.toISOString().split('T')[0]);
   };
 
   // Save Progress Action
@@ -482,24 +504,66 @@ export default function JadwalPage() {
     );
 
     setProgressModalJadwal(null);
+    setIsReschedulingProgress(false);
+    loadData();
+  };
+
+  // Save Reschedule Action
+  const handleSaveReschedule = async () => {
+    if (!progressModalJadwal || !progressModalJadwal.siswa_id) return;
+
+    await updateSesiProgress(
+      progressModalJadwal.siswa_id,
+      progressSesiKe,
+      rescheduleTargetDate,
+      'terjadwal'
+    );
+
+    setProgressModalJadwal(null);
+    setIsReschedulingProgress(false);
     loadData();
   };
 
   const handleCopyWA = () => {
     setWaDateTarget(selectedTanggal);
+    setWaDateFrom(selectedTanggal);
+    const d = new Date(selectedTanggal);
+    d.setDate(d.getDate() + 6);
+    setWaDateTo(d.toISOString().split('T')[0]);
+    setWaSelectedStaff(selectedStaff);
     setIsCopyWAModalOpen(true);
   };
 
-  const handleExecuteCopyWA = async () => {
-    const text = await generateWhatsAppScheduleText(
-      waDateTarget,
-      selectedStaff !== 'semua' ? selectedStaff : undefined
-    );
-    navigator.clipboard.writeText(text);
+  // Update WA preview effect
+  const updateWAPreview = React.useCallback(async () => {
+    setLoadingWAPreview(true);
+    let text = '';
+    const staffParam = waSelectedStaff !== 'semua' ? waSelectedStaff : undefined;
+
+    if (waCopyMode === 'harian') {
+      text = await generateWhatsAppScheduleText(waDateTarget, staffParam);
+    } else if (waCopyMode === 'mingguan') {
+      text = await generateWhatsAppWeeklyScheduleText(waDateFrom, waDateTo, staffParam);
+    } else if (waCopyMode === 'rekap_slot') {
+      text = await generateWhatsAppRecapText(waDateTarget, staffParam);
+    }
+
+    setWaPreviewText(text);
+    setLoadingWAPreview(false);
+  }, [waCopyMode, waDateTarget, waDateFrom, waDateTo, waSelectedStaff]);
+
+  React.useEffect(() => {
+    if (isCopyWAModalOpen) {
+      updateWAPreview();
+    }
+  }, [isCopyWAModalOpen, updateWAPreview]);
+
+  const handleExecuteCopyWA = () => {
+    if (!waPreviewText) return;
+    navigator.clipboard.writeText(waPreviewText);
     setCopied(true);
     setTimeout(() => {
       setCopied(false);
-      setIsCopyWAModalOpen(false);
     }, 2000);
   };
 
@@ -1004,14 +1068,14 @@ export default function JadwalPage() {
       {/* MODAL UPDATE PROGRESS SESI PER SISWA */}
       {progressModalJadwal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card-container max-w-md w-full bg-[var(--bg)] shadow-lg space-y-4 text-xs">
+          <div className="card-container max-w-md w-full bg-[var(--bg)] shadow-xl space-y-4 text-xs">
             <h3 className="text-base font-bold text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
               <Calendar className="w-5 h-5 text-amber-600" />
               Update Progress Sesi per Siswa
             </h3>
 
-            <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-md space-y-1">
-              <p className="font-bold text-[var(--brand-primary)]">
+            <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl space-y-1">
+              <p className="font-bold text-sm text-[var(--brand-primary)]">
                 {progressModalJadwal.siswa?.nama} ({progressModalJadwal.siswa?.kode_siswa})
               </p>
               <p className="text-[var(--text-secondary)]">
@@ -1039,20 +1103,21 @@ export default function JadwalPage() {
 
               <div>
                 <DatePickerWIB
-                  label="Tanggal Sesi"
+                  label="Tanggal Sesi Saat Ini"
                   value={progressTanggal}
                   onChange={(val) => setProgressTanggal(val)}
                 />
               </div>
             </div>
 
-            <div className="pt-2 border-t border-[var(--border)] space-y-2">
+            {/* STATUS ACTIONS & RESCHEDULE TOGGLE */}
+            <div className="pt-2 border-t border-[var(--border)] space-y-3">
               <p className="font-semibold text-[var(--text-primary)]">Pilih Status Aksi Sesi Ini:</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <button
                   type="button"
                   onClick={() => handleSaveProgressStatus('selesai')}
-                  className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-md flex items-center justify-center gap-1 shadow-sm"
+                  className="px-2.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg flex items-center justify-center gap-1 shadow-sm"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Selesai</span>
@@ -1060,7 +1125,7 @@ export default function JadwalPage() {
                 <button
                   type="button"
                   onClick={() => handleSaveProgressStatus('terjadwal')}
-                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md flex items-center justify-center gap-1 shadow-sm"
+                  className="px-2.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg flex items-center justify-center gap-1 shadow-sm"
                 >
                   <Clock className="w-3.5 h-3.5" />
                   <span>Terjadwal</span>
@@ -1068,18 +1133,73 @@ export default function JadwalPage() {
                 <button
                   type="button"
                   onClick={() => handleSaveProgressStatus('batal')}
-                  className="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-md flex items-center justify-center gap-1 shadow-sm"
+                  className="px-2.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg flex items-center justify-center gap-1 shadow-sm"
                 >
                   <XCircle className="w-3.5 h-3.5" />
                   <span>Batal</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setIsReschedulingProgress(!isReschedulingProgress)}
+                  className={`px-2.5 py-2 font-bold rounded-lg flex items-center justify-center gap-1 shadow-sm border transition-colors ${
+                    isReschedulingProgress
+                      ? 'bg-amber-600 text-white border-amber-700'
+                      : 'bg-amber-100 hover:bg-amber-200 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
+                  }`}
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Reschedule</span>
+                </button>
               </div>
+
+              {/* RESCHEDULE DATE PICKER PANEL */}
+              {isReschedulingProgress && (
+                <div className="p-3.5 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-900 rounded-xl space-y-3 animate-in fade-in zoom-in-95">
+                  <div className="flex items-center justify-between border-b border-amber-200 dark:border-amber-900/50 pb-1.5">
+                    <span className="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-amber-600" />
+                      Penundaan / Reschedule Jadwal
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                      Pilih Tanggal Baru Dilanjutkan:
+                    </label>
+                    <DatePickerWIB
+                      value={rescheduleTargetDate}
+                      onChange={(val) => setRescheduleTargetDate(val)}
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-1 border-t border-amber-200 dark:border-amber-900/50">
+                    <button
+                      type="button"
+                      onClick={() => setIsReschedulingProgress(false)}
+                      className="px-3 py-1.5 border border-[var(--border)] rounded-lg text-xs hover:bg-black/5"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveReschedule}
+                      className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs shadow-sm flex items-center gap-1.5"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Simpan Reschedule</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="flex justify-end pt-2">
+            <div className="flex justify-end pt-2 border-t border-[var(--border)]">
               <button
                 type="button"
-                onClick={() => setProgressModalJadwal(null)}
+                onClick={() => {
+                  setProgressModalJadwal(null);
+                  setIsReschedulingProgress(false);
+                }}
                 className="px-4 py-1.5 border border-[var(--border)] rounded-md font-medium"
               >
                 Tutup
@@ -1089,42 +1209,145 @@ export default function JadwalPage() {
         </div>
       )}
 
-      {/* MODAL COPY WA SCHEDULE DENGAN DATE PICKER */}
+      {/* MODAL COPY WA SCHEDULE (HARIAN, MINGGUAN & REKAP STATUS) */}
       {isCopyWAModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card-container max-w-sm w-full bg-[var(--bg)] shadow-lg space-y-4 text-xs">
-            <h3 className="text-sm font-bold text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
-              <Copy className="w-4 h-4 text-emerald-600" />
-              Copy WhatsApp Jadwal Instruktur
-            </h3>
-
-            <div className="space-y-3">
-              <DatePickerWIB
-                label="Pilih Tanggal Jadwal yang Akan di-Copy"
-                value={waDateTarget}
-                onChange={(val) => setWaDateTarget(val)}
-              />
-
-              <p className="text-[11px] text-[var(--text-secondary)]">
-                Jadwal mengemudi pada tanggal <span className="font-bold text-[var(--text-primary)]">{formatDateIndo(waDateTarget)}</span> akan disalin dalam format markdown rapi per instruktur.
-              </p>
+          <div className="card-container max-w-lg w-full bg-[var(--bg)] shadow-2xl space-y-4 text-xs max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+              <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <Copy className="w-4 h-4 text-emerald-600" />
+                <span>Salin Jadwal WhatsApp (Markdown)</span>
+              </h3>
+              <button
+                onClick={() => setIsCopyWAModalOpen(false)}
+                className="p-1 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border)]">
+            {/* Mode Switcher Tabs */}
+            <div className="flex rounded-xl p-1 bg-[var(--bg-subtle)] border border-[var(--border)]">
               <button
                 type="button"
-                onClick={() => setIsCopyWAModalOpen(false)}
-                className="px-3 py-1.5 border border-[var(--border)] rounded-md font-medium"
+                onClick={() => setWaCopyMode('harian')}
+                className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                  waCopyMode === 'harian'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
               >
-                Batal
+                📅 Harian
               </button>
               <button
                 type="button"
+                onClick={() => setWaCopyMode('mingguan')}
+                className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                  waCopyMode === 'mingguan'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                🗓️ Mingguan (7 Hari)
+              </button>
+              <button
+                type="button"
+                onClick={() => setWaCopyMode('rekap_slot')}
+                className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                  waCopyMode === 'rekap_slot'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                📊 Rekap Slot
+              </button>
+            </div>
+
+            {/* Filter Date & Staff Controls */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {waCopyMode === 'mingguan' ? (
+                <>
+                  <div>
+                    <DatePickerWIB
+                      label="Tanggal Mulai"
+                      value={waDateFrom}
+                      onChange={(val) => setWaDateFrom(val)}
+                    />
+                  </div>
+                  <div>
+                    <DatePickerWIB
+                      label="Tanggal Selesai"
+                      value={waDateTo}
+                      onChange={(val) => setWaDateTo(val)}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <DatePickerWIB
+                    label="Pilih Tanggal Jadwal"
+                    value={waDateTarget}
+                    onChange={(val) => setWaDateTarget(val)}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                  Pilih Instruktur
+                </label>
+                <select
+                  value={waSelectedStaff}
+                  onChange={(e) => setWaSelectedStaff(e.target.value)}
+                  className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold"
+                >
+                  <option value="semua">Semua Instruktur</option>
+                  {instrukturList.map((ins) => (
+                    <option key={ins.id} value={ins.id}>
+                      {ins.nama} (Instruktur)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Live Markdown Preview */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="font-semibold text-[var(--text-secondary)]">
+                  Preview Format WhatsApp:
+                </label>
+                {loadingWAPreview && (
+                  <span className="text-[10px] text-[var(--brand-primary)] font-semibold flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3 animate-spin" /> Memuat format...
+                  </span>
+                )}
+              </div>
+              <textarea
+                readOnly
+                rows={9}
+                value={waPreviewText}
+                className="w-full p-3 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] font-mono text-[11px] text-[var(--text-primary)] leading-relaxed select-all"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]">
+              <button
+                type="button"
+                onClick={() => setIsCopyWAModalOpen(false)}
+                className="px-4 py-2 border border-[var(--border)] rounded-md font-medium hover:bg-black/5"
+              >
+                Tutup
+              </button>
+
+              <button
+                type="button"
                 onClick={handleExecuteCopyWA}
-                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-md flex items-center gap-1.5"
+                disabled={loadingWAPreview || !waPreviewText}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center gap-2 shadow-md transition-all disabled:opacity-50"
               >
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                <span>{copied ? 'Tersalin!' : 'Copy Sekarang'}</span>
+                <span>{copied ? 'Tersalin ke WhatsApp!' : 'Salin ke Clipboard'}</span>
               </button>
             </div>
           </div>

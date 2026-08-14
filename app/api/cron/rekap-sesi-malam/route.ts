@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sendTelegramMessage } from '@/lib/telegram/client';
+import { getTelegramConfig } from '@/lib/actions/telegram';
 import { getTodayDateString, formatDateIndo, formatDateLongIndo } from '@/lib/utils/date';
 import { createServerClient } from '@/lib/supabase/server';
 
@@ -15,6 +16,14 @@ export async function GET(request: Request) {
   const dateFormatted = formatDateIndo(todayStr);
 
   try {
+    const config = await getTelegramConfig();
+    if (!config.otomasiAktif || !config.rekapMalamAktif) {
+      return NextResponse.json({
+        success: true,
+        message: 'Automasi Rekap Malam Telegram dinonaktifkan di Pengaturan Sistem',
+      });
+    }
+
     const supabase = await createServerClient();
 
     // Fetch all today's sessions with full joined data — include urutan for proper sort

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sendTelegramMessage } from '@/lib/telegram/client';
+import { getTelegramConfig } from '@/lib/actions/telegram';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 
 export async function GET(request: Request) {
@@ -14,6 +15,13 @@ export async function GET(request: Request) {
   const dateFormatted = formatDateIndo(todayStr);
 
   try {
+    const config = await getTelegramConfig();
+    if (!config.otomasiAktif || !config.pengingatProgressAktif) {
+      return NextResponse.json({
+        success: true,
+        message: 'Automasi Pengingat Progress Telegram dinonaktifkan di Pengaturan Sistem',
+      });
+    }
     const message =
       `<b>🔔 PENGINGAT ADMIN & FINANCE AMANAH DRIVE</b>\n` +
       `Tanggal: <b>${dateFormatted}</b>\n` +

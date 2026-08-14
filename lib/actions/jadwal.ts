@@ -3,7 +3,13 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { JadwalSesi } from '@/types/database';
 import { revalidatePath } from 'next/cache';
-import { generateWhatsAppJadwalMarkdown, InstrukturJadwalGroup } from '../utils/whatsapp-markdown';
+import {
+  generateWhatsAppJadwalMarkdown,
+  generateWhatsAppWeeklyScheduleMarkdown,
+  generateWhatsAppRecapMarkdown,
+  InstrukturJadwalGroup,
+  sortSesiBySlotUrutan,
+} from '../utils/whatsapp-markdown';
 
 export async function getJadwalByTanggal(
   tanggal: string,
@@ -308,6 +314,8 @@ export async function deleteJadwalSesi(
   }
 }
 
+
+
 export async function generateWhatsAppScheduleText(
   tanggalStr: string,
   staffId?: string
@@ -329,7 +337,7 @@ export async function generateWhatsAppScheduleText(
 
   const groupedData: InstrukturJadwalGroup[] = Array.from(groupMap.values()).map((g) => ({
     instrukturNama: g.nama,
-    sesiList: g.list,
+    sesiList: sortSesiBySlotUrutan(g.list),
   }));
 
   let footerTemplate: string | undefined;
@@ -345,3 +353,103 @@ export async function generateWhatsAppScheduleText(
 
   return generateWhatsAppJadwalMarkdown(tanggalStr, groupedData, footerTemplate);
 }
+
+export async function generateWhatsAppWeeklyScheduleText(
+  startDateStr: string,
+  endDateStr: string,
+  staffId?: string
+): Promise<string> {
+  try {
+    const supabase = await createServerClient();
+    let query = supabase
+      .from('jadwal_sesi')
+      .select(
+        '*, siswa(*), instruktur:staff(*), kendaraan(*), slot_waktu:slot_waktu!slot_waktu_id(*), slot_waktu_akhir:slot_waktu!slot_waktu_id_akhir(*)'
+      )
+      .gte('tanggal_sesi', startDateStr)
+      .lte('tanggal_sesi', endDateStr)
+      .neq('status_sesi', 'batal')
+      .order('tanggal_sesi', { ascending: true });
+
+    if (staffId && staffId !== 'semua') {
+      query = query.eq('staff_id', staffId);
+    }
+
+    const { data: list, error } = await query;
+    if (error || !list) return 'Gagal memuat jadwal mingguan';
+
+    // Group by date
+    const dateMap = new Map<string, JadwalSesi[]>();
+    list.forEach((s) => {
+      const tgl = s.tanggal_sesi;
+      if (!dateMap.has(tgl)) dateMap.set(tgl, []);
+      dateMap.get(tgl)!.push(s as JadwalSesi);
+    });
+
+    const daysData: { tanggal: string; groups: InstrukturJadwalGroup[] }[] = [];
+
+    // Iterate through date range
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const tglStr = d.toISOString().split('T')[0];
+      const daySessions = dateMap.get(tglStr) || [];
+
+      const instMap = new Map<string, { nama: string; list: JadwalSesi[] }>();
+      daySessions.forEach((sesi) => {
+        const instNama = sesi.instruktur?.nama || 'Instruktur';
+        const instId = sesi.staff_id;
+        if (!instMap.has(instId)) instMap.set(instId, { nama: instNama, list: [] });
+        instMap.get(instId)!.list.push(sesi);
+      });
+
+      daysData.push({
+        tanggal: tglStr,
+        groups: Array.from(instMap.values()).map((g) => ({
+          instrukturNama: g.nama,
+          sesiList: sortSesiBySlotUrutan(g.list),
+        })),
+      });
+    }
+
+    let footerTemplate: string | undefined;
+    try {
+      const { data } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'wa_footer_template')
+        .single();
+      if (data?.value) footerTemplate = data.value;
+    } catch (e) {}
+
+    return generateWhatsAppWeeklyScheduleMarkdown(startDateStr, endDateStr, daysData, footerTemplate);
+  } catch (err: any) {
+    return 'Terjadi kesalahan saat membuat format WA mingguan';
+  }
+}
+
+export async function generateWhatsAppRecapText(
+  tanggalStr: string,
+  staffId?: string
+): Promise<string> {
+  const jadwalList = await getJadwalByTanggal(tanggalStr, staffId);
+
+  const groupMap = new Map<string, { nama: string; list: JadwalSesi[] }>();
+  jadwalList.forEach((sesi) => {
+    const instNama = sesi.instruktur?.nama || 'Instruktur';
+    const instId = sesi.staff_id;
+
+    if (!groupMap.has(instId)) {
+      groupMap.set(instId, { nama: instNama, list: [] });
+    }
+    groupMap.get(instId)!.list.push(sesi);
+  });
+
+  const groupedData: InstrukturJadwalGroup[] = Array.from(groupMap.values()).map((g) => ({
+    instrukturNama: g.nama,
+    sesiList: sortSesiBySlotUrutan(g.list),
+  }));
+
+  return generateWhatsAppRecapMarkdown(tanggalStr, groupedData);
+}
+

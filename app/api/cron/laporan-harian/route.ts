@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sendTelegramMessage } from '@/lib/telegram/client';
+import { getTelegramConfig } from '@/lib/actions/telegram';
 import { getTodayDateString, formatDateLongIndo } from '@/lib/utils/date';
 import { createServerClient } from '@/lib/supabase/server';
 
@@ -14,6 +15,14 @@ export async function GET(request: Request) {
   const todayStr = getTodayDateString();
 
   try {
+    const config = await getTelegramConfig();
+    if (!config.otomasiAktif || !config.laporanPagiAktif) {
+      return NextResponse.json({
+        success: true,
+        message: 'Automasi Laporan Pagi Telegram dinonaktifkan di Pengaturan Sistem',
+      });
+    }
+
     const supabase = await createServerClient();
 
     // Fetch today's sessions — order by slot urutan for correct time ordering
