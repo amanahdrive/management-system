@@ -3,6 +3,12 @@
 import React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import {
+  getGeneralSettings,
+  saveCompanyProfile,
+  saveSopTemplate,
+  saveBbmPrices,
+} from '@/lib/actions/settings';
+import {
   sendTelegramMessageAction,
   getTelegramConfig,
   saveTelegramConfig,
@@ -133,6 +139,16 @@ export default function SettingsPage() {
   const [pertalitePrice, setPertalitePrice] = React.useState(10000);
   const [pertamaxPrice, setPertamaxPrice] = React.useState(16300);
 
+  // Saving states for individual sections
+  const [savingProfile, setSavingProfile] = React.useState(false);
+  const [profileSuccess, setProfileSuccess] = React.useState(false);
+
+  const [savingBbm, setSavingBbm] = React.useState(false);
+  const [bbmSuccess, setBbmSuccess] = React.useState(false);
+
+  const [savingSop, setSavingSop] = React.useState(false);
+  const [sopSuccess, setSopSuccess] = React.useState(false);
+
   // PIN Change State
   const [pinLama, setPinLama] = React.useState('');
   const [pinBaru, setPinBaru] = React.useState('');
@@ -157,16 +173,63 @@ export default function SettingsPage() {
   const [resetLoading, setResetLoading] = React.useState(false);
   const [resetSuccessBanner, setResetSuccessBanner] = React.useState<string | null>(null);
 
-  // Load Telegram Config on Mount
+  // Load All Settings on Mount
   React.useEffect(() => {
-    async function loadTg() {
+    async function loadAllSettings() {
       setLoadingTelegram(true);
-      const cfg = await getTelegramConfig();
-      setTelegramConfig(cfg);
+      const [genCfg, tgCfg] = await Promise.all([getGeneralSettings(), getTelegramConfig()]);
+      setNamaPerusahaan(genCfg.namaPerusahaan);
+      setKota(genCfg.kotaOperasional);
+      setWaTemplate(genCfg.waTemplate);
+      setPertalitePrice(genCfg.pertalitePrice);
+      setPertamaxPrice(genCfg.pertamaxPrice);
+      setTelegramConfig(tgCfg);
       setLoadingTelegram(false);
     }
-    loadTg();
+    loadAllSettings();
   }, []);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    setProfileSuccess(false);
+    const res = await saveCompanyProfile(namaPerusahaan, kota);
+    setSavingProfile(false);
+    if (res.success) {
+      setProfileSuccess(true);
+      setTimeout(() => setProfileSuccess(false), 3000);
+    } else {
+      alert('Gagal menyimpan profil: ' + res.error);
+    }
+  };
+
+  const handleSaveBbm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingBbm(true);
+    setBbmSuccess(false);
+    const res = await saveBbmPrices(pertalitePrice, pertamaxPrice);
+    setSavingBbm(false);
+    if (res.success) {
+      setBbmSuccess(true);
+      setTimeout(() => setBbmSuccess(false), 3000);
+    } else {
+      alert('Gagal menyimpan harga BBM: ' + res.error);
+    }
+  };
+
+  const handleSaveSopTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSop(true);
+    setSopSuccess(false);
+    const res = await saveSopTemplate(waTemplate);
+    setSavingSop(false);
+    if (res.success) {
+      setSopSuccess(true);
+      setTimeout(() => setSopSuccess(false), 3000);
+    } else {
+      alert('Gagal menyimpan template SOP: ' + res.error);
+    }
+  };
 
   const handleExecuteReset = async () => {
     if (!activeResetModule) return;
@@ -284,7 +347,7 @@ export default function SettingsPage() {
             Profil Usaha & Wilayah
           </h3>
 
-          <div className="space-y-3 text-xs">
+          <form onSubmit={handleSaveProfile} className="space-y-3 text-xs">
             <div>
               <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Nama Usaha</label>
               <input
@@ -304,7 +367,22 @@ export default function SettingsPage() {
                 className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)]"
               />
             </div>
-          </div>
+
+            <button
+              type="submit"
+              disabled={savingProfile}
+              className="w-full py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] disabled:opacity-50 text-white font-bold rounded-md flex items-center justify-center gap-1.5 transition-colors"
+            >
+              {savingProfile ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : profileSuccess ? (
+                <Check className="w-3.5 h-3.5" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              <span>{savingProfile ? 'Menyimpan...' : profileSuccess ? 'Tersimpan!' : 'Simpan Profil Usaha'}</span>
+            </button>
+          </form>
         </div>
 
         {/* Section 2: Ganti PIN Keuangan */}
@@ -372,27 +450,44 @@ export default function SettingsPage() {
             Parameter Harga BBM
           </h3>
 
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div>
-              <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Pertalite (Rp/Liter)</label>
-              <input
-                type="number"
-                value={pertalitePrice}
-                onChange={(e) => setPertalitePrice(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)]"
-              />
+          <form onSubmit={handleSaveBbm} className="space-y-3 text-xs">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Pertalite (Rp/Liter)</label>
+                <input
+                  type="number"
+                  value={pertalitePrice}
+                  onChange={(e) => setPertalitePrice(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Pertamax (Rp/Liter)</label>
+                <input
+                  type="number"
+                  value={pertamaxPrice}
+                  onChange={(e) => setPertamaxPrice(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Pertamax (Rp/Liter)</label>
-              <input
-                type="number"
-                value={pertamaxPrice}
-                onChange={(e) => setPertamaxPrice(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)]"
-              />
-            </div>
-          </div>
+            <button
+              type="submit"
+              disabled={savingBbm}
+              className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-md flex items-center justify-center gap-1.5 transition-colors"
+            >
+              {savingBbm ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : bbmSuccess ? (
+                <Check className="w-3.5 h-3.5" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              <span>{savingBbm ? 'Menyimpan...' : bbmSuccess ? 'Tersimpan!' : 'Simpan Harga BBM'}</span>
+            </button>
+          </form>
         </div>
 
         {/* Section 4: WhatsApp Template */}
@@ -402,14 +497,32 @@ export default function SettingsPage() {
             Template Standar Operasional Sesi
           </h3>
 
-          <div className="space-y-3 text-xs">
-            <textarea
-              rows={4}
-              value={waTemplate}
-              onChange={(e) => setWaTemplate(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-mono text-[11px]"
-            />
-          </div>
+          <form onSubmit={handleSaveSopTemplate} className="space-y-3 text-xs">
+            <div>
+              <textarea
+                rows={5}
+                value={waTemplate}
+                onChange={(e) => setWaTemplate(e.target.value)}
+                className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-mono text-[11px] leading-relaxed"
+                placeholder="Tuliskan format teks SOP atau instruksi SOP sesi..."
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={savingSop}
+              className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-md flex items-center justify-center gap-1.5 transition-colors"
+            >
+              {savingSop ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : sopSuccess ? (
+                <Check className="w-3.5 h-3.5" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              <span>{savingSop ? 'Menyimpan...' : sopSuccess ? 'Tersimpan!' : 'Simpan Template SOP'}</span>
+            </button>
+          </form>
         </div>
 
         {/* Section 5: Konfigurasi Notifikasi Otomasi Telegram */}

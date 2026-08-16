@@ -48,6 +48,7 @@ import {
   Filter,
   X,
   RefreshCw,
+  FileSpreadsheet,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -532,7 +533,18 @@ export default function JadwalPage() {
     }
   };
 
-  const handleCopyWA = () => {
+  const handleCopyWAJadwal = (mode: 'harian' | 'mingguan' | 'custom' = 'harian') => {
+    setWaCopyMode(mode);
+    setWaDateTarget(selectedTanggal);
+    setWaWeekAnchor(selectedTanggal);
+    setWaCustomDateFrom(dateFrom || selectedTanggal);
+    setWaCustomDateTo(dateTo || selectedTanggal);
+    setWaSelectedStaff(selectedStaff);
+    setIsCopyWAModalOpen(true);
+  };
+
+  const handleCopyWARekap = () => {
+    setWaCopyMode('rekap_slot');
     setWaDateTarget(selectedTanggal);
     setWaWeekAnchor(selectedTanggal);
     setWaCustomDateFrom(dateFrom || selectedTanggal);
@@ -771,25 +783,39 @@ export default function JadwalPage() {
         breadcrumbs={[{ label: 'Operasional' }, { label: 'Jadwal Sesi' }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {/* 1. Copy Jadwal WA */}
+            <button
+              onClick={() => handleCopyWAJadwal(filterMode === 'week' ? 'mingguan' : filterMode === 'range' ? 'custom' : 'harian')}
+              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-md transition-colors shadow-xs"
+              title="Salin Format Jadwal WhatsApp (Harian / Mingguan / Rentang)"
+            >
+              <Calendar className="w-4 h-4" />
+              <span>Copy Jadwal WA</span>
+            </button>
+
+            {/* 2. Copy Rekap WA */}
+            <button
+              onClick={handleCopyWARekap}
+              className="flex items-center gap-1.5 px-3 py-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold rounded-md transition-colors shadow-xs"
+              title="Salin Format Rekap Slot Penyelesaian Sesi WhatsApp"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Copy Rekap WA</span>
+            </button>
+
+            {/* 3. Big Calendar */}
             <button
               onClick={() => setIsBigCalendarOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md transition-colors shadow-xs"
             >
               <CalendarDays className="w-4 h-4" />
               <span>Big Calendar</span>
             </button>
 
-            <button
-              onClick={handleCopyWA}
-              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-md transition-colors"
-            >
-              <Copy className="w-4 h-4" />
-              <span>Copy WA Jadwal</span>
-            </button>
-
+            {/* 4. Tambah Sesi */}
             <button
               onClick={handleOpenAddModal}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-md transition-colors"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-md transition-colors shadow-xs"
             >
               <Plus className="w-4 h-4" />
               <span>+ Tambah Sesi Jadwal</span>
