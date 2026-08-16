@@ -58,9 +58,11 @@ export function Sidebar() {
   };
 
   const navItemClass = (isActive: boolean) =>
-    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+    `flex items-center ${
+      sidebarOpen ? 'gap-3 px-3' : 'justify-center px-0'
+    } py-2.5 rounded-lg text-xs font-semibold transition-all ${
       isActive
-        ? 'bg-[var(--brand-primary)] text-white shadow-sm'
+        ? 'bg-[var(--brand-primary)] text-white shadow-xs'
         : 'text-[var(--text-secondary)] hover:bg-[var(--brand-primary-light)] hover:text-[var(--brand-primary)]'
     }`;
 
@@ -71,33 +73,54 @@ export function Sidebar() {
       }`}
     >
       {/* Brand Header */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-[var(--border)]">
-        <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden">
-          <Image
-            src="/assets/logo-amdri-symbol.png"
-            alt="Amanah Drive Symbol"
-            width={34}
-            height={34}
-            className="object-contain min-w-[34px]"
-          />
-          {sidebarOpen && (
-            <span className="font-brand font-bold text-lg text-[var(--brand-primary)] tracking-tight whitespace-nowrap">
-              Amanah Drive
-            </span>
-          )}
-        </Link>
-        <button
-          onClick={toggleSidebar}
-          aria-label={sidebarOpen ? 'Ciutkan Sidebar' : 'Buka Sidebar'}
-          className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] transition-colors"
-          title={sidebarOpen ? 'Ciutkan Sidebar' : 'Buka Sidebar'}
-        >
-          {sidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-        </button>
+      <div
+        className={`h-16 flex items-center border-b border-[var(--border)] ${
+          sidebarOpen ? 'justify-between px-4' : 'justify-center px-2'
+        }`}
+      >
+        {sidebarOpen ? (
+          <>
+            <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
+              <Image
+                src="/assets/logo-amdri-symbol.png"
+                alt="Amanah Drive Symbol"
+                width={32}
+                height={32}
+                className="object-contain shrink-0"
+              />
+              <span className="font-brand font-bold text-base text-[var(--brand-primary)] tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                Amanah Drive
+              </span>
+            </Link>
+            <button
+              onClick={toggleSidebar}
+              aria-label="Ciutkan Sidebar"
+              className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] transition-colors shrink-0"
+              title="Ciutkan Sidebar"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={toggleSidebar}
+            aria-label="Buka Sidebar"
+            title="Klik untuk membuka Sidebar"
+            className="flex items-center justify-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+          >
+            <Image
+              src="/assets/logo-amdri-symbol.png"
+              alt="Amanah Drive Symbol"
+              width={32}
+              height={32}
+              className="object-contain"
+            />
+          </button>
+        )}
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 py-4 px-3 space-y-1.5 overflow-y-auto">
+      <nav className="flex-1 py-4 px-2.5 space-y-1 overflow-y-auto">
         <Link
           href="/dashboard"
           className={navItemClass(pathname === '/dashboard')}
@@ -156,7 +179,9 @@ export function Sidebar() {
         <div>
           <button
             onClick={handleMasterClick}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+            className={`w-full flex items-center ${
+              sidebarOpen ? 'justify-between px-3' : 'justify-center px-0'
+            } py-2.5 rounded-lg text-xs font-semibold transition-all ${
               isMasterActive
                 ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                 : 'text-[var(--text-secondary)] hover:bg-[var(--brand-primary-light)] hover:text-[var(--brand-primary)]'
@@ -183,7 +208,7 @@ export function Sidebar() {
                   <Link
                     key={sub.href}
                     href={sub.href}
-                    className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
                       isSubActive
                         ? 'bg-[var(--brand-primary)] text-white font-semibold'
                         : 'text-[var(--text-secondary)] hover:bg-[var(--brand-primary-light)] hover:text-[var(--brand-primary)]'
