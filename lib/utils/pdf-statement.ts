@@ -34,7 +34,7 @@ export interface StatementData {
 
 /**
  * Generates an official E-Statement / Mutasi Rekening Koran HTML template
- * for portrait printing / saving as PDF.
+ * for portrait printing / saving as PDF with exact company letterhead (Kop Surat).
  */
 export function generateStatementHtml(data: StatementData): string {
   const logoUrl = typeof window !== 'undefined' ? `${window.location.origin}/assets/logo-amdri-landscape.png` : '/assets/logo-amdri-landscape.png';
@@ -104,74 +104,89 @@ export function generateStatementHtml(data: StatementData): string {
       padding: 15px;
     }
 
-    .header-container {
+    /* KOP SURAT BISNIS SESUAI GAMBAR */
+    .header-kop {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 12px;
-      border-bottom: 2.5px solid #0F7A73;
+      padding-bottom: 10px;
     }
 
-    .brand-section {
+    .brand-left {
       display: flex;
       align-items: center;
-      gap: 12px;
     }
 
     .brand-logo {
-      height: 48px;
-      max-width: 170px;
+      height: 52px;
+      max-width: 220px;
       object-fit: contain;
     }
 
-    .brand-info h1 {
-      font-size: 15px;
-      font-weight: 800;
-      color: #0F7A73;
-      letter-spacing: -0.2px;
-    }
-
-    .brand-info p {
-      font-size: 10px;
-      color: #64748b;
-      margin-top: 1px;
-    }
-
-    .doc-meta {
+    .brand-right {
       text-align: right;
     }
 
-    .doc-meta h2 {
-      font-size: 13px;
+    .company-title {
+      font-size: 13.5px;
+      font-weight: 800;
+      color: #0F7A73;
+      letter-spacing: -0.1px;
+      margin-bottom: 2px;
+    }
+
+    .company-address {
+      font-size: 9.5px;
+      color: #475569;
+      line-height: 1.4;
+    }
+
+    .company-contact {
+      font-size: 10px;
+      font-weight: 700;
+      color: #0F7A73;
+      margin-top: 2px;
+    }
+
+    .header-divider {
+      height: 2.5px;
+      background: #0F7A73;
+      margin-bottom: 12px;
+      border-radius: 1px;
+    }
+
+    /* DOCUMENT BANNER */
+    .doc-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #0F7A73;
+      border-radius: 4px;
+      padding: 7px 10px;
+      margin-bottom: 12px;
+    }
+
+    .doc-banner h2 {
+      font-size: 12px;
       font-weight: 800;
       color: #0B2545;
       text-transform: uppercase;
       letter-spacing: 0.3px;
     }
 
-    .doc-meta .badge-periode {
-      display: inline-block;
-      background: #E6F6F4;
-      color: #0F7A73;
-      font-weight: 700;
-      font-size: 10px;
-      padding: 2px 8px;
-      border-radius: 4px;
-      margin-top: 2px;
-      border: 1px solid #BCE5E1;
-    }
-
-    .doc-meta .print-date {
-      font-size: 9px;
-      color: #94a3b8;
-      margin-top: 3px;
+    .doc-banner .meta-info {
+      font-size: 9.5px;
+      color: #475569;
+      text-align: right;
     }
 
     .summary-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 8px;
-      margin: 12px 0 16px 0;
+      margin: 0 0 14px 0;
     }
 
     .summary-card {
@@ -215,7 +230,7 @@ export function generateStatementHtml(data: StatementData): string {
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 6px;
+      margin-top: 4px;
     }
 
     th {
@@ -304,21 +319,30 @@ export function generateStatementHtml(data: StatementData): string {
 </head>
 <body>
 
-  <!-- KOP SURAT BISNIS RESMI -->
-  <div class="header-container">
-    <div class="brand-section">
-      <img src="${logoUrl}" alt="Amanah Drive Logo" class="brand-logo" onerror="this.style.display='none'" />
-      <div class="brand-info">
-        <h1>AMANAH DRIVE PALEMBANG</h1>
-        <p>Lembaga Kursus & Pelatihan Mengemudi Terpercaya</p>
-        <p>Jl. Kolonel H. Burlian, Palembang • WhatsApp: 0812-7890-xxxx</p>
-      </div>
+  <!-- KOP SURAT RESMI AMANAH DRIVE -->
+  <div class="header-kop">
+    <div class="brand-left">
+      <img src="${logoUrl}" alt="Amanah Drive" class="brand-logo" onerror="this.style.display='none'" />
     </div>
 
-    <div class="doc-meta">
+    <div class="brand-right">
+      <div class="company-title">AMANAH DRIVE — KURSUS MENGEMUDI PALEMBANG</div>
+      <div class="company-address">Jl. Macan Kumbang XVIII, Siring Agung, Ilir Barat I,</div>
+      <div class="company-address">Kota Palembang, Sumatera Selatan, 30153</div>
+      <div class="company-contact">Telp/WA: 0813-7790-961</div>
+    </div>
+  </div>
+
+  <div class="header-divider"></div>
+
+  <!-- BANNER IDENTITAS DOKUMEN -->
+  <div class="doc-banner">
+    <div>
       <h2>MUTASI REKENING KAS (E-STATEMENT)</h2>
-      <div class="badge-periode">Periode: ${escapeHtml(data.tanggalAwal)} s/d ${escapeHtml(data.tanggalAkhir)}</div>
-      <div class="print-date">Dicetak: ${escapeHtml(data.generatedAt)}</div>
+    </div>
+    <div class="meta-info">
+      <div>Periode: <strong>${escapeHtml(data.tanggalAwal)} s/d ${escapeHtml(data.tanggalAkhir)}</strong></div>
+      <div style="margin-top: 2px;">Dicetak: ${escapeHtml(data.generatedAt)}</div>
     </div>
   </div>
 
