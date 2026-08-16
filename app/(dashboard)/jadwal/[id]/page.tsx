@@ -15,6 +15,11 @@ import { getInstrukturList, getSlotWaktuList } from '@/lib/actions/master-data';
 import { formatDateIndo } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import {
+  getSessionOccupiedSlotIds,
+  isSlotRangeValid,
+  formatSlotLabel,
+} from '@/lib/utils/slot';
+import {
   CheckCircle2,
   XCircle,
   Clock,
@@ -85,10 +90,14 @@ export default function JadwalDetailPage() {
 
   const handleStartEdit = (sesi: JadwalSesi) => {
     setEditingSesiId(sesi.id);
+    const validAkhir = isSlotRangeValid(sesi.slot_waktu_id, sesi.slot_waktu_id_akhir, slotList)
+      ? sesi.slot_waktu_id_akhir
+      : null;
     setEditFormData({
       id: sesi.id,
       tanggal_sesi: sesi.tanggal_sesi,
       slot_waktu_id: sesi.slot_waktu_id,
+      slot_waktu_id_akhir: validAkhir,
       staff_id: sesi.staff_id,
       status_sesi: sesi.status_sesi,
       catatan_sesi: sesi.catatan_sesi || '',
@@ -96,8 +105,17 @@ export default function JadwalDetailPage() {
   };
 
   const handleSaveSesi = async (sesiId: string) => {
+    const validAkhir = isSlotRangeValid(
+      editFormData.slot_waktu_id,
+      editFormData.slot_waktu_id_akhir,
+      slotList
+    )
+      ? editFormData.slot_waktu_id_akhir
+      : null;
+
     const payload = {
       ...editFormData,
+      slot_waktu_id_akhir: validAkhir,
       id: sesiId,
     };
     const res = await upsertJadwalSesi(payload);
@@ -295,8 +313,8 @@ export default function JadwalDetailPage() {
                   if (j.tanggal_sesi !== sesi.tanggal_sesi) return false;
                   if (j.status_sesi === 'batal') return false;
                   if (j.staff_id !== sesi.staff_id) return false;
-                  const jSlots = [j.slot_waktu_id, j.slot_waktu_id_akhir].filter(Boolean);
-                  const mySlots = [sesi.slot_waktu_id, sesi.slot_waktu_id_akhir].filter(Boolean);
+                  const jSlots = getSessionOccupiedSlotIds(j.slot_waktu_id, j.slot_waktu_id_akhir, slotList);
+                  const mySlots = getSessionOccupiedSlotIds(sesi.slot_waktu_id, sesi.slot_waktu_id_akhir, slotList);
                   return mySlots.some((s) => jSlots.includes(s));
                 });
 
@@ -330,11 +348,7 @@ export default function JadwalDetailPage() {
                       </span>
                       {!isEditing && (
                         <span className="text-[var(--text-secondary)] font-medium">
-                          • {formatDateIndo(sesi.tanggal_sesi)} •{' '}
-                          {sesi.slot_waktu?.nama_slot}{' '}
-                          {sesi.slot_waktu_akhir && sesi.slot_waktu_akhir.id !== sesi.slot_waktu?.id
-                            ? `s/d ${sesi.slot_waktu_akhir.nama_slot} (${sesi.slot_waktu?.jam_mulai?.substring(0, 5) || ''} - ${sesi.slot_waktu_akhir.jam_selesai?.substring(0, 5) || ''} WIB)`
-                            : `(${sesi.slot_waktu?.jam_mulai?.substring(0, 5) || ''} - ${sesi.slot_waktu?.jam_selesai?.substring(0, 5) || ''} WIB)`}
+                          • {formatDateIndo(sesi.tanggal_sesi)} • {formatSlotLabel(sesi.slot_waktu, sesi.slot_waktu_akhir)}
                         </span>
                       )}
                       {/* Conflict warning badge */}
@@ -459,12 +473,17 @@ export default function JadwalDetailPage() {
                           onChange={(e) => setEditFormData((prev) => ({ ...prev, slot_waktu_id_akhir: e.target.value || null }))}
                           className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
                         >
-                          <option value="">-- Hanya 1 Slot --</option>
-                          {slotList.map((sw) => (
-                            <option key={sw.id} value={sw.id}>
-                              {sw.nama_slot} ({sw.jam_selesai.substring(0, 5)})
-                            </option>
-                          ))}
+                          <option value="">-- Hanya 1 Slot (Standar) --</option>
+                          {slotList
+                            .filter((sw) => {
+                              const startSlot = slotList.find((s) => s.id === editFormData.slot_waktu_id);
+                              return startSlot ? (sw.urutan ?? 0) > (startSlot.urutan ?? 0) : false;
+                            })
+                            .map((sw) => (
+                              <option key={sw.id} value={sw.id}>
+                                s/d {sw.nama_slot} ({sw.jam_selesai.substring(0, 5)} WIB)
+                              </option>
+                            ))}
                         </select>
                       </div>
 

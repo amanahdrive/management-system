@@ -31,6 +31,11 @@ import {
 } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import {
+  getSessionOccupiedSlotIds,
+  isSlotRangeValid,
+  formatSlotLabel,
+} from '@/lib/utils/slot';
+import {
   Calendar,
   Copy,
   Check,
@@ -329,8 +334,8 @@ export default function JadwalPage() {
         const hasConflict = monthlyJadwalList.some((j) => {
           if (j.id === sesi.id || j.tanggal_sesi !== sesi.tanggal_sesi) return false;
           if (j.status_sesi === 'batal' || j.staff_id !== sesi.staff_id) return false;
-          const jSlots = [j.slot_waktu_id, j.slot_waktu_id_akhir].filter(Boolean);
-          const mySlots = [sesi.slot_waktu_id, sesi.slot_waktu_id_akhir].filter(Boolean);
+          const jSlots = getSessionOccupiedSlotIds(j.slot_waktu_id, j.slot_waktu_id_akhir, slotList);
+          const mySlots = getSessionOccupiedSlotIds(sesi.slot_waktu_id, sesi.slot_waktu_id_akhir, slotList);
           return mySlots.some((s) => jSlots.includes(s));
         });
         return hasConflict;
@@ -432,11 +437,8 @@ export default function JadwalPage() {
         if (j.tanggal_sesi !== dateStr || j.status_sesi === 'batal' || j.staff_id !== staffId) return false;
         if (excludeId && j.id === excludeId) return false; // exclude self
 
-        const jSlots = [j.slot_waktu_id];
-        if (j.slot_waktu_id_akhir) jSlots.push(j.slot_waktu_id_akhir);
-
-        const candSlots = [slotId];
-        if (slotIdAkhir && slotIdAkhir !== slotId) candSlots.push(slotIdAkhir);
+        const jSlots = getSessionOccupiedSlotIds(j.slot_waktu_id, j.slot_waktu_id_akhir, slotList);
+        const candSlots = getSessionOccupiedSlotIds(slotId, slotIdAkhir, slotList);
 
         return candSlots.some((cs) => jSlots.includes(cs));
       });
@@ -645,11 +647,15 @@ export default function JadwalPage() {
     // Tidak lagi memblokir proses — warning akan ditampilkan langsung di list sesi
     // Proses tetap berjalan; pengguna bisa edit tanggal lewat halaman detail
 
+    const validSlotAkhir = isSlotRangeValid(formData.slot_waktu_id, formData.slot_waktu_id_akhir, slotList)
+      ? formData.slot_waktu_id_akhir
+      : null;
+
     const batchPayloads: Partial<JadwalSesi>[] = sessionDates.map((tgl, idx) => ({
       siswa_id: formData.siswa_id,
       staff_id: formData.staff_id,
       slot_waktu_id: formData.slot_waktu_id,
-      slot_waktu_id_akhir: formData.slot_waktu_id_akhir || null,
+      slot_waktu_id_akhir: validSlotAkhir,
       jenis_mobil: formData.jenis_mobil || 'manual',
       tanggal_sesi: tgl,
       nomor_sesi_ke: idx + 1,
@@ -770,7 +776,7 @@ export default function JadwalPage() {
         return (
           <div className="space-y-0.5">
             <div className="font-semibold text-xs text-[var(--text-primary)]">
-              {slot ? `${slot.nama_slot} (${slot.jam_mulai.substring(0, 5)}-${slot.jam_selesai.substring(0, 5)})` : '-'}
+              {formatSlotLabel(sesi.slot_waktu, sesi.slot_waktu_akhir)}
             </div>
             {isMulti && (
               <div className="text-[10px] text-teal-700 dark:text-teal-400 font-semibold">
@@ -1815,12 +1821,17 @@ export default function JadwalPage() {
                     onChange={(e) => setFormData({ ...formData, slot_waktu_id_akhir: e.target.value || null })}
                     className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold"
                   >
-                    <option value="">-- Hanya 1 Slot --</option>
-                    {slotList.map((sw) => (
-                      <option key={sw.id} value={sw.id}>
-                        {sw.nama_slot} ({sw.jam_selesai.substring(0, 5)})
-                      </option>
-                    ))}
+                    <option value="">-- Hanya 1 Slot (Standar) --</option>
+                    {slotList
+                      .filter((sw) => {
+                        const startSlot = slotList.find((s) => s.id === formData.slot_waktu_id);
+                        return startSlot ? (sw.urutan ?? 0) > (startSlot.urutan ?? 0) : false;
+                      })
+                      .map((sw) => (
+                        <option key={sw.id} value={sw.id}>
+                          s/d {sw.nama_slot} ({sw.jam_selesai.substring(0, 5)} WIB)
+                        </option>
+                      ))}
                   </select>
                 </div>
               </div>
