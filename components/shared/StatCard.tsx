@@ -29,21 +29,21 @@ export function StatCard({
     <div
       onClick={onClick}
       className={`${
-        isHero ? 'bento-hero' : 'bento-tile'
-      } p-5 flex flex-col justify-between ${
-        onClick ? 'cursor-pointer' : ''
+        isHero ? 'bento-hero' : 'card-container'
+      } flex flex-col justify-between ${
+        onClick ? 'cursor-pointer hover:border-[var(--brand-primary)]' : ''
       } ${className}`}
     >
       <div className="flex items-start justify-between gap-3">
         <span className="eyebrow-label">{label}</span>
         {icon && (
-          <div className="p-2 rounded-xl bg-[var(--brand-primary-light)] text-[var(--brand-primary)] shrink-0">
+          <div className="p-2 rounded-lg bg-[var(--brand-primary-light)] text-[var(--brand-primary)] shrink-0">
             {icon}
           </div>
         )}
       </div>
 
-      <div className="mt-4">
+      <div className="mt-3.5">
         <div className="text-2xl md:text-3xl font-brand font-bold text-[var(--text-primary)] tabular-num tracking-tight">
           {value}
         </div>
@@ -52,7 +52,7 @@ export function StatCard({
           <div className="flex items-center gap-2 mt-1.5 text-xs">
             {trend && (
               <span
-                className={`font-semibold px-2 py-0.5 rounded-full text-[10px] ${
+                className={`font-semibold px-2 py-0.5 rounded-md text-[10px] ${
                   trendType === 'positive'
                     ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
                     : trendType === 'negative'

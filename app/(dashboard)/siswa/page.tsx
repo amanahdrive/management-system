@@ -541,7 +541,7 @@ export default function SiswaPage() {
         {loading ? (
           <div className="h-64 animate-pulse bg-black/5 dark:bg-white/5 rounded-md" />
         ) : (
-          <DataTable columns={columns} data={filteredData} searchKey="nama" />
+          <DataTable columns={columns} data={filteredData} />
         )}
       </div>
 
