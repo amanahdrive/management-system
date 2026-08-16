@@ -31,7 +31,7 @@ export default function MasterSlotWaktuPage() {
       accessorKey: 'jam_mulai',
       header: 'Jam Sesi',
       cell: ({ row }) =>
-        `${row.original.jam_mulai.substring(0, 5)} - ${row.original.jam_selesai.substring(0, 5)}`,
+        `${row.original.jam_mulai.substring(0, 5)} - ${row.original.jam_selesai.substring(0, 5)} WIB`,
     },
     {
       accessorKey: 'kategori',

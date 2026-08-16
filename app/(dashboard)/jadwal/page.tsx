@@ -1084,9 +1084,7 @@ export default function JadwalPage() {
                     <div>
                       <span className="text-[var(--text-secondary)] block">Slot Waktu:</span>
                       <span className="font-semibold text-[var(--text-primary)]">
-                        {sesi.slot_waktu
-                          ? `${sesi.slot_waktu.nama_slot} (${sesi.slot_waktu.jam_mulai.substring(0, 5)}-${sesi.slot_waktu.jam_selesai.substring(0, 5)})`
-                          : '-'}
+                        {formatSlotLabel(sesi.slot_waktu, sesi.slot_waktu_akhir)}
                       </span>
                     </div>
                     <div>

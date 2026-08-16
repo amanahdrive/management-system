@@ -8,7 +8,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { KasTransaksi } from '@/types/database';
 import { getKasTransaksiList, getKasKategoriList, deleteKasTransaksi, updateKasTransaksi } from '@/lib/actions/kas';
 import { formatRupiah } from '@/lib/utils/currency';
-import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
+import { formatDateIndo, getTodayDateString, formatTime24 } from '@/lib/utils/date';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
@@ -306,7 +306,7 @@ export default function CashflowPage() {
       saldoAkhirTunai,
       saldoAkhirNonTunai,
       transaksiList: statementItems,
-      generatedAt: `${formatDateIndo(getTodayDateString())} pukul ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB`,
+      generatedAt: `${formatDateIndo(getTodayDateString())} pukul ${formatTime24(new Date())} WIB`,
       picName: 'Finance Admin',
     };
 

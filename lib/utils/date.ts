@@ -112,4 +112,32 @@ export function getWeekSundayToSaturday(dateStr: string): { startSunday: string;
   };
 }
 
+/**
+ * Format any date/time into strict 24-hour time string (e.g. "14:30" or "14:30:00")
+ */
+export function formatTime24(dateInput: Date | string | null | undefined, includeSeconds = false): string {
+  if (!dateInput) return '-';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '-';
+
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  if (includeSeconds) {
+    const seconds = String(d.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  }
+  return `${hours}:${minutes}`;
+}
+
+/**
+ * Format date and time in strict 24-hour format: "07/08/2026 14:30 WIB"
+ */
+export function formatDateTime24(dateInput: Date | string | null | undefined): string {
+  if (!dateInput) return '-';
+  const datePart = formatDateIndo(dateInput);
+  const timePart = formatTime24(dateInput);
+  if (datePart === '-' || timePart === '-') return '-';
+  return `${datePart} ${timePart} WIB`;
+}
+
 
