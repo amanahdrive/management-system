@@ -24,10 +24,10 @@ const DashboardCharts = dynamic(
     loading: () => (
       <div className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-64 card-container animate-pulse bg-black/5 dark:bg-white/5 rounded-md" />
-          <div className="h-64 card-container animate-pulse bg-black/5 dark:bg-white/5 rounded-md" />
+          <div className="h-64 bento-tile animate-pulse bg-black/5 dark:bg-white/5" />
+          <div className="h-64 bento-tile animate-pulse bg-black/5 dark:bg-white/5" />
         </div>
-        <div className="h-56 card-container animate-pulse bg-black/5 dark:bg-white/5 rounded-md" />
+        <div className="h-56 bento-tile animate-pulse bg-black/5 dark:bg-white/5" />
       </div>
     ),
   }
@@ -47,10 +47,10 @@ export default function DashboardPage() {
   if (loading || !metrics) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Dashboard" description="Ringkasan operasional & performa bisnis" />
+        <PageHeader title="Dashboard Overview" description="Ringkasan operasional data & performa bisnis" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-28 card-container animate-pulse bg-black/5 dark:bg-white/5 rounded-md" />
+            <div key={i} className="h-32 bento-tile animate-pulse bg-black/5 dark:bg-white/5" />
           ))}
         </div>
       </div>
@@ -67,7 +67,7 @@ export default function DashboardPage() {
       {/* 4 Main Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          label="Siswa Belum Dijadwalkan"
+          label="Siswa Belum Terjadwal"
           value={metrics.siswaBelumDijadwalkan}
           description="Siswa baru aktif bulan ini"
           icon={<Users className="w-5 h-5" />}
@@ -84,6 +84,7 @@ export default function DashboardPage() {
           description="Lulus paket bulan ini"
           icon={<CheckCircle2 className="w-5 h-5" />}
           trendType="positive"
+          trend="Lulus"
         />
         <StatCard
           label="Booking Baru (Bulan Ini)"
@@ -93,44 +94,50 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* 3 Secondary Cards */}
+      {/* 3 Secondary Bento Cards (Revenue & Cashflow Heroes) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard
           label="Total Pendapatan (Bulan Ini)"
           value={formatRupiah(metrics.totalPendapatanBulanIni)}
           description="Pemasukan dari DP & Pelunasan"
-          icon={<TrendingUp className="w-5 h-5 text-emerald-600" />}
+          icon={<TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
+          isHero={true}
         />
         <StatCard
           label="Saldo Kas Aktif"
           value={formatRupiah(metrics.saldoKasAktif)}
-          description="Klik untuk detail Kas (Butuh PIN)"
-          icon={<Wallet className="w-5 h-5 text-teal-600" />}
+          description="Klik untuk rincian kas & mutasi"
+          icon={<Wallet className="w-5 h-5 text-teal-600 dark:text-teal-400" />}
+          isHero={true}
           onClick={() => (window.location.href = '/kas')}
         />
         <StatCard
           label="Sesi Terjadwal Hari Ini"
           value={`${metrics.sesiTerjadwalHariIni} Sesi`}
           description="Sesi mengemudi aktif hari ini"
-          icon={<Calendar className="w-5 h-5 text-blue-600" />}
+          icon={<Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
           onClick={() => (window.location.href = '/jadwal')}
         />
       </div>
 
       {/* Kendaraan Perlu Perhatian Alert Banner */}
       {metrics.kendaraanPerluPerhatian.length > 0 && (
-        <div className="card-container border-l-4 border-l-[var(--danger)] bg-rose-50 dark:bg-rose-950/20 p-4">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-[var(--danger)] shrink-0" />
+        <div className="bento-tile border-l-4 border-l-[var(--danger)] bg-rose-500/5 p-5">
+          <div className="flex items-center gap-3.5">
+            <div className="p-2 rounded-xl bg-rose-500/10 text-[var(--danger)] shrink-0">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
             <div>
-              <h4 className="text-sm font-bold text-[var(--danger)]">Perhatian Kendaraan Operasional</h4>
-              <ul className="text-xs text-[var(--text-secondary)] mt-1 space-y-0.5">
+              <span className="eyebrow-label text-[var(--danger)]">Peringatan Armada</span>
+              <h4 className="text-sm font-bold text-[var(--text-primary)] mt-0.5">Kendaraan Perlu Perhatian Segera</h4>
+              <ul className="text-xs text-[var(--text-secondary)] mt-1.5 space-y-1">
                 {metrics.kendaraanPerluPerhatian.map((k, idx) => (
-                  <li key={idx}>
+                  <li key={idx} className="flex items-center gap-1.5">
                     <span className="font-semibold text-[var(--text-primary)]">
                       {k.nama} ({k.plat})
                     </span>
-                    : {k.alasan}
+                    <span className="text-[var(--text-muted)]">—</span>
+                    <span>{k.alasan}</span>
                   </li>
                 ))}
               </ul>
@@ -139,7 +146,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Dynamically Loaded Charts */}
+      {/* Dynamically Loaded Bento Charts */}
       <DashboardCharts metrics={metrics} />
     </div>
   );

@@ -10,7 +10,7 @@ import {
   SortingState,
   useReactTable,
 } from '@tanstack/react-table';
-import { ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowUpDown, Search } from 'lucide-react';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -47,62 +47,67 @@ export function DataTable<TData, TValue>({
       {/* Search Bar */}
       {searchKey && (
         <div className="flex items-center justify-between">
-          <input
-            type="text"
-            placeholder={`Cari ${searchKey}...`}
-            value={globalFilter ?? ''}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            className="px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] w-full max-w-xs focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
-          />
+          <div className="relative w-full max-w-sm">
+            <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder={`Cari data ${searchKey}...`}
+              value={globalFilter ?? ''}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="pl-10 pr-4 py-2 text-xs rounded-xl border border-[var(--bento-border)] bg-[var(--bento-bg)] text-[var(--text-primary)] w-full focus:outline-none focus:border-[var(--brand-primary)] shadow-xs transition-colors"
+            />
+          </div>
         </div>
       )}
 
-      {/* Desktop Table View (>= 768px) */}
-      <div className="hidden md:block overflow-x-auto border border-[var(--border)] rounded-md">
-        <table className="w-full text-sm text-left text-[var(--text-primary)]">
-          <thead className="bg-[var(--bg-subtle)] text-xs text-[var(--text-secondary)] uppercase border-b border-[var(--border)]">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th key={header.id} className="px-4 py-3 font-semibold">
-                    {header.isPlaceholder ? null : (
-                      <div
-                        className={
-                          header.column.getCanSort()
-                            ? 'cursor-pointer select-none flex items-center gap-1'
-                            : ''
-                        }
-                        onClick={header.column.getToggleSortingHandler()}
-                      >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getCanSort() && <ArrowUpDown className="w-3 h-3 opacity-50" />}
-                      </div>
-                    )}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody className="divide-y divide-[var(--border)]">
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="hover:bg-[var(--bg-subtle)] transition-colors">
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
+      {/* Desktop Table View (>= 768px) with Bento Container */}
+      <div className="hidden md:block overflow-hidden bento-static">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left text-[var(--text-primary)]">
+            <thead className="bg-[var(--bg-subtle)] border-b border-[var(--bento-border)]">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <th key={header.id} className="px-5 py-3.5 eyebrow-label text-[10px]">
+                      {header.isPlaceholder ? null : (
+                        <div
+                          className={
+                            header.column.getCanSort()
+                              ? 'cursor-pointer select-none flex items-center gap-1.5 hover:text-[var(--brand-primary)] transition-colors'
+                              : ''
+                          }
+                          onClick={header.column.getToggleSortingHandler()}
+                        >
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {header.column.getCanSort() && <ArrowUpDown className="w-3 h-3 opacity-50" />}
+                        </div>
+                      )}
+                    </th>
                   ))}
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={columns.length} className="h-24 text-center text-[var(--text-secondary)]">
-                  Tidak ada data.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              ))}
+            </thead>
+            <tbody className="divide-y divide-[var(--bento-border)]">
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <tr key={row.id} className="hover:bg-[var(--bg-subtle)]/70 transition-colors">
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="px-5 py-3.5 font-medium tabular-num">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={columns.length} className="h-28 text-center text-[var(--text-muted)] font-medium">
+                    Tidak ada data yang sesuai.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Mobile Card View (< 768px) */}
@@ -113,13 +118,13 @@ export function DataTable<TData, TValue>({
               {renderMobileCard ? (
                 renderMobileCard(row.original)
               ) : (
-                <div className="card-container space-y-2 text-xs">
+                <div className="bento-tile p-4 space-y-2 text-xs">
                   {row.getVisibleCells().map((cell) => (
-                    <div key={cell.id} className="flex justify-between border-b border-[var(--border)] pb-1 last:border-0">
-                      <span className="font-medium text-[var(--text-secondary)]">
+                    <div key={cell.id} className="flex justify-between border-b border-[var(--border)] pb-1.5 last:border-0 last:pb-0">
+                      <span className="eyebrow-label text-[9.5px]">
                         {String(cell.column.columnDef.header || cell.column.id)}:
                       </span>
-                      <span className="text-[var(--text-primary)] font-medium">
+                      <span className="text-[var(--text-primary)] font-semibold tabular-num text-right">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </span>
                     </div>
@@ -129,33 +134,34 @@ export function DataTable<TData, TValue>({
             </React.Fragment>
           ))
         ) : (
-          <div className="card-container text-center text-xs text-[var(--text-secondary)] py-8">
-            Tidak ada data.
+          <div className="bento-tile text-center text-xs text-[var(--text-muted)] py-8 font-medium">
+            Tidak ada data yang sesuai.
           </div>
         )}
       </div>
 
       {/* Pagination Footer */}
-      <div className="flex items-center justify-between text-xs text-[var(--text-secondary)] pt-2">
-        <div>
-          Halaman {table.getState().pagination.pageIndex + 1} dari {table.getPageCount() || 1}
+      <div className="flex items-center justify-between text-xs text-[var(--text-muted)] pt-1 px-1">
+        <div className="eyebrow-label text-[10px]">
+          Halaman <span className="text-[var(--text-primary)] font-bold">{table.getState().pagination.pageIndex + 1}</span> dari{' '}
+          <span className="text-[var(--text-primary)] font-bold">{table.getPageCount() || 1}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
             aria-label="Halaman Sebelumnya"
-            className="p-1.5 rounded-md border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
+            className="p-2 rounded-xl border border-[var(--bento-border)] bg-[var(--bento-bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-30 disabled:cursor-not-allowed shadow-xs transition-colors"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-3.5 h-3.5 text-[var(--text-primary)]" />
           </button>
           <button
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
             aria-label="Halaman Berikutnya"
-            className="p-1.5 rounded-md border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
+            className="p-2 rounded-xl border border-[var(--bento-border)] bg-[var(--bento-bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-30 disabled:cursor-not-allowed shadow-xs transition-colors"
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-3.5 h-3.5 text-[var(--text-primary)]" />
           </button>
         </div>
       </div>

@@ -9,6 +9,7 @@ interface StatCardProps {
   trend?: string;
   trendType?: 'positive' | 'negative' | 'neutral';
   icon?: React.ReactNode;
+  isHero?: boolean;
   onClick?: () => void;
   className?: string;
 }
@@ -20,44 +21,53 @@ export function StatCard({
   trend,
   trendType = 'neutral',
   icon,
+  isHero = false,
   onClick,
   className = '',
 }: StatCardProps) {
   return (
     <div
       onClick={onClick}
-      className={`card-container flex flex-col justify-between transition-all ${
-        onClick ? 'cursor-pointer hover:border-[var(--brand-primary)]' : ''
+      className={`${
+        isHero ? 'bento-hero' : 'bento-tile'
+      } p-5 flex flex-col justify-between ${
+        onClick ? 'cursor-pointer' : ''
       } ${className}`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className="text-xs md:text-sm font-medium text-[var(--text-secondary)]">{label}</span>
+      <div className="flex items-start justify-between gap-3">
+        <span className="eyebrow-label">{label}</span>
         {icon && (
-          <div className="p-2 rounded-md bg-[var(--brand-primary-light)] text-[var(--brand-primary)]">
+          <div className="p-2 rounded-xl bg-[var(--brand-primary-light)] text-[var(--brand-primary)] shrink-0">
             {icon}
           </div>
         )}
       </div>
 
-      <div className="mt-3">
-        <div className="text-xl md:text-2xl font-bold text-[var(--text-primary)]">{value}</div>
+      <div className="mt-4">
+        <div className="text-2xl md:text-3xl font-brand font-bold text-[var(--text-primary)] tabular-num tracking-tight">
+          {value}
+        </div>
 
         {(description || trend) && (
-          <div className="flex items-center gap-2 mt-1 text-xs">
+          <div className="flex items-center gap-2 mt-1.5 text-xs">
             {trend && (
               <span
-                className={`font-semibold ${
+                className={`font-semibold px-2 py-0.5 rounded-full text-[10px] ${
                   trendType === 'positive'
-                    ? 'text-[var(--success)]'
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
                     : trendType === 'negative'
-                    ? 'text-[var(--danger)]'
-                    : 'text-[var(--text-secondary)]'
+                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                    : 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20'
                 }`}
               >
                 {trend}
               </span>
             )}
-            {description && <span className="text-[var(--text-secondary)]">{description}</span>}
+            {description && (
+              <span className="text-[var(--text-muted)] text-[11px] font-medium leading-tight">
+                {description}
+              </span>
+            )}
           </div>
         )}
       </div>

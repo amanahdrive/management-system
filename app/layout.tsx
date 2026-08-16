@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Space_Grotesk } from 'next/font/google';
+import { Inter, Playfair_Display } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/shared/ThemeProvider';
 
@@ -10,10 +10,10 @@ const inter = Inter({
   preload: true,
 });
 
-const spaceGrotesk = Space_Grotesk({
+const playfair = Playfair_Display({
   subsets: ['latin'],
-  variable: '--font-space-grotesk',
-  weight: ['400', '500', '600', '700'],
+  variable: '--font-playfair',
+  weight: ['500', '600', '700', '800'],
   display: 'swap',
   preload: true,
 });
@@ -104,12 +104,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id" className={`${inter.variable} ${spaceGrotesk.variable}`} suppressHydrationWarning>
+    <html lang="id" className={`${inter.variable} ${playfair.variable}`} suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
-      <body className={`${inter.className} antialiased bg-[var(--bg)] text-[var(--text-primary)] font-sans`}>
+      <body className={`${inter.className} antialiased bg-[var(--bg-subtle)] text-[var(--text-primary)] font-sans`}>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
