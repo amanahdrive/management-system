@@ -81,6 +81,7 @@ export function Sidebar() {
         </Link>
         <button
           onClick={toggleSidebar}
+          aria-label={sidebarOpen ? 'Ciutkan Sidebar' : 'Buka Sidebar'}
           className="p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)]"
           title={sidebarOpen ? 'Ciutkan Sidebar' : 'Buka Sidebar'}
         >

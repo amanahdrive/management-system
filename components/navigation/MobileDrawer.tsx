@@ -34,6 +34,7 @@ export function MobileDrawer() {
             <h3 className="font-bold text-base text-[var(--text-primary)]">Menu Lainnya</h3>
             <button
               onClick={() => setMobileDrawerOpen(false)}
+              aria-label="Tutup Menu Navigasi"
               className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5"
             >
               <X className="w-5 h-5 text-[var(--text-secondary)]" />

@@ -41,6 +41,7 @@ export function BottomNav() {
       {/* Menu 'Lainnya' Button */}
       <button
         onClick={toggleMobileDrawer}
+        aria-label="Buka Menu Navigasi Lainnya"
         className="flex flex-col items-center justify-center w-full py-1 text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--brand-primary)]"
       >
         <Menu className="w-5 h-5 mb-0.5" />

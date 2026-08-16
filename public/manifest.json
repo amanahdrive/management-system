@@ -1,17 +1,25 @@
 {
-  "name": "Portal Instruktur — Amanah Drive",
-  "short_name": "Instruktur Drive",
-  "description": "Aplikasi jadwal dan kontak siswa untuk Instruktur Amanah Drive Palembang",
-  "start_url": "/instruktur",
+  "name": "Sistem Manajemen Amanah Drive",
+  "short_name": "Amanah Drive",
+  "description": "Sistem Manajemen Operasional, Penjadwalan Kursus Mengemudi, dan Kas Amanah Drive Palembang",
+  "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#064e3b",
-  "theme_color": "#059669",
+  "orientation": "portrait",
+  "background_color": "#092e2b",
+  "theme_color": "#0F7A73",
+  "categories": ["business", "productivity", "management"],
   "icons": [
     {
-      "src": "/icon.png",
+      "src": "/assets/app-icon-1024.png",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/app-icon-1024-white.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/favicon.ico",

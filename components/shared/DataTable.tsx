@@ -144,6 +144,7 @@ export function DataTable<TData, TValue>({
           <button
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
+            aria-label="Halaman Sebelumnya"
             className="p-1.5 rounded-md border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -151,6 +152,7 @@ export function DataTable<TData, TValue>({
           <button
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
+            aria-label="Halaman Berikutnya"
             className="p-1.5 rounded-md border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
           >
             <ChevronRight className="w-4 h-4" />

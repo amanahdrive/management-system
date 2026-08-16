@@ -89,6 +89,7 @@ export function Topbar() {
         <button
           onClick={handleRefreshDatabase}
           disabled={isRefreshing}
+          aria-label="Refresh Data dan Sinkronisasi Database"
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] text-xs font-bold text-[var(--text-primary)] transition-all shadow-xs"
           title="Refresh Data & Sinkronisasi Database"
         >
