@@ -37,3 +37,10 @@ CREATE INDEX IF NOT EXISTS idx_insiden_siswa ON insiden(siswa_id);
 CREATE INDEX IF NOT EXISTS idx_insiden_status ON insiden(status_penanganan);
 CREATE INDEX IF NOT EXISTS idx_insiden_tingkat_keparahan ON insiden(tingkat_keparahan);
 CREATE INDEX IF NOT EXISTS idx_insiden_kategori ON insiden(kategori);
+
+-- Row Level Security (RLS) Policy
+ALTER TABLE IF EXISTS insiden ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public all on insiden" ON insiden;
+
+CREATE POLICY "Allow public all on insiden" ON insiden FOR ALL USING (true) WITH CHECK (true);

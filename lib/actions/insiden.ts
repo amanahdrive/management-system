@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 import { Insiden, StatusPenangananEnum } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 import { formatHariTanggalIndo, formatDateIndo } from '../utils/date';
@@ -20,7 +20,7 @@ export interface InsidenFilter {
 
 export async function getInsidenList(filter?: InsidenFilter): Promise<Insiden[]> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     let query = supabase
       .from('insiden')
       .select('*, kendaraan(*), staff(*), siswa(*), jadwal_sesi(*)')
@@ -87,7 +87,7 @@ export async function getInsidenList(filter?: InsidenFilter): Promise<Insiden[]>
 
 export async function getInsidenById(id: string): Promise<Insiden | null> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('insiden')
       .select('*, kendaraan(*), staff(*), siswa(*), jadwal_sesi(*)')
@@ -107,7 +107,7 @@ export async function getInsidenById(id: string): Promise<Insiden | null> {
 }
 
 async function generateNextKodeInsiden(): Promise<string> {
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
   const now = new Date();
   const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
   const prefix = `INS-${yearMonth}-`;
@@ -135,7 +135,7 @@ export async function createInsiden(
   payload: Omit<Insiden, 'id' | 'kode_insiden' | 'created_at' | 'updated_at'>
 ): Promise<{ success: boolean; data?: Insiden; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const kode_insiden = await generateNextKodeInsiden();
 
     const insertData = {
@@ -172,7 +172,7 @@ export async function updateInsiden(
   payload: Partial<Insiden>
 ): Promise<{ success: boolean; data?: Insiden; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     // Remove joined fields before updating
     const { kendaraan, staff, siswa, jadwal_sesi, ...cleanPayload } = payload;
@@ -210,7 +210,7 @@ export async function updateInsidenStatus(
   biayaAktual?: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const updateData: Record<string, any> = {
       status_penanganan: status,
       updated_at: new Date().toISOString(),
@@ -245,7 +245,7 @@ export async function updateInsidenStatus(
 
 export async function deleteInsiden(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { error } = await supabase.from('insiden').delete().eq('id', id);
 
     if (error) {
@@ -272,7 +272,7 @@ export async function getInsidenStats(): Promise<{
   keparahanCounts: Record<string, number>;
 }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('insiden')
       .select('status_penanganan, kategori, tingkat_keparahan, estimasi_biaya, biaya_aktual');
