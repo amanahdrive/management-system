@@ -1,5 +1,5 @@
 # AMANAH DRIVE — BRANDING & DESIGN SYSTEM SPECIFICATION
-*Version 2.0 — Bento Data Console Architecture*
+*Version 2.1 — Bento Data Console Architecture (Inter Typography)*
 
 Dokumen ini merupakan panduan resmi (*Single Source of Truth*) untuk identitas visual, tipografi, warna, dan sistem komponen antarmuka aplikasi **Amanah Drive Management System**. Setiap redesign dan penambahan fitur di masa mendatang **WAJIB** berpedoman pada spesifikasi ini.
 
@@ -7,7 +7,7 @@ Dokumen ini merupakan panduan resmi (*Single Source of Truth*) untuk identitas v
 
 ## 1. Brand Identity & Philosophy
 
-Amanah Drive memadukan **profesionalitas modern**, **presisi data operasional (*data console*)**, dan **keanggunan terpercaya (*trust & elegance*)**.
+Amanah Drive memadukan **profesionalitas modern**, **presisi data operasional (*data console*)**, dan **keanggunan antarmuka modern**.
 Gaya desain yang diusung adalah **Bento Data Console**:
 - Ubin-ubin bento (*matte tiles*) presisi dengan sudut lengkung halus (**22px**).
 - Garis tepi rambut (*1px hairline border*).
@@ -19,17 +19,16 @@ Gaya desain yang diusung adalah **Bento Data Console**:
 
 ## 2. Typography Rules
 
-Sistem tipografi menggunakan kombinasi 2 font utama:
+Sistem tipografi menggunakan satu keluarga font tunggal yang murni, konsisten, dan modern: **Inter**.
 
 | Peran | Font Family | Bobot / Weights | Penggunaan |
 | :--- | :--- | :--- | :--- |
-| **Brand Headings & Hero Titles** | **Playfair Display** | 600 (SemiBold), 700 (Bold), 800 (ExtraBold) | Judul halaman (`PageHeader`), logo brand, angka metrik utama, sertifikat, dan judul seksi penting. Memberikan kesan berwibawa, mewah, dan terpercaya. |
-| **UI Body, Controls & Data Console** | **Inter** | 400 (Regular), 500 (Medium), 600 (SemiBold), 700 (Bold) | Teks isi, label form, tombol navigasi, tabel data, filter, badges, dan angka operasional tabular (`font-feature-settings: 'tnum'`). |
+| **Brand Headings & Hero Titles** | **Inter** | 700 (Bold), 800 (ExtraBold) with `tracking-tight` | Judul halaman (`PageHeader`), logo brand, angka metrik utama, sertifikat, dan judul seksi penting. Memberikan kesan data-console modern, bersih, dan presisi tinggi. |
+| **UI Body, Controls & Data Console** | **Inter** | 400 (Regular), 500 (Medium), 600 (SemiBold) | Teks isi, label form, tombol navigasi, tabel data, filter, badges, dan angka operasional tabular (`font-feature-settings: 'tnum'`). |
 
 ```css
-/* Variabel Font */
---font-brand: 'Playfair Display', Georgia, serif;
---font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+/* Variabel Font Tunggal */
+--font-sans: 'Inter', var(--font-inter), system-ui, -apple-system, sans-serif;
 ```
 
 ---
@@ -58,10 +57,10 @@ Aplikasi mendukung tema ganda dengan **Default: Light Theme**.
 - **Bento Tile Surface**: `#FFFFFF` (Solid matte white)
 - **Hero Bento Surface**: `#F0FDFA` (Subtle teal tint)
 - **Hairline Border**: `#E2E8F0` / `#CBD5E1`
-- **Inset Top Highlight**: `inset 0 1px 0 rgba(255, 255, 255, 0.9)`
+- **Inset Top Highlight**: `inset 0 1px 0 rgba(255, 255, 255, 0.95)`
 - **Heading Text**: `#0F172A` (Deep Slate)
 - **Body Text**: `#475569` (Cool Slate)
-- **Muted Eyebrow / Axis Text**: `#94A3B8` (Tracked uppercase caps)
+- **Muted Eyebrow / Axis Text**: `#64748B` (Tracked uppercase caps)
 
 #### 🌙 Dark Mode (Cool Graphite Data Console)
 - **Ground Background**: `#0E0F14` (Deep cool graphite)
@@ -97,21 +96,15 @@ Setiap kartu atau kontainer data dalam antarmuka mengadopsi spesifikasi **Bento 
 }
 ```
 
-### 4.1. Hirarki Bento Tile:
-1. **Hero Bento (`.bento-hero`)**: Digunakan untuk metrik finansial utama / sorotan kas / status operasional terpenting.
-2. **Standard Bento (`.bento-tile`)**: Digunakan untuk StatCard, card tabel, formulir pengaturan, timeline insiden, dan grafik performa.
-3. **Eyebrow Label (`.eyebrow-label`)**: Label berhuruf kapital dengan tracking lebar (`tracking-wider text-[10px] font-bold uppercase text-[var(--text-muted)]`).
-4. **Tabular Numerals (`.tabular-num`)**: Setiap angka metrik, saldo kas, tanggal, dan slot jam waktu menggunakan font angka sejajar (`font-mono` / `tabular-nums`).
-
 ---
 
 ## 5. Larangan Desain (*Design Anti-Patterns*)
 
-1. ❌ **Dilarang menggunakan emoji dekoratif** di header atau label tombol antarmuka (gunakan Lucide icons monokromatik presisi).
-2. ❌ **Dilarang menggunakan background gradien liar / ungu / indigo acak** sebagai dekorasi latar belakang.
-3. ❌ **Dilarang mengubah sudut lengkung menjadi tajam** (standar lengkungan bento adalah 22px).
-4. ❌ **Dilarang mengganti warna identitas brand Teal `#0F7A73`** dengan warna lain sebagai warna primer.
-5. ❌ **Dilarang menggunakan font sembarangan** selain **Playfair Display** dan **Inter**.
+1. ❌ **Dilarang menggunakan font selain Inter** (semua teks, judul, dan angka konsisten menggunakan Inter).
+2. ❌ **Dilarang menggunakan emoji dekoratif** di header atau label tombol antarmuka (gunakan Lucide icons monokromatik presisi).
+3. ❌ **Dilarang menggunakan background gradien liar / ungu / indigo acak** sebagai dekorasi latar belakang.
+4. ❌ **Dilarang mengubah sudut lengkung menjadi tajam** (standar lengkungan bento adalah 22px).
+5. ❌ **Dilarang mengganti warna identitas brand Teal `#0F7A73`** dengan warna lain sebagai warna primer.
 
 ---
 

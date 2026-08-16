@@ -155,19 +155,19 @@
     min-height: 100vh;
   }
 
-  /* Headings use Playfair Display for authoritative luxury */
+  /* Headings use Inter for crisp data-console typography */
   h1, h2, h3, h4 {
-    font-family: var(--font-playfair), 'Playfair Display', Georgia, serif;
+    font-family: var(--font-inter), 'Inter', sans-serif;
     font-weight: 700;
     color: var(--text-primary);
-    letter-spacing: -0.015em;
+    letter-spacing: -0.025em;
   }
 
   h5, h6 {
     font-family: var(--font-inter), 'Inter', sans-serif;
     font-weight: 600;
     color: var(--text-primary);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
   }
 
   p {
@@ -261,9 +261,11 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Brand Font Utility */
+/* Brand Font Utility (Inter Bold) */
 .font-brand {
-  font-family: var(--font-playfair), 'Playfair Display', Georgia, serif;
+  font-family: var(--font-inter), 'Inter', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.025em;
 }
 
 /* =====================================================
