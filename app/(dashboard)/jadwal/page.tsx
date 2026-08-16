@@ -250,31 +250,66 @@ export default function JadwalPage() {
     );
   }, [monthlyJadwalList]);
 
-  // Group schedule list: show all rows when in range mode, 1-per-student in single date mode
+  // Display schedule list: preserve all sessions for all dates, including students with 2+ slots on the same day
   const displayJadwalList = React.useMemo(() => {
-    let list: JadwalSesi[];
+    // Sort all sessions by tanggal_sesi ASC
+    // For sessions on the same date: group by student so multiple slots on the same day stay adjacent,
+    // and sort by slot order (jam_mulai / nomor_sesi_ke)
+    const sorted = [...jadwalList].sort((a, b) => {
+      const cmpDate = a.tanggal_sesi.localeCompare(b.tanggal_sesi);
+      if (cmpDate !== 0) return cmpDate;
 
-    if (filterMode === 'single') {
-      // Single date: group 1 row per student
-      const studentMap = new Map<string, JadwalSesi>();
-      jadwalList.forEach((item) => {
-        const key = item.siswa_id || item.id;
-        if (!studentMap.has(key)) {
-          studentMap.set(key, item);
-        } else {
-          const existing = studentMap.get(key)!;
-          if (existing.status_sesi === 'selesai' && item.status_sesi === 'terjadwal') {
-            studentMap.set(key, item);
-          } else if (item.nomor_sesi_ke > existing.nomor_sesi_ke && item.status_sesi !== 'batal') {
-            studentMap.set(key, item);
-          }
-        }
-      });
-      list = Array.from(studentMap.values());
-    } else {
-      // Range mode: show all individual sessions, sorted by date
-      list = [...jadwalList].sort((a, b) => a.tanggal_sesi.localeCompare(b.tanggal_sesi));
-    }
+      // Group by siswa_id on the same date
+      const sA = a.siswa_id || a.id;
+      const sB = b.siswa_id || b.id;
+      const cmpStudent = sA.localeCompare(sB);
+      if (cmpStudent !== 0) return cmpStudent;
+
+      // Sort by slot time or session number
+      const slotA = a.slot_waktu?.jam_mulai || '';
+      const slotB = b.slot_waktu?.jam_mulai || '';
+      if (slotA && slotB) {
+        const cmpSlot = slotA.localeCompare(slotB);
+        if (cmpSlot !== 0) return cmpSlot;
+      }
+      return (a.nomor_sesi_ke || 0) - (b.nomor_sesi_ke || 0);
+    });
+
+    // Compute same-day multi-slot metadata for each session
+    const dayStudentCounts = new Map<string, number>();
+    sorted.forEach((item) => {
+      if (item.siswa_id) {
+        const key = `${item.tanggal_sesi}_${item.siswa_id}`;
+        dayStudentCounts.set(key, (dayStudentCounts.get(key) || 0) + 1);
+      }
+    });
+
+    const dayStudentIndices = new Map<string, number>();
+    let list: (JadwalSesi & {
+      sameDayTotalSlots?: number;
+      sameDaySlotIndex?: number;
+      isMultiSlotDay?: boolean;
+      multiSlotPosition?: 'first' | 'middle' | 'last' | 'single';
+    })[] = sorted.map((item) => {
+      const key = item.siswa_id ? `${item.tanggal_sesi}_${item.siswa_id}` : '';
+      const totalSameDay = key ? (dayStudentCounts.get(key) || 1) : 1;
+      const curIndex = key ? ((dayStudentIndices.get(key) || 0) + 1) : 1;
+      if (key) dayStudentIndices.set(key, curIndex);
+
+      return {
+        ...item,
+        sameDayTotalSlots: totalSameDay,
+        sameDaySlotIndex: curIndex,
+        isMultiSlotDay: totalSameDay > 1,
+        multiSlotPosition: (totalSameDay > 1
+          ? curIndex === 1
+            ? 'first'
+            : curIndex === totalSameDay
+            ? 'last'
+            : 'middle'
+          : 'single') as 'first' | 'middle' | 'last' | 'single',
+      };
+    });
 
     // Filter bentrok: only show sessions with conflict or off-day
     if (filterBentrok) {
@@ -303,7 +338,7 @@ export default function JadwalPage() {
     }
 
     return list;
-  }, [jadwalList, filterMode, filterBentrok, instrukturList, monthlyJadwalList]);
+  }, [jadwalList, filterBentrok, instrukturList, monthlyJadwalList]);
 
   const availableSiswaList = React.useMemo(() => {
     return siswaList.filter((s) => !allScheduledSiswaIds.includes(s.id));
@@ -630,7 +665,7 @@ export default function JadwalPage() {
   const selectedSiswaObj = siswaList.find((s) => s.id === formData.siswa_id);
   const isCustomPaket = selectedSiswaObj?.paket?.is_custom === true;
 
-  const columns: ColumnDef<JadwalSesi>[] = [
+  const columns: ColumnDef<any>[] = [
     {
       accessorKey: 'tanggal_sesi',
       header: 'Tanggal Sesi',
@@ -650,6 +685,7 @@ export default function JadwalPage() {
         const isConflict = check?.status === 'conflict';
         const isOff = check?.status === 'off';
         const hasWarning = isConflict || isOff;
+        const isMulti = sesi.isMultiSlotDay;
 
         return (
           <div className="flex flex-col gap-0.5">
@@ -658,6 +694,11 @@ export default function JadwalPage() {
             }`}>
               {formatDateIndo(sesi.tanggal_sesi)}
             </span>
+            {isMulti && (
+              <span className="text-[10px] text-teal-700 dark:text-teal-400 font-bold">
+                (Slot {sesi.sameDaySlotIndex} dari {sesi.sameDayTotalSlots})
+              </span>
+            )}
             {hasWarning && (
               <Link
                 href={`/jadwal/${sesi.id}`}
@@ -681,16 +722,33 @@ export default function JadwalPage() {
     {
       accessorKey: 'siswa',
       header: 'Siswa',
-      cell: ({ row }) => (
-        <div>
-          <div className="font-semibold text-[var(--text-primary)]">
-            {row.original.siswa?.nama || 'Siswa Kustom'}
+      cell: ({ row }) => {
+        const sesi = row.original;
+        const isMulti = sesi.isMultiSlotDay;
+        const isFirst = sesi.multiSlotPosition === 'first';
+        const isSubsequent = isMulti && !isFirst;
+
+        return (
+          <div className={`space-y-1 ${isMulti ? 'pl-2 border-l-2 border-l-teal-500 py-0.5' : ''}`}>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {isSubsequent && (
+                <span className="text-teal-600 dark:text-teal-400 font-extrabold text-sm">↳</span>
+              )}
+              <span className="font-bold text-xs text-[var(--text-primary)]">
+                {sesi.siswa?.nama || 'Siswa Kustom'}
+              </span>
+              {isMulti && (
+                <span className="px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border border-teal-300 dark:border-teal-700 inline-flex items-center gap-0.5">
+                  ⚡ 2 Slot ({`Slot ${sesi.sameDaySlotIndex}/${sesi.sameDayTotalSlots}`})
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-[var(--text-secondary)] font-mono">
+              {sesi.siswa?.kode_siswa || '-'}
+            </div>
           </div>
-          <div className="text-xs text-[var(--text-secondary)] font-mono">
-            {row.original.siswa?.kode_siswa || '-'}
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       accessorKey: 'instruktur',
@@ -705,8 +763,22 @@ export default function JadwalPage() {
       accessorKey: 'slot_waktu',
       header: 'Slot Waktu',
       cell: ({ row }) => {
-        const slot = row.original.slot_waktu;
-        return slot ? `${slot.nama_slot} (${slot.jam_mulai.substring(0, 5)}-${slot.jam_selesai.substring(0, 5)})` : '-';
+        const sesi = row.original;
+        const slot = sesi.slot_waktu;
+        const isMulti = sesi.isMultiSlotDay;
+
+        return (
+          <div className="space-y-0.5">
+            <div className="font-semibold text-xs text-[var(--text-primary)]">
+              {slot ? `${slot.nama_slot} (${slot.jam_mulai.substring(0, 5)}-${slot.jam_selesai.substring(0, 5)})` : '-'}
+            </div>
+            {isMulti && (
+              <div className="text-[10px] text-teal-700 dark:text-teal-400 font-semibold">
+                Slot Ke-{sesi.sameDaySlotIndex} Hari Ini
+              </div>
+            )}
+          </div>
+        );
       },
     },
     {
@@ -941,7 +1013,110 @@ export default function JadwalPage() {
         {loading ? (
           <div className="h-64 animate-pulse bg-black/5 dark:bg-white/5 rounded-md" />
         ) : (
-          <DataTable columns={columns} data={displayJadwalList} searchKey="jadwal" />
+          <DataTable
+            columns={columns}
+            data={displayJadwalList}
+            searchKey="jadwal"
+            renderMobileCard={(sesi: any) => {
+              const isMulti = sesi.isMultiSlotDay;
+              const isConflict =
+                sesi.staff_id && sesi.slot_waktu_id
+                  ? getSlotValidationStatus(
+                      sesi.tanggal_sesi,
+                      sesi.staff_id,
+                      sesi.slot_waktu_id,
+                      sesi.slot_waktu_id_akhir || null,
+                      sesi.id
+                    ).status === 'conflict'
+                  : false;
+
+              return (
+                <div
+                  className={`card-container space-y-2.5 text-xs ${
+                    isMulti ? 'border-l-4 border-l-teal-500 bg-teal-50/10 dark:bg-teal-950/10' : ''
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2 border-b border-[var(--border)] pb-2">
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {sesi.sameDaySlotIndex > 1 && (
+                          <span className="text-teal-600 dark:text-teal-400 font-extrabold text-sm">↳</span>
+                        )}
+                        <span className="font-bold text-sm text-[var(--text-primary)]">
+                          {sesi.siswa?.nama || 'Siswa Kustom'}
+                        </span>
+                        {isMulti && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border border-teal-300 dark:border-teal-700">
+                            ⚡ 2 Slot Hari Ini (Slot {sesi.sameDaySlotIndex}/{sesi.sameDayTotalSlots})
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-[var(--text-secondary)] font-mono mt-0.5">
+                        {sesi.siswa?.kode_siswa || '-'} • {formatDateIndo(sesi.tanggal_sesi)}
+                      </div>
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 text-xs rounded font-bold text-white shrink-0 ${
+                        sesi.status_sesi === 'selesai'
+                          ? 'bg-[var(--success)]'
+                          : sesi.status_sesi === 'batal'
+                          ? 'bg-[var(--danger)]'
+                          : 'bg-[var(--info)]'
+                      }`}
+                    >
+                      {sesi.status_sesi === 'terjadwal' ? 'Terjadwal' : sesi.status_sesi === 'selesai' ? 'Selesai' : 'Batal'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div>
+                      <span className="text-[var(--text-secondary)] block">Instruktur:</span>
+                      <span className="font-semibold text-[var(--brand-primary)]">
+                        {sesi.instruktur?.nama || '-'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[var(--text-secondary)] block">Slot Waktu:</span>
+                      <span className="font-semibold text-[var(--text-primary)]">
+                        {sesi.slot_waktu
+                          ? `${sesi.slot_waktu.nama_slot} (${sesi.slot_waktu.jam_mulai.substring(0, 5)}-${sesi.slot_waktu.jam_selesai.substring(0, 5)})`
+                          : '-'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[var(--text-secondary)] block">Progress:</span>
+                      <span className="font-semibold text-[var(--text-primary)]">
+                        Sesi {sesi.nomor_sesi_ke} dari {sesi.total_sesi_paket}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[var(--text-secondary)] block">Mobil:</span>
+                      <span className="font-semibold text-[var(--text-primary)] uppercase">
+                        {sesi.jenis_mobil || 'Manual'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+                    <button
+                      onClick={() => handleOpenProgressModal(sesi)}
+                      className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-semibold flex items-center gap-1"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>Progress</span>
+                    </button>
+                    <Link
+                      href={`/jadwal/${sesi.id}`}
+                      className="px-2.5 py-1.5 border border-[var(--border)] rounded text-xs font-semibold flex items-center gap-1 text-[var(--brand-primary)]"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Detail</span>
+                    </Link>
+                  </div>
+                </div>
+              );
+            }}
+          />
         )}
       </div>
 
