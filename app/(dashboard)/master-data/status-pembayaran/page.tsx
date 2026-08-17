@@ -20,11 +20,12 @@ export default function MasterStatusPembayaranPage() {
   }, []);
 
   const columns: ColumnDef<StatusPembayaranMaster>[] = [
-    { accessorKey: 'kode', header: 'Kode Status' },
-    { accessorKey: 'label', header: 'Label Tampilan' },
+    { accessorKey: 'kode', header: 'Kode Status', sortingFn: 'alphanumeric' },
+    { accessorKey: 'label', header: 'Label Tampilan', sortingFn: 'text' },
     {
       accessorKey: 'warna_badge',
       header: 'Badge Warna',
+      enableSorting: false,
       cell: ({ row }) => (
         <span
           className="px-2 py-1 text-xs text-white font-bold rounded"
@@ -34,7 +35,7 @@ export default function MasterStatusPembayaranPage() {
         </span>
       ),
     },
-    { accessorKey: 'urutan', header: 'Urutan' },
+    { accessorKey: 'urutan', header: 'Urutan', sortingFn: 'basic' },
   ];
 
   return (

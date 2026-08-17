@@ -64,6 +64,7 @@ export default function MasterPaketPage() {
     {
       accessorKey: 'nama_paket',
       header: 'Nama Paket',
+      sortingFn: 'text',
       cell: ({ row }) => (
         <span className="font-semibold text-[var(--text-primary)]">
           {row.original.nama_paket}
@@ -78,11 +79,14 @@ export default function MasterPaketPage() {
     {
       accessorKey: 'jumlah_sesi',
       header: 'Jumlah Sesi',
+      sortingFn: 'basic',
       cell: ({ row }) => `${row.original.jumlah_sesi} Sesi`,
     },
     {
-      accessorKey: 'termasuk_sim',
+      id: 'termasuk_sim',
       header: 'Fasilitas SIM',
+      accessorFn: (row) => (row.termasuk_sim ? 1 : 0),
+      sortingFn: 'basic',
       cell: ({ row }) => (
         <span
           className={`px-2 py-0.5 text-xs rounded font-medium ${
@@ -98,21 +102,27 @@ export default function MasterPaketPage() {
     {
       accessorKey: 'harga_normal',
       header: 'Harga Normal',
+      sortingFn: 'basic',
       cell: ({ row }) => formatRupiah(row.original.harga_normal),
     },
     {
-      accessorKey: 'harga_promo',
+      id: 'harga_promo',
       header: 'Harga Promo',
+      accessorFn: (row) => row.harga_promo || 0,
+      sortingFn: 'basic',
       cell: ({ row }) => (row.original.harga_promo ? formatRupiah(row.original.harga_promo) : '-'),
     },
     {
-      accessorKey: 'jenis_mobil',
+      id: 'jenis_mobil',
       header: 'Opsi Mobil',
+      accessorFn: (row) => (row.jenis_mobil || []).join(', '),
+      sortingFn: 'text',
       cell: ({ row }) => (row.original.jenis_mobil || []).join(', '),
     },
     {
       id: 'actions',
       header: 'Aksi',
+      enableSorting: false,
       cell: ({ row }) => (
         <button
           onClick={() => handleOpenEdit(row.original)}

@@ -164,6 +164,7 @@ export default function MasterStaffPage() {
     {
       accessorKey: 'nama',
       header: 'Nama Staff',
+      sortingFn: 'text',
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-full bg-[var(--brand-primary-light)] text-[var(--brand-primary)] flex items-center justify-center font-bold text-xs">
@@ -174,8 +175,10 @@ export default function MasterStaffPage() {
       ),
     },
     {
-      accessorKey: 'jabatan_list',
+      id: 'jabatan_list',
       header: 'Jabatan',
+      accessorFn: (row) => (row.jabatan_list || []).map((j) => j.nama_jabatan).join(', '),
+      sortingFn: 'text',
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-1">
           {(row.original.jabatan_list || []).map((j) => (
@@ -193,11 +196,23 @@ export default function MasterStaffPage() {
         </div>
       ),
     },
-    { accessorKey: 'no_whatsapp', header: 'No. WhatsApp' },
-    { accessorKey: 'tahun_bergabung', header: 'Tahun Masuk' },
     {
-      accessorKey: 'aktif',
+      accessorKey: 'no_whatsapp',
+      header: 'No. WhatsApp',
+      sortingFn: 'alphanumeric',
+    },
+    {
+      id: 'tahun_bergabung',
+      header: 'Tahun Masuk',
+      accessorFn: (row) => (row.tahun_bergabung ? Number(row.tahun_bergabung) : 0),
+      sortingFn: 'basic',
+      cell: ({ row }) => row.original.tahun_bergabung || '-',
+    },
+    {
+      id: 'aktif',
       header: 'Status',
+      accessorFn: (row) => (row.aktif ? 1 : 0),
+      sortingFn: 'basic',
       cell: ({ row }) => (
         <span
           className={`px-2 py-0.5 text-xs rounded font-medium ${
@@ -211,6 +226,7 @@ export default function MasterStaffPage() {
     {
       id: 'actions',
       header: 'Aksi',
+      enableSorting: false,
       cell: ({ row }) => (
         <button
           onClick={() => handleOpenEdit(row.original)}

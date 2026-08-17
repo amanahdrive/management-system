@@ -285,6 +285,7 @@ export default function SiswaPage() {
     {
       accessorKey: 'kode_siswa',
       header: 'Kode',
+      sortingFn: 'alphanumeric',
       cell: ({ row }) => (
         <span className="font-mono font-bold text-[var(--brand-primary)]">
           {row.original.kode_siswa}
@@ -294,6 +295,7 @@ export default function SiswaPage() {
     {
       accessorKey: 'nama',
       header: 'Nama Siswa',
+      sortingFn: 'text',
       cell: ({ row }) => (
         <div>
           <div className="font-semibold text-[var(--text-primary)]">{row.original.nama}</div>
@@ -302,13 +304,16 @@ export default function SiswaPage() {
       ),
     },
     {
-      accessorKey: 'paket',
+      id: 'paket',
       header: 'Paket Kursus',
+      accessorFn: (row) => row.paket?.nama_paket || 'Khusus',
+      sortingFn: 'text',
       cell: ({ row }) => row.original.paket?.nama_paket || 'Khusus',
     },
     {
       accessorKey: 'tanggal_booking',
       header: 'Tgl Booking',
+      sortingFn: 'datetime',
       cell: ({ row }) => (
         <div className="text-xs">
           <div className="font-medium text-[var(--text-primary)]">{formatDateIndo(row.original.tanggal_booking)}</div>
@@ -319,6 +324,11 @@ export default function SiswaPage() {
     {
       accessorKey: 'tanggal_rencana_mulai',
       header: 'Rencana Mulai',
+      sortingFn: (rowA, rowB, columnId) => {
+        const valA = rowA.getValue(columnId) ? new Date(rowA.getValue(columnId) as string).getTime() : 0;
+        const valB = rowB.getValue(columnId) ? new Date(rowB.getValue(columnId) as string).getTime() : 0;
+        return valA - valB;
+      },
       cell: ({ row }) => (
         <div className="text-xs">
           <div className="font-semibold text-[var(--brand-primary)]">
@@ -331,11 +341,14 @@ export default function SiswaPage() {
     {
       accessorKey: 'harga_final',
       header: 'Harga Final',
+      sortingFn: 'basic',
       cell: ({ row }) => formatRupiah(row.original.harga_final),
     },
     {
-      accessorKey: 'status_pembayaran_kode',
+      id: 'status_pembayaran',
       header: 'Status Bayar',
+      accessorFn: (row) => row.status_pembayaran?.label || row.status_pembayaran_kode || '',
+      sortingFn: 'text',
       cell: ({ row }) => {
         const s = row.original.status_pembayaran;
         return (
@@ -351,6 +364,7 @@ export default function SiswaPage() {
     {
       id: 'actions',
       header: 'Aksi',
+      enableSorting: false,
       cell: ({ row }) => (
         <div className="flex items-center gap-1.5">
           <Link

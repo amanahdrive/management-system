@@ -284,7 +284,8 @@ export async function getKendaraanMasterList(): Promise<Kendaraan[]> {
 export async function upsertKendaraanMaster(kendaraan: Partial<Kendaraan>): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createServerClient();
-    const { data: saved, error } = await supabase.from('kendaraan').upsert(kendaraan).select().single();
+    const { status, created_at, updated_at, ...cleanData } = kendaraan as any;
+    const { data: saved, error } = await supabase.from('kendaraan').upsert(cleanData).select().single();
     if (error || !saved) return { success: false, error: error?.message || 'Gagal menyimpan kendaraan' };
 
     // Ensure status row exists (upsert to avoid duplicate key error on update)

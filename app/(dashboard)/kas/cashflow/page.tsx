@@ -16,6 +16,9 @@ import { printStatementPdf, StatementData } from '@/lib/utils/pdf-statement';
 import ExcelJS from 'exceljs';
 import {
   ArrowLeft,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
   ArrowUpRight,
   ArrowDownRight,
   Trash2,
@@ -213,8 +216,22 @@ export default function CashflowPage() {
     });
   }, [monthRawTransactions, saldoAwalBulan, saldoAwalTunai, saldoAwalNonTunai]);
 
+  // Table Sorting State
+  type CashflowSortField = 'rowNumber' | 'tanggal' | 'keterangan' | 'masuk' | 'keluar' | 'saldo';
+  const [sortField, setSortField] = React.useState<CashflowSortField>('rowNumber');
+  const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('asc');
+
+  const handleToggleSort = (field: CashflowSortField) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
   // Apply User UI Filters (Tipe, Kategori, Jenis, Search)
-  const displayedData = React.useMemo(() => {
+  const filteredData = React.useMemo(() => {
     return sortedMonthData.filter((tx) => {
       if (filterTipe !== 'semua' && tx.tipe !== filterTipe) return false;
       if (filterKategori !== 'semua' && tx.kategori !== filterKategori) return false;
@@ -230,6 +247,35 @@ export default function CashflowPage() {
       return true;
     });
   }, [sortedMonthData, filterTipe, filterKategori, filterJenis, searchQuery]);
+
+  // Apply Table Sorting to produce displayedData
+  const displayedData = React.useMemo(() => {
+    const list = [...filteredData];
+    list.sort((a, b) => {
+      let cmp = 0;
+      if (sortField === 'rowNumber') {
+        cmp = a.rowNumber - b.rowNumber;
+      } else if (sortField === 'tanggal') {
+        const dateA = new Date(a.tanggal).getTime();
+        const dateB = new Date(b.tanggal).getTime();
+        cmp = dateA !== dateB ? dateA - dateB : a.rowNumber - b.rowNumber;
+      } else if (sortField === 'keterangan') {
+        cmp = a.keterangan.localeCompare(b.keterangan, 'id');
+      } else if (sortField === 'masuk') {
+        const nomA = a.tipe === 'pemasukan' ? a.nominal : 0;
+        const nomB = b.tipe === 'pemasukan' ? b.nominal : 0;
+        cmp = nomA - nomB;
+      } else if (sortField === 'keluar') {
+        const nomA = a.tipe === 'pengeluaran' ? a.nominal : 0;
+        const nomB = b.tipe === 'pengeluaran' ? b.nominal : 0;
+        cmp = nomA - nomB;
+      } else if (sortField === 'saldo') {
+        cmp = a.runningBalance - b.runningBalance;
+      }
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  }, [filteredData, sortField, sortDirection]);
 
   // Month Financial Summary
   const totalMasuk = sortedMonthData.filter((t) => t.tipe === 'pemasukan').reduce((s, t) => s + t.nominal, 0);
@@ -413,11 +459,13 @@ export default function CashflowPage() {
     {
       accessorKey: 'rowNumber',
       header: 'No',
+      sortingFn: 'basic',
       cell: ({ row }) => <span className="font-mono text-xs text-[var(--text-secondary)]">{row.original.rowNumber}</span>,
     },
     {
       accessorKey: 'tanggal',
       header: 'Tanggal',
+      sortingFn: 'datetime',
       cell: ({ row }) => (
         <div className="text-xs font-semibold text-[var(--text-primary)] whitespace-nowrap">
           {formatDateIndo(row.original.tanggal)}
@@ -427,6 +475,7 @@ export default function CashflowPage() {
     {
       accessorKey: 'keterangan',
       header: 'Uraian Transaksi',
+      sortingFn: 'text',
       cell: ({ row }) => {
         const isTunai = (row.original.jenis_pembayaran || 'tunai') === 'tunai';
         return (
@@ -455,8 +504,10 @@ export default function CashflowPage() {
       },
     },
     {
-      accessorKey: 'pemasukan',
+      id: 'pemasukan',
+      accessorFn: (row) => (row.tipe === 'pemasukan' ? row.nominal : 0),
       header: () => <div className="text-right">Pemasukan (+)</div>,
+      sortingFn: 'basic',
       cell: ({ row }) => {
         const isMasuk = row.original.tipe === 'pemasukan';
         return (
@@ -467,8 +518,10 @@ export default function CashflowPage() {
       },
     },
     {
-      accessorKey: 'pengeluaran',
+      id: 'pengeluaran',
+      accessorFn: (row) => (row.tipe === 'pengeluaran' ? row.nominal : 0),
       header: () => <div className="text-right">Pengeluaran (−)</div>,
+      sortingFn: 'basic',
       cell: ({ row }) => {
         const isKeluar = row.original.tipe === 'pengeluaran';
         return (
@@ -481,6 +534,7 @@ export default function CashflowPage() {
     {
       accessorKey: 'runningBalance',
       header: () => <div className="text-right">Saldo Kas (Rp)</div>,
+      sortingFn: 'basic',
       cell: ({ row }) => (
         <div className="text-right font-mono text-xs font-bold text-[var(--brand-primary)] bg-[var(--brand-primary-light)]/50 py-1 px-2 rounded">
           {formatRupiah(row.original.runningBalance)}
@@ -490,6 +544,7 @@ export default function CashflowPage() {
     {
       id: 'actions',
       header: 'Aksi',
+      enableSorting: false,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
           <button
@@ -763,12 +818,114 @@ export default function CashflowPage() {
               <table className="w-full text-xs text-left border-collapse">
                 <thead>
                   <tr className="bg-[var(--bg-subtle)] border-b border-[var(--border)] text-[var(--text-secondary)] uppercase text-[10px] tracking-wider font-bold">
-                    <th className="py-2.5 px-3 text-center w-10">No</th>
-                    <th className="py-2.5 px-3 w-28">Tanggal</th>
-                    <th className="py-2.5 px-3">Uraian Transaksi</th>
-                    <th className="py-2.5 px-3 text-right w-32">Masuk (+)</th>
-                    <th className="py-2.5 px-3 text-right w-32">Keluar (−)</th>
-                    <th className="py-2.5 px-3 text-right w-36">Saldo Kas</th>
+                    <th
+                      className="py-2.5 px-3 text-center w-12 cursor-pointer select-none hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                      onClick={() => handleToggleSort('rowNumber')}
+                      title="Urutkan berdasarkan nomor baris"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span className={sortField === 'rowNumber' ? 'text-[var(--brand-primary)]' : ''}>No</span>
+                        {sortField === 'rowNumber' ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUp className="w-3 h-3 text-[var(--brand-primary)]" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3 text-[var(--brand-primary)]" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-30 hover:opacity-100" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="py-2.5 px-3 w-32 cursor-pointer select-none hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                      onClick={() => handleToggleSort('tanggal')}
+                      title="Urutkan berdasarkan tanggal transaksi"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span className={sortField === 'tanggal' ? 'text-[var(--brand-primary)]' : ''}>Tanggal</span>
+                        {sortField === 'tanggal' ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUp className="w-3 h-3 text-[var(--brand-primary)]" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3 text-[var(--brand-primary)]" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-30 hover:opacity-100" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="py-2.5 px-3 cursor-pointer select-none hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                      onClick={() => handleToggleSort('keterangan')}
+                      title="Urutkan berdasarkan uraian transaksi"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span className={sortField === 'keterangan' ? 'text-[var(--brand-primary)]' : ''}>Uraian Transaksi</span>
+                        {sortField === 'keterangan' ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUp className="w-3 h-3 text-[var(--brand-primary)]" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3 text-[var(--brand-primary)]" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-30 hover:opacity-100" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="py-2.5 px-3 text-right w-36 cursor-pointer select-none hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                      onClick={() => handleToggleSort('masuk')}
+                      title="Urutkan nominal pemasukan"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span className={sortField === 'masuk' ? 'text-[var(--brand-primary)]' : ''}>Masuk (+)</span>
+                        {sortField === 'masuk' ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUp className="w-3 h-3 text-[var(--brand-primary)]" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3 text-[var(--brand-primary)]" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-30 hover:opacity-100" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="py-2.5 px-3 text-right w-36 cursor-pointer select-none hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                      onClick={() => handleToggleSort('keluar')}
+                      title="Urutkan nominal pengeluaran"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span className={sortField === 'keluar' ? 'text-[var(--brand-primary)]' : ''}>Keluar (−)</span>
+                        {sortField === 'keluar' ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUp className="w-3 h-3 text-[var(--brand-primary)]" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3 text-[var(--brand-primary)]" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-30 hover:opacity-100" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="py-2.5 px-3 text-right w-40 cursor-pointer select-none hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                      onClick={() => handleToggleSort('saldo')}
+                      title="Urutkan saldo kas berjalan"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span className={sortField === 'saldo' ? 'text-[var(--brand-primary)]' : ''}>Saldo Kas</span>
+                        {sortField === 'saldo' ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUp className="w-3 h-3 text-[var(--brand-primary)]" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3 text-[var(--brand-primary)]" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-30 hover:opacity-100" />
+                        )}
+                      </div>
+                    </th>
                     <th className="py-2.5 px-3 text-center w-16">Aksi</th>
                   </tr>
                 </thead>

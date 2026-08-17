@@ -86,6 +86,7 @@ export default function PiutangPage() {
     {
       accessorKey: 'kode_siswa',
       header: 'Kode',
+      sortingFn: 'alphanumeric',
       cell: ({ row }) => (
         <span className="font-mono font-bold text-[var(--brand-primary)]">
           {row.original.kode_siswa}
@@ -95,6 +96,7 @@ export default function PiutangPage() {
     {
       accessorKey: 'nama',
       header: 'Nama Siswa',
+      sortingFn: 'text',
       cell: ({ row }) => (
         <div>
           <div className="font-semibold text-[var(--text-primary)]">{row.original.nama}</div>
@@ -103,13 +105,16 @@ export default function PiutangPage() {
       ),
     },
     {
-      accessorKey: 'paket',
+      id: 'paket',
       header: 'Paket Kursus',
+      accessorFn: (row) => row.paket?.nama_paket || 'Khusus',
+      sortingFn: 'text',
       cell: ({ row }) => row.original.paket?.nama_paket || 'Khusus',
     },
     {
       accessorKey: 'status_pembayaran_kode',
       header: 'Status Bayar',
+      sortingFn: 'text',
       cell: ({ row }) => {
         const isDp = row.original.status_pembayaran_kode === 'dp';
         return (
@@ -126,17 +131,26 @@ export default function PiutangPage() {
     {
       accessorKey: 'harga_final',
       header: 'Total Biaya',
+      sortingFn: 'basic',
       cell: ({ row }) => formatRupiah(row.original.harga_final),
     },
     {
-      accessorKey: 'dp_nominal',
+      id: 'dp_nominal',
       header: 'Sudah Dibayar',
+      accessorFn: (row) => row.dp_nominal || 0,
+      sortingFn: 'basic',
       cell: ({ row }) =>
         row.original.dp_nominal ? formatRupiah(row.original.dp_nominal) : formatRupiah(0),
     },
     {
       id: 'sisa_piutang',
       header: 'Sisa Piutang',
+      accessorFn: (row) => {
+        return row.status_pembayaran_kode === 'dp'
+          ? row.harga_final - (row.dp_nominal || 0)
+          : row.harga_final;
+      },
+      sortingFn: 'basic',
       cell: ({ row }) => {
         const sisa = row.original.status_pembayaran_kode === 'dp'
           ? row.original.harga_final - (row.original.dp_nominal || 0)
@@ -147,6 +161,7 @@ export default function PiutangPage() {
     {
       id: 'actions',
       header: 'Aksi',
+      enableSorting: false,
       cell: ({ row }) => {
         const sisa = row.original.status_pembayaran_kode === 'dp'
           ? row.original.harga_final - (row.original.dp_nominal || 0)

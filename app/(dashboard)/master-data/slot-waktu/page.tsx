@@ -26,16 +26,18 @@ export default function MasterSlotWaktuPage() {
   }, []);
 
   const columns: ColumnDef<SlotWaktu>[] = [
-    { accessorKey: 'nama_slot', header: 'Nama Slot' },
+    { accessorKey: 'nama_slot', header: 'Nama Slot', sortingFn: 'text' },
     {
       accessorKey: 'jam_mulai',
       header: 'Jam Sesi',
+      sortingFn: 'text',
       cell: ({ row }) =>
         `${row.original.jam_mulai.substring(0, 5)} - ${row.original.jam_selesai.substring(0, 5)} WIB`,
     },
     {
       accessorKey: 'kategori',
       header: 'Kategori',
+      sortingFn: 'text',
       cell: ({ row }) => (
         <span
           className={`px-2 py-0.5 text-xs rounded font-medium ${
@@ -48,7 +50,7 @@ export default function MasterSlotWaktuPage() {
         </span>
       ),
     },
-    { accessorKey: 'urutan', header: 'Urutan' },
+    { accessorKey: 'urutan', header: 'Urutan', sortingFn: 'basic' },
   ];
 
   return (

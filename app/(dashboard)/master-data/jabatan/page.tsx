@@ -37,10 +37,12 @@ export default function MasterJabatanPage() {
   };
 
   const columns: ColumnDef<Jabatan>[] = [
-    { accessorKey: 'nama_jabatan', header: 'Nama Jabatan' },
+    { accessorKey: 'nama_jabatan', header: 'Nama Jabatan', sortingFn: 'text' },
     {
-      accessorKey: 'aktif',
+      id: 'aktif',
       header: 'Status',
+      accessorFn: (row) => (row.aktif ? 1 : 0),
+      sortingFn: 'basic',
       cell: ({ row }) => (
         <span
           className={`px-2 py-0.5 text-xs rounded font-medium ${

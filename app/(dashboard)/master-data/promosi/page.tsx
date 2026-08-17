@@ -44,25 +44,29 @@ export default function MasterPromosiPage() {
   };
 
   const columns: ColumnDef<Promosi>[] = [
-    { accessorKey: 'nama_promo', header: 'Nama Promo' },
+    { accessorKey: 'nama_promo', header: 'Nama Promo', sortingFn: 'text' },
     {
       accessorKey: 'tipe_potongan',
       header: 'Tipe Potongan',
+      sortingFn: 'text',
       cell: ({ row }) => (row.original.tipe_potongan === 'persen' ? 'Persentase (%)' : 'Nominal (Rp)'),
     },
     {
       accessorKey: 'nilai_potongan',
       header: 'Nilai Potongan',
+      sortingFn: 'basic',
       cell: ({ row }) =>
         row.original.tipe_potongan === 'persen'
           ? `${row.original.nilai_potongan}%`
           : formatRupiah(row.original.nilai_potongan),
     },
-    { accessorKey: 'tanggal_mulai', header: 'Tanggal Mulai' },
-    { accessorKey: 'tanggal_selesai', header: 'Tanggal Selesai' },
+    { accessorKey: 'tanggal_mulai', header: 'Tanggal Mulai', sortingFn: 'datetime' },
+    { accessorKey: 'tanggal_selesai', header: 'Tanggal Selesai', sortingFn: 'datetime' },
     {
-      accessorKey: 'aktif',
+      id: 'aktif',
       header: 'Status',
+      accessorFn: (row) => (row.aktif ? 1 : 0),
+      sortingFn: 'basic',
       cell: ({ row }) => (
         <span
           className={`px-2 py-0.5 text-xs rounded font-medium ${

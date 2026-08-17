@@ -64,20 +64,23 @@ export default function HutangPage() {
   };
 
   const columns: ColumnDef<Hutang>[] = [
-    { accessorKey: 'nama_hutang', header: 'Nama Hutang / Cicilan' },
+    { accessorKey: 'nama_hutang', header: 'Nama Hutang / Cicilan', sortingFn: 'text' },
     {
       accessorKey: 'jenis',
       header: 'Jenis',
+      sortingFn: 'text',
       cell: ({ row }) => (row.original.jenis === 'cicilan_kendaraan' ? 'Cicilan Kendaraan' : 'Pinjaman'),
     },
     {
       accessorKey: 'total_hutang',
       header: 'Total Hutang',
+      sortingFn: 'basic',
       cell: ({ row }) => formatRupiah(row.original.total_hutang),
     },
     {
       accessorKey: 'sisa_hutang',
       header: 'Sisa Hutang',
+      sortingFn: 'basic',
       cell: ({ row }) => (
         <span className="font-bold text-rose-700">{formatRupiah(row.original.sisa_hutang)}</span>
       ),
@@ -85,11 +88,13 @@ export default function HutangPage() {
     {
       accessorKey: 'jatuh_tempo_bulanan',
       header: 'Jatuh Tempo',
+      sortingFn: 'basic',
       cell: ({ row }) => `Tgl ${row.original.jatuh_tempo_bulanan || '-'} tiap bulan`,
     },
     {
       accessorKey: 'status',
       header: 'Status',
+      sortingFn: 'text',
       cell: ({ row }) => (
         <span
           className={`px-2 py-0.5 text-xs rounded font-bold uppercase ${
@@ -105,6 +110,7 @@ export default function HutangPage() {
     {
       id: 'actions',
       header: 'Aksi',
+      enableSorting: false,
       cell: ({ row }) => (
         <button
           onClick={() => {

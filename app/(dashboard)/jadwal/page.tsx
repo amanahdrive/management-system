@@ -675,6 +675,7 @@ export default function JadwalPage() {
     {
       accessorKey: 'tanggal_sesi',
       header: 'Tanggal Sesi',
+      sortingFn: 'datetime',
       cell: ({ row }) => {
         const sesi = row.original;
         // Pass sesi.id as excludeId to prevent self-conflict detection
@@ -726,8 +727,10 @@ export default function JadwalPage() {
       },
     },
     {
-      accessorKey: 'siswa',
+      id: 'siswa',
       header: 'Siswa',
+      accessorFn: (row) => row.siswa?.nama || 'Siswa Kustom',
+      sortingFn: 'text',
       cell: ({ row }) => {
         const sesi = row.original;
         const isMulti = sesi.isMultiSlotDay;
@@ -757,8 +760,10 @@ export default function JadwalPage() {
       },
     },
     {
-      accessorKey: 'instruktur',
+      id: 'instruktur',
       header: 'Instruktur',
+      accessorFn: (row) => row.instruktur?.nama || '',
+      sortingFn: 'text',
       cell: ({ row }) => (
         <span className="font-medium text-[var(--brand-primary)]">
           {row.original.instruktur?.nama || '-'}
@@ -766,11 +771,12 @@ export default function JadwalPage() {
       ),
     },
     {
-      accessorKey: 'slot_waktu',
+      id: 'slot_waktu',
       header: 'Slot Waktu',
+      accessorFn: (row) => row.slot_waktu?.urutan ?? 0,
+      sortingFn: 'basic',
       cell: ({ row }) => {
         const sesi = row.original;
-        const slot = sesi.slot_waktu;
         const isMulti = sesi.isMultiSlotDay;
 
         return (
@@ -790,11 +796,13 @@ export default function JadwalPage() {
     {
       accessorKey: 'nomor_sesi_ke',
       header: 'Progress Sesi',
+      sortingFn: 'basic',
       cell: ({ row }) => `Sesi ${row.original.nomor_sesi_ke} dari ${row.original.total_sesi_paket}`,
     },
     {
       accessorKey: 'status_sesi',
       header: 'Status',
+      sortingFn: 'text',
       cell: ({ row }) => {
         const st = row.original.status_sesi;
         return (
@@ -815,6 +823,7 @@ export default function JadwalPage() {
     {
       id: 'actions',
       header: 'Aksi',
+      enableSorting: false,
       cell: ({ row }) => (
         <div className="flex items-center gap-1.5">
           <button

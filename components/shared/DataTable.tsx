@@ -10,7 +10,7 @@ import {
   SortingState,
   useReactTable,
 } from '@tanstack/react-table';
-import { ChevronLeft, ChevronRight, ArrowUpDown, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -67,23 +67,38 @@ export function DataTable<TData, TValue>({
             <thead className="bg-[var(--bg-subtle)] border-b border-[var(--border)]">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th key={header.id} className="px-4 py-3 eyebrow-label text-[10px]">
-                      {header.isPlaceholder ? null : (
-                        <div
-                          className={
-                            header.column.getCanSort()
-                              ? 'cursor-pointer select-none flex items-center gap-1.5 hover:text-[var(--brand-primary)] transition-colors'
-                              : ''
-                          }
-                          onClick={header.column.getToggleSortingHandler()}
-                        >
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                          {header.column.getCanSort() && <ArrowUpDown className="w-3 h-3 opacity-50" />}
-                        </div>
-                      )}
-                    </th>
-                  ))}
+                  {headerGroup.headers.map((header) => {
+                    const isSorted = header.column.getIsSorted();
+                    const canSort = header.column.getCanSort();
+                    return (
+                      <th
+                        key={header.id}
+                        className={`px-4 py-3 eyebrow-label text-[10px] ${
+                          canSort ? 'cursor-pointer select-none hover:bg-black/5 dark:hover:bg-white/5 transition-colors' : ''
+                        }`}
+                        onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                      >
+                        {header.isPlaceholder ? null : (
+                          <div className="flex items-center gap-1.5">
+                            <span className={isSorted ? 'text-[var(--brand-primary)] font-bold' : ''}>
+                              {flexRender(header.column.columnDef.header, header.getContext())}
+                            </span>
+                            {canSort && (
+                              <span className="inline-flex items-center">
+                                {isSorted === 'asc' ? (
+                                  <ArrowUp className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                                ) : isSorted === 'desc' ? (
+                                  <ArrowDown className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                                ) : (
+                                  <ArrowUpDown className="w-3 h-3 text-[var(--text-muted)] opacity-40 hover:opacity-100 transition-opacity" />
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </th>
+                    );
+                  })}
                 </tr>
               ))}
             </thead>
