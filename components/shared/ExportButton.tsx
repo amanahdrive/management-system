@@ -32,14 +32,14 @@ export function ExportButton({ data, columns, filename, title }: ExportButtonPro
         worksheet.mergeCells(1, 1, 1, columns.length);
         const titleCell = worksheet.getCell(1, 1);
         titleCell.value = title;
-        titleCell.font = { bold: true, size: 14, color: { argb: 'FF0F7A73' } };
+        titleCell.font = { name: 'Inter', bold: true, size: 14, color: { argb: 'FF0F7A73' } };
         titleCell.alignment = { vertical: 'middle', horizontal: 'left' };
         worksheet.addRow([]);
       }
 
       // Column Headers
       const headerRow = worksheet.addRow(columns.map((c) => c.header));
-      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.font = { name: 'Inter', bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
       headerRow.fill = {
         type: 'pattern',
         pattern: 'solid',
@@ -58,10 +58,12 @@ export function ExportButton({ data, columns, filename, title }: ExportButtonPro
           return val !== undefined && val !== null ? val : '-';
         });
         const addedRow = worksheet.addRow(rowData);
+        addedRow.font = { name: 'Inter', size: 10 };
 
         // Format borders and currency
         columns.forEach((col, cIdx) => {
           const cell = addedRow.getCell(cIdx + 1);
+          cell.font = { name: 'Inter', size: 10 };
           cell.border = {
             top: { style: 'thin', color: { argb: 'FFE2E8E7' } },
             left: { style: 'thin', color: { argb: 'FFE2E8E7' } },

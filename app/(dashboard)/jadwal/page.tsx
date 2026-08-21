@@ -718,8 +718,8 @@ export default function JadwalPage() {
               >
                 <AlertTriangle className="w-2.5 h-2.5" />
                 {isConflict
-                  ? `⚠ Bentrok${check?.studentName ? ` (${check.studentName})` : ''} — Edit`
-                  : '⚠ Hari Libur — Edit'}
+                  ? `Bentrok${check?.studentName ? ` (${check.studentName})` : ''} — Edit`
+                  : 'Hari Libur — Edit'}
               </Link>
             )}
           </div>
@@ -748,11 +748,11 @@ export default function JadwalPage() {
               </span>
               {isMulti && (
                 <span className="px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border border-teal-300 dark:border-teal-700 inline-flex items-center gap-0.5">
-                  ⚡ 2 Slot ({`Slot ${sesi.sameDaySlotIndex}/${sesi.sameDayTotalSlots}`})
+                  2 Slot ({`Slot ${sesi.sameDaySlotIndex}/${sesi.sameDayTotalSlots}`})
                 </span>
               )}
             </div>
-            <div className="text-[11px] text-[var(--text-secondary)] font-mono">
+            <div className="text-[11px] text-[var(--text-secondary)] font-semibold tabular-num">
               {sesi.siswa?.kode_siswa || '-'}
             </div>
           </div>
@@ -1062,11 +1062,11 @@ export default function JadwalPage() {
                         </span>
                         {isMulti && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border border-teal-300 dark:border-teal-700">
-                            ⚡ 2 Slot Hari Ini (Slot {sesi.sameDaySlotIndex}/{sesi.sameDayTotalSlots})
+                            2 Slot Hari Ini (Slot {sesi.sameDaySlotIndex}/{sesi.sameDayTotalSlots})
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-[var(--text-secondary)] font-mono mt-0.5">
+                      <div className="text-[11px] text-[var(--text-secondary)] font-semibold tabular-num mt-0.5">
                         {sesi.siswa?.kode_siswa || '-'} • {formatDateIndo(sesi.tanggal_sesi)}
                       </div>
                     </div>
@@ -1275,7 +1275,7 @@ export default function JadwalPage() {
                               j.status_sesi === 'selesai' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
                               : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
                             }`}>
-                              {j.status_sesi === 'selesai' ? '✓ Selesai' : '⏳ Terjadwal'}
+                              {j.status_sesi === 'selesai' ? 'Selesai' : 'Terjadwal'}
                             </span>
                           </div>
                         ))}
@@ -1418,7 +1418,7 @@ export default function JadwalPage() {
 
                   <div className="p-2.5 bg-[var(--bg)] rounded-lg border border-[var(--border)] text-[11px] space-y-1">
                     <p className="text-[var(--text-secondary)]">
-                      Sesi {progressSesiKe}: <span className="line-through">{formatDateIndo(progressTanggal)}</span> ➔{' '}
+                      Sesi {progressSesiKe}: <span className="line-through">{formatDateIndo(progressTanggal)}</span> &rarr;{' '}
                       <span className="font-bold text-amber-600 dark:text-amber-400">
                         {formatDateIndo(addDaysToDateStr(progressTanggal, rescheduleShiftDays))}
                       </span>
@@ -1493,7 +1493,7 @@ export default function JadwalPage() {
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                📅 Per Hari
+                Per Hari
               </button>
               <button
                 type="button"
@@ -1504,7 +1504,7 @@ export default function JadwalPage() {
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                🗓️ Per Minggu (Min-Sab)
+                Per Minggu (Min-Sab)
               </button>
               <button
                 type="button"
@@ -1515,7 +1515,7 @@ export default function JadwalPage() {
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                📆 Rentang Tanggal
+                Rentang Tanggal
               </button>
               <button
                 type="button"
@@ -1526,7 +1526,7 @@ export default function JadwalPage() {
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                📊 Rekap Slot
+                Rekap Slot
               </button>
             </div>
 
@@ -1626,7 +1626,7 @@ export default function JadwalPage() {
                     const { startSunday, endSaturday } = getWeekSundayToSaturday(waWeekAnchor);
                     return (
                       <div className="p-2 bg-[var(--bg)] border border-[var(--brand-primary)]/40 rounded-lg text-center font-bold text-[var(--brand-primary)]">
-                        🗓️ Periode: Minggu, {formatDateIndo(startSunday)} s/d Sabtu, {formatDateIndo(endSaturday)}
+                        Periode: Minggu, {formatDateIndo(startSunday)} s/d Sabtu, {formatDateIndo(endSaturday)}
                       </div>
                     );
                   })()}
@@ -1671,7 +1671,7 @@ export default function JadwalPage() {
                   </div>
 
                   <div className="p-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-center text-[11px] font-semibold text-[var(--text-secondary)]">
-                    📆 Rentang: {formatHariTanggalIndo(waCustomDateFrom)} s/d {formatHariTanggalIndo(waCustomDateTo)}
+                    Rentang: {formatHariTanggalIndo(waCustomDateFrom)} s/d {formatHariTanggalIndo(waCustomDateTo)}
                   </div>
                 </div>
               )}
@@ -1693,7 +1693,7 @@ export default function JadwalPage() {
                 readOnly
                 rows={9}
                 value={waPreviewText}
-                className="w-full p-3 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] font-mono text-[11px] text-[var(--text-primary)] leading-relaxed select-all"
+                className="w-full p-3 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] text-[11px] text-[var(--text-primary)] leading-relaxed select-all font-medium"
               />
             </div>
 
@@ -1893,10 +1893,10 @@ export default function JadwalPage() {
                             }`}
                           >
                             {check.status === 'available'
-                              ? '✓ Available'
+                              ? 'Available'
                               : check.status === 'off'
-                              ? '⚪ Libur'
-                              : `✕ Bentrok (${check.studentName || 'Terisi'})`}
+                              ? 'Libur'
+                              : `Bentrok (${check.studentName || 'Terisi'})`}
                           </span>
                         </div>
 
@@ -2012,7 +2012,7 @@ export default function JadwalPage() {
                   onClick={() => setIsBigCalendarOpen(false)}
                   className="ml-4 text-xs font-semibold px-2.5 py-1 rounded bg-black/5 dark:bg-white/10"
                 >
-                  ✕ Tutup
+                  Tutup
                 </button>
               </div>
             </div>

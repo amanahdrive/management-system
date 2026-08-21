@@ -240,7 +240,7 @@ export default function JadwalDetailPage() {
 
             <div>
               <p className="text-[var(--text-secondary)] font-medium">Kode Siswa</p>
-              <p className="font-mono font-bold text-[var(--brand-primary)]">
+              <p className="tabular-num font-bold text-[var(--brand-primary)]">
                 {mainSesi.siswa?.kode_siswa || '-'}
               </p>
             </div>
@@ -363,7 +363,7 @@ export default function JadwalDetailPage() {
                           title="Klik untuk ubah tanggal/slot sesi ini"
                         >
                           <AlertTriangle className="w-2.5 h-2.5" />
-                          {checkConflict.type === 'conflict' ? `⚠ ${checkConflict.msg}` : `⚠ ${checkConflict.msg}`}
+                          {checkConflict.msg}
                           {' '}— Perbaiki
                         </button>
                       )}

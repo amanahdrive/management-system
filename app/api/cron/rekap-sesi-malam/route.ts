@@ -94,35 +94,33 @@ export async function GET(request: Request) {
           ? `${namaSlot} s/d ${namaSlotAkhir}`
           : namaSlot;
 
-        const icon = j.status_sesi === 'selesai' ? '✅' : '⏳';
-        const statusLabel = j.status_sesi === 'selesai' ? 'Selesai' : 'Belum diupdate';
+        const statusBadge = j.status_sesi === 'selesai' ? '[SELESAI]' : '[BELUM DIUPDATE]';
         const siswa = j.siswa as any;
         const nomorSesi = j.nomor_sesi_ke ?? '-';
         const totalSesi = j.total_sesi_paket ?? '-';
 
         breakdownLines.push(
-          `  ${icon} <b>${siswa?.nama || '-'}</b> (${siswa?.kode_siswa || '-'})\n` +
-          `      🕐 ${slotLabel} ${jamMulai}–${jamSelesai} WIB • Sesi ke-${nomorSesi}/${totalSesi}\n` +
-          `      📌 ${statusLabel}`
+          `  • <b>${siswa?.nama || '-'}</b> (${siswa?.kode_siswa || '-'})\n` +
+          `      ${slotLabel} ${jamMulai}–${jamSelesai} WIB • Sesi ke-${nomorSesi}/${totalSesi}\n` +
+          `      Status: ${statusBadge}`
         );
       });
 
       if (batalSessions.length > 0) {
-        breakdownLines.push(`  🚫 ${batalSessions.length} sesi dibatalkan`);
+        breakdownLines.push(`  • ${batalSessions.length} sesi dibatalkan`);
       }
     });
 
-    const statusIcon = totalTerjadwal === 0 ? '🟢' : '🟡';
     const message =
-      `<b>📊 REKAP SESI HARIAN — MALAM</b>\n` +
+      `<b>REKAP SESI HARIAN — MALAM</b>\n` +
       `Tanggal: <b>${dateFormatted}</b>\n` +
       `${'─'.repeat(30)}\n` +
       `${breakdownLines.length > 0 ? breakdownLines.join('\n') : '  Tidak ada sesi hari ini.'}\n\n` +
       `${'─'.repeat(30)}\n` +
-      `${statusIcon} <b>Selesai: ${totalCompleted} Sesi</b>\n` +
+      `<b>Selesai: ${totalCompleted} Sesi</b>\n` +
       (totalTerjadwal > 0
-        ? `⚠️ Belum diupdate: <b>${totalTerjadwal} sesi</b> — mohon segera update progress!`
-        : `✅ Semua sesi telah diperbarui hari ini`);
+        ? `Belum diupdate: <b>${totalTerjadwal} sesi</b> — mohon segera update progress!`
+        : `Semua sesi telah diperbarui hari ini`);
 
     const result = await sendTelegramMessage(
       message,

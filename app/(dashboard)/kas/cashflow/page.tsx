@@ -371,20 +371,20 @@ export default function CashflowPage() {
       worksheet.mergeCells('A1:H1');
       const titleCell = worksheet.getCell('A1');
       titleCell.value = `MUTASI REKENING KAS UMUM (E-STATEMENT) - AMANAH DRIVE PALEMBANG`;
-      titleCell.font = { bold: true, size: 14, color: { argb: 'FF0F7A73' } };
+      titleCell.font = { name: 'Inter', bold: true, size: 14, color: { argb: 'FF0F7A73' } };
       titleCell.alignment = { vertical: 'middle', horizontal: 'left' };
 
       worksheet.mergeCells('A2:H2');
       const subCell = worksheet.getCell('A2');
       subCell.value = `Periode: ${formatDateIndo(monthStartStr)} s/d ${formatDateIndo(monthEndStr)} | Saldo Awal: ${formatRupiah(saldoAwalBulan)}`;
-      subCell.font = { italic: true, size: 10, color: { argb: 'FF475569' } };
+      subCell.font = { name: 'Inter', italic: true, size: 10, color: { argb: 'FF475569' } };
 
       worksheet.addRow([]);
 
       // Headers
       const headers = ['No', 'Tanggal', 'Uraian Transaksi', 'Kategori', 'Jenis', 'PIC', 'Pemasukan (Rp)', 'Pengeluaran (Rp)', 'Saldo Berjalan (Rp)'];
       const headerRow = worksheet.addRow(headers);
-      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.font = { name: 'Inter', bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
       headerRow.fill = {
         type: 'pattern',
         pattern: 'solid',
@@ -403,7 +403,7 @@ export default function CashflowPage() {
 
       // Saldo Awal Row
       const awalRow = worksheet.addRow(['-', formatDateIndo(monthStartStr), `[SALDO AWAL KAS BULAN ${activeMonthName.toUpperCase()}]`, 'SALDO AWAL', '-', 'SYSTEM', 0, 0, saldoAwalBulan]);
-      awalRow.font = { italic: true, bold: true };
+      awalRow.font = { name: 'Inter', italic: true, bold: true, size: 10 };
 
       // Data Rows
       sortedMonthData.forEach((tx) => {
@@ -419,6 +419,7 @@ export default function CashflowPage() {
           !isMasuk ? tx.nominal : 0,
           tx.runningBalance,
         ]);
+        row.font = { name: 'Inter', size: 10 };
 
         row.getCell(7).numFmt = '"Rp "#,##0';
         row.getCell(8).numFmt = '"Rp "#,##0';
@@ -427,7 +428,7 @@ export default function CashflowPage() {
 
       // Total Row
       const totalRow = worksheet.addRow(['', '', 'TOTAL MUTASI & SALDO AKHIR', '', '', '', totalMasuk, totalKeluar, saldoAkhirBulan]);
-      totalRow.font = { bold: true };
+      totalRow.font = { name: 'Inter', bold: true, size: 10 };
       totalRow.fill = {
         type: 'pattern',
         pattern: 'solid',
@@ -460,7 +461,7 @@ export default function CashflowPage() {
       accessorKey: 'rowNumber',
       header: 'No',
       sortingFn: 'basic',
-      cell: ({ row }) => <span className="font-mono text-xs text-[var(--text-secondary)]">{row.original.rowNumber}</span>,
+      cell: ({ row }) => <span className="tabular-num text-xs text-[var(--text-secondary)]">{row.original.rowNumber}</span>,
     },
     {
       accessorKey: 'tanggal',
@@ -511,7 +512,7 @@ export default function CashflowPage() {
       cell: ({ row }) => {
         const isMasuk = row.original.tipe === 'pemasukan';
         return (
-          <div className="text-right font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
+          <div className="text-right tabular-num text-xs font-bold text-emerald-600 dark:text-emerald-400">
             {isMasuk ? `+ ${formatRupiah(row.original.nominal)}` : '-'}
           </div>
         );
@@ -525,7 +526,7 @@ export default function CashflowPage() {
       cell: ({ row }) => {
         const isKeluar = row.original.tipe === 'pengeluaran';
         return (
-          <div className="text-right font-mono text-xs font-bold text-rose-600 dark:text-rose-400">
+          <div className="text-right tabular-num text-xs font-bold text-rose-600 dark:text-rose-400">
             {isKeluar ? `− ${formatRupiah(row.original.nominal)}` : '-'}
           </div>
         );
@@ -536,7 +537,7 @@ export default function CashflowPage() {
       header: () => <div className="text-right">Saldo Kas (Rp)</div>,
       sortingFn: 'basic',
       cell: ({ row }) => (
-        <div className="text-right font-mono text-xs font-bold text-[var(--brand-primary)] bg-[var(--brand-primary-light)]/50 py-1 px-2 rounded">
+        <div className="text-right tabular-num text-xs font-bold text-[var(--brand-primary)] bg-[var(--brand-primary-light)]/50 py-1 px-2 rounded">
           {formatRupiah(row.original.runningBalance)}
         </div>
       ),
@@ -683,10 +684,10 @@ export default function CashflowPage() {
             <span className="text-[11px] text-[var(--text-secondary)] font-semibold block mb-0.5">
               Saldo Awal (1 {activeMonthName})
             </span>
-            <span className="text-base font-bold font-mono text-[var(--text-primary)]">
+            <span className="text-base font-bold tabular-num text-[var(--text-primary)]">
               {formatRupiah(saldoAwalBulan)}
             </span>
-            <div className="text-[10px] text-[var(--text-secondary)] mt-1">
+            <div className="text-[10px] text-[var(--text-secondary)] mt-1 tabular-num">
               Tunai: {formatRupiah(saldoAwalTunai)} | Bank: {formatRupiah(saldoAwalNonTunai)}
             </div>
           </div>
@@ -696,7 +697,7 @@ export default function CashflowPage() {
             <span className="text-[11px] text-emerald-800 dark:text-emerald-300 font-semibold block mb-0.5">
               Total Pemasukan (+)
             </span>
-            <span className="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
+            <span className="text-base font-bold tabular-num text-emerald-600 dark:text-emerald-400">
               + {formatRupiah(totalMasuk)}
             </span>
             <div className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-1">
@@ -709,7 +710,7 @@ export default function CashflowPage() {
             <span className="text-[11px] text-rose-800 dark:text-rose-300 font-semibold block mb-0.5">
               Total Pengeluaran (−)
             </span>
-            <span className="text-base font-bold font-mono text-rose-600 dark:text-rose-400">
+            <span className="text-base font-bold tabular-num text-rose-600 dark:text-rose-400">
               − {formatRupiah(totalKeluar)}
             </span>
             <div className="text-[10px] text-rose-700 dark:text-rose-400 mt-1">
@@ -722,10 +723,10 @@ export default function CashflowPage() {
             <span className="text-[11px] text-[var(--brand-primary)] font-bold block mb-0.5">
               Saldo Akhir Bulan
             </span>
-            <span className="text-base font-bold font-mono text-[var(--brand-primary)]">
+            <span className="text-base font-bold tabular-num text-[var(--brand-primary)]">
               {formatRupiah(saldoAkhirBulan)}
             </span>
-            <div className="text-[10px] text-[var(--text-secondary)] mt-1 font-medium">
+            <div className="text-[10px] text-[var(--text-secondary)] mt-1 font-medium tabular-num">
               Tunai: {formatRupiah(saldoAkhirTunai)} | Bank: {formatRupiah(saldoAkhirNonTunai)}
             </div>
           </div>
@@ -754,8 +755,8 @@ export default function CashflowPage() {
                 className="w-full px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] font-medium"
               >
                 <option value="semua">Semua Tipe Transaksi</option>
-                <option value="pemasukan">🟢 Pemasukan (+)</option>
-                <option value="pengeluaran">🔴 Pengeluaran (−)</option>
+                <option value="pemasukan">Pemasukan (+)</option>
+                <option value="pengeluaran">Pengeluaran (−)</option>
               </select>
             </div>
 
@@ -767,8 +768,8 @@ export default function CashflowPage() {
                 className="w-full px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] font-medium"
               >
                 <option value="semua">Semua Jenis Pembayaran</option>
-                <option value="tunai">💵 Tunai</option>
-                <option value="non_tunai">🏦 Non-Tunai / Transfer</option>
+                <option value="tunai">Tunai</option>
+                <option value="non_tunai">Non-Tunai / Transfer</option>
               </select>
             </div>
 
@@ -937,9 +938,9 @@ export default function CashflowPage() {
                     <td className="py-2 px-3 text-[var(--brand-primary)] font-bold">
                       [SALDO AWAL KAS SEBELUM 01 {activeMonthName.toUpperCase()} {selectedYear}]
                     </td>
-                    <td className="py-2 px-3 text-right text-gray-400 font-mono">-</td>
-                    <td className="py-2 px-3 text-right text-gray-400 font-mono">-</td>
-                    <td className="py-2 px-3 text-right font-mono font-bold text-[var(--brand-primary)]">
+                    <td className="py-2 px-3 text-right text-gray-400 tabular-num">-</td>
+                    <td className="py-2 px-3 text-right text-gray-400 tabular-num">-</td>
+                    <td className="py-2 px-3 text-right tabular-num font-bold text-[var(--brand-primary)]">
                       {formatRupiah(saldoAwalBulan)}
                     </td>
                     <td className="py-2 px-3 text-center text-gray-400">-</td>
@@ -952,7 +953,7 @@ export default function CashflowPage() {
 
                     return (
                       <tr key={tx.id} className="hover:bg-[var(--bg-subtle)] transition-colors">
-                        <td className="py-2.5 px-3 text-center font-mono text-[var(--text-secondary)]">
+                        <td className="py-2.5 px-3 text-center tabular-num text-[var(--text-secondary)]">
                           {tx.rowNumber}
                         </td>
                         <td className="py-2.5 px-3 font-semibold text-[var(--text-primary)] whitespace-nowrap">
@@ -983,13 +984,13 @@ export default function CashflowPage() {
                             )}
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-right tabular-num font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
                           {isMasuk ? `+ ${formatRupiah(tx.nominal)}` : '-'}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-right tabular-num font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">
                           {!isMasuk ? `− ${formatRupiah(tx.nominal)}` : '-'}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-[var(--brand-primary)] bg-[var(--brand-primary-light)]/20 whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-right tabular-num font-bold text-[var(--brand-primary)] bg-[var(--brand-primary-light)]/20 whitespace-nowrap">
                           {formatRupiah(tx.runningBalance)}
                         </td>
                         <td className="py-2.5 px-3 text-center">
@@ -1019,13 +1020,13 @@ export default function CashflowPage() {
                     <td colSpan={3} className="py-3 px-3 text-right font-bold text-[var(--text-primary)]">
                       TOTAL MUTASI & SALDO AKHIR BULAN:
                     </td>
-                    <td className="py-3 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                    <td className="py-3 px-3 text-right tabular-num text-emerald-600 dark:text-emerald-400">
                       + {formatRupiah(totalMasuk)}
                     </td>
-                    <td className="py-3 px-3 text-right font-mono text-rose-600 dark:text-rose-400">
+                    <td className="py-3 px-3 text-right tabular-num text-rose-600 dark:text-rose-400">
                       − {formatRupiah(totalKeluar)}
                     </td>
-                    <td className="py-3 px-3 text-right font-mono text-[var(--brand-primary)] bg-[var(--brand-primary-light)]/50 text-sm">
+                    <td className="py-3 px-3 text-right tabular-num text-[var(--brand-primary)] bg-[var(--brand-primary-light)]/50 text-sm">
                       {formatRupiah(saldoAkhirBulan)}
                     </td>
                     <td className="py-3 px-3"></td>
@@ -1068,8 +1069,8 @@ export default function CashflowPage() {
                       onChange={(e) => setEditForm((prev) => ({ ...prev, tipe: e.target.value as any }))}
                       className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
                     >
-                      <option value="pemasukan">🟢 Pemasukan (+)</option>
-                      <option value="pengeluaran">🔴 Pengeluaran (−)</option>
+                      <option value="pemasukan">Pemasukan (+)</option>
+                      <option value="pengeluaran">Pengeluaran (−)</option>
                     </select>
                   </div>
 
@@ -1082,8 +1083,8 @@ export default function CashflowPage() {
                       }
                       className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
                     >
-                      <option value="tunai">💵 Tunai</option>
-                      <option value="non_tunai">🏦 Non-Tunai</option>
+                      <option value="tunai">Tunai</option>
+                      <option value="non_tunai">Non-Tunai</option>
                     </select>
                   </div>
                 </div>

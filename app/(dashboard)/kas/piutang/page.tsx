@@ -91,7 +91,7 @@ export default function PiutangPage() {
       header: 'Kode',
       sortingFn: 'alphanumeric',
       cell: ({ row }) => (
-        <span className="font-mono font-bold text-[var(--brand-primary)]">
+        <span className="tabular-num font-bold text-[var(--brand-primary)]">
           {row.original.kode_siswa}
         </span>
       ),
@@ -301,7 +301,7 @@ export default function PiutangPage() {
                         onChange={() => setBayarMetode('non_tunai')}
                         className="sr-only"
                       />
-                      <span>🏦 Transfer Bank</span>
+                      <span>Transfer Bank</span>
                     </label>
 
                     <label
@@ -319,7 +319,7 @@ export default function PiutangPage() {
                         onChange={() => setBayarMetode('tunai')}
                         className="sr-only"
                       />
-                      <span>💵 Tunai (Kas Fisik)</span>
+                      <span>Tunai (Kas Fisik)</span>
                     </label>
                   </div>
                 </div>

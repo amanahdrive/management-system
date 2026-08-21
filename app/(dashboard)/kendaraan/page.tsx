@@ -50,7 +50,7 @@ export default function KendaraanPage() {
                       </div>
                       <div>
                         <h3 className="font-bold text-base text-[var(--text-primary)]">{k.nama_kendaraan}</h3>
-                        <p className="text-xs font-mono font-bold text-[var(--brand-primary)]">
+                        <p className="text-xs font-bold text-[var(--brand-primary)]">
                           {k.plat_nomor}
                         </p>
                       </div>

@@ -266,16 +266,22 @@
   color: var(--text-muted);
 }
 
-/* Tabular Numerals for Data Alignment */
+/* Tabular Numerals for Data Alignment (Full Inter Typography) */
 .tabular-num,
-.font-mono {
+.font-tabular,
+.font-mono,
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
   font-feature-settings: "tnum" 1;
   font-variant-numeric: tabular-nums;
 }
 
 /* Brand Font Utility (Inter Bold) */
 .font-brand {
-  font-family: var(--font-inter), 'Inter', sans-serif;
+  font-family: var(--font-inter), 'Inter', -apple-system, sans-serif !important;
   font-weight: 700;
   letter-spacing: -0.025em;
 }

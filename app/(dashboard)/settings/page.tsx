@@ -415,7 +415,7 @@ export default function SettingsPage() {
                 onChange={(e) => setPinLama(e.target.value.replace(/\D/g, ''))}
                 placeholder="Masukkan 6 digit PIN saat ini"
                 required
-                className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-mono tracking-widest"
+                className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold tabular-num tracking-widest"
               />
             </div>
 
@@ -428,7 +428,7 @@ export default function SettingsPage() {
                 onChange={(e) => setPinBaru(e.target.value.replace(/\D/g, ''))}
                 placeholder="Masukkan 6 digit PIN baru"
                 required
-                className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-mono tracking-widest"
+                className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold tabular-num tracking-widest"
               />
             </div>
 
@@ -503,7 +503,7 @@ export default function SettingsPage() {
                 rows={5}
                 value={waTemplate}
                 onChange={(e) => setWaTemplate(e.target.value)}
-                className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-mono text-[11px] leading-relaxed"
+                className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] text-[11px] leading-relaxed font-medium"
                 placeholder="Tuliskan format teks SOP atau instruksi SOP sesi..."
               />
             </div>
@@ -584,7 +584,7 @@ export default function SettingsPage() {
                       }))
                     }
                     placeholder="Contoh: 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-mono text-xs"
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-medium"
                   />
                 </div>
 
@@ -602,7 +602,7 @@ export default function SettingsPage() {
                       }))
                     }
                     placeholder="Contoh: -1001234567890 atau @channel_username"
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-mono text-xs"
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-medium"
                   />
                 </div>
               </div>

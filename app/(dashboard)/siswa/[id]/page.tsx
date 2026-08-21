@@ -73,7 +73,7 @@ export default function SiswaDetailPage() {
             </div>
             <div>
               <h3 className="font-bold text-lg text-[var(--text-primary)]">{siswa.nama}</h3>
-              <p className="text-xs text-[var(--text-secondary)] font-mono">{siswa.kode_siswa}</p>
+              <p className="text-xs text-[var(--text-secondary)] font-semibold">{siswa.kode_siswa}</p>
             </div>
           </div>
 
@@ -133,7 +133,7 @@ export default function SiswaDetailPage() {
 
             <div>
               <span className="text-[var(--text-secondary)] block">Harga Final Tagihan</span>
-              <span className="font-bold text-base text-[var(--brand-primary)]">
+              <span className="font-bold text-base text-[var(--brand-primary)] tabular-num">
                 {formatRupiah(siswa.harga_final)}
               </span>
             </div>
@@ -141,13 +141,13 @@ export default function SiswaDetailPage() {
             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--border)]">
               <div>
                 <span className="text-[10px] text-[var(--text-secondary)] block">Total Terbayar:</span>
-                <span className="font-bold text-emerald-600 text-xs">
+                <span className="font-bold text-emerald-600 text-xs tabular-num">
                   {formatRupiah(totalPaid > 0 ? totalPaid : (siswa.status_pembayaran_kode === 'lunas' ? siswa.harga_final : (siswa.dp_nominal || 0)))}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] text-[var(--text-secondary)] block">Sisa Tagihan:</span>
-                <span className="font-bold text-rose-600 text-xs">
+                <span className="font-bold text-rose-600 text-xs tabular-num">
                   {siswa.status_pembayaran_kode === 'lunas' ? 'Rp 0 (Lunas)' : formatRupiah(sisaPiutang)}
                 </span>
               </div>
@@ -200,10 +200,10 @@ export default function SiswaDetailPage() {
                     </td>
                     <td className="py-2 px-3">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${p.jenis_pembayaran === 'tunai' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
-                        {p.jenis_pembayaran === 'tunai' ? '💵 Tunai' : '🏦 Transfer Bank'}
+                        {p.jenis_pembayaran === 'tunai' ? 'Tunai' : 'Transfer Bank'}
                       </span>
                     </td>
-                    <td className="py-2 px-3 text-right font-mono font-bold text-emerald-600">
+                    <td className="py-2 px-3 text-right tabular-num font-bold text-emerald-600">
                       {formatRupiah(p.nominal)}
                     </td>
                     <td className="py-2 px-3 text-center text-[var(--text-secondary)]">

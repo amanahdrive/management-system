@@ -23,7 +23,7 @@ export async function GET(request: Request) {
       });
     }
     const message =
-      `<b>🔔 PENGINGAT ADMIN & FINANCE AMANAH DRIVE</b>\n` +
+      `<b>PENGINGAT ADMIN & FINANCE AMANAH DRIVE</b>\n` +
       `Tanggal: <b>${dateFormatted}</b>\n` +
       `----------------------------------------\n` +
       `Mohon pastikan seluruh status progress sesi siswa pada jadwal harian hari ini sudah di-update (Selesai / Batal / Reschedule) sebelum jam 12 malam.\n\n` +

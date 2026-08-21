@@ -72,7 +72,7 @@ export function PinGateDialog({ children }: PinGateDialogProps) {
                 }}
                 placeholder="******"
                 autoFocus
-                className="w-full px-4 py-3 text-center text-2xl tracking-widest font-mono rounded-md border border-[var(--border)] bg-[var(--bg-subtle)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
+                className="w-full px-4 py-3 text-center text-2xl tracking-widest font-bold tabular-num rounded-md border border-[var(--border)] bg-[var(--bg-subtle)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
               />
               <KeyRound className="w-5 h-5 absolute left-3 top-3.5 text-[var(--text-secondary)] opacity-50" />
             </div>

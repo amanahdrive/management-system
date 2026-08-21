@@ -431,7 +431,7 @@ export default function KendaraanDetailPage() {
                         onChange={() => setBbmMetode('tunai')}
                         className="sr-only"
                       />
-                      <span>💵 Tunai (Kas Fisik)</span>
+                      <span>Tunai (Kas Fisik)</span>
                     </label>
 
                     <label
@@ -449,7 +449,7 @@ export default function KendaraanDetailPage() {
                         onChange={() => setBbmMetode('non_tunai')}
                         className="sr-only"
                       />
-                      <span>🏦 Transfer / Debit</span>
+                      <span>Transfer / Debit</span>
                     </label>
                   </div>
                 </div>

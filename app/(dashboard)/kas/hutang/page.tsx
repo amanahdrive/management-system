@@ -296,7 +296,7 @@ export default function HutangPage() {
                         onChange={() => setBayarMetode('non_tunai')}
                         className="sr-only"
                       />
-                      <span>🏦 Rekening Bank</span>
+                      <span>Rekening Bank</span>
                     </label>
 
                     <label
@@ -314,7 +314,7 @@ export default function HutangPage() {
                         onChange={() => setBayarMetode('tunai')}
                         className="sr-only"
                       />
-                      <span>💵 Kas Tunai Fisik</span>
+                      <span>Kas Tunai Fisik</span>
                     </label>
                   </div>
                 </div>

@@ -509,7 +509,7 @@ export default function InstrukturPortalPage() {
                       <p className="text-sm font-extrabold text-[var(--brand-primary)]">
                         {siswaObj?.nama || 'Siswa Mengemudi'}
                       </p>
-                      <p className="text-xs text-[var(--text-secondary)] font-mono mt-0.5">
+                      <p className="text-xs text-[var(--text-secondary)] font-medium tabular-num mt-0.5">
                         Kode: {siswaObj?.kode_siswa || '-'} • Mobil: {sesi.jenis_mobil?.toUpperCase()}
                       </p>
                     </div>
@@ -541,9 +541,9 @@ export default function InstrukturPortalPage() {
               </h3>
               <button
                 onClick={() => setSelectedJadwalDetail(null)}
-                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-bold text-base px-2"
+                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-bold text-xs px-2"
               >
-                ✕
+                Tutup
               </button>
             </div>
 
@@ -558,7 +558,7 @@ export default function InstrukturPortalPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-2.5 rounded-lg border border-[var(--border)]">
                   <p className="text-[10px] text-[var(--text-secondary)] font-medium">No. WhatsApp</p>
-                  <p className="font-bold text-xs text-[var(--text-primary)] font-mono mt-0.5">
+                  <p className="font-bold text-xs text-[var(--text-primary)] tabular-num mt-0.5">
                     {selectedJadwalDetail.siswa?.no_whatsapp || '-'}
                   </p>
                 </div>
@@ -673,7 +673,7 @@ export default function InstrukturPortalPage() {
 
                     <div className="p-2 bg-[var(--bg)] rounded-lg border border-[var(--border)] text-[11px] space-y-1">
                       <p className="text-[var(--text-secondary)]">
-                        Sesi {selectedJadwalDetail.nomor_sesi_ke}: <span className="line-through">{formatDateIndo(selectedJadwalDetail.tanggal_sesi)}</span> ➔{' '}
+                        Sesi {selectedJadwalDetail.nomor_sesi_ke}: <span className="line-through">{formatDateIndo(selectedJadwalDetail.tanggal_sesi)}</span> &rarr;{' '}
                         <span className="font-bold text-amber-600 dark:text-amber-400">
                           {formatDateIndo(addDaysToDateStr(selectedJadwalDetail.tanggal_sesi, rescheduleShiftDays))}
                         </span>

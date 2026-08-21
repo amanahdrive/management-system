@@ -77,7 +77,7 @@ export function Topbar() {
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
           </span>
           <span className="eyebrow-label text-[10px] text-[var(--text-primary)]">Live Sync</span>
-          <span className="text-[var(--text-muted)] font-mono tabular-num text-[10px]">
+          <span className="text-[var(--text-muted)] font-medium tabular-num text-[10px]">
             • {lastSyncTime ? `${lastSyncTime}` : 'Terhubung'}
           </span>
         </div>

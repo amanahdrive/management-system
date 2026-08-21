@@ -292,7 +292,7 @@ export default function SiswaPage() {
       header: 'Kode',
       sortingFn: 'alphanumeric',
       cell: ({ row }) => (
-        <span className="font-mono font-bold text-[var(--brand-primary)]">
+        <span className="tabular-num font-bold text-[var(--brand-primary)]">
           {row.original.kode_siswa}
         </span>
       ),
@@ -756,7 +756,7 @@ export default function SiswaPage() {
                             onChange={() => setFormData({ ...formData, jenis_pembayaran: 'non_tunai' })}
                             className="sr-only"
                           />
-                          <span>🏦 Transfer Bank</span>
+                          <span>Transfer Bank</span>
                         </label>
 
                         <label
@@ -774,7 +774,7 @@ export default function SiswaPage() {
                             onChange={() => setFormData({ ...formData, jenis_pembayaran: 'tunai' })}
                             className="sr-only"
                           />
-                          <span>💵 Tunai (Kas Fisik)</span>
+                          <span>Tunai (Kas Fisik)</span>
                         </label>
                       </div>
                     </div>
@@ -901,7 +901,7 @@ export default function SiswaPage() {
                           onChange={() => setPaymentMetode('non_tunai')}
                           className="sr-only"
                         />
-                        <span>🏦 Transfer Bank</span>
+                        <span>Transfer Bank</span>
                       </label>
 
                       <label
@@ -919,7 +919,7 @@ export default function SiswaPage() {
                           onChange={() => setPaymentMetode('tunai')}
                           className="sr-only"
                         />
-                        <span>💵 Tunai (Kas Fisik)</span>
+                        <span>Tunai (Kas Fisik)</span>
                       </label>
                     </div>
                   </div>

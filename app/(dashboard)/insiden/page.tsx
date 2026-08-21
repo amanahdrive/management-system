@@ -69,77 +69,67 @@ const KATEGORI_OPTIONS: { value: KategoriInsidenEnum; label: string }[] = [
 
 const KEPARAHAN_CONFIG: Record<
   TingkatKeparahanEnum,
-  { label: string; bg: string; text: string; border: string; icon: string }
+  { label: string; bg: string; text: string; border: string }
 > = {
   ringan: {
     label: 'Ringan',
     bg: 'bg-emerald-50 dark:bg-emerald-950/40',
     text: 'text-emerald-700 dark:text-emerald-400',
     border: 'border-emerald-200 dark:border-emerald-800',
-    icon: '🟢',
   },
   sedang: {
     label: 'Sedang',
     bg: 'bg-amber-50 dark:bg-amber-950/40',
     text: 'text-amber-700 dark:text-amber-400',
     border: 'border-amber-200 dark:border-amber-800',
-    icon: '🟡',
   },
   berat: {
     label: 'Berat',
     bg: 'bg-orange-50 dark:bg-orange-950/40',
     text: 'text-orange-700 dark:text-orange-400',
     border: 'border-orange-200 dark:border-orange-800',
-    icon: '🟠',
   },
   kritis: {
     label: 'Kritis',
     bg: 'bg-rose-50 dark:bg-rose-950/40',
     text: 'text-rose-700 dark:text-rose-400',
     border: 'border-rose-200 dark:border-rose-800',
-    icon: '🔴',
   },
 };
 
 const STATUS_CONFIG: Record<
   StatusPenangananEnum,
-  { label: string; bg: string; text: string; icon: string }
+  { label: string; bg: string; text: string }
 > = {
   dilaporkan: {
     label: 'Dilaporkan',
     bg: 'bg-sky-100 dark:bg-sky-950/50',
     text: 'text-sky-700 dark:text-sky-400',
-    icon: '📋',
   },
   dalam_investigasi: {
     label: 'Dalam Investigasi',
     bg: 'bg-purple-100 dark:bg-purple-950/50',
     text: 'text-purple-700 dark:text-purple-400',
-    icon: '🔍',
   },
   dalam_perbaikan: {
     label: 'Dalam Perbaikan',
     bg: 'bg-amber-100 dark:bg-amber-950/50',
     text: 'text-amber-700 dark:text-amber-400',
-    icon: '🛠️',
   },
   selesai: {
     label: 'Selesai',
     bg: 'bg-emerald-100 dark:bg-emerald-950/50',
     text: 'text-emerald-700 dark:text-emerald-400',
-    icon: '✅',
   },
   klaim_asuransi: {
     label: 'Klaim Asuransi',
     bg: 'bg-indigo-100 dark:bg-indigo-950/50',
     text: 'text-indigo-700 dark:text-indigo-400',
-    icon: '🛡️',
   },
   ditolak: {
     label: 'Ditolak / Batal',
     bg: 'bg-gray-100 dark:bg-gray-800',
     text: 'text-gray-600 dark:text-gray-400',
-    icon: '❌',
   },
 };
 
@@ -508,11 +498,11 @@ export default function InsidenPage() {
               className="w-full px-2.5 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] font-medium"
             >
               <option value="semua">Semua Status</option>
-              <option value="dilaporkan">📋 Dilaporkan</option>
-              <option value="dalam_investigasi">🔍 Dalam Investigasi</option>
-              <option value="dalam_perbaikan">🛠️ Dalam Perbaikan</option>
-              <option value="selesai">✅ Selesai</option>
-              <option value="klaim_asuransi">🛡️ Klaim Asuransi</option>
+              <option value="dilaporkan">Dilaporkan</option>
+              <option value="dalam_investigasi">Dalam Investigasi</option>
+              <option value="dalam_perbaikan">Dalam Perbaikan</option>
+              <option value="selesai">Selesai</option>
+              <option value="klaim_asuransi">Klaim Asuransi</option>
             </select>
           </div>
 
@@ -524,10 +514,10 @@ export default function InsidenPage() {
               className="w-full px-2.5 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] font-medium"
             >
               <option value="semua">Semua Keparahan</option>
-              <option value="ringan">🟢 Ringan</option>
-              <option value="sedang">🟡 Sedang</option>
-              <option value="berat">🟠 Berat</option>
-              <option value="kritis">🔴 Kritis</option>
+              <option value="ringan">Ringan</option>
+              <option value="sedang">Sedang</option>
+              <option value="berat">Berat</option>
+              <option value="kritis">Kritis</option>
             </select>
           </div>
 
@@ -644,13 +634,12 @@ export default function InsidenPage() {
                   <div className="flex items-start justify-between gap-2 border-b border-[var(--border)] pb-2.5">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-[var(--brand-primary)]">
+                        <span className="tabular-num text-xs font-bold text-[var(--brand-primary)]">
                           {item.kode_insiden}
                         </span>
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1 ${keparahan.bg} ${keparahan.text} ${keparahan.border}`}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center ${keparahan.bg} ${keparahan.text} ${keparahan.border}`}
                         >
-                          <span>{keparahan.icon}</span>
                           <span>{keparahan.label}</span>
                         </span>
                       </div>
@@ -668,10 +657,9 @@ export default function InsidenPage() {
                         setQuickTindakan(item.tindakan_penanganan || '');
                         setQuickBiayaAktual(Number(item.biaya_aktual || 0));
                       }}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 shadow-sm transition-all hover:opacity-80 ${status.bg} ${status.text}`}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center shadow-sm transition-all hover:opacity-80 ${status.bg} ${status.text}`}
                       title="Klik untuk ubah status penanganan"
                     >
-                      <span>{status.icon}</span>
                       <span>{status.label}</span>
                     </button>
                   </div>
@@ -942,10 +930,10 @@ export default function InsidenPage() {
                       }
                       className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-xs"
                     >
-                      <option value="ringan">🟢 Ringan (Baret kecil / lecet cat)</option>
-                      <option value="sedang">🟡 Sedang (Penyok / kendala mesin lokal)</option>
-                      <option value="berat">🟠 Berat (Kerusakan bodi besar / mogok derek)</option>
-                      <option value="kritis">🔴 Kritis (Kecelakaan fatal / cedera)</option>
+                      <option value="ringan">Ringan (Baret kecil / lecet cat)</option>
+                      <option value="sedang">Sedang (Penyok / kendala mesin lokal)</option>
+                      <option value="berat">Berat (Kerusakan bodi besar / mogok derek)</option>
+                      <option value="kritis">Kritis (Kecelakaan fatal / cedera)</option>
                     </select>
                   </div>
 
@@ -1050,11 +1038,11 @@ export default function InsidenPage() {
                       }
                       className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-xs"
                     >
-                      <option value="dilaporkan">📋 Dilaporkan (Menunggu review)</option>
-                      <option value="dalam_investigasi">🔍 Dalam Investigasi</option>
-                      <option value="dalam_perbaikan">🛠️ Masuk Bengkel / Perbaikan</option>
-                      <option value="selesai">✅ Selesai Diperbaiki</option>
-                      <option value="klaim_asuransi">🛡️ Pengajuan Klaim Asuransi</option>
+                      <option value="dilaporkan">Dilaporkan (Menunggu review)</option>
+                      <option value="dalam_investigasi">Dalam Investigasi</option>
+                      <option value="dalam_perbaikan">Masuk Bengkel / Perbaikan</option>
+                      <option value="selesai">Selesai Diperbaiki</option>
+                      <option value="klaim_asuransi">Pengajuan Klaim Asuransi</option>
                     </select>
                   </div>
 
@@ -1142,7 +1130,6 @@ export default function InsidenPage() {
                     KEPARAHAN_CONFIG[selectedDetail.tingkat_keparahan]?.border
                   }`}
                 >
-                  {KEPARAHAN_CONFIG[selectedDetail.tingkat_keparahan]?.icon}{' '}
                   Tingkat Keparahan: {KEPARAHAN_CONFIG[selectedDetail.tingkat_keparahan]?.label}
                 </span>
 
@@ -1151,8 +1138,7 @@ export default function InsidenPage() {
                     STATUS_CONFIG[selectedDetail.status_penanganan]?.bg
                   } ${STATUS_CONFIG[selectedDetail.status_penanganan]?.text}`}
                 >
-                  {STATUS_CONFIG[selectedDetail.status_penanganan]?.icon} Status:{' '}
-                  {STATUS_CONFIG[selectedDetail.status_penanganan]?.label}
+                  Status: {STATUS_CONFIG[selectedDetail.status_penanganan]?.label}
                 </span>
               </div>
 
@@ -1314,12 +1300,12 @@ export default function InsidenPage() {
                   onChange={(e) => setQuickStatus(e.target.value as StatusPenangananEnum)}
                   className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
                 >
-                  <option value="dilaporkan">📋 Dilaporkan</option>
-                  <option value="dalam_investigasi">🔍 Dalam Investigasi</option>
-                  <option value="dalam_perbaikan">🛠️ Dalam Perbaikan / Bengkel</option>
-                  <option value="selesai">✅ Selesai Diperbaiki</option>
-                  <option value="klaim_asuransi">🛡️ Klaim Asuransi</option>
-                  <option value="ditolak">❌ Ditolak / Batal</option>
+                  <option value="dilaporkan">Dilaporkan</option>
+                  <option value="dalam_investigasi">Dalam Investigasi</option>
+                  <option value="dalam_perbaikan">Dalam Perbaikan / Bengkel</option>
+                  <option value="selesai">Selesai Diperbaiki</option>
+                  <option value="klaim_asuransi">Klaim Asuransi</option>
+                  <option value="ditolak">Ditolak / Batal</option>
                 </select>
               </div>
 
@@ -1366,7 +1352,7 @@ export default function InsidenPage() {
                             onChange={() => setQuickJenisPembayaran('non_tunai')}
                             className="sr-only"
                           />
-                          <span>🏦 Transfer Bank</span>
+                          <span>Transfer Bank</span>
                         </label>
 
                         <label
@@ -1384,7 +1370,7 @@ export default function InsidenPage() {
                             onChange={() => setQuickJenisPembayaran('tunai')}
                             className="sr-only"
                           />
-                          <span>💵 Kas Tunai</span>
+                          <span>Kas Tunai</span>
                         </label>
                       </div>
                     </div>

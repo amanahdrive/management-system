@@ -46,8 +46,8 @@ function fmt(n: number): string {
 }
 
 const JENIS_PEMBAYARAN_OPTIONS = [
-  { value: 'tunai', label: '💵 Tunai (Cash)' },
-  { value: 'non_tunai', label: '🏦 Non-Tunai' },
+  { value: 'tunai', label: 'Tunai (Cash)' },
+  { value: 'non_tunai', label: 'Non-Tunai' },
 ];
 
 const TODAY = getTodayDateString();
@@ -280,7 +280,7 @@ export default function FinancePortalPage() {
                     setPinError(null);
                   }}
                   placeholder="••••••"
-                  className="w-full text-center text-2xl tracking-[0.3em] font-mono font-bold py-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-primary)]"
+                  className="w-full text-center text-2xl tracking-[0.3em] font-bold tabular-num py-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-primary)]"
                   autoFocus
                 />
                 <KeyRound className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] opacity-50" />
@@ -572,7 +572,7 @@ export default function FinancePortalPage() {
                           <p className="text-[10px] text-[var(--text-secondary)]">
                             {tx.kategori.replace(/_/g, ' ').toUpperCase()} •{' '}
                             <span className="font-semibold">
-                              {(tx.jenis_pembayaran || 'tunai') === 'tunai' ? '💵 Tunai' : '🏦 Non-Tunai'}
+                              {(tx.jenis_pembayaran || 'tunai') === 'tunai' ? 'Tunai' : 'Non-Tunai'}
                             </span>
                           </p>
                         </div>
@@ -627,7 +627,7 @@ export default function FinancePortalPage() {
                       <p className="text-[10px] text-[var(--text-secondary)]">
                         {formatDateIndo(tx.tanggal)} • {tx.kategori.replace(/_/g, ' ').toUpperCase()} •{' '}
                         <span className="font-semibold">
-                          {(tx.jenis_pembayaran || 'tunai') === 'tunai' ? '💵 Tunai' : '🏦 Non-Tunai'}
+                          {(tx.jenis_pembayaran || 'tunai') === 'tunai' ? 'Tunai' : 'Non-Tunai'}
                         </span>
                       </p>
                     </div>

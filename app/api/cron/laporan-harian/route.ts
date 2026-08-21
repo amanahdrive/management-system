@@ -51,12 +51,12 @@ export async function GET(request: Request) {
 
     if (activeSessions.length === 0) {
       const emptyMsg =
-        `<b>📅 JADWAL OPERASIONAL PAGI</b>\n` +
+        `<b>JADWAL OPERASIONAL PAGI</b>\n` +
         `Tanggal: <b>${formatDateLongIndo(todayStr)}</b>\n` +
         `${'─'.repeat(30)}\n` +
-        `ℹ️ <i>Tidak ada sesi terjadwal hari ini.</i>\n` +
+        `<i>Tidak ada sesi terjadwal hari ini.</i>\n` +
         `${'─'.repeat(30)}\n` +
-        `🕕 Laporan otomatis dikirim pukul 06:00 WIB`;
+        `Laporan otomatis dikirim pukul 06:00 WIB`;
 
       const result = await sendTelegramMessage(emptyMsg, 'laporan_harian_06am', 'Laporan Operasional Pagi (06:00 WIB)');
       return NextResponse.json({ success: result.success, messageId: result.messageId });
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
       const inst = instrukturMap.get(instId);
       if (!inst) return;
 
-      lines.push(`\n<b>👤 ${inst.nama.toUpperCase()}</b>`);
+      lines.push(`\n<b>${inst.nama.toUpperCase()}</b>`);
       inst.sessions.forEach((s, i) => {
         const slot = s.slot_waktu as any;
         const slotAkhir = s.slot_waktu_akhir as any;
@@ -119,8 +119,8 @@ export async function GET(request: Request) {
 
         lines.push(
           `  ${i + 1}. <b>${siswa?.nama || '-'}</b> (${siswa?.kode_siswa || '-'})\n` +
-          `     🕐 ${slotLabel} — ${jamMulai}–${jamSelesai} WIB\n` +
-          `     📊 Sesi ke-${nomorSesi} dari ${totalSesi}`
+          `     ${slotLabel} — ${jamMulai}–${jamSelesai} WIB\n` +
+          `     Sesi ke-${nomorSesi} dari ${totalSesi}`
         );
       });
     });
@@ -128,13 +128,13 @@ export async function GET(request: Request) {
     const totalSesi = activeSessions.length;
     const totalInstruktur = instrukturMap.size;
     const message =
-      `<b>☀️ JADWAL OPERASIONAL PAGI</b>\n` +
+      `<b>JADWAL OPERASIONAL PAGI</b>\n` +
       `Tanggal: <b>${formatDateLongIndo(todayStr)}</b>\n` +
       `${'─'.repeat(30)}\n` +
       `${lines.join('\n')}\n\n` +
       `${'─'.repeat(30)}\n` +
-      `<b>📌 Total: ${totalSesi} Sesi</b> oleh ${totalInstruktur} instruktur\n` +
-      `🕕 Semangat bertugas! 💪`;
+      `<b>Total: ${totalSesi} Sesi</b> oleh ${totalInstruktur} instruktur\n` +
+      `Laporan otomatis sistem Amanah Drive`;
 
     const result = await sendTelegramMessage(
       message,

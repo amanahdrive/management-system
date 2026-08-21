@@ -365,63 +365,63 @@ export async function generateWhatsAppInsidenText(id: string): Promise<string> {
   const tgl = formatHariTanggalIndo(ins.tanggal_insiden);
   const keparahanBadge =
     ins.tingkat_keparahan === 'kritis'
-      ? '🔴 KRITIS'
+      ? '[KRITIS]'
       : ins.tingkat_keparahan === 'berat'
-      ? '🟠 BERAT'
+      ? '[BERAT]'
       : ins.tingkat_keparahan === 'sedang'
-      ? '🟡 SEDANG'
-      : '🟢 RINGAN';
+      ? '[SEDANG]'
+      : '[RINGAN]';
 
   const statusLabel =
     ins.status_penanganan === 'selesai'
-      ? '✅ SELESAI'
+      ? '[SELESAI]'
       : ins.status_penanganan === 'klaim_asuransi'
-      ? '🛡️ KLAIM ASURANSI'
+      ? '[KLAIM ASURANSI]'
       : ins.status_penanganan === 'dalam_perbaikan'
-      ? '🛠️ DALAM PERBAIKAN'
+      ? '[DALAM PERBAIKAN]'
       : ins.status_penanganan === 'dalam_investigasi'
-      ? '🔍 DALAM INVESTIGASI'
-      : '📋 DILAPORKAN';
+      ? '[DALAM INVESTIGASI]'
+      : '[DILAPORKAN]';
 
   let body = `*LAPORAN INSIDEN OPERASIONAL*\n`;
   body += `*Amanah Drive Palembang*\n`;
   body += `Kode: *${ins.kode_insiden}*\n`;
   body += `────────────────────────\n`;
-  body += `📅 Waktu: *${tgl}* pukul *${ins.jam_insiden || '08:00'} WIB*\n`;
-  body += `📍 Lokasi: *${ins.lokasi_kejadian}*\n`;
-  body += `⚠️ Tingkat Keparahan: *${keparahanBadge}*\n`;
-  body += `🏷️ Kategori: *${ins.kategori.toUpperCase().replace('_', ' ')}*\n`;
+  body += `Waktu: *${tgl}* pukul *${ins.jam_insiden || '08:00'} WIB*\n`;
+  body += `Lokasi: *${ins.lokasi_kejadian}*\n`;
+  body += `Tingkat Keparahan: *${keparahanBadge}*\n`;
+  body += `Kategori: *${ins.kategori.toUpperCase().replace('_', ' ')}*\n`;
   body += `────────────────────────\n`;
-  body += `🚗 Armada Mobil: *${ins.kendaraan?.nama_kendaraan || '-'}* (${ins.kendaraan?.plat_nomor || '-'})\n`;
-  body += `👨‍🏫 Instruktur/Staff: *${ins.staff?.nama || '-'}*\n`;
+  body += `Armada Mobil: *${ins.kendaraan?.nama_kendaraan || '-'}* (${ins.kendaraan?.plat_nomor || '-'})\n`;
+  body += `Instruktur/Staff: *${ins.staff?.nama || '-'}*\n`;
   if (ins.siswa) {
-    body += `👤 Siswa Terlibat: *${ins.siswa.nama}* (${ins.siswa.kode_siswa})\n`;
+    body += `Siswa Terlibat: *${ins.siswa.nama}* (${ins.siswa.kode_siswa})\n`;
   }
   body += `────────────────────────\n`;
-  body += `📝 *Deskripsi & Kronologi Kejadian:*\n`;
+  body += `*Deskripsi & Kronologi Kejadian:*\n`;
   body += `${ins.deskripsi_kejadian}\n\n`;
 
   if (ins.kondisi_kendaraan) {
-    body += `🔧 *Kondisi Armada:* ${ins.kondisi_kendaraan}\n`;
+    body += `*Kondisi Armada:* ${ins.kondisi_kendaraan}\n`;
   }
   if (ins.kondisi_pengemudi) {
-    body += `🩺 *Kondisi Pengemudi/Siswa:* ${ins.kondisi_pengemudi}\n`;
+    body += `*Kondisi Pengemudi/Siswa:* ${ins.kondisi_pengemudi}\n`;
   }
 
   body += `────────────────────────\n`;
-  body += `💰 Estimasi Biaya: *${formatRupiah(ins.estimasi_biaya || 0)}*\n`;
+  body += `Estimasi Biaya: *${formatRupiah(ins.estimasi_biaya || 0)}*\n`;
   if (ins.biaya_aktual && ins.biaya_aktual > 0) {
-    body += `💵 Biaya Aktual: *${formatRupiah(ins.biaya_aktual)}*\n`;
+    body += `Biaya Aktual: *${formatRupiah(ins.biaya_aktual)}*\n`;
   }
-  body += `🛡️ Penanggung Biaya: *${ins.penanggung_biaya.toUpperCase().replace('_', ' ')}*\n`;
-  body += `📊 Status Penanganan: *${statusLabel}*\n`;
+  body += `Penanggung Biaya: *${ins.penanggung_biaya.toUpperCase().replace('_', ' ')}*\n`;
+  body += `Status Penanganan: *${statusLabel}*\n`;
 
   if (ins.tindakan_penanganan) {
-    body += `🛠️ *Tindakan Penanganan:* ${ins.tindakan_penanganan}\n`;
+    body += `*Tindakan Penanganan:* ${ins.tindakan_penanganan}\n`;
   }
 
   if (ins.catatan) {
-    body += `\n📌 *Catatan:* ${ins.catatan}\n`;
+    body += `\n*Catatan:* ${ins.catatan}\n`;
   }
 
   body += `────────────────────────\n`;

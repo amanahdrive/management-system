@@ -96,7 +96,7 @@ export default function MasterKendaraanPage() {
       header: 'Plat Nomor',
       sortingFn: 'alphanumeric',
       cell: ({ row }) => (
-        <span className="font-mono font-bold text-[var(--brand-primary)]">
+        <span className="tabular-num font-bold text-[var(--brand-primary)]">
           {row.original.plat_nomor}
         </span>
       ),
@@ -225,9 +225,9 @@ export default function MasterKendaraanPage() {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] font-bold"
               >
-                ✕
+                Tutup
               </button>
             </div>
 
@@ -257,7 +257,7 @@ export default function MasterKendaraanPage() {
                     placeholder="BG 1234 XY"
                     value={editing.plat_nomor || ''}
                     onChange={(e) => setEditing({ ...editing, plat_nomor: e.target.value.toUpperCase() })}
-                    className="w-full px-3 py-2 text-sm font-mono uppercase rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-primary)]"
+                    className="w-full px-3 py-2 text-sm font-semibold uppercase rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-primary)]"
                   />
                 </div>
                 <div>

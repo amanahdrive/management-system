@@ -65,8 +65,8 @@ export function generateWhatsAppJadwalMarkdown(
     body += `Instruktur: *${staffFilterNama.toUpperCase()}*\n`;
   }
   body += `────────────────────────\n`;
-  body += `📊 *Ringkasan Sesi:* ${totalSesi} Total | ✅ ${totalSelesai} Selesai | ⏳ ${totalTerjadwal} Terjadwal`;
-  if (totalBatal > 0) body += ` | ❌ ${totalBatal} Batal`;
+  body += `*Ringkasan Sesi:* ${totalSesi} Total | ${totalSelesai} Selesai | ${totalTerjadwal} Terjadwal`;
+  if (totalBatal > 0) body += ` | ${totalBatal} Batal`;
   body += `\n────────────────────────\n\n`;
 
   if (groupedData.length === 0 || totalSesi === 0) {
@@ -79,7 +79,7 @@ export function generateWhatsAppJadwalMarkdown(
     sortedGroups.forEach((group) => {
       const sortedSesi = sortSesiBySlotUrutan(group.sesiList);
 
-      body += `🚗 Instruktur: *${group.instrukturNama.toUpperCase()}*\n`;
+      body += `Instruktur: *${group.instrukturNama.toUpperCase()}*\n`;
 
       if (sortedSesi.length === 0) {
         body += `  _Libur / Tidak ada jadwal sesi_\n\n`;
@@ -121,13 +121,13 @@ export function generateWhatsAppJadwalMarkdown(
         if (sesi.jenis_mobil === 'matic') jenisMobilLabel = 'Matic';
         if (sesi.jenis_mobil === 'mobil_sendiri') jenisMobilLabel = 'Mobil Sendiri';
 
-        const statusIcon = sesi.status_sesi === 'selesai' ? '✅' : sesi.status_sesi === 'batal' ? '❌' : '⏳';
+        const statusText = sesi.status_sesi === 'selesai' ? '[SELESAI]' : sesi.status_sesi === 'batal' ? '[BATAL]' : '[TERJADWAL]';
 
-        body += `• ${statusIcon} *${slotDisplay}* (${jamMulai} - ${jamSelesai} WIB)\n`;
-        body += `  👤 Siswa: *${namaSiswa}* (${kodeSiswa})\n`;
-        body += `  📊 Sesi: ${sesiKe}/${totalPaket} | Mobil: ${jenisMobilLabel}\n`;
-        body += `  📍 Alamat: ${alamat}\n`;
-        body += `  📱 No. WA: ${noWa}\n\n`;
+        body += `• ${statusText} *${slotDisplay}* (${jamMulai} - ${jamSelesai} WIB)\n`;
+        body += `  Siswa: *${namaSiswa}* (${kodeSiswa})\n`;
+        body += `  Sesi: ${sesiKe}/${totalPaket} | Mobil: ${jenisMobilLabel}\n`;
+        body += `  Alamat: ${alamat}\n`;
+        body += `  No. WA: ${noWa}\n\n`;
       });
     });
   }
@@ -181,7 +181,7 @@ export function generateWhatsAppRangeScheduleMarkdown(
     body += `Instruktur: *${staffFilterNama.toUpperCase()}*\n`;
   }
   body += `════════════════════════\n`;
-  body += `📊 *Ringkasan Periode:*\n`;
+  body += `*Ringkasan Periode:*\n`;
   body += `• Total Sesi: *${grandTotal} Sesi*\n`;
   body += `• Selesai: *${totalSelesai}*\n`;
   body += `• Terjadwal: *${totalTerjadwal}*\n`;
@@ -195,7 +195,7 @@ export function generateWhatsAppRangeScheduleMarkdown(
       const tglHeader = formatHariTanggalIndo(day.tanggal);
       const dayTotalSesi = day.groups.reduce((acc, g) => acc + g.sesiList.length, 0);
 
-      body += `📅 *${tglHeader.toUpperCase()}* (${dayTotalSesi} Sesi)\n`;
+      body += `*${tglHeader.toUpperCase()}* (${dayTotalSesi} Sesi)\n`;
       body += `────────────────────────\n`;
 
       if (day.groups.length === 0 || dayTotalSesi === 0) {
@@ -210,7 +210,7 @@ export function generateWhatsAppRangeScheduleMarkdown(
       sortedGroups.forEach((group) => {
         const sortedSesi = sortSesiBySlotUrutan(group.sesiList);
 
-        body += `🚗 *${group.instrukturNama.toUpperCase()}*:\n`;
+        body += `*${group.instrukturNama.toUpperCase()}*:\n`;
 
         if (sortedSesi.length === 0) {
           body += `  _Libur / Kosong_\n`;
@@ -225,11 +225,11 @@ export function generateWhatsAppRangeScheduleMarkdown(
             const jamSelesai = (sesi.slot_waktu_akhir || sesi.slot_waktu)?.jam_selesai?.substring(0, 5) || '';
             const sesiKe = sesi.nomor_sesi_ke || 1;
             const totalSesi = sesi.total_sesi_paket || 10;
-            const statusIcon = sesi.status_sesi === 'selesai' ? '✅' : sesi.status_sesi === 'batal' ? '❌' : '⏳';
+            const statusText = sesi.status_sesi === 'selesai' ? '[SELESAI]' : sesi.status_sesi === 'batal' ? '[BATAL]' : '[TERJADWAL]';
 
-            body += `  ${statusIcon} *${slotNama}* (${jamMulai}-${jamSelesai} WIB)\n`;
-            body += `     👤 ${namaSiswa} (${kodeSiswa}) [Sesi ${sesiKe}/${totalSesi}]\n`;
-            body += `     📍 ${alamat} | 📱 ${noWa}\n`;
+            body += `  ${statusText} *${slotNama}* (${jamMulai}-${jamSelesai} WIB)\n`;
+            body += `     Siswa: ${namaSiswa} (${kodeSiswa}) [Sesi ${sesiKe}/${totalSesi}]\n`;
+            body += `     Alamat: ${alamat} | No. WA: ${noWa}\n`;
           });
         }
         body += `\n`;
@@ -298,10 +298,10 @@ export function generateWhatsAppRecapMarkdown(
     body += `Instruktur: *${staffFilterNama.toUpperCase()}*\n`;
   }
   body += `────────────────────────\n`;
-  body += `📊 *Ringkasan Status:*\n`;
-  body += `✅ Selesai: *${totalSelesai} Sesi*\n`;
-  body += `⏳ Terjadwal: *${totalTerjadwal} Sesi*\n`;
-  if (totalBatal > 0) body += `❌ Batal: *${totalBatal} Sesi*\n`;
+  body += `*Ringkasan Status:*\n`;
+  body += `• Selesai: *${totalSelesai} Sesi*\n`;
+  body += `• Terjadwal: *${totalTerjadwal} Sesi*\n`;
+  if (totalBatal > 0) body += `• Batal: *${totalBatal} Sesi*\n`;
   body += `────────────────────────\n\n`;
 
   const sortedGroups = [...groupedData].sort((a, b) =>
@@ -310,7 +310,7 @@ export function generateWhatsAppRecapMarkdown(
 
   sortedGroups.forEach((group) => {
     const sortedSesi = sortSesiBySlotUrutan(group.sesiList);
-    body += `👨‍🏫 *${group.instrukturNama.toUpperCase()}*:\n`;
+    body += `*${group.instrukturNama.toUpperCase()}*:\n`;
 
     if (sortedSesi.length === 0) {
       body += `  _Tidak ada sesi / Libur_\n\n`;
@@ -324,10 +324,10 @@ export function generateWhatsAppRecapMarkdown(
       const totalSesi = sesi.total_sesi_paket || 10;
       const statusLabel =
         sesi.status_sesi === 'selesai'
-          ? '✅ SELESAI'
+          ? '[SELESAI]'
           : sesi.status_sesi === 'batal'
-          ? '❌ BATAL'
-          : '⏳ TERJADWAL';
+          ? '[BATAL]'
+          : '[TERJADWAL]';
 
       body += `• ${slotNama}: *${namaSiswa}* (${statusLabel}) [Sesi ${sesiKe}/${totalSesi}]\n`;
     });

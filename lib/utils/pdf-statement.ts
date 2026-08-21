@@ -47,26 +47,26 @@ export function generateStatementHtml(data: StatementData): string {
 
     return `
       <tr class="${rowClass} border-b border-gray-200">
-        <td class="py-1.5 px-2 text-center text-xs text-gray-600 font-mono">${tx.no}</td>
+        <td class="py-1.5 px-2 text-center text-xs text-gray-600 font-medium tabular-num">${tx.no}</td>
         <td class="py-1.5 px-2 text-xs text-gray-800 font-medium whitespace-nowrap">${formatDateIndo(tx.tanggal)}</td>
         <td class="py-1.5 px-2 text-xs text-gray-800">
           <div class="font-semibold text-gray-900">${escapeHtml(tx.keterangan || '-')}</div>
           <div class="text-[10px] text-gray-500 flex items-center gap-1.5 mt-0.5">
             <span class="uppercase font-semibold px-1 py-0.2 rounded ${isTunai ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}">
-              ${isTunai ? '💵 Tunai' : '🏦 Non-Tunai'}
+              ${isTunai ? 'Tunai' : 'Non-Tunai'}
             </span>
             <span>•</span>
             <span class="capitalize">${escapeHtml(tx.kategori?.replace(/_/g, ' ') || 'Umum')}</span>
           </div>
         </td>
         <td class="py-1.5 px-2 text-center text-[11px] text-gray-600">${escapeHtml(tx.pic_nama || 'Admin')}</td>
-        <td class="py-1.5 px-2 text-right text-xs font-mono font-bold ${isMasuk ? 'text-emerald-700' : 'text-gray-400'}">
+        <td class="py-1.5 px-2 text-right text-xs font-bold tabular-num ${isMasuk ? 'text-emerald-700' : 'text-gray-400'}">
           ${tx.pemasukanNominal > 0 ? formatRupiah(tx.pemasukanNominal) : '-'}
         </td>
-        <td class="py-1.5 px-2 text-right text-xs font-mono font-bold ${!isMasuk ? 'text-rose-700' : 'text-gray-400'}">
+        <td class="py-1.5 px-2 text-right text-xs font-bold tabular-num ${!isMasuk ? 'text-rose-700' : 'text-gray-400'}">
           ${tx.pengeluaranNominal > 0 ? formatRupiah(tx.pengeluaranNominal) : '-'}
         </td>
-        <td class="py-1.5 px-2 text-right text-xs font-mono font-bold text-gray-900 bg-teal-50/40">
+        <td class="py-1.5 px-2 text-right text-xs font-bold tabular-num text-gray-900 bg-teal-50/40">
           ${formatRupiah(tx.saldoBerjalan)}
         </td>
       </tr>
@@ -80,7 +80,7 @@ export function generateStatementHtml(data: StatementData): string {
   <meta charset="UTF-8">
   <title>E-Statement Rekening Koran - Amanah Drive (${data.periodeBulan})</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
     @page {
       size: A4 portrait;
@@ -91,12 +91,13 @@ export function generateStatementHtml(data: StatementData): string {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
       color: #1e293b;
       background: #ffffff;
       font-size: 11px;
@@ -214,7 +215,9 @@ export function generateStatementHtml(data: StatementData): string {
     }
 
     .summary-card .card-value {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Inter', -apple-system, sans-serif !important;
+      font-feature-settings: 'tnum' 1;
+      font-variant-numeric: tabular-nums;
       font-size: 13px;
       font-weight: 800;
       color: #0f172a;
@@ -389,12 +392,12 @@ export function generateStatementHtml(data: StatementData): string {
     <tbody>
       <!-- Saldo Awal Row -->
       <tr style="background-color: #f1f5f9; font-weight: 600;">
-        <td style="text-align: center; font-mono">-</td>
+        <td style="text-align: center;" class="tabular-num">-</td>
         <td>${escapeHtml(data.tanggalAwal)}</td>
         <td colspan="4" style="color: #475569; font-style: italic;">
           [SALDO AWAL KAS SEBELUM TANGGAL ${escapeHtml(data.tanggalAwal)}]
         </td>
-        <td style="text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #0f172a;">
+        <td style="text-align: right; font-family: 'Inter', -apple-system, sans-serif; font-feature-settings: 'tnum' 1; font-weight: 700; color: #0f172a;" class="tabular-num">
           ${formatRupiah(data.saldoAwal)}
         </td>
       </tr>
@@ -409,14 +412,14 @@ export function generateStatementHtml(data: StatementData): string {
 
       <!-- Total Summary Row -->
       <tr class="total-row">
-        <td colspan="4" style="text-align: right; padding-right: 12px;">TOTAL MUTASI & SALDO AKHIR</td>
-        <td style="text-align: right; font-family: 'JetBrains Mono', monospace; color: #059669;">
+        <td colspan="4" style="text-align: right; padding-right: 12px; font-weight: 700;">TOTAL MUTASI & SALDO AKHIR</td>
+        <td style="text-align: right; font-family: 'Inter', -apple-system, sans-serif; font-feature-settings: 'tnum' 1; font-weight: 800; color: #059669;" class="tabular-num">
           + ${formatRupiah(data.totalPemasukan)}
         </td>
-        <td style="text-align: right; font-family: 'JetBrains Mono', monospace; color: #e11d48;">
+        <td style="text-align: right; font-family: 'Inter', -apple-system, sans-serif; font-feature-settings: 'tnum' 1; font-weight: 800; color: #e11d48;" class="tabular-num">
           − ${formatRupiah(data.totalPengeluaran)}
         </td>
-        <td style="text-align: right; font-family: 'JetBrains Mono', monospace; color: #0F7A73; font-size: 12px; background: #E6F6F4;">
+        <td style="text-align: right; font-family: 'Inter', -apple-system, sans-serif; font-feature-settings: 'tnum' 1; font-weight: 800; color: #0F7A73; font-size: 12px; background: #E6F6F4;" class="tabular-num">
           ${formatRupiah(data.saldoAkhir)}
         </td>
       </tr>

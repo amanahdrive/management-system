@@ -221,24 +221,24 @@ export default function KasOverviewPage() {
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, jenis_pembayaran: 'tunai' })}
-                    className={`flex-1 py-1.5 rounded-md transition-colors ${
+                    className={`flex-1 py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 ${
                       formData.jenis_pembayaran === 'tunai'
                         ? 'bg-[var(--brand-primary)] text-white'
                         : 'text-[var(--text-secondary)]'
                     }`}
                   >
-                    💵 Tunai (Cash)
+                    <span>Tunai (Kas Fisik)</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, jenis_pembayaran: 'non_tunai' })}
-                    className={`flex-1 py-1.5 rounded-md transition-colors ${
+                    className={`flex-1 py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 ${
                       formData.jenis_pembayaran === 'non_tunai'
                         ? 'bg-blue-600 text-white'
                         : 'text-[var(--text-secondary)]'
                     }`}
                   >
-                    🏦 Non-Tunai
+                    <span>Non-Tunai / Bank</span>
                   </button>
                 </div>
               </div>
