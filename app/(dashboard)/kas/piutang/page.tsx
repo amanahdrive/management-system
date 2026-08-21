@@ -24,6 +24,7 @@ export default function PiutangPage() {
   const [selectedSiswa, setSelectedSiswa] = React.useState<Siswa | null>(null);
   const [bayarNominal, setBayarNominal] = React.useState<number>(0);
   const [bayarTanggal, setBayarTanggal] = React.useState<string>(getTodayDateString());
+  const [bayarMetode, setBayarMetode] = React.useState<'tunai' | 'non_tunai'>('non_tunai');
 
   const loadData = async () => {
     setLoading(true);
@@ -47,6 +48,7 @@ export default function PiutangPage() {
       : siswa.harga_final;
     setBayarNominal(Math.max(0, sisaTagihan));
     setBayarTanggal(getTodayDateString());
+    setBayarMetode('non_tunai');
   };
 
   const handleSavePelunasan = async (e: React.FormEvent) => {
@@ -56,8 +58,9 @@ export default function PiutangPage() {
     await updateSiswaPayment(
       selectedSiswa.id,
       'lunas',
-      selectedSiswa.harga_final,
-      bayarTanggal
+      bayarNominal,
+      bayarTanggal,
+      bayarMetode
     );
 
     setSelectedSiswa(null);
@@ -277,6 +280,49 @@ export default function PiutangPage() {
                   value={bayarTanggal}
                   onChange={(val) => setBayarTanggal(val)}
                 />
+
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                    Metode Pembayaran *
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label
+                      className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                        bayarMetode === 'non_tunai'
+                          ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
+                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="bayarMetode"
+                        value="non_tunai"
+                        checked={bayarMetode === 'non_tunai'}
+                        onChange={() => setBayarMetode('non_tunai')}
+                        className="sr-only"
+                      />
+                      <span>🏦 Transfer Bank</span>
+                    </label>
+
+                    <label
+                      className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                        bayarMetode === 'tunai'
+                          ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'
+                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="bayarMetode"
+                        value="tunai"
+                        checked={bayarMetode === 'tunai'}
+                        onChange={() => setBayarMetode('tunai')}
+                        className="sr-only"
+                      />
+                      <span>💵 Tunai (Kas Fisik)</span>
+                    </label>
+                  </div>
+                </div>
 
                 <p className="text-[10px] text-emerald-800 dark:text-emerald-300 italic">
                   * Pelunasan ini akan mengubah status siswa menjadi LUNAS dan mencatat transaksi pemasukan di kas.

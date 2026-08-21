@@ -3,11 +3,11 @@
 import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { Siswa } from '@/types/database';
-import { getSiswaById, createOrUpdateSiswa } from '@/lib/actions/siswa';
+import { Siswa, KasTransaksi } from '@/types/database';
+import { getSiswaById, getSiswaPaymentHistory } from '@/lib/actions/siswa';
 import { formatRupiah } from '@/lib/utils/currency';
 import { formatDateIndo } from '@/lib/utils/date';
-import { User, Phone, MapPin, Calendar, CreditCard, ArrowLeft } from 'lucide-react';
+import { User, Phone, MapPin, Calendar, CreditCard, ArrowLeft, Receipt, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SiswaDetailPage() {
@@ -16,12 +16,14 @@ export default function SiswaDetailPage() {
   const id = params?.id as string;
 
   const [siswa, setSiswa] = React.useState<Siswa | null>(null);
+  const [payments, setPayments] = React.useState<KasTransaksi[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     if (id) {
-      getSiswaById(id).then((res) => {
-        setSiswa(res);
+      Promise.all([getSiswaById(id), getSiswaPaymentHistory(id)]).then(([sRes, pRes]) => {
+        setSiswa(sRes);
+        setPayments(pRes as KasTransaksi[]);
         setLoading(false);
       });
     }
@@ -41,6 +43,9 @@ export default function SiswaDetailPage() {
       </div>
     );
   }
+
+  const totalPaid = payments.reduce((sum, p) => sum + (p.nominal || 0), 0);
+  const sisaPiutang = Math.max(0, siswa.harga_final - totalPaid);
 
   return (
     <div className="space-y-6">
@@ -85,7 +90,7 @@ export default function SiswaDetailPage() {
               <MapPin className="w-4 h-4 text-[var(--brand-primary)] mt-0.5" />
               <div>
                 <span className="text-[var(--text-secondary)] block">Alamat</span>
-                <span className="font-semibold text-[var(--text-primary)]">{siswa.alamat}</span>
+                <span className="font-semibold text-[var(--text-primary)]">{siswa.alamat || '-'}</span>
               </div>
             </div>
 
@@ -115,26 +120,41 @@ export default function SiswaDetailPage() {
         <div className="card-container space-y-4">
           <h4 className="font-bold text-sm text-[var(--text-primary)] flex items-center gap-2 border-b border-[var(--border)] pb-2">
             <CreditCard className="w-4 h-4 text-[var(--brand-primary)]" />
-            Status Pembayaran
+            Ringkasan Keuangan Siswa
           </h4>
 
           <div className="space-y-3 text-xs">
             <div>
-              <span className="text-[var(--text-secondary)] block">Paket Terpilih</span>
+              <span className="text-[var(--text-secondary)] block">Paket Kursus</span>
               <span className="font-bold text-sm text-[var(--text-primary)]">
-                {siswa.paket?.nama_paket || 'Khusus'}
+                {siswa.paket?.nama_paket || 'Khusus'} ({siswa.paket?.jumlah_sesi || 0} Sesi)
               </span>
             </div>
 
             <div>
-              <span className="text-[var(--text-secondary)] block">Harga Final Paket</span>
+              <span className="text-[var(--text-secondary)] block">Harga Final Tagihan</span>
               <span className="font-bold text-base text-[var(--brand-primary)]">
                 {formatRupiah(siswa.harga_final)}
               </span>
             </div>
 
-            <div>
-              <span className="text-[var(--text-secondary)] block">Status Saat Ini</span>
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--border)]">
+              <div>
+                <span className="text-[10px] text-[var(--text-secondary)] block">Total Terbayar:</span>
+                <span className="font-bold text-emerald-600 text-xs">
+                  {formatRupiah(totalPaid > 0 ? totalPaid : (siswa.status_pembayaran_kode === 'lunas' ? siswa.harga_final : (siswa.dp_nominal || 0)))}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-[var(--text-secondary)] block">Sisa Tagihan:</span>
+                <span className="font-bold text-rose-600 text-xs">
+                  {siswa.status_pembayaran_kode === 'lunas' ? 'Rp 0 (Lunas)' : formatRupiah(sisaPiutang)}
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-1">
+              <span className="text-[var(--text-secondary)] block">Status Pembayaran:</span>
               <span
                 className="inline-block mt-1 px-3 py-1 text-xs font-bold text-white rounded-md"
                 style={{ backgroundColor: siswa.status_pembayaran?.warna_badge || '#5C6E6B' }}
@@ -142,17 +162,59 @@ export default function SiswaDetailPage() {
                 {siswa.status_pembayaran?.label || siswa.status_pembayaran_kode}
               </span>
             </div>
-
-            {siswa.dp_nominal && (
-              <div className="p-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-md">
-                <span className="text-[var(--text-secondary)] block">Nominal DP Terbayar:</span>
-                <span className="font-bold text-amber-800 dark:text-amber-400">
-                  {formatRupiah(siswa.dp_nominal)} ({formatDateIndo(siswa.dp_tanggal)})
-                </span>
-              </div>
-            )}
           </div>
         </div>
+      </div>
+
+      {/* Riwayat Mutasi / Pembayaran Kas Siswa */}
+      <div className="card-container space-y-3">
+        <h4 className="font-bold text-sm text-[var(--text-primary)] flex items-center gap-2 border-b border-[var(--border)] pb-2">
+          <Receipt className="w-4 h-4 text-emerald-600" />
+          Riwayat Pembayaran & Catatan Buku Kas
+        </h4>
+
+        {payments.length === 0 ? (
+          <p className="text-xs text-[var(--text-secondary)] italic py-3">
+            Belum ada catatan mutasi kas pembayaran untuk siswa ini.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead>
+                <tr className="border-b border-[var(--border)] text-[var(--text-secondary)]">
+                  <th className="py-2 px-3">Tanggal</th>
+                  <th className="py-2 px-3">Keterangan / Transaksi</th>
+                  <th className="py-2 px-3">Metode</th>
+                  <th className="py-2 px-3 text-right">Nominal Masuk</th>
+                  <th className="py-2 px-3 text-center">PIC</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border)]">
+                {payments.map((p) => (
+                  <tr key={p.id} className="hover:bg-black/5 dark:hover:bg-white/5">
+                    <td className="py-2 px-3 whitespace-nowrap font-medium text-[var(--text-primary)]">
+                      {formatDateIndo(p.tanggal)}
+                    </td>
+                    <td className="py-2 px-3 text-[var(--text-primary)] font-semibold">
+                      {p.keterangan}
+                    </td>
+                    <td className="py-2 px-3">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${p.jenis_pembayaran === 'tunai' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
+                        {p.jenis_pembayaran === 'tunai' ? '💵 Tunai' : '🏦 Transfer Bank'}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono font-bold text-emerald-600">
+                      {formatRupiah(p.nominal)}
+                    </td>
+                    <td className="py-2 px-3 text-center text-[var(--text-secondary)]">
+                      {p.pic_nama || 'Admin'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

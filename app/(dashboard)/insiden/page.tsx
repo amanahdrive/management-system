@@ -213,6 +213,8 @@ export default function InsidenPage() {
   const [quickStatus, setQuickStatus] = React.useState<StatusPenangananEnum>('dalam_perbaikan');
   const [quickTindakan, setQuickTindakan] = React.useState('');
   const [quickBiayaAktual, setQuickBiayaAktual] = React.useState(0);
+  const [quickCatatKeKas, setQuickCatatKeKas] = React.useState(true);
+  const [quickJenisPembayaran, setQuickJenisPembayaran] = React.useState<'tunai' | 'non_tunai'>('non_tunai');
 
   // Delete Confirm State
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
@@ -368,7 +370,9 @@ export default function InsidenPage() {
       statusModalInsiden.id,
       quickStatus,
       quickTindakan.trim() || undefined,
-      quickBiayaAktual
+      quickBiayaAktual,
+      quickCatatKeKas,
+      quickJenisPembayaran
     );
     setSubmitting(false);
     if (res.success) {
@@ -1326,6 +1330,67 @@ export default function InsidenPage() {
                   onChange={(val) => setQuickBiayaAktual(val)}
                 />
               </div>
+
+              {quickBiayaAktual > 0 && (
+                <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg space-y-2.5">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={quickCatatKeKas}
+                      onChange={(e) => setQuickCatatKeKas(e.target.checked)}
+                      className="w-4 h-4 rounded text-[var(--brand-primary)] border-gray-300"
+                    />
+                    <span className="font-semibold text-xs text-[var(--text-primary)]">
+                      Catat Pengeluaran ke Buku Kas Keuangan
+                    </span>
+                  </label>
+
+                  {quickCatatKeKas && (
+                    <div className="pt-2 border-t border-amber-200 dark:border-amber-900">
+                      <span className="text-[11px] text-[var(--text-secondary)] font-semibold block mb-1">
+                        Sumber Pembayaran Kas:
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label
+                          className={`flex items-center justify-center gap-1.5 p-1.5 rounded-md border text-[11px] font-semibold cursor-pointer transition-all ${
+                            quickJenisPembayaran === 'non_tunai'
+                              ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
+                              : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="inc_pay_metode"
+                            value="non_tunai"
+                            checked={quickJenisPembayaran === 'non_tunai'}
+                            onChange={() => setQuickJenisPembayaran('non_tunai')}
+                            className="sr-only"
+                          />
+                          <span>🏦 Transfer Bank</span>
+                        </label>
+
+                        <label
+                          className={`flex items-center justify-center gap-1.5 p-1.5 rounded-md border text-[11px] font-semibold cursor-pointer transition-all ${
+                            quickJenisPembayaran === 'tunai'
+                              ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
+                              : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="inc_pay_metode"
+                            value="tunai"
+                            checked={quickJenisPembayaran === 'tunai'}
+                            onChange={() => setQuickJenisPembayaran('tunai')}
+                            className="sr-only"
+                          />
+                          <span>💵 Kas Tunai</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-[var(--text-secondary)] mb-1 font-semibold">

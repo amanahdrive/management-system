@@ -12,6 +12,7 @@ import {
   updateCuciMobil,
   recordPengisianBBM,
   getHargaBBMList,
+  getKendaraanPerformanceStats,
 } from '@/lib/actions/kendaraan';
 import { formatRupiah } from '@/lib/utils/currency';
 import { getTodayDateString } from '@/lib/utils/date';
@@ -29,8 +30,15 @@ export default function KendaraanDetailPage() {
   const [hargaBbmList, setHargaBbmList] = React.useState<HargaBBM[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  // Active Tab for Rekap
+  // Active Tab for Rekap & Stats
   const [rekapTab, setRekapTab] = React.useState<'weekly' | 'monthly'>('weekly');
+  const [perfStats, setPerfStats] = React.useState({
+    totalJarakKm: 0,
+    totalSesi: 0,
+    totalBiayaBBM: 0,
+    totalLiterBBM: 0,
+    rasioEfisiensi: 0,
+  });
 
   // Modal States
   const [modalType, setModalType] = React.useState<'odometer' | 'oli' | 'ban' | 'cuci' | 'bbm' | null>(null);
@@ -44,19 +52,25 @@ export default function KendaraanDetailPage() {
   const [banKm, setBanKm] = React.useState<number>(35000);
   const [bbmJenis, setBbmJenis] = React.useState<string>('pertalite');
   const [bbmNominal, setBbmNominal] = React.useState<number>(150000);
+  const [bbmMetode, setBbmMetode] = React.useState<'tunai' | 'non_tunai'>('tunai');
 
   const loadData = async () => {
     setLoading(true);
-    const [kList, bbmList] = await Promise.all([getKendaraanMasterList(), getHargaBBMList()]);
+    const [kList, bbmList, stats] = await Promise.all([
+      getKendaraanMasterList(),
+      getHargaBBMList(),
+      getKendaraanPerformanceStats(id, rekapTab),
+    ]);
     const found = kList.find((k) => k.id === id) || null;
     setKendaraan(found);
     setHargaBbmList(bbmList);
+    setPerfStats(stats);
     setLoading(false);
   };
 
   React.useEffect(() => {
     loadData();
-  }, [id]);
+  }, [id, rekapTab]);
 
   if (loading || !kendaraan) {
     return <div className="h-64 card-container animate-pulse bg-black/5 dark:bg-white/5" />;
@@ -96,7 +110,7 @@ export default function KendaraanDetailPage() {
   };
 
   const handleSaveBBM = async () => {
-    await recordPengisianBBM(kendaraan.id, tanggal, bbmJenis, bbmNominal, selectedHargaBbm);
+    await recordPengisianBBM(kendaraan.id, tanggal, bbmJenis, bbmNominal, selectedHargaBbm, bbmMetode);
     setModalType(null);
     loadData();
   };
@@ -264,25 +278,25 @@ export default function KendaraanDetailPage() {
           <div className="p-3 bg-[var(--bg-subtle)] rounded-md border border-[var(--border)]">
             <span className="text-[var(--text-secondary)] block">Total Jarak Tempuh</span>
             <span className="font-bold text-base text-[var(--text-primary)]">
-              {rekapTab === 'weekly' ? '420 km' : '1.850 km'}
+              {perfStats.totalJarakKm.toLocaleString('id-ID')} km
             </span>
           </div>
           <div className="p-3 bg-[var(--bg-subtle)] rounded-md border border-[var(--border)]">
             <span className="text-[var(--text-secondary)] block">Total Sesi Selesai</span>
             <span className="font-bold text-base text-[var(--text-primary)]">
-              {rekapTab === 'weekly' ? '18 Sesi' : '72 Sesi'}
+              {perfStats.totalSesi} Sesi
             </span>
           </div>
           <div className="p-3 bg-[var(--bg-subtle)] rounded-md border border-[var(--border)]">
             <span className="text-[var(--text-secondary)] block">Total Biaya BBM</span>
             <span className="font-bold text-base text-emerald-600">
-              {rekapTab === 'weekly' ? formatRupiah(350000) : formatRupiah(1450000)}
+              {formatRupiah(perfStats.totalBiayaBBM)}
             </span>
           </div>
           <div className="p-3 bg-[var(--bg-subtle)] rounded-md border border-[var(--border)]">
             <span className="text-[var(--text-secondary)] block">Rasio Efisiensi</span>
             <span className="font-bold text-base text-[var(--brand-primary)]">
-              {rekapTab === 'weekly' ? '12,0 km/L' : '12,7 km/L'}
+              {perfStats.rasioEfisiensi} km/L
             </span>
           </div>
         </div>
@@ -395,6 +409,49 @@ export default function KendaraanDetailPage() {
 
                 <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 rounded-md text-xs font-medium text-emerald-800 dark:text-emerald-400">
                   Estimasi Liter: <span className="font-bold">{estimatedLiter} Liter</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    Metode Pembayaran Kas *
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label
+                      className={`flex items-center justify-center gap-1.5 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                        bbmMetode === 'tunai'
+                          ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
+                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="bbm_metode"
+                        value="tunai"
+                        checked={bbmMetode === 'tunai'}
+                        onChange={() => setBbmMetode('tunai')}
+                        className="sr-only"
+                      />
+                      <span>💵 Tunai (Kas Fisik)</span>
+                    </label>
+
+                    <label
+                      className={`flex items-center justify-center gap-1.5 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                        bbmMetode === 'non_tunai'
+                          ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
+                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="bbm_metode"
+                        value="non_tunai"
+                        checked={bbmMetode === 'non_tunai'}
+                        onChange={() => setBbmMetode('non_tunai')}
+                        className="sr-only"
+                      />
+                      <span>🏦 Transfer / Debit</span>
+                    </label>
+                  </div>
                 </div>
               </div>
             )}

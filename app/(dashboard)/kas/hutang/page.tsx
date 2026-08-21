@@ -34,6 +34,7 @@ export default function HutangPage() {
 
   const [bayarTanggal, setBayarTanggal] = React.useState(getTodayDateString());
   const [bayarNominal, setBayarNominal] = React.useState(0);
+  const [bayarMetode, setBayarMetode] = React.useState<'tunai' | 'non_tunai'>('non_tunai');
 
   const loadData = () => {
     setLoading(true);
@@ -58,7 +59,7 @@ export default function HutangPage() {
   const handlePaySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!payModalHutang || bayarNominal <= 0) return;
-    await payHutangCicilan(payModalHutang.id, bayarTanggal, bayarNominal);
+    await payHutangCicilan(payModalHutang.id, bayarTanggal, bayarNominal, bayarMetode);
     setPayModalHutang(null);
     loadData();
   };
@@ -273,6 +274,49 @@ export default function HutangPage() {
 
                 <div className="p-2.5 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 rounded-md text-xs">
                   Sisa Hutang Saat Ini: <span className="font-bold">{formatRupiah(payModalHutang.sisa_hutang)}</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                    Metode Pembayaran Kas *
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label
+                      className={`flex items-center justify-center gap-1.5 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                        bayarMetode === 'non_tunai'
+                          ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
+                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="hutang_pay_metode"
+                        value="non_tunai"
+                        checked={bayarMetode === 'non_tunai'}
+                        onChange={() => setBayarMetode('non_tunai')}
+                        className="sr-only"
+                      />
+                      <span>🏦 Rekening Bank</span>
+                    </label>
+
+                    <label
+                      className={`flex items-center justify-center gap-1.5 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                        bayarMetode === 'tunai'
+                          ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
+                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="hutang_pay_metode"
+                        value="tunai"
+                        checked={bayarMetode === 'tunai'}
+                        onChange={() => setBayarMetode('tunai')}
+                        className="sr-only"
+                      />
+                      <span>💵 Kas Tunai Fisik</span>
+                    </label>
+                  </div>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border)]">

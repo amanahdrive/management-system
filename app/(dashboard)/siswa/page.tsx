@@ -41,7 +41,7 @@ export default function SiswaPage() {
 
   // Modal State Tambah / Edit Data Diri
   const [isModalOpen, setIsModalOpen] = React.useState(false);
-  const [formData, setFormData] = React.useState<Partial<Siswa>>({
+  const [formData, setFormData] = React.useState<Partial<Siswa> & { jenis_pembayaran?: 'tunai' | 'non_tunai' }>({
     nama: '',
     no_whatsapp: '',
     alamat: '',
@@ -53,6 +53,7 @@ export default function SiswaPage() {
     status_pembayaran_kode: 'belum_bayar',
     dp_nominal: null,
     dp_tanggal: null,
+    jenis_pembayaran: 'non_tunai',
     sumber: 'meta_ads',
     catatan: '',
   });
@@ -62,6 +63,7 @@ export default function SiswaPage() {
   const [paymentStatusKode, setPaymentStatusKode] = React.useState('dp');
   const [paymentDpNominal, setPaymentDpNominal] = React.useState<number>(500000);
   const [paymentDpTanggal, setPaymentDpTanggal] = React.useState<string>(getTodayDateString());
+  const [paymentMetode, setPaymentMetode] = React.useState<'tunai' | 'non_tunai'>('non_tunai');
 
   const loadData = async () => {
     setLoading(true);
@@ -124,6 +126,7 @@ export default function SiswaPage() {
       status_pembayaran_kode: 'belum_bayar',
       dp_nominal: null,
       dp_tanggal: null,
+      jenis_pembayaran: 'non_tunai',
       sumber: 'meta_ads',
       catatan: '',
     });
@@ -157,6 +160,7 @@ export default function SiswaPage() {
     setPaymentStatusKode(siswa.status_pembayaran_kode || 'dp');
     setPaymentDpNominal(siswa.dp_nominal || Math.round(siswa.harga_final * 0.5));
     setPaymentDpTanggal(siswa.dp_tanggal || getTodayDateString());
+    setPaymentMetode('non_tunai');
   };
 
   const handleSavePembayaran = async (e: React.FormEvent) => {
@@ -167,7 +171,8 @@ export default function SiswaPage() {
       paymentModalSiswa.id,
       paymentStatusKode,
       paymentStatusKode === 'dp' || paymentStatusKode === 'lunas' ? paymentDpNominal : null,
-      paymentStatusKode === 'dp' || paymentStatusKode === 'lunas' ? paymentDpTanggal : null
+      paymentStatusKode === 'dp' || paymentStatusKode === 'lunas' ? paymentDpTanggal : null,
+      paymentMetode
     );
 
     if (res.success) {
@@ -716,18 +721,63 @@ export default function SiswaPage() {
                 </div>
 
                 {(formData.status_pembayaran_kode === 'dp' || formData.status_pembayaran_kode === 'lunas') && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-amber-200 dark:border-amber-900">
-                    <CurrencyInput
-                      label={formData.status_pembayaran_kode === 'dp' ? 'Nominal Uang Muka / DP (Rupiah) *' : 'Nominal Pelunasan (Rupiah) *'}
-                      value={formData.dp_nominal || 0}
-                      onChange={(val) => setFormData({ ...formData, dp_nominal: val })}
-                    />
+                  <div className="space-y-3 pt-2 border-t border-amber-200 dark:border-amber-900">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <CurrencyInput
+                        label={formData.status_pembayaran_kode === 'dp' ? 'Nominal Uang Muka / DP (Rupiah) *' : 'Nominal Pelunasan (Rupiah) *'}
+                        value={formData.dp_nominal || 0}
+                        onChange={(val) => setFormData({ ...formData, dp_nominal: val })}
+                      />
 
-                    <DatePickerWIB
-                      label="Tanggal Pembayaran *"
-                      value={formData.dp_tanggal || getTodayDateString()}
-                      onChange={(val) => setFormData({ ...formData, dp_tanggal: val })}
-                    />
+                      <DatePickerWIB
+                        label="Tanggal Pembayaran *"
+                        value={formData.dp_tanggal || getTodayDateString()}
+                        onChange={(val) => setFormData({ ...formData, dp_tanggal: val })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                        Metode Pembayaran *
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label
+                          className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                            formData.jenis_pembayaran === 'non_tunai'
+                              ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
+                              : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="reg_jenis_pembayaran"
+                            value="non_tunai"
+                            checked={formData.jenis_pembayaran === 'non_tunai'}
+                            onChange={() => setFormData({ ...formData, jenis_pembayaran: 'non_tunai' })}
+                            className="sr-only"
+                          />
+                          <span>🏦 Transfer Bank</span>
+                        </label>
+
+                        <label
+                          className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                            formData.jenis_pembayaran === 'tunai'
+                              ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'
+                              : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="reg_jenis_pembayaran"
+                            value="tunai"
+                            checked={formData.jenis_pembayaran === 'tunai'}
+                            onChange={() => setFormData({ ...formData, jenis_pembayaran: 'tunai' })}
+                            className="sr-only"
+                          />
+                          <span>💵 Tunai (Kas Fisik)</span>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -830,6 +880,49 @@ export default function SiswaPage() {
                     value={paymentDpTanggal}
                     onChange={(val) => setPaymentDpTanggal(val)}
                   />
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                      Metode Pembayaran *
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label
+                        className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                          paymentMetode === 'non_tunai'
+                            ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
+                            : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="pay_jenis_pembayaran"
+                          value="non_tunai"
+                          checked={paymentMetode === 'non_tunai'}
+                          onChange={() => setPaymentMetode('non_tunai')}
+                          className="sr-only"
+                        />
+                        <span>🏦 Transfer Bank</span>
+                      </label>
+
+                      <label
+                        className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                          paymentMetode === 'tunai'
+                            ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'
+                            : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="pay_jenis_pembayaran"
+                          value="tunai"
+                          checked={paymentMetode === 'tunai'}
+                          onChange={() => setPaymentMetode('tunai')}
+                          className="sr-only"
+                        />
+                        <span>💵 Tunai (Kas Fisik)</span>
+                      </label>
+                    </div>
+                  </div>
 
                   <p className="text-[10px] text-amber-800 dark:text-amber-300 italic">
                     * Menyimpan status {paymentStatusKode.toUpperCase()} akan secara otomatis mencatat transaksi pemasukan kas baru di Buku Besar Cashflow Keuangan.

@@ -58,6 +58,18 @@ export async function upsertPromosi(promosi: Partial<Promosi>): Promise<{ succes
   }
 }
 
+export async function deletePromosi(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createServerClient();
+    const { error } = await supabase.from('promosi').delete().eq('id', id);
+    if (error) return { success: false, error: error.message };
+    revalidatePath('/master-data/promosi');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 // --- JABATAN ACTIONS ---
 export async function getJabatanList(): Promise<Jabatan[]> {
   try {

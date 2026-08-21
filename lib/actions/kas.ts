@@ -161,7 +161,8 @@ export async function addHutang(hutangData: Partial<Hutang>): Promise<{ success:
 export async function payHutangCicilan(
   hutangId: string,
   tanggalBayar: string,
-  nominal: number
+  nominal: number,
+  jenisPembayaran: 'tunai' | 'non_tunai' = 'non_tunai'
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createServerClient();
@@ -182,6 +183,7 @@ export async function payHutangCicilan(
         kategori: 'cicilan_hutang',
         keterangan: `Bayar Cicilan Hutang: ${h.nama_hutang}`,
         nominal,
+        jenis_pembayaran: jenisPembayaran,
         pic_tipe: 'finance',
         pic_nama: 'Finance Admin',
         hutang_id: hutangId,

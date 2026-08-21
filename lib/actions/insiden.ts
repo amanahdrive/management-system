@@ -207,7 +207,9 @@ export async function updateInsidenStatus(
   id: string,
   status: StatusPenangananEnum,
   tindakanPenanganan?: string,
-  biayaAktual?: number
+  biayaAktual?: number,
+  catatKeKas?: boolean,
+  jenisPembayaranKas: 'tunai' | 'non_tunai' = 'non_tunai'
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = createAdminClient();
@@ -224,17 +226,37 @@ export async function updateInsidenStatus(
       updateData.biaya_aktual = biayaAktual;
     }
 
-    const { error } = await supabase
+    const { data: updatedInc, error } = await supabase
       .from('insiden')
       .update(updateData)
-      .eq('id', id);
+      .eq('id', id)
+      .select('*, kendaraan(*)')
+      .single();
 
     if (error) {
       return { success: false, error: error.message };
     }
 
+    // Optional integration: Record to kas_transaksi if paid by company
+    if (catatKeKas && biayaAktual && biayaAktual > 0 && updatedInc) {
+      const vPlat = updatedInc.kendaraan?.plat_nomor ? ` (${updatedInc.kendaraan.plat_nomor})` : '';
+      await supabase.from('kas_transaksi').insert({
+        tanggal: new Date().toISOString().slice(0, 10),
+        tipe: 'pengeluaran',
+        kategori: 'perbaikan_kendaraan',
+        keterangan: `Biaya Perbaikan Insiden ${updatedInc.kode_insiden}${vPlat} - ${updatedInc.lokasi_kejadian}`,
+        nominal: biayaAktual,
+        jenis_pembayaran: jenisPembayaranKas || 'non_tunai',
+        pic_tipe: 'finance',
+        pic_nama: 'Finance Admin',
+        sumber_otomatis: true,
+      });
+    }
+
     revalidatePath('/insiden');
     revalidatePath('/kendaraan');
+    revalidatePath('/kas');
+    revalidatePath('/kas/cashflow');
     revalidatePath('/dashboard');
 
     return { success: true };
