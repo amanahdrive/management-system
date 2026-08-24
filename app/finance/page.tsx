@@ -1,13 +1,14 @@
 'use client';
 
 import React from 'react';
-import { KasTransaksi } from '@/types/database';
+import { KasTransaksi, Siswa } from '@/types/database';
 import {
   getKasOverviewMetrics,
   getKasTransaksiList,
   addKasTransaksi,
   getKasKategoriList,
 } from '@/lib/actions/kas';
+import { getSiswaList } from '@/lib/actions/siswa';
 import { verifyKasPin } from '@/lib/actions/kas-pin';
 import { formatRupiah } from '@/lib/utils/currency';
 import { getTodayDateString, formatDateIndo, formatDateLongIndo } from '@/lib/utils/date';
@@ -36,6 +37,11 @@ import {
   ShieldCheck,
   Loader2,
   Calendar,
+  User,
+  Info,
+  CheckCircle2,
+  AlertTriangle,
+  RotateCcw,
 } from 'lucide-react';
 
 function fmt(n: number): string {
@@ -76,6 +82,7 @@ export default function FinancePortalPage() {
   });
   const [recentTx, setRecentTx] = React.useState<KasTransaksi[]>([]);
   const [kategoriList, setKategoriList] = React.useState<any[]>([]);
+  const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [toast, setToast] = React.useState<string | null>(null);
@@ -95,7 +102,8 @@ export default function FinancePortalPage() {
     nominal: 0,
     jenis_pembayaran: 'tunai' as 'tunai' | 'non_tunai',
     pic_tipe: 'finance' as 'admin' | 'finance',
-    pic_nama: 'Finance',
+    pic_nama: 'Lia (Finance)',
+    siswa_id: '',
     sumber_otomatis: false,
   });
   const [submitting, setSubmitting] = React.useState(false);
@@ -151,17 +159,16 @@ export default function FinancePortalPage() {
   // Load Data
   const loadData = async () => {
     setLoading(true);
-    const [m, txList, kList] = await Promise.all([
+    const [m, txList, kList, sList] = await Promise.all([
       getKasOverviewMetrics(),
       getKasTransaksiList(),
       getKasKategoriList(),
+      getSiswaList(),
     ]);
     setMetrics(m as any);
     setRecentTx(txList.slice(0, 30));
     setKategoriList(kList);
-    if (kList.length > 0) {
-      setFormData((prev) => ({ ...prev, kategori: kList[0].nama_kategori }));
-    }
+    setSiswaList(sList);
     setLoading(false);
   };
 
@@ -176,6 +183,100 @@ export default function FinancePortalPage() {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
+
+  // Type, Category, and Student Handlers
+  const handleTipeChange = (newTipe: 'pemasukan' | 'pengeluaran') => {
+    const defaultKategori = newTipe === 'pemasukan' ? 'dp_siswa' : 'operasional';
+    setFormData((prev) => ({
+      ...prev,
+      tipe: newTipe,
+      kategori: defaultKategori,
+      siswa_id: '',
+      keterangan: '',
+      nominal: 0,
+    }));
+  };
+
+  const handleKategoriChange = (newKategori: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      kategori: newKategori,
+      siswa_id: '',
+      keterangan: '',
+      nominal: 0,
+    }));
+  };
+
+  const handleSiswaChange = (siswaId: string) => {
+    const s = siswaList.find((item) => item.id === siswaId);
+    if (!s) {
+      setFormData((prev) => ({ ...prev, siswa_id: '', keterangan: '', nominal: 0 }));
+      return;
+    }
+
+    if (formData.kategori === 'dp_siswa') {
+      const suggestedDp = Math.round(s.harga_final * 0.5);
+      setFormData((prev) => ({
+        ...prev,
+        siswa_id: siswaId,
+        keterangan: `Pembayaran DP Kursus - ${s.nama} (${s.kode_siswa})`,
+        nominal: suggestedDp,
+      }));
+    } else if (formData.kategori === 'pelunasan_siswa') {
+      const sisaTagihan = Math.max(0, s.harga_final - (s.dp_nominal || 0));
+      setFormData((prev) => ({
+        ...prev,
+        siswa_id: siswaId,
+        keterangan: `Pelunasan Kursus - ${s.nama} (${s.kode_siswa})`,
+        nominal: sisaTagihan,
+      }));
+    } else if (formData.kategori === 'refund_siswa') {
+      const totalBayar = s.status_pembayaran_kode === 'lunas' ? s.harga_final : (s.dp_nominal || 0);
+      setFormData((prev) => ({
+        ...prev,
+        siswa_id: siswaId,
+        keterangan: `Refund Pembatalan Kursus - ${s.nama} (${s.kode_siswa})`,
+        nominal: totalBayar,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        siswa_id: siswaId,
+      }));
+    }
+  };
+
+  const isDpCategory = formData.kategori === 'dp_siswa';
+  const isPelunasanCategory = formData.kategori === 'pelunasan_siswa';
+  const isRefundCategory = formData.kategori === 'refund_siswa';
+  const isStudentRelated = isDpCategory || isPelunasanCategory || isRefundCategory;
+
+  const filteredSiswaDropdown = React.useMemo(() => {
+    if (isDpCategory) {
+      return siswaList.filter((s) => s.status_pembayaran_kode === 'belum_bayar');
+    }
+    if (isPelunasanCategory) {
+      return siswaList.filter((s) => s.status_pembayaran_kode === 'dp');
+    }
+    if (isRefundCategory) {
+      return siswaList.filter(
+        (s) => s.status_pembayaran_kode === 'dp' || s.status_pembayaran_kode === 'lunas'
+      );
+    }
+    return [];
+  }, [siswaList, isDpCategory, isPelunasanCategory, isRefundCategory]);
+
+  const selectedSiswa = siswaList.find((s) => s.id === formData.siswa_id);
+
+  // Available categories for selected type
+  const availableKategoriList = React.useMemo(() => {
+    return kategoriList.filter((k) => {
+      if (formData.tipe === 'pemasukan') {
+        return k.tipe === 'pemasukan' || k.tipe === 'keduanya';
+      }
+      return k.tipe === 'pengeluaran' || k.tipe === 'keduanya';
+    });
+  }, [kategoriList, formData.tipe]);
 
   // PIN Verification
   const handlePinSubmit = async (e: React.FormEvent) => {
@@ -218,13 +319,26 @@ export default function FinancePortalPage() {
     }
     setSubmitting(true);
     const res = await addKasTransaksi({
-      ...formData,
-      pic_nama: formData.pic_tipe === 'finance' ? 'Lia (Finance)' : formData.pic_nama,
+      tanggal: formData.tanggal,
+      tipe: formData.tipe,
+      kategori: formData.kategori,
+      keterangan: formData.keterangan,
+      nominal: formData.nominal,
+      jenis_pembayaran: formData.jenis_pembayaran,
+      pic_tipe: 'finance',
+      pic_nama: 'Lia (Finance)',
+      siswa_id: formData.siswa_id || null,
+      sumber_otomatis: false,
     });
     setSubmitting(false);
     if (res.success) {
       showToast(formData.tipe === 'pemasukan' ? 'Pemasukan tersimpan' : 'Pengeluaran tersimpan');
-      setFormData((prev) => ({ ...prev, keterangan: '', nominal: 0 }));
+      setFormData((prev) => ({
+        ...prev,
+        keterangan: '',
+        nominal: 0,
+        siswa_id: '',
+      }));
       setShowAddForm(false);
       await loadData();
     } else {
@@ -679,7 +793,7 @@ export default function FinancePortalPage() {
                 <div className="flex rounded-xl p-1 bg-[var(--bg-subtle)] border border-[var(--border)]">
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, tipe: 'pengeluaran' })}
+                    onClick={() => handleTipeChange('pengeluaran')}
                     className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
                       formData.tipe === 'pengeluaran' ? 'bg-rose-600 text-white shadow-sm' : 'text-[var(--text-secondary)]'
                     }`}
@@ -688,7 +802,7 @@ export default function FinancePortalPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, tipe: 'pemasukan' })}
+                    onClick={() => handleTipeChange('pemasukan')}
                     className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
                       formData.tipe === 'pemasukan' ? 'bg-emerald-600 text-white shadow-sm' : 'text-[var(--text-secondary)]'
                     }`}
@@ -696,6 +810,235 @@ export default function FinancePortalPage() {
                     + Pemasukan
                   </button>
                 </div>
+              </div>
+
+              {/* Tanggal */}
+              <div>
+                <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">Tanggal Transaksi *</label>
+                <input
+                  type="date"
+                  value={formData.tanggal}
+                  onChange={(e) => setFormData({ ...formData, tanggal: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] text-xs"
+                />
+              </div>
+
+              {/* Kategori */}
+              <div>
+                <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">Kategori Kas *</label>
+                <div className="relative">
+                  <select
+                    value={formData.kategori}
+                    onChange={(e) => handleKategoriChange(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] text-xs appearance-none pr-8 font-semibold"
+                  >
+                    {availableKategoriList.map((k) => (
+                      <option key={k.id} value={k.nama_kategori}>
+                        {k.nama_kategori === 'dp_siswa'
+                          ? 'DP SISWA KURSUS (PEMASUKAN)'
+                          : k.nama_kategori === 'pelunasan_siswa'
+                          ? 'PELUNASAN SISWA KURSUS (PEMASUKAN)'
+                          : k.nama_kategori === 'refund_siswa'
+                          ? 'REFUND / PEMBATALAN SISWA (PENGELUARAN)'
+                          : k.nama_kategori.replace(/_/g, ' ').toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-[var(--text-secondary)]" />
+                </div>
+              </div>
+
+              {/* Dynamic Student Dropdown for DP, Pelunasan, and Refund */}
+              {isStudentRelated && (
+                <div className="p-3 rounded-2xl bg-[var(--bg-subtle)] border border-[var(--border)] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-[var(--brand-primary)] flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5" />
+                      <span>
+                        {isDpCategory
+                          ? 'Pilih Siswa (Belum Bayar) *'
+                          : isPelunasanCategory
+                          ? 'Pilih Siswa (Status DP) *'
+                          : 'Pilih Siswa (Status DP / Lunas) *'}
+                      </span>
+                    </label>
+                    <span className="text-[10px] text-[var(--text-secondary)]">
+                      {filteredSiswaDropdown.length} siswa
+                    </span>
+                  </div>
+
+                  <div className="relative">
+                    <select
+                      value={formData.siswa_id}
+                      required
+                      onChange={(e) => handleSiswaChange(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] text-xs appearance-none pr-8 font-medium"
+                    >
+                      <option value="">-- Pilih Data Siswa --</option>
+                      {filteredSiswaDropdown.map((s) => {
+                        const sisaTagihan = Math.max(0, s.harga_final - (s.dp_nominal || 0));
+                        const totalPaid = s.status_pembayaran_kode === 'lunas' ? s.harga_final : (s.dp_nominal || 0);
+
+                        let labelOption = `${s.kode_siswa} - ${s.nama}`;
+                        if (isDpCategory) {
+                          labelOption += ` (Tagihan: ${formatRupiah(s.harga_final)})`;
+                        } else if (isPelunasanCategory) {
+                          labelOption += ` (Sisa Piutang: ${formatRupiah(sisaTagihan)})`;
+                        } else if (isRefundCategory) {
+                          labelOption += ` (Terbayar: ${formatRupiah(totalPaid)} [${s.status_pembayaran_kode.toUpperCase()}])`;
+                        }
+
+                        return (
+                          <option key={s.id} value={s.id}>
+                            {labelOption}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-[var(--text-secondary)]" />
+                  </div>
+
+                  {filteredSiswaDropdown.length === 0 && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 italic">
+                      {isDpCategory
+                        ? 'Tidak ada siswa berstatus Belum Bayar saat ini.'
+                        : isPelunasanCategory
+                        ? 'Tidak ada siswa berstatus DP yang membutuhkan pelunasan.'
+                        : 'Tidak ada siswa dengan pembayaran aktif untuk di-refund.'}
+                    </p>
+                  )}
+
+                  {/* Context Info & Real-time Calculation Box */}
+                  {selectedSiswa && (
+                    <div className="pt-2 border-t border-[var(--border)] space-y-2 text-[11px]">
+                      <div className="grid grid-cols-2 gap-2 bg-[var(--bg)] p-2.5 rounded-xl border border-[var(--border)]">
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Paket Kursus</span>
+                          <span className="font-semibold text-[var(--text-primary)]">
+                            {selectedSiswa.paket?.nama_paket || 'Khusus'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Total Biaya Paket</span>
+                          <span className="font-bold text-[var(--brand-primary)]">
+                            {formatRupiah(selectedSiswa.harga_final)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Sudah Terbayar</span>
+                          <span className="font-semibold text-emerald-600">
+                            {formatRupiah(
+                              selectedSiswa.status_pembayaran_kode === 'lunas'
+                                ? selectedSiswa.harga_final
+                                : selectedSiswa.dp_nominal || 0
+                            )}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Sisa Piutang Berjalan</span>
+                          <span className="font-bold text-rose-600">
+                            {formatRupiah(
+                              isPelunasanCategory
+                                ? Math.max(0, selectedSiswa.harga_final - (selectedSiswa.dp_nominal || 0))
+                                : isDpCategory
+                                ? selectedSiswa.harga_final
+                                : 0
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Real-time Validation / Comparison Alert */}
+                      {isDpCategory && formData.nominal > 0 && (
+                        <div
+                          className={`p-2 rounded-xl flex items-start gap-1.5 ${
+                            formData.nominal >= selectedSiswa.harga_final
+                              ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900'
+                              : 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900'
+                          }`}
+                        >
+                          <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                          <div>
+                            {formData.nominal >= selectedSiswa.harga_final ? (
+                              <span>
+                                <strong>Lunas Penuh!</strong> Nominal DP melunasi seluruh paket. Status siswa otomatis menjadi <strong>LUNAS</strong>.
+                              </span>
+                            ) : (
+                              <span>
+                                DP <strong>{formatRupiah(formData.nominal)}</strong> dicatat. Sisa piutang: <strong>{formatRupiah(selectedSiswa.harga_final - formData.nominal)}</strong> (Status: <strong>DP</strong>).
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {isPelunasanCategory && formData.nominal > 0 && (
+                        (() => {
+                          const sisaPiutang = Math.max(0, selectedSiswa.harga_final - (selectedSiswa.dp_nominal || 0));
+                          if (formData.nominal === sisaPiutang) {
+                            return (
+                              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 flex items-start gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-600" />
+                                <div>
+                                  <strong>Pembayaran PAS!</strong> Sisa piutang lunas sepenuhnya (Rp 0). Status siswa menjadi <strong>LUNAS</strong>.
+                                </div>
+                              </div>
+                            );
+                          } else if (formData.nominal < sisaPiutang) {
+                            return (
+                              <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900 flex items-start gap-1.5">
+                                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600" />
+                                <div>
+                                  <strong>Pembayaran Sebagian.</strong> Sisa piutang tersisa <strong>{formatRupiah(sisaPiutang - formData.nominal)}</strong> (Status tetap DP).
+                                </div>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-900 flex items-start gap-1.5">
+                                <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-blue-600" />
+                                <div>
+                                  <strong>Pembayaran Lebih.</strong> Kelebihan bayar: <strong>{formatRupiah(formData.nominal - sisaPiutang)}</strong> (Status menjadi LUNAS).
+                                </div>
+                              </div>
+                            );
+                          }
+                        })()
+                      )}
+
+                      {isRefundCategory && (
+                        <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-900 flex items-start gap-1.5">
+                          <RotateCcw className="w-3.5 h-3.5 mt-0.5 shrink-0 text-rose-600" />
+                          <div>
+                            <strong>Refund Pengeluaran:</strong> Pengembalian dana <strong>{formatRupiah(formData.nominal)}</strong>. Status siswa otomatis menjadi <strong>BATAL</strong> dan piutang dihapus.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Keterangan */}
+              <div>
+                <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">Keterangan Transaksi *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.keterangan}
+                  onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
+                  placeholder="Keterangan transaksi"
+                  className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] text-xs"
+                />
+              </div>
+
+              {/* Nominal */}
+              <div>
+                <CurrencyInput
+                  label="Nominal Rupiah (Rp) *"
+                  value={formData.nominal}
+                  onChange={(val) => setFormData({ ...formData, nominal: val })}
+                />
               </div>
 
               {/* Jenis Pembayaran */}
@@ -718,58 +1061,6 @@ export default function FinancePortalPage() {
                     );
                   })}
                 </div>
-              </div>
-
-              {/* Nominal */}
-              <div>
-                <CurrencyInput
-                  label="Nominal Rupiah (Rp) *"
-                  value={formData.nominal}
-                  onChange={(val) => setFormData({ ...formData, nominal: val })}
-                />
-              </div>
-
-              {/* Tanggal */}
-              <div>
-                <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">Tanggal Transaksi *</label>
-                <input
-                  type="date"
-                  value={formData.tanggal}
-                  onChange={(e) => setFormData({ ...formData, tanggal: e.target.value })}
-                  className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] text-xs"
-                />
-              </div>
-
-              {/* Kategori */}
-              <div>
-                <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">Kategori Kas *</label>
-                <div className="relative">
-                  <select
-                    value={formData.kategori}
-                    onChange={(e) => setFormData({ ...formData, kategori: e.target.value })}
-                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] text-xs appearance-none pr-8"
-                  >
-                    {kategoriList.map((k) => (
-                      <option key={k.id} value={k.nama_kategori}>
-                        {k.nama_kategori.replace(/_/g, ' ').toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-[var(--text-secondary)]" />
-                </div>
-              </div>
-
-              {/* Keterangan */}
-              <div>
-                <label className="block font-semibold mb-1.5 text-[var(--text-secondary)]">Keterangan Transaksi *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.keterangan}
-                  onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
-                  placeholder="Keterangan transaksi"
-                  className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] text-xs"
-                />
               </div>
 
               <button
