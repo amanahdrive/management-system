@@ -925,7 +925,7 @@ export default function SiswaPage() {
                   </div>
 
                   <p className="text-[10px] text-amber-800 dark:text-amber-300 italic">
-                    * Menyimpan status {paymentStatusKode.toUpperCase()} akan secara otomatis mencatat transaksi pemasukan kas baru di Buku Besar Cashflow Keuangan.
+                    * Perubahan status ini hanya memperbarui data profil siswa. Catatan transaksi mutasi kas resmi diinput secara manual melalui modul Kas &amp; Keuangan.
                   </p>
                 </div>
               )}

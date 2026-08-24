@@ -70,11 +70,122 @@ export async function getKasOverviewMetrics() {
   };
 }
 
+export async function syncSiswaPaymentState(siswaId: string): Promise<void> {
+  try {
+    const supabase = await createServerClient();
+
+    // Fetch student
+    const { data: siswa } = await supabase
+      .from('siswa')
+      .select('id, harga_final, status_pembayaran_kode')
+      .eq('id', siswaId)
+      .single();
+    if (!siswa) return;
+
+    // Fetch all transactions for this student
+    const { data: txs } = await supabase
+      .from('kas_transaksi')
+      .select('tipe, kategori, nominal, tanggal')
+      .eq('siswa_id', siswaId)
+      .order('tanggal', { ascending: true });
+
+    let totalPemasukan = 0;
+    let totalRefund = 0;
+    let hasRefund = false;
+    let lastPayDate: string | null = null;
+
+    if (txs && txs.length > 0) {
+      txs.forEach((tx) => {
+        if (tx.tipe === 'pemasukan') {
+          totalPemasukan += tx.nominal || 0;
+          lastPayDate = tx.tanggal;
+        } else if (
+          tx.tipe === 'pengeluaran' &&
+          (tx.kategori === 'refund_siswa' || tx.kategori.includes('refund') || tx.kategori.includes('batal'))
+        ) {
+          totalRefund += tx.nominal || 0;
+          hasRefund = true;
+        }
+      });
+    }
+
+    const netPaid = Math.max(0, totalPemasukan - totalRefund);
+    const hargaFinal = siswa.harga_final || 0;
+
+    let newStatus = 'belum_bayar';
+    let newDpNominal: number | null = null;
+    let newDpTanggal: string | null = null;
+
+    if (hasRefund && netPaid === 0) {
+      newStatus = 'batal';
+      newDpNominal = null;
+      newDpTanggal = null;
+    } else if (netPaid >= hargaFinal && hargaFinal > 0) {
+      newStatus = 'lunas';
+      newDpNominal = netPaid;
+      newDpTanggal = lastPayDate;
+    } else if (netPaid > 0) {
+      newStatus = 'dp';
+      newDpNominal = netPaid;
+      newDpTanggal = lastPayDate;
+    } else {
+      newStatus = 'belum_bayar';
+      newDpNominal = null;
+      newDpTanggal = null;
+    }
+
+    await supabase
+      .from('siswa')
+      .update({
+        status_pembayaran_kode: newStatus,
+        dp_nominal: newDpNominal,
+        dp_tanggal: newDpTanggal,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', siswaId);
+
+    revalidatePath('/siswa');
+    revalidatePath(`/siswa/${siswaId}`);
+    revalidatePath('/kas/piutang');
+  } catch (err) {
+    console.error('Error in syncSiswaPaymentState:', err);
+  }
+}
+
 export async function getKasKategoriList(): Promise<KasKategori[]> {
   try {
     const supabase = await createServerClient();
     const { data, error } = await supabase.from('kas_kategori').select('*').order('nama_kategori');
-    if (!error && data) return data as KasKategori[];
+
+    const defaultCategories: Partial<KasKategori>[] = [
+      { nama_kategori: 'dp_siswa', tipe: 'pemasukan' },
+      { nama_kategori: 'pelunasan_siswa', tipe: 'pemasukan' },
+      { nama_kategori: 'refund_siswa', tipe: 'pengeluaran' },
+      { nama_kategori: 'operasional', tipe: 'pengeluaran' },
+      { nama_kategori: 'bbm', tipe: 'pengeluaran' },
+      { nama_kategori: 'gaji', tipe: 'pengeluaran' },
+      { nama_kategori: 'cicilan_hutang', tipe: 'pengeluaran' },
+      { nama_kategori: 'lainnya', tipe: 'keduanya' },
+    ];
+
+    if (!error && data && data.length > 0) {
+      const hasRefund = data.some((k) => k.nama_kategori === 'refund_siswa');
+      if (!hasRefund) {
+        return [
+          ...data,
+          { id: 'kat-refund-siswa', nama_kategori: 'refund_siswa', tipe: 'pengeluaran', created_at: '', updated_at: '' },
+        ] as KasKategori[];
+      }
+      return data as KasKategori[];
+    }
+
+    return defaultCategories.map((c, i) => ({
+      id: `default-${i}`,
+      nama_kategori: c.nama_kategori!,
+      tipe: c.tipe as any,
+      created_at: '',
+      updated_at: '',
+    }));
   } catch (e) {
     console.error('Error fetching kas kategori:', e);
   }
@@ -118,8 +229,14 @@ export async function addKasTransaksi(
 
     if (error) return { success: false, error: error.message };
 
+    if (txData.siswa_id) {
+      await syncSiswaPaymentState(txData.siswa_id);
+    }
+
     revalidatePath('/kas');
     revalidatePath('/kas/cashflow');
+    revalidatePath('/kas/piutang');
+    revalidatePath('/siswa');
     revalidatePath('/dashboard');
     return { success: true };
   } catch (err: any) {
@@ -222,6 +339,10 @@ export async function updateKasTransaksi(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createServerClient();
+
+    // Fetch old tx to check previous siswa_id
+    const { data: oldTx } = await supabase.from('kas_transaksi').select('siswa_id').eq('id', id).single();
+
     const { siswa, hutang, ...cleanUpdates } = updates as any;
     const { error } = await supabase
       .from('kas_transaksi')
@@ -230,8 +351,17 @@ export async function updateKasTransaksi(
 
     if (error) return { success: false, error: error.message };
 
+    if (oldTx?.siswa_id) {
+      await syncSiswaPaymentState(oldTx.siswa_id);
+    }
+    if (cleanUpdates.siswa_id && cleanUpdates.siswa_id !== oldTx?.siswa_id) {
+      await syncSiswaPaymentState(cleanUpdates.siswa_id);
+    }
+
     revalidatePath('/kas');
     revalidatePath('/kas/cashflow');
+    revalidatePath('/kas/piutang');
+    revalidatePath('/siswa');
     revalidatePath('/dashboard');
     return { success: true };
   } catch (err: any) {
@@ -242,12 +372,22 @@ export async function updateKasTransaksi(
 export async function deleteKasTransaksi(id: string): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createServerClient();
+
+    // Fetch tx to check if it is linked to a siswa
+    const { data: tx } = await supabase.from('kas_transaksi').select('siswa_id').eq('id', id).single();
+
     const { error } = await supabase.from('kas_transaksi').delete().eq('id', id);
 
     if (error) return { success: false, error: error.message };
 
+    if (tx?.siswa_id) {
+      await syncSiswaPaymentState(tx.siswa_id);
+    }
+
     revalidatePath('/kas');
     revalidatePath('/kas/cashflow');
+    revalidatePath('/kas/piutang');
+    revalidatePath('/siswa');
     revalidatePath('/dashboard');
     return { success: true };
   } catch (err: any) {

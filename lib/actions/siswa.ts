@@ -81,28 +81,6 @@ export async function updateSiswaPayment(
       return { success: false, error: updateErr?.message || 'Gagal memperbarui status pembayaran' };
     }
 
-    // 3. Automatically record transaction in Kas & Cashflow with exact payment amount and payment method
-    if ((statusKode === 'dp' || statusKode === 'lunas') && nominalDibayar && nominalDibayar > 0) {
-      const payDate = tanggalBayar || new Date().toISOString().slice(0, 10);
-      const isLunas = statusKode === 'lunas';
-      const labelTx = isLunas
-        ? `Pelunasan Kursus - ${updatedSiswa.nama} (${updatedSiswa.kode_siswa})`
-        : `Pembayaran DP Kursus - ${updatedSiswa.nama} (${updatedSiswa.kode_siswa})`;
-
-      await supabase.from('kas_transaksi').insert({
-        tanggal: payDate,
-        tipe: 'pemasukan',
-        kategori: isLunas ? 'pelunasan_siswa' : 'dp_siswa',
-        keterangan: labelTx,
-        nominal: nominalDibayar,
-        jenis_pembayaran: jenisPembayaran || 'non_tunai',
-        pic_tipe: 'admin',
-        pic_nama: 'Admin Staff',
-        siswa_id: updatedSiswa.id,
-        sumber_otomatis: true,
-      });
-    }
-
     revalidatePath('/siswa');
     revalidatePath(`/siswa/${siswaId}`);
     revalidatePath('/kas');
@@ -200,34 +178,6 @@ export async function createOrUpdateSiswa(
 
     if (error || !savedSiswa) {
       return { success: false, error: error?.message || 'Gagal menyimpan data siswa' };
-    }
-
-    // Automatic Kas Transaction logic ONLY for brand new registration with initial payment (DP / Lunas)
-    // Avoid duplicate entries on subsequent profile edits!
-    if (isNew) {
-      const statusKode = savedSiswa.status_pembayaran_kode;
-      const nominalPay = savedSiswa.dp_nominal || (statusKode === 'lunas' ? savedSiswa.harga_final : 0);
-      const payDate = savedSiswa.dp_tanggal || new Date().toISOString().slice(0, 10);
-
-      if ((statusKode === 'dp' || statusKode === 'lunas') && nominalPay > 0) {
-        const isLunas = statusKode === 'lunas';
-        const labelTx = isLunas
-          ? `Pelunasan Kursus - ${savedSiswa.nama} (${savedSiswa.kode_siswa})`
-          : `Pembayaran DP Kursus - ${savedSiswa.nama} (${savedSiswa.kode_siswa})`;
-
-        await supabase.from('kas_transaksi').insert({
-          tanggal: payDate,
-          tipe: 'pemasukan',
-          kategori: isLunas ? 'pelunasan_siswa' : 'dp_siswa',
-          keterangan: labelTx,
-          nominal: nominalPay,
-          jenis_pembayaran: selectedJenisPembayaran,
-          pic_tipe: 'admin',
-          pic_nama: 'Admin Staff',
-          siswa_id: savedSiswa.id,
-          sumber_otomatis: true,
-        });
-      }
     }
 
     revalidatePath('/siswa');

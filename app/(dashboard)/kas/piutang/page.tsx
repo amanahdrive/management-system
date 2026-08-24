@@ -6,7 +6,8 @@ import { PinGateDialog } from '@/components/shared/PinGateDialog';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Siswa } from '@/types/database';
-import { getSiswaList, updateSiswaPayment } from '@/lib/actions/siswa';
+import { getSiswaList } from '@/lib/actions/siswa';
+import { addKasTransaksi } from '@/lib/actions/kas';
 import { formatRupiah } from '@/lib/utils/currency';
 import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
 import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
@@ -53,15 +54,23 @@ export default function PiutangPage() {
 
   const handleSavePelunasan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSiswa) return;
+    if (!selectedSiswa || bayarNominal <= 0) return;
 
-    await updateSiswaPayment(
-      selectedSiswa.id,
-      'lunas',
-      bayarNominal,
-      bayarTanggal,
-      bayarMetode
-    );
+    await addKasTransaksi({
+      tanggal: bayarTanggal,
+      tipe: 'pemasukan',
+      kategori: selectedSiswa.status_pembayaran_kode === 'dp' ? 'pelunasan_siswa' : 'dp_siswa',
+      keterangan:
+        selectedSiswa.status_pembayaran_kode === 'dp'
+          ? `Pelunasan Kursus - ${selectedSiswa.nama} (${selectedSiswa.kode_siswa})`
+          : `Pembayaran DP Kursus - ${selectedSiswa.nama} (${selectedSiswa.kode_siswa})`,
+      nominal: bayarNominal,
+      jenis_pembayaran: bayarMetode,
+      pic_tipe: 'admin',
+      pic_nama: 'Admin Staff',
+      siswa_id: selectedSiswa.id,
+      sumber_otomatis: false,
+    });
 
     setSelectedSiswa(null);
     loadData();
@@ -325,7 +334,7 @@ export default function PiutangPage() {
                 </div>
 
                 <p className="text-[10px] text-emerald-800 dark:text-emerald-300 italic">
-                  * Pelunasan ini akan mengubah status siswa menjadi LUNAS dan mencatat transaksi pemasukan di kas.
+                  * Pembayaran ini akan dicatat ke Buku Kas & Keuangan dan langsung memperbarui status serta sisa piutang siswa.
                 </p>
 
                 <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border)]">
