@@ -679,21 +679,18 @@ export function printDocument(data: NotaData): void {
 }
 
 /**
- * Capture DOM node as crisp High-Resolution JPG image
+ * Capture DOM node as crisp High-Resolution JPG image using html-to-image
  */
 export async function downloadDocumentAsJpg(element: HTMLElement, filename: string): Promise<void> {
-  const html2canvas = (await import('html2canvas')).default;
-  const canvas = await html2canvas(element, {
-    scale: 2,
-    useCORS: true,
-    allowTaint: false,
+  const { toJpeg } = await import('html-to-image');
+
+  const dataUrl = await toJpeg(element, {
+    quality: 0.96,
     backgroundColor: '#ffffff',
-    logging: false,
-    scrollX: 0,
-    scrollY: 0,
+    pixelRatio: 2,
+    cacheBust: true,
   });
 
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
   const link = document.createElement('a');
   link.download = `${filename}.jpg`;
   link.href = dataUrl;
@@ -703,27 +700,22 @@ export async function downloadDocumentAsJpg(element: HTMLElement, filename: stri
 }
 
 /**
- * Capture DOM node and export as exact A5 Landscape / A4 Portrait PDF
+ * Capture DOM node and export as exact A5 Landscape / A4 Portrait PDF using html-to-image + jsPDF
  */
 export async function downloadDocumentAsPdf(
   element: HTMLElement,
   filename: string,
   isA4: boolean
 ): Promise<void> {
-  const html2canvas = (await import('html2canvas')).default;
+  const { toJpeg } = await import('html-to-image');
   const { jsPDF } = await import('jspdf');
 
-  const canvas = await html2canvas(element, {
-    scale: 2,
-    useCORS: true,
-    allowTaint: false,
+  const imgData = await toJpeg(element, {
+    quality: 0.96,
     backgroundColor: '#ffffff',
-    logging: false,
-    scrollX: 0,
-    scrollY: 0,
+    pixelRatio: 2,
+    cacheBust: true,
   });
-
-  const imgData = canvas.toDataURL('image/jpeg', 0.95);
 
   if (isA4) {
     const pdf = new jsPDF({
@@ -751,20 +743,14 @@ export async function copyDocumentToClipboard(
   element: HTMLElement
 ): Promise<{ success: boolean; message?: string }> {
   try {
-    const html2canvas = (await import('html2canvas')).default;
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: false,
+    const { toBlob } = await import('html-to-image');
+
+    const blob = await toBlob(element, {
       backgroundColor: '#ffffff',
-      logging: false,
-      scrollX: 0,
-      scrollY: 0,
+      pixelRatio: 2,
+      cacheBust: true,
     });
 
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/png')
-    );
     if (!blob) {
       return { success: false, message: 'Gagal membuat file gambar dari kanvas' };
     }
@@ -794,3 +780,4 @@ export async function copyDocumentToClipboard(
     };
   }
 }
+
