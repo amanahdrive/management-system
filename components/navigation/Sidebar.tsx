@@ -22,6 +22,7 @@ import {
   CreditCard,
   Clock,
   AlertOctagon,
+  Receipt,
 } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
 
@@ -173,6 +174,15 @@ export function Sidebar() {
         >
           <Wallet className="w-4 h-4 min-w-[16px]" />
           {sidebarOpen && <span className="whitespace-nowrap">Kas & Keuangan</span>}
+        </Link>
+
+        <Link
+          href="/nota"
+          className={navItemClass(pathname.startsWith('/nota'))}
+          title={!sidebarOpen ? 'Cetak Nota' : undefined}
+        >
+          <Receipt className="w-4 h-4 min-w-[16px]" />
+          {sidebarOpen && <span className="whitespace-nowrap">Cetak Nota</span>}
         </Link>
 
         {/* Master Data Dropdown Item */}
