@@ -684,16 +684,19 @@ export function printDocument(data: NotaData): void {
 export async function downloadDocumentAsJpg(element: HTMLElement, filename: string): Promise<void> {
   const html2canvas = (await import('html2canvas')).default;
   const canvas = await html2canvas(element, {
-    scale: 2.5,
+    scale: 2,
     useCORS: true,
-    allowTaint: true,
+    allowTaint: false,
     backgroundColor: '#ffffff',
     logging: false,
+    scrollX: 0,
+    scrollY: 0,
   });
 
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
   const link = document.createElement('a');
   link.download = `${filename}.jpg`;
-  link.href = canvas.toDataURL('image/jpeg', 0.95);
+  link.href = dataUrl;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -711,11 +714,13 @@ export async function downloadDocumentAsPdf(
   const { jsPDF } = await import('jspdf');
 
   const canvas = await html2canvas(element, {
-    scale: 2.5,
+    scale: 2,
     useCORS: true,
-    allowTaint: true,
+    allowTaint: false,
     backgroundColor: '#ffffff',
     logging: false,
+    scrollX: 0,
+    scrollY: 0,
   });
 
   const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -742,38 +747,50 @@ export async function downloadDocumentAsPdf(
 /**
  * Copy PNG image blob to Clipboard for instant pasting into WhatsApp
  */
-export async function copyDocumentToClipboard(element: HTMLElement): Promise<boolean> {
+export async function copyDocumentToClipboard(
+  element: HTMLElement
+): Promise<{ success: boolean; message?: string }> {
   try {
     const html2canvas = (await import('html2canvas')).default;
     const canvas = await html2canvas(element, {
-      scale: 2.5,
+      scale: 2,
       useCORS: true,
-      allowTaint: true,
+      allowTaint: false,
       backgroundColor: '#ffffff',
       logging: false,
+      scrollX: 0,
+      scrollY: 0,
     });
 
-    return new Promise<boolean>((resolve) => {
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-          resolve(false);
-          return;
-        }
-        try {
-          if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
-            await navigator.clipboard.write([
-              new ClipboardItem({ 'image/png': blob }),
-            ]);
-            resolve(true);
-          } else {
-            resolve(false);
-          }
-        } catch {
-          resolve(false);
-        }
-      }, 'image/png');
-    });
-  } catch {
-    return false;
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/png')
+    );
+    if (!blob) {
+      return { success: false, message: 'Gagal membuat file gambar dari kanvas' };
+    }
+
+    if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob }),
+        ]);
+        return { success: true };
+      } catch (clipErr: any) {
+        return {
+          success: false,
+          message: clipErr?.message || 'Izin clipboard ditolak browser',
+        };
+      }
+    } else {
+      return {
+        success: false,
+        message: 'Browser tidak mendukung salin gambar ke clipboard',
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.message || 'Gagal memproses gambar nota',
+    };
   }
 }

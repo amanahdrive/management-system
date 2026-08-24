@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { PinGateDialog } from '@/components/shared/PinGateDialog';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
@@ -23,7 +22,6 @@ import {
 } from '@/lib/utils/nota-generator';
 import {
   Receipt,
-  FileText,
   Printer,
   Copy,
   Image as ImageIcon,
@@ -34,17 +32,13 @@ import {
   RefreshCw,
   FileDown,
   Info,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  Building2,
-  Calendar,
   CreditCard,
   Banknote,
   QrCode,
   Stamp,
-  UserCheck,
-  Edit3,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
 } from 'lucide-react';
 
 const JENIS_DOC_ITEMS: { value: NotaJenis; label: string; desc: string; size: string }[] = [
@@ -85,6 +79,10 @@ export default function NotaPage() {
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
   const [paketList, setPaketList] = React.useState<Paket[]>([]);
   const [loading, setLoading] = React.useState(true);
+
+  // Base64 Images for 100% bulletproof html2canvas capture (no CORS, no tainting)
+  const [logoBase64, setLogoBase64] = React.useState<string>('/assets/logo-amdri-landscape.png');
+  const [stampBase64, setStampBase64] = React.useState<string>('/assets/cap-amanah.png');
 
   // Form Mode: 'db' | 'manual'
   const [inputMode, setInputMode] = React.useState<'db' | 'manual'>('db');
@@ -127,13 +125,12 @@ export default function NotaPage() {
   // Preview & Action States
   const [zoomScale, setZoomScale] = React.useState<number>(1);
   const [actionLoading, setActionLoading] = React.useState<string | null>(null);
-  const [toast, setToast] = React.useState<string | null>(null);
+  const [toast, setToast] = React.useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
 
   // Ref to the rendered document paper for html2canvas
   const documentPaperRef = React.useRef<HTMLDivElement>(null);
-  const previewWrapperRef = React.useRef<HTMLDivElement>(null);
 
-  // Load Initial Data
+  // Load Initial Data and preload images to Base64
   React.useEffect(() => {
     (async () => {
       setLoading(true);
@@ -142,12 +139,32 @@ export default function NotaPage() {
       setPaketList(pList);
       setLoading(false);
     })();
+
+    // Convert local asset images to Base64 Data URL to guarantee html2canvas never encounters CORS or tainting
+    const convertAssetToBase64 = async (url: string, setter: (val: string) => void) => {
+      try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            setter(reader.result);
+          }
+        };
+        reader.readAsDataURL(blob);
+      } catch (err) {
+        console.warn('Could not preload base64 for', url, err);
+      }
+    };
+
+    convertAssetToBase64('/assets/logo-amdri-landscape.png', setLogoBase64);
+    convertAssetToBase64('/assets/cap-amanah.png', setStampBase64);
   }, []);
 
   // Show Toast
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3500);
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
   };
 
   // Calculations
@@ -254,18 +271,21 @@ export default function NotaPage() {
   const docInfo = getJenisInfo(jenis);
   const isA4 = docInfo.isA4;
 
-  // Output Handlers
+  // ─── 4 Output Action Handlers with Robust Error Handling ───
+
   const handleDownloadJpg = async () => {
     if (!documentPaperRef.current) return;
     setActionLoading('jpg');
     try {
       const filename = `${jenis}_${kodeSiswa || 'siswa'}_${tanggal}`;
       await downloadDocumentAsJpg(documentPaperRef.current, filename);
-      showToast('✅ Berhasil mendownload gambar Nota (JPG)');
-    } catch {
-      showToast('❌ Gagal mendownload gambar JPG');
+      showToast('✅ Berhasil mendownload gambar Nota (JPG)!', 'success');
+    } catch (err: any) {
+      console.error('Download JPG Error:', err);
+      showToast(`❌ Gagal download JPG: ${err?.message || 'Terjadi kesalahan sistem'}`, 'error');
+    } finally {
+      setActionLoading(null);
     }
-    setActionLoading(null);
   };
 
   const handleDownloadPdf = async () => {
@@ -274,31 +294,43 @@ export default function NotaPage() {
     try {
       const filename = `${jenis}_${kodeSiswa || 'siswa'}_${tanggal}`;
       await downloadDocumentAsPdf(documentPaperRef.current, filename, isA4);
-      showToast('✅ Berhasil mendownload dokumen Nota (PDF)');
-    } catch {
-      showToast('❌ Gagal mendownload dokumen PDF');
+      showToast('✅ Berhasil mendownload dokumen Nota (PDF)!', 'success');
+    } catch (err: any) {
+      console.error('Download PDF Error:', err);
+      showToast(`❌ Gagal download PDF: ${err?.message || 'Terjadi kesalahan sistem'}`, 'error');
+    } finally {
+      setActionLoading(null);
     }
-    setActionLoading(null);
   };
 
   const handleCopyClipboard = async () => {
     if (!documentPaperRef.current) return;
     setActionLoading('copy');
     try {
-      const ok = await copyDocumentToClipboard(documentPaperRef.current);
-      if (ok) {
-        showToast('✅ Gambar Nota disalin ke Clipboard! Siap dipaste (Ctrl+V) ke WhatsApp.');
+      const res = await copyDocumentToClipboard(documentPaperRef.current);
+      if (res.success) {
+        showToast('✅ Gambar Nota disalin ke Clipboard! Siap dipaste (Ctrl+V) langsung ke WhatsApp.', 'success');
       } else {
-        showToast('⚠️ Browser membatasi clipboard. Silakan gunakan tombol Download JPG.');
+        showToast(`⚠️ ${res.message || 'Browser membatasi clipboard'}. Mengunduh file JPG sebagai gantinya...`, 'warning');
+        // Auto fallback to download JPG so user gets the image regardless
+        const filename = `${jenis}_${kodeSiswa || 'siswa'}_${tanggal}`;
+        await downloadDocumentAsJpg(documentPaperRef.current, filename);
       }
-    } catch {
-      showToast('❌ Gagal menyalin gambar');
+    } catch (err: any) {
+      console.error('Copy Image Error:', err);
+      showToast(`❌ Gagal menyalin gambar: ${err?.message || 'Error'}`, 'error');
+    } finally {
+      setActionLoading(null);
     }
-    setActionLoading(null);
   };
 
   const handlePrint = () => {
-    printDocument(currentNotaData);
+    try {
+      printDocument(currentNotaData);
+    } catch (err: any) {
+      console.error('Print Error:', err);
+      showToast('❌ Gagal membuka print dialog', 'error');
+    }
   };
 
   // Status Badge Helper
@@ -319,9 +351,17 @@ export default function NotaPage() {
 
         {/* Floating Toast Notification */}
         {toast && (
-          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-slate-900 text-white text-xs font-bold rounded-2xl shadow-2xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 border border-slate-700">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{toast}</span>
+          <div
+            className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 border text-xs font-bold ${
+              toast.type === 'success'
+                ? 'bg-slate-900 text-emerald-300 border-emerald-500/30'
+                : toast.type === 'warning'
+                ? 'bg-slate-900 text-amber-300 border-amber-500/30'
+                : 'bg-slate-900 text-rose-300 border-rose-500/30'
+            }`}
+          >
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+            <span>{toast.message}</span>
           </div>
         )}
 
@@ -782,8 +822,8 @@ export default function NotaPage() {
                 <button
                   type="button"
                   onClick={handleDownloadJpg}
-                  disabled={actionLoading === 'jpg'}
-                  className="px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-xs font-bold hover:bg-amber-100 flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50"
+                  disabled={actionLoading !== null}
+                  className="px-3.5 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-xs font-bold hover:bg-amber-100 flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50"
                   title="Download gambar nota berkualitas tinggi"
                 >
                   {actionLoading === 'jpg' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
@@ -793,8 +833,8 @@ export default function NotaPage() {
                 <button
                   type="button"
                   onClick={handleDownloadPdf}
-                  disabled={actionLoading === 'pdf'}
-                  className="px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800 text-xs font-bold hover:bg-rose-100 flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50"
+                  disabled={actionLoading !== null}
+                  className="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800 text-xs font-bold hover:bg-rose-100 flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50"
                   title="Download format PDF presisi cetak"
                 >
                   {actionLoading === 'pdf' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
@@ -804,8 +844,8 @@ export default function NotaPage() {
                 <button
                   type="button"
                   onClick={handleCopyClipboard}
-                  disabled={actionLoading === 'copy'}
-                  className="px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800 text-xs font-bold hover:bg-blue-100 flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50"
+                  disabled={actionLoading !== null}
+                  className="px-3.5 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800 text-xs font-bold hover:bg-blue-100 flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50"
                   title="Salin foto untuk langsung dipaste ke WhatsApp"
                 >
                   {actionLoading === 'copy' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
@@ -815,7 +855,8 @@ export default function NotaPage() {
                 <button
                   type="button"
                   onClick={handlePrint}
-                  className="px-3.5 py-2 rounded-xl bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-bold flex items-center gap-1.5 shadow-md transition-all"
+                  disabled={actionLoading !== null}
+                  className="px-4 py-2 rounded-xl bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-bold flex items-center gap-1.5 shadow-md transition-all disabled:opacity-50"
                   title="Cetak langsung menggunakan printer"
                 >
                   <Printer className="w-3.5 h-3.5" />
@@ -825,10 +866,7 @@ export default function NotaPage() {
             </div>
 
             {/* Document Paper Canvas Container */}
-            <div
-              ref={previewWrapperRef}
-              className="p-4 sm:p-6 rounded-3xl bg-slate-200/80 dark:bg-slate-900/60 border border-[var(--border)] overflow-x-auto flex justify-center items-start shadow-inner min-h-[500px]"
-            >
+            <div className="p-4 sm:p-6 rounded-3xl bg-slate-200/80 dark:bg-slate-900/60 border border-[var(--border)] overflow-x-auto flex justify-center items-start shadow-inner min-h-[500px]">
               {/* Actual Physical Paper Component */}
               <div
                 ref={documentPaperRef}
@@ -844,14 +882,12 @@ export default function NotaPage() {
                 {/* ── 1. KOP SURAT BISNIS RESMI ── */}
                 <div>
                   <div className="flex items-center justify-between pb-3">
-                    <div className="w-44 h-12 relative">
-                      <Image
-                        src="/assets/logo-amdri-landscape.png"
+                    <div className="w-48 h-12 flex items-center">
+                      <img
+                        src={logoBase64}
                         alt="Logo Amanah Drive"
-                        fill
-                        className="object-contain object-left"
-                        priority
-                        unoptimized
+                        crossOrigin="anonymous"
+                        style={{ width: '185px', height: 'auto', maxHeight: '48px', objectFit: 'contain' }}
                       />
                     </div>
                     <div className="text-right max-w-sm">
@@ -1018,15 +1054,13 @@ export default function NotaPage() {
                       <div className="font-bold text-slate-800 mb-1">Petugas Kasir / Administrasi,</div>
                       <div className="h-12 relative flex items-center justify-center">
                         {showStempel && (
-                          <div className="w-20 h-20 absolute -top-3 right-6 pointer-events-none opacity-85">
-                            <Image
-                              src="/assets/cap-amanah.png"
-                              alt="Cap Amanah Drive"
-                              fill
-                              className="object-contain"
-                              unoptimized
-                            />
-                          </div>
+                          <img
+                            src={stampBase64}
+                            alt="Cap Amanah Drive"
+                            crossOrigin="anonymous"
+                            style={{ width: '75px', height: '75px', objectFit: 'contain' }}
+                            className="absolute -top-3 right-6 pointer-events-none opacity-85"
+                          />
                         )}
                       </div>
                       <div className="font-black text-slate-900 border-t border-slate-700 pt-1">
