@@ -1,14 +1,17 @@
 'use client';
 
 import React from 'react';
-import { KasTransaksi, Siswa } from '@/types/database';
+import { KasTransaksi, Siswa, Paket } from '@/types/database';
 import {
   getKasOverviewMetrics,
   getKasTransaksiList,
   addKasTransaksi,
   getKasKategoriList,
+  getDpKustomList,
+  DpKustomItem,
 } from '@/lib/actions/kas';
 import { getSiswaList } from '@/lib/actions/siswa';
+import { getPaketList } from '@/lib/actions/master-data';
 import { verifyKasPin } from '@/lib/actions/kas-pin';
 import { formatRupiah } from '@/lib/utils/currency';
 import { getTodayDateString, formatDateIndo, formatDateLongIndo } from '@/lib/utils/date';
@@ -42,6 +45,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   RotateCcw,
+  Sparkles,
+  Star,
 } from 'lucide-react';
 
 function fmt(n: number): string {
@@ -83,9 +88,17 @@ export default function FinancePortalPage() {
   const [recentTx, setRecentTx] = React.useState<KasTransaksi[]>([]);
   const [kategoriList, setKategoriList] = React.useState<any[]>([]);
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
+  const [paketList, setPaketList] = React.useState<Paket[]>([]);
+  const [dpKustomList, setDpKustomList] = React.useState<DpKustomItem[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [toast, setToast] = React.useState<string | null>(null);
+
+  // Custom DP States
+  const [customNama, setCustomNama] = React.useState('');
+  const [customPaketId, setCustomPaketId] = React.useState('');
+  const [customHargaPaket, setCustomHargaPaket] = React.useState(0);
+  const [customDpNominal, setCustomDpNominal] = React.useState(0);
 
   // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
@@ -159,16 +172,20 @@ export default function FinancePortalPage() {
   // Load Data
   const loadData = async () => {
     setLoading(true);
-    const [m, txList, kList, sList] = await Promise.all([
+    const [m, txList, kList, sList, pList, dpKList] = await Promise.all([
       getKasOverviewMetrics(),
       getKasTransaksiList(),
       getKasKategoriList(),
       getSiswaList(),
+      getPaketList(),
+      getDpKustomList(),
     ]);
     setMetrics(m as any);
     setRecentTx(txList.slice(0, 30));
     setKategoriList(kList);
     setSiswaList(sList);
+    setPaketList(pList);
+    setDpKustomList(dpKList);
     setLoading(false);
   };
 
@@ -195,6 +212,10 @@ export default function FinancePortalPage() {
       keterangan: '',
       nominal: 0,
     }));
+    setCustomNama('');
+    setCustomPaketId('');
+    setCustomHargaPaket(0);
+    setCustomDpNominal(0);
   };
 
   const handleKategoriChange = (newKategori: string) => {
@@ -205,9 +226,80 @@ export default function FinancePortalPage() {
       keterangan: '',
       nominal: 0,
     }));
+    setCustomNama('');
+    setCustomPaketId('');
+    setCustomHargaPaket(0);
+    setCustomDpNominal(0);
+  };
+
+  const handleCustomPaketChange = (paketId: string) => {
+    const p = paketList.find((item) => item.id === paketId);
+    const price = p ? (p.harga_promo || p.harga_normal) : 2000000;
+    const suggestedDp = Math.round(price * 0.5);
+    setCustomPaketId(paketId);
+    setCustomHargaPaket(price);
+    setCustomDpNominal(suggestedDp);
+    setFormData((prev) => ({
+      ...prev,
+      nominal: suggestedDp,
+      keterangan: `DP Kustom - ${customNama || 'Customer'} | Paket: ${p?.nama_paket || 'Paket Kursus'} | Total: ${formatRupiah(price)}`,
+    }));
+  };
+
+  const handleCustomNamaChange = (nama: string) => {
+    setCustomNama(nama);
+    const p = paketList.find((item) => item.id === customPaketId) || paketList[0];
+    const price = customHargaPaket || (p ? (p.harga_promo || p.harga_normal) : 2000000);
+    setFormData((prev) => ({
+      ...prev,
+      keterangan: `DP Kustom - ${nama || 'Customer'} | Paket: ${p?.nama_paket || 'Paket Kursus'} | Total: ${formatRupiah(price)}`,
+    }));
+  };
+
+  const handleCustomDpNominalChange = (nominal: number) => {
+    setCustomDpNominal(nominal);
+    setFormData((prev) => ({
+      ...prev,
+      nominal,
+    }));
   };
 
   const handleSiswaChange = (siswaId: string) => {
+    // 1. Kasus DP Kustom
+    if (siswaId === 'custom_dp') {
+      const defaultPaket = paketList[0];
+      const defaultPrice = defaultPaket ? (defaultPaket.harga_promo || defaultPaket.harga_normal) : 2000000;
+      const defaultDp = Math.round(defaultPrice * 0.5);
+
+      setCustomPaketId(defaultPaket?.id || '');
+      setCustomHargaPaket(defaultPrice);
+      setCustomDpNominal(defaultDp);
+
+      setFormData((prev) => ({
+        ...prev,
+        siswa_id: 'custom_dp',
+        keterangan: `DP Kustom - ${customNama || 'Customer'} | Paket: ${defaultPaket?.nama_paket || 'Paket Kursus'} | Total: ${formatRupiah(defaultPrice)}`,
+        nominal: defaultDp,
+      }));
+      return;
+    }
+
+    // 2. Kasus Pelunasan DP Kustom (Memilih DP Kustom yang belum lunas)
+    if (siswaId.startsWith('dp_kustom_')) {
+      const dpId = siswaId.replace('dp_kustom_', '');
+      const dpItem = dpKustomList.find((item) => item.id === dpId);
+      if (dpItem) {
+        setFormData((prev) => ({
+          ...prev,
+          siswa_id: siswaId,
+          keterangan: `Pelunasan DP Kustom - ${dpItem.nama} | Paket: ${dpItem.namaPaket} | Sisa: ${formatRupiah(dpItem.sisaTagihan)} [Ref: ${dpItem.id}]`,
+          nominal: dpItem.sisaTagihan,
+        }));
+      }
+      return;
+    }
+
+    // 3. Kasus Siswa Terdaftar Reguler
     const s = siswaList.find((item) => item.id === siswaId);
     if (!s) {
       setFormData((prev) => ({ ...prev, siswa_id: '', keterangan: '', nominal: 0 }));
@@ -266,7 +358,15 @@ export default function FinancePortalPage() {
     return [];
   }, [siswaList, isDpCategory, isPelunasanCategory, isRefundCategory]);
 
-  const selectedSiswa = siswaList.find((s) => s.id === formData.siswa_id);
+  const isCustomDpSelected = formData.siswa_id === 'custom_dp';
+  const selectedDpKustom = formData.siswa_id.startsWith('dp_kustom_')
+    ? dpKustomList.find((dp) => dp.id === formData.siswa_id.replace('dp_kustom_', ''))
+    : null;
+  const unsettledDpKustom = React.useMemo(() => dpKustomList.filter((dp) => !dp.isLunas), [dpKustomList]);
+
+  const selectedSiswa = !isCustomDpSelected && !selectedDpKustom
+    ? siswaList.find((s) => s.id === formData.siswa_id)
+    : null;
 
   // Available categories for selected type
   const availableKategoriList = React.useMemo(() => {
@@ -318,6 +418,9 @@ export default function FinancePortalPage() {
       return;
     }
     setSubmitting(true);
+    const isCustom = formData.siswa_id === 'custom_dp' || formData.siswa_id.startsWith('dp_kustom_');
+    const finalSiswaId = isCustom ? null : (formData.siswa_id || null);
+
     const res = await addKasTransaksi({
       tanggal: formData.tanggal,
       tipe: formData.tipe,
@@ -327,7 +430,7 @@ export default function FinancePortalPage() {
       jenis_pembayaran: formData.jenis_pembayaran,
       pic_tipe: 'finance',
       pic_nama: 'Lia (Finance)',
-      siswa_id: formData.siswa_id || null,
+      siswa_id: finalSiswaId,
       sumber_otomatis: false,
     });
     setSubmitting(false);
@@ -339,6 +442,10 @@ export default function FinancePortalPage() {
         nominal: 0,
         siswa_id: '',
       }));
+      setCustomNama('');
+      setCustomPaketId('');
+      setCustomHargaPaket(0);
+      setCustomDpNominal(0);
       setShowAddForm(false);
       await loadData();
     } else {
@@ -874,38 +981,163 @@ export default function FinancePortalPage() {
                       onChange={(e) => handleSiswaChange(e.target.value)}
                       className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] text-xs appearance-none pr-8 font-medium"
                     >
-                      <option value="">-- Pilih Data Siswa --</option>
-                      {filteredSiswaDropdown.map((s) => {
-                        const sisaTagihan = Math.max(0, s.harga_final - (s.dp_nominal || 0));
-                        const totalPaid = s.status_pembayaran_kode === 'lunas' ? s.harga_final : (s.dp_nominal || 0);
+                      <option value="">-- Pilih Siswa / DP Kustom --</option>
 
-                        let labelOption = `${s.kode_siswa} - ${s.nama}`;
-                        if (isDpCategory) {
-                          labelOption += ` (Tagihan: ${formatRupiah(s.harga_final)})`;
-                        } else if (isPelunasanCategory) {
-                          labelOption += ` (Sisa Piutang: ${formatRupiah(sisaTagihan)})`;
-                        } else if (isRefundCategory) {
-                          labelOption += ` (Terbayar: ${formatRupiah(totalPaid)} [${s.status_pembayaran_kode.toUpperCase()}])`;
-                        }
+                      {/* DP KUSTOM Option for DP Category */}
+                      {isDpCategory && (
+                        <option value="custom_dp" className="font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/40">
+                          ✨ [+ Input DP Kustom / Tanpa Data Siswa]
+                        </option>
+                      )}
 
-                        return (
-                          <option key={s.id} value={s.id}>
-                            {labelOption}
-                          </option>
-                        );
-                      })}
+                      {/* PELUNASAN: DP KUSTOM BERADA DI PALING ATAS */}
+                      {isPelunasanCategory && unsettledDpKustom.length > 0 && (
+                        <optgroup label="⭐ DAFTAR DP KUSTOM (BELUM LUNAS)">
+                          {unsettledDpKustom.map((dp) => (
+                            <option
+                              key={`dp_kustom_${dp.id}`}
+                              value={`dp_kustom_${dp.id}`}
+                              className="font-bold text-amber-800 dark:text-amber-300"
+                            >
+                              ⭐ [DP Kustom] {dp.nama} — {dp.namaPaket} (Sisa: {formatRupiah(dp.sisaTagihan)})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+
+                      {/* DAFTAR SISWA TERDAFTAR */}
+                      {isPelunasanCategory && (
+                        <optgroup label="Daftar Siswa Terdaftar (Status DP)">
+                          {filteredSiswaDropdown.map((s) => {
+                            const sisaTagihan = Math.max(0, s.harga_final - (s.dp_nominal || 0));
+                            return (
+                              <option key={s.id} value={s.id}>
+                                {s.kode_siswa} - {s.nama} (Sisa Piutang: {formatRupiah(sisaTagihan)})
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      )}
+
+                      {isDpCategory && (
+                        <optgroup label="Daftar Siswa Terdaftar (Belum Bayar)">
+                          {filteredSiswaDropdown.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.kode_siswa} - {s.nama} (Total Tagihan: {formatRupiah(s.harga_final)})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+
+                      {isRefundCategory && (
+                        <optgroup label="Daftar Siswa Terdaftar (DP / Lunas)">
+                          {filteredSiswaDropdown.map((s) => {
+                            const totalPaid = s.status_pembayaran_kode === 'lunas' ? s.harga_final : (s.dp_nominal || 0);
+                            return (
+                              <option key={s.id} value={s.id}>
+                                {s.kode_siswa} - {s.nama} (Terbayar: {formatRupiah(totalPaid)} [{s.status_pembayaran_kode.toUpperCase()}])
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      )}
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-[var(--text-secondary)]" />
                   </div>
 
-                  {filteredSiswaDropdown.length === 0 && (
-                    <p className="text-[11px] text-amber-700 dark:text-amber-400 italic">
-                      {isDpCategory
-                        ? 'Tidak ada siswa berstatus Belum Bayar saat ini.'
-                        : isPelunasanCategory
-                        ? 'Tidak ada siswa berstatus DP yang membutuhkan pelunasan.'
-                        : 'Tidak ada siswa dengan pembayaran aktif untuk di-refund.'}
-                    </p>
+                  {/* Form Khusus Input DP Kustom */}
+                  {isCustomDpSelected && (
+                    <div className="pt-2 border-t border-[var(--border)] space-y-3 p-3 bg-amber-50/60 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900 text-xs">
+                      <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
+                        <Sparkles className="w-4 h-4 text-amber-600" />
+                        <span>Form Input DP Kustom (Non-Siswa)</span>
+                      </div>
+
+                      <div className="space-y-2.5">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                            Nama Customer / Calon Siswa *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Contoh: Budi Santoso"
+                            value={customNama}
+                            onChange={(e) => handleCustomNamaChange(e.target.value)}
+                            className="w-full px-3 py-2 text-xs rounded-lg border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                            Pilihan Paket Kursus *
+                          </label>
+                          <div className="relative">
+                            <select
+                              value={customPaketId}
+                              onChange={(e) => handleCustomPaketChange(e.target.value)}
+                              className="w-full px-3 py-2 text-xs rounded-lg border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)] appearance-none pr-8"
+                            >
+                              {paketList.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.nama_paket} ({formatRupiah(p.harga_promo || p.harga_normal)})
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-[var(--text-secondary)]" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-amber-100/70 dark:bg-amber-900/30 text-[10px] text-amber-800 dark:text-amber-300">
+                        💡 <strong>Info:</strong> Transaksi DP Kustom ini disimpan tanpa data siswa terdaftar. Saat pelunasan nantinya, nama ini akan otomatis muncul di <strong>bagian paling atas dropdown Pelunasan</strong>.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Info Khusus Ketika Memilih DP Kustom untuk Pelunasan */}
+                  {selectedDpKustom && (
+                    <div className="pt-2 border-t border-[var(--border)] space-y-2 text-[11px]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-bold text-[10px] flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                          Pelunasan DP Kustom (Non-Siswa)
+                        </span>
+                        <span className="text-[10px] text-[var(--text-muted)]">Ref ID: {selectedDpKustom.id.slice(0, 8)}</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 bg-[var(--bg)] p-2.5 rounded-xl border border-[var(--border)]">
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Nama Customer</span>
+                          <span className="font-bold text-[var(--text-primary)]">{selectedDpKustom.nama}</span>
+                        </div>
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Paket Dipilih</span>
+                          <span className="font-semibold text-[var(--text-primary)]">{selectedDpKustom.namaPaket}</span>
+                        </div>
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Total Biaya Paket</span>
+                          <span className="font-bold text-[var(--brand-primary)]">{formatRupiah(selectedDpKustom.hargaPaket)}</span>
+                        </div>
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">DP Awal Terbayar</span>
+                          <span className="font-semibold text-emerald-600">{formatRupiah(selectedDpKustom.dpNominal)}</span>
+                        </div>
+                        <div className="col-span-2 pt-1 border-t border-[var(--border)] flex justify-between items-center">
+                          <span className="text-[var(--text-secondary)] text-[10px]">Sisa Tagihan Pelunasan:</span>
+                          <span className="font-bold text-rose-600 text-xs">{formatRupiah(selectedDpKustom.sisaTagihan)}</span>
+                        </div>
+                      </div>
+
+                      {formData.nominal === selectedDpKustom.sisaTagihan && (
+                        <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 flex items-start gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-600" />
+                          <div>
+                            <strong>Pelunasan Penuh!</strong> Sisa tagihan DP Kustom ini sebesar <strong>{formatRupiah(selectedDpKustom.sisaTagihan)}</strong> akan lunas seluruhnya.
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {/* Context Info & Real-time Calculation Box */}

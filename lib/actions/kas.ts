@@ -394,3 +394,99 @@ export async function deleteKasTransaksi(id: string): Promise<{ success: boolean
     return { success: false, error: err.message };
   }
 }
+
+export interface DpKustomItem {
+  id: string; // ID of the DP transaction
+  nama: string;
+  namaPaket: string;
+  hargaPaket: number;
+  dpNominal: number;
+  totalPaid: number;
+  sisaTagihan: number;
+  tanggalDp: string;
+  isLunas: boolean;
+}
+
+export async function getDpKustomList(): Promise<DpKustomItem[]> {
+  try {
+    const supabase = await createServerClient();
+    // Query all non-student pemasukan transactions
+    const { data: txList } = await supabase
+      .from('kas_transaksi')
+      .select('*')
+      .eq('tipe', 'pemasukan')
+      .is('siswa_id', null)
+      .order('tanggal', { ascending: true });
+
+    if (!txList || txList.length === 0) return [];
+
+    // Filter DP Kustom transactions
+    const dpTxs = txList.filter(
+      (t) =>
+        t.kategori === 'dp_siswa' ||
+        t.kategori === 'dp_kustom' ||
+        (t.keterangan && t.keterangan.toLowerCase().includes('dp kustom'))
+    );
+
+    const result: DpKustomItem[] = [];
+
+    for (const dpTx of dpTxs) {
+      let nama = 'Customer Kustom';
+      let namaPaket = 'Paket Kursus';
+      let hargaPaket = dpTx.nominal * 2;
+
+      const ket = dpTx.keterangan || '';
+
+      const pipeParts = ket.split('|').map((s: string) => s.trim());
+      if (pipeParts.length >= 2) {
+        const namePart = pipeParts[0].replace(/^dp\s*kustom\s*[-:]\s*/i, '').replace(/^nama\s*:\s*/i, '').trim();
+        if (namePart) nama = namePart;
+
+        for (const part of pipeParts.slice(1)) {
+          if (/^paket\s*:\s*/i.test(part)) {
+            namaPaket = part.replace(/^paket\s*:\s*/i, '').trim();
+          } else if (/^(?:total|tagihan|harga|biaya)\s*:\s*/i.test(part)) {
+            const rawVal = part.replace(/^(?:total|tagihan|harga|biaya)\s*:\s*/i, '').replace(/[^0-9]/g, '');
+            const parsed = parseInt(rawVal, 10);
+            if (!isNaN(parsed) && parsed > 0) hargaPaket = parsed;
+          }
+        }
+      } else {
+        const simpleMatch = ket.match(/DP Kustom\s*-\s*([^(|]+)(?:\(([^)]+)\))?/i);
+        if (simpleMatch) {
+          if (simpleMatch[1]) nama = simpleMatch[1].trim();
+          if (simpleMatch[2]) namaPaket = simpleMatch[2].trim();
+        }
+      }
+
+      // Find any pelunasan transactions linked to this DP
+      const pelunasanTxs = txList.filter(
+        (t) =>
+          (t.kategori === 'pelunasan_siswa' || t.kategori === 'pelunasan_kustom' || (t.keterangan && t.keterangan.toLowerCase().includes('pelunasan'))) &&
+          t.keterangan &&
+          (t.keterangan.includes(dpTx.id) || (nama && nama !== 'Customer Kustom' && t.keterangan.toLowerCase().includes(nama.toLowerCase())))
+      );
+
+      const totalPelunasan = pelunasanTxs.reduce((sum, p) => sum + (p.nominal || 0), 0);
+      const totalPaid = dpTx.nominal + totalPelunasan;
+      const sisaTagihan = Math.max(0, hargaPaket - totalPaid);
+
+      result.push({
+        id: dpTx.id,
+        nama,
+        namaPaket,
+        hargaPaket,
+        dpNominal: dpTx.nominal,
+        totalPaid,
+        sisaTagihan,
+        tanggalDp: dpTx.tanggal,
+        isLunas: sisaTagihan <= 0,
+      });
+    }
+
+    return result;
+  } catch (err) {
+    console.error('Error in getDpKustomList:', err);
+    return [];
+  }
+}

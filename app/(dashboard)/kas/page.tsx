@@ -14,10 +14,13 @@ import {
   addKasTransaksi,
   getKasKategoriList,
   deleteKasTransaksi,
+  getDpKustomList,
+  DpKustomItem,
 } from '@/lib/actions/kas';
 import { getSiswaList } from '@/lib/actions/siswa';
+import { getPaketList } from '@/lib/actions/master-data';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
-import { Siswa } from '@/types/database';
+import { Siswa, Paket } from '@/types/database';
 import {
   Wallet,
   ArrowUpRight,
@@ -30,6 +33,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   RotateCcw,
+  Sparkles,
+  Star,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -44,6 +49,8 @@ export default function KasOverviewPage() {
   const [transaksiList, setTransaksiList] = React.useState<any[]>([]);
   const [kategoriList, setKategoriList] = React.useState<any[]>([]);
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
+  const [paketList, setPaketList] = React.useState<Paket[]>([]);
+  const [dpKustomList, setDpKustomList] = React.useState<DpKustomItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
@@ -60,18 +67,28 @@ export default function KasOverviewPage() {
     siswa_id: '',
   });
 
+  // Custom DP States (untuk input DP tanpa data siswa terdaftar)
+  const [customNama, setCustomNama] = React.useState('');
+  const [customPaketId, setCustomPaketId] = React.useState('');
+  const [customHargaPaket, setCustomHargaPaket] = React.useState(0);
+  const [customDpNominal, setCustomDpNominal] = React.useState(0);
+
   const loadData = async () => {
     setLoading(true);
-    const [mRes, tRes, kRes, sRes] = await Promise.all([
+    const [mRes, tRes, kRes, sRes, pRes, dpKRes] = await Promise.all([
       getKasOverviewMetrics(),
       getKasTransaksiList(),
       getKasKategoriList(),
       getSiswaList(),
+      getPaketList(),
+      getDpKustomList(),
     ]);
     setMetrics(mRes);
     setTransaksiList(tRes);
     setKategoriList(kRes);
     setSiswaList(sRes);
+    setPaketList(pRes);
+    setDpKustomList(dpKRes);
     setLoading(false);
   };
 
@@ -96,6 +113,10 @@ export default function KasOverviewPage() {
       keterangan: '',
       nominal: 0,
     }));
+    setCustomNama('');
+    setCustomPaketId('');
+    setCustomHargaPaket(0);
+    setCustomDpNominal(0);
   };
 
   const handleKategoriChange = (newKategori: string) => {
@@ -106,9 +127,80 @@ export default function KasOverviewPage() {
       keterangan: '',
       nominal: 0,
     }));
+    setCustomNama('');
+    setCustomPaketId('');
+    setCustomHargaPaket(0);
+    setCustomDpNominal(0);
+  };
+
+  const handleCustomPaketChange = (paketId: string) => {
+    const p = paketList.find((item) => item.id === paketId);
+    const price = p ? (p.harga_promo || p.harga_normal) : 2000000;
+    const suggestedDp = Math.round(price * 0.5);
+    setCustomPaketId(paketId);
+    setCustomHargaPaket(price);
+    setCustomDpNominal(suggestedDp);
+    setFormData((prev) => ({
+      ...prev,
+      nominal: suggestedDp,
+      keterangan: `DP Kustom - ${customNama || 'Customer'} | Paket: ${p?.nama_paket || 'Paket Kursus'} | Total: ${formatRupiah(price)}`,
+    }));
+  };
+
+  const handleCustomNamaChange = (nama: string) => {
+    setCustomNama(nama);
+    const p = paketList.find((item) => item.id === customPaketId) || paketList[0];
+    const price = customHargaPaket || (p ? (p.harga_promo || p.harga_normal) : 2000000);
+    setFormData((prev) => ({
+      ...prev,
+      keterangan: `DP Kustom - ${nama || 'Customer'} | Paket: ${p?.nama_paket || 'Paket Kursus'} | Total: ${formatRupiah(price)}`,
+    }));
+  };
+
+  const handleCustomDpNominalChange = (nominal: number) => {
+    setCustomDpNominal(nominal);
+    setFormData((prev) => ({
+      ...prev,
+      nominal,
+    }));
   };
 
   const handleSiswaChange = (siswaId: string) => {
+    // 1. Kasus DP Kustom (Input DP tanpa data siswa)
+    if (siswaId === 'custom_dp') {
+      const defaultPaket = paketList[0];
+      const defaultPrice = defaultPaket ? (defaultPaket.harga_promo || defaultPaket.harga_normal) : 2000000;
+      const defaultDp = Math.round(defaultPrice * 0.5);
+
+      setCustomPaketId(defaultPaket?.id || '');
+      setCustomHargaPaket(defaultPrice);
+      setCustomDpNominal(defaultDp);
+
+      setFormData((prev) => ({
+        ...prev,
+        siswa_id: 'custom_dp',
+        keterangan: `DP Kustom - ${customNama || 'Customer'} | Paket: ${defaultPaket?.nama_paket || 'Paket Kursus'} | Total: ${formatRupiah(defaultPrice)}`,
+        nominal: defaultDp,
+      }));
+      return;
+    }
+
+    // 2. Kasus Pelunasan DP Kustom (Memilih DP Kustom yang belum lunas)
+    if (siswaId.startsWith('dp_kustom_')) {
+      const dpId = siswaId.replace('dp_kustom_', '');
+      const dpItem = dpKustomList.find((item) => item.id === dpId);
+      if (dpItem) {
+        setFormData((prev) => ({
+          ...prev,
+          siswa_id: siswaId,
+          keterangan: `Pelunasan DP Kustom - ${dpItem.nama} | Paket: ${dpItem.namaPaket} | Sisa: ${formatRupiah(dpItem.sisaTagihan)} [Ref: ${dpItem.id}]`,
+          nominal: dpItem.sisaTagihan,
+        }));
+      }
+      return;
+    }
+
+    // 3. Kasus Siswa Terdaftar Reguler
     const s = siswaList.find((item) => item.id === siswaId);
     if (!s) {
       setFormData((prev) => ({ ...prev, siswa_id: '', keterangan: '', nominal: 0 }));
@@ -162,12 +254,20 @@ export default function KasOverviewPage() {
     if (isRefundCategory) {
       return siswaList.filter(
         (s) => s.status_pembayaran_kode === 'dp' || s.status_pembayaran_kode === 'lunas'
-      );
+);
     }
     return [];
   }, [siswaList, isDpCategory, isPelunasanCategory, isRefundCategory]);
 
-  const selectedSiswa = siswaList.find((s) => s.id === formData.siswa_id);
+  const isCustomDpSelected = formData.siswa_id === 'custom_dp';
+  const selectedDpKustom = formData.siswa_id.startsWith('dp_kustom_')
+    ? dpKustomList.find((dp) => dp.id === formData.siswa_id.replace('dp_kustom_', ''))
+    : null;
+  const unsettledDpKustom = React.useMemo(() => dpKustomList.filter((dp) => !dp.isLunas), [dpKustomList]);
+
+  const selectedSiswa = !isCustomDpSelected && !selectedDpKustom
+    ? siswaList.find((s) => s.id === formData.siswa_id)
+    : null;
 
   // Available categories for selected type
   const availableKategoriList = React.useMemo(() => {
@@ -183,6 +283,9 @@ export default function KasOverviewPage() {
     e.preventDefault();
     if (!formData.keterangan || formData.nominal <= 0) return;
 
+    const isCustom = formData.siswa_id === 'custom_dp' || formData.siswa_id.startsWith('dp_kustom_');
+    const finalSiswaId = isCustom ? null : (formData.siswa_id || null);
+
     await addKasTransaksi({
       tanggal: formData.tanggal,
       tipe: formData.tipe,
@@ -192,7 +295,7 @@ export default function KasOverviewPage() {
       jenis_pembayaran: formData.jenis_pembayaran,
       pic_tipe: formData.pic_tipe,
       pic_nama: formData.pic_tipe === 'finance' ? 'Lia (Finance)' : formData.pic_nama || 'Admin Staff',
-      siswa_id: formData.siswa_id || null,
+      siswa_id: finalSiswaId,
       sumber_otomatis: false,
     });
 
@@ -207,6 +310,10 @@ export default function KasOverviewPage() {
       pic_nama: '',
       siswa_id: '',
     });
+    setCustomNama('');
+    setCustomPaketId('');
+    setCustomHargaPaket(0);
+    setCustomDpNominal(0);
 
     loadData();
   };
@@ -218,119 +325,133 @@ export default function KasOverviewPage() {
           title="Manajemen Kas & Arus Keuangan"
           description="Pencatatan kas masuk/keluar, piutang siswa, dan hutang perusahaan"
           actions={
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Link
                 href="/kas/cashflow"
-                className="px-3.5 py-2 border border-[var(--border)] rounded-md text-xs font-semibold hover:bg-[var(--bg-subtle)] flex items-center gap-1.5"
+                className="px-3 py-1.5 border border-[var(--border)] rounded-md text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
               >
-                <FileText className="w-4 h-4" />
-                <span>Detail Cashflow</span>
+                Laporan Arus Kas
               </Link>
               <Link
                 href="/kas/piutang"
-                className="px-3.5 py-2 bg-amber-600 text-white rounded-md text-xs font-semibold hover:bg-amber-700 flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-1"
               >
-                <ArrowUpRight className="w-4 h-4" />
+                <Wallet className="w-3.5 h-3.5" />
                 <span>Manajemen Piutang</span>
               </Link>
               <Link
                 href="/kas/hutang"
-                className="px-3.5 py-2 bg-[var(--brand-primary)] text-white rounded-md text-xs font-semibold hover:bg-[var(--brand-primary-dark)] flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-1"
               >
-                <Wallet className="w-4 h-4" />
-                <span>Manajemen Hutang</span>
+                <FileText className="w-3.5 h-3.5" />
+                <span>Hutang Perusahaan</span>
               </Link>
             </div>
           }
         />
 
-        {/* 3+2 Main Stat Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Financial Metrics Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard
             label="Total Saldo Kas Aktif"
             value={formatRupiah(metrics.saldoAktif)}
-            description={`Tunai: ${formatRupiah(metrics.saldoTunai)} | Non-Tunai: ${formatRupiah(metrics.saldoNonTunai)}`}
-            icon={<Wallet className="w-5 h-5 text-teal-600" />}
+            icon={<Wallet className="w-5 h-5 text-emerald-600" />}
+            description="Kas Fisik + Rekening Bank"
           />
           <StatCard
-            label="Total Piutang Siswa"
+            label="Saldo Kas Fisik (Tunai)"
+            value={formatRupiah(metrics.saldoTunai)}
+            icon={<ArrowDownRight className="w-5 h-5 text-amber-600" />}
+            description="Uang tunai di brankas kantor"
+          />
+          <StatCard
+            label="Saldo Bank (Non-Tunai)"
+            value={formatRupiah(metrics.saldoNonTunai)}
+            icon={<ArrowUpRight className="w-5 h-5 text-blue-600" />}
+            description="Rekening BCA/Mandiri/dll"
+          />
+          <StatCard
+            label="Total Piutang Beredar"
             value={formatRupiah(metrics.totalPiutang)}
-            description="Sisa tagihan siswa belum lunas"
-            icon={<ArrowUpRight className="w-5 h-5 text-amber-600" />}
+            icon={<FileText className="w-5 h-5 text-amber-600" />}
+            description="Tagihan siswa yang belum lunas"
           />
           <StatCard
-            label="Total Sisa Hutang"
+            label="Sisa Hutang Perusahaan"
             value={formatRupiah(metrics.totalHutang)}
-            description="Cicilan mobil & pinjaman aktif"
-            icon={<ArrowDownRight className="w-5 h-5 text-rose-600" />}
+            icon={<FileText className="w-5 h-5 text-rose-600" />}
+            description="Hutang vendor / leasing / operasional"
           />
         </div>
 
-        {/* Grid Input Fast Transaction + Recent List */}
+        {/* Input Form & Transaction History Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Quick Transaction Input Form */}
-          <div className="card-container space-y-4 lg:col-span-1">
-            <h3 className="font-bold text-base text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
+          {/* Manual Input Form */}
+          <div className="card-container space-y-4">
+            <h3 className="text-sm font-bold text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
               <Plus className="w-4 h-4 text-[var(--brand-primary)]" />
-              Catat Transaksi Kas
+              Catat Mutasi Kas Manual
             </h3>
 
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="flex rounded-md p-1 bg-[var(--bg-subtle)] border border-[var(--border)] text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => handleTipeChange('pengeluaran')}
-                  className={`flex-1 py-1.5 rounded-md transition-colors ${
-                    formData.tipe === 'pengeluaran'
-                      ? 'bg-[var(--danger)] text-white'
-                      : 'text-[var(--text-secondary)]'
-                  }`}
-                >
-                  Pengeluaran (−)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleTipeChange('pemasukan')}
-                  className={`flex-1 py-1.5 rounded-md transition-colors ${
-                    formData.tipe === 'pemasukan'
-                      ? 'bg-[var(--success)] text-white'
-                      : 'text-[var(--text-secondary)]'
-                  }`}
-                >
-                  Pemasukan (+)
-                </button>
-              </div>
+            <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    Jenis Mutasi *
+                  </label>
+                  <div className="grid grid-cols-2 gap-1 bg-[var(--bg-subtle)] p-1 rounded-md border border-[var(--border)]">
+                    <button
+                      type="button"
+                      onClick={() => handleTipeChange('pemasukan')}
+                      className={`py-1.5 text-xs font-bold rounded-md transition-all ${
+                        formData.tipe === 'pemasukan'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      Masuk
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTipeChange('pengeluaran')}
+                      className={`py-1.5 text-xs font-bold rounded-md transition-all ${
+                        formData.tipe === 'pengeluaran'
+                          ? 'bg-rose-600 text-white shadow-xs'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      Keluar
+                    </button>
+                  </div>
+                </div>
 
-              <DatePickerWIB
-                label="Tanggal Transaksi *"
-                value={formData.tanggal}
-                onChange={(val) => setFormData({ ...formData, tanggal: val })}
-              />
+                <div>
+                  <DatePickerWIB
+                    label="Tanggal *"
+                    value={formData.tanggal}
+                    onChange={(val) => setFormData({ ...formData, tanggal: val })}
+                  />
+                </div>
+              </div>
 
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Kategori Transaksi *
+                  Kategori *
                 </label>
                 <select
                   value={formData.kategori}
                   onChange={(e) => handleKategoriChange(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                  className="w-full px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
                 >
                   {availableKategoriList.map((k) => (
-                    <option key={k.id} value={k.nama_kategori}>
-                      {k.nama_kategori === 'dp_siswa'
-                        ? 'DP SISWA KURSUS (PEMASUKAN)'
-                        : k.nama_kategori === 'pelunasan_siswa'
-                        ? 'PELUNASAN SISWA KURSUS (PEMASUKAN)'
-                        : k.nama_kategori === 'refund_siswa'
-                        ? 'REFUND / PEMBATALAN SISWA (PENGELUARAN)'
-                        : k.nama_kategori.replace(/_/g, ' ').toUpperCase()}
+                    <option key={k.id} value={k.id}>
+                      {k.nama_kategori}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Dynamic Student Dropdown for DP, Pelunasan, and Refund */}
+              {/* Dynamic Student / DP Kustom Selection */}
               {isStudentRelated && (
                 <div className="p-3 rounded-md bg-[var(--bg-subtle)] border border-[var(--border)] space-y-2.5">
                   <div className="flex items-center justify-between">
@@ -338,14 +459,14 @@ export default function KasOverviewPage() {
                       <User className="w-3.5 h-3.5" />
                       <span>
                         {isDpCategory
-                          ? 'Pilih Siswa (Belum Bayar) *'
+                          ? 'Pilih Siswa / Input DP Kustom *'
                           : isPelunasanCategory
-                          ? 'Pilih Siswa (Status DP) *'
+                          ? 'Pilih Pelunasan (DP Kustom / Siswa) *'
                           : 'Pilih Siswa (Status DP / Lunas) *'}
                       </span>
                     </label>
                     <span className="text-[10px] text-[var(--text-secondary)]">
-                      {filteredSiswaDropdown.length} siswa tersedia
+                      {isPelunasanCategory ? `${unsettledDpKustom.length} DP Kustom, ${filteredSiswaDropdown.length} Siswa` : `${filteredSiswaDropdown.length} siswa`}
                     </span>
                   </div>
 
@@ -355,39 +476,161 @@ export default function KasOverviewPage() {
                     onChange={(e) => handleSiswaChange(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)]"
                   >
-                    <option value="">-- Pilih Data Siswa --</option>
-                    {filteredSiswaDropdown.map((s) => {
-                      const sisaTagihan = Math.max(0, s.harga_final - (s.dp_nominal || 0));
-                      const totalPaid = s.status_pembayaran_kode === 'lunas' ? s.harga_final : (s.dp_nominal || 0);
+                    <option value="">-- Pilih Siswa / DP Kustom --</option>
 
-                      let labelOption = `${s.kode_siswa} - ${s.nama}`;
-                      if (isDpCategory) {
-                        labelOption += ` (Total Tagihan: ${formatRupiah(s.harga_final)})`;
-                      } else if (isPelunasanCategory) {
-                        labelOption += ` (Sisa Piutang: ${formatRupiah(sisaTagihan)})`;
-                      } else if (isRefundCategory) {
-                        labelOption += ` (Terbayar: ${formatRupiah(totalPaid)} [${s.status_pembayaran_kode.toUpperCase()}])`;
-                      }
+                    {/* DP KUSTOM Option for DP Category */}
+                    {isDpCategory && (
+                      <option value="custom_dp" className="font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/40">
+                        ✨ [+ Input DP Kustom / Tanpa Data Siswa]
+                      </option>
+                    )}
 
-                      return (
-                        <option key={s.id} value={s.id}>
-                          {labelOption}
-                        </option>
-                      );
-                    })}
+                    {/* PELUNASAN: DP KUSTOM BERADA DI PALING ATAS */}
+                    {isPelunasanCategory && unsettledDpKustom.length > 0 && (
+                      <optgroup label="⭐ DAFTAR DP KUSTOM (BELUM LUNAS)">
+                        {unsettledDpKustom.map((dp) => (
+                          <option
+                            key={`dp_kustom_${dp.id}`}
+                            value={`dp_kustom_${dp.id}`}
+                            className="font-bold text-amber-800 dark:text-amber-300"
+                          >
+                            ⭐ [DP Kustom] {dp.nama} — {dp.namaPaket} (Sisa: {formatRupiah(dp.sisaTagihan)})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+
+                    {/* DAFTAR SISWA TERDAFTAR */}
+                    {isPelunasanCategory && (
+                      <optgroup label="Daftar Siswa Terdaftar (Status DP)">
+                        {filteredSiswaDropdown.map((s) => {
+                          const sisaTagihan = Math.max(0, s.harga_final - (s.dp_nominal || 0));
+                          return (
+                            <option key={s.id} value={s.id}>
+                              {s.kode_siswa} - {s.nama} (Sisa Piutang: {formatRupiah(sisaTagihan)})
+                            </option>
+                          );
+                        })}
+                      </optgroup>
+                    )}
+
+                    {isDpCategory && (
+                      <optgroup label="Daftar Siswa Terdaftar (Belum Bayar)">
+                        {filteredSiswaDropdown.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.kode_siswa} - {s.nama} (Total Tagihan: {formatRupiah(s.harga_final)})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+
+                    {isRefundCategory && (
+                      <optgroup label="Daftar Siswa Terdaftar (DP / Lunas)">
+                        {filteredSiswaDropdown.map((s) => {
+                          const totalPaid = s.status_pembayaran_kode === 'lunas' ? s.harga_final : (s.dp_nominal || 0);
+                          return (
+                            <option key={s.id} value={s.id}>
+                              {s.kode_siswa} - {s.nama} (Terbayar: {formatRupiah(totalPaid)} [{s.status_pembayaran_kode.toUpperCase()}])
+                            </option>
+                          );
+                        })}
+                      </optgroup>
+                    )}
                   </select>
 
-                  {filteredSiswaDropdown.length === 0 && (
-                    <p className="text-[11px] text-amber-700 dark:text-amber-400 italic">
-                      {isDpCategory
-                        ? 'Tidak ada siswa dengan status Belum Bayar saat ini.'
-                        : isPelunasanCategory
-                        ? 'Tidak ada siswa dengan status DP yang membutuhkan pelunasan.'
-                        : 'Tidak ada siswa dengan pembayaran aktif untuk di-refund.'}
-                    </p>
+                  {/* Form Khusus Input DP Kustom */}
+                  {isCustomDpSelected && (
+                    <div className="pt-2 border-t border-[var(--border)] space-y-3 p-3 bg-amber-50/60 dark:bg-amber-950/20 rounded-md border border-amber-200 dark:border-amber-900 text-xs">
+                      <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
+                        <Sparkles className="w-4 h-4 text-amber-600" />
+                        <span>Form Input DP Kustom (Non-Siswa)</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                            Nama Customer / Calon Siswa *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Contoh: Budi Santoso"
+                            value={customNama}
+                            onChange={(e) => handleCustomNamaChange(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                            Pilihan Paket Kursus *
+                          </label>
+                          <select
+                            value={customPaketId}
+                            onChange={(e) => handleCustomPaketChange(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)]"
+                          >
+                            {paketList.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.nama_paket} ({formatRupiah(p.harga_promo || p.harga_normal)})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="p-2 rounded bg-amber-100/70 dark:bg-amber-900/30 text-[10px] text-amber-800 dark:text-amber-300">
+                        💡 <strong>Info:</strong> Transaksi DP Kustom ini disimpan tanpa memerlukan data siswa di database. Saat pelunasan nantinya, nama ini akan otomatis muncul di <strong>bagian paling atas dropdown Pelunasan</strong>.
+                      </div>
+                    </div>
                   )}
 
-                  {/* Context Info & Real-time Calculation Box */}
+                  {/* Info Khusus Ketika Memilih DP Kustom untuk Pelunasan */}
+                  {selectedDpKustom && (
+                    <div className="pt-2 border-t border-[var(--border)] space-y-2 text-[11px]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-bold text-[10px] flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                          Pelunasan DP Kustom (Non-Siswa)
+                        </span>
+                        <span className="text-[10px] text-[var(--text-muted)]">Ref ID: {selectedDpKustom.id.slice(0, 8)}</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 bg-[var(--bg)] p-2 rounded border border-[var(--border)]">
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Nama Customer</span>
+                          <span className="font-bold text-[var(--text-primary)]">{selectedDpKustom.nama}</span>
+                        </div>
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Paket Dipilih</span>
+                          <span className="font-semibold text-[var(--text-primary)]">{selectedDpKustom.namaPaket}</span>
+                        </div>
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Total Biaya Paket</span>
+                          <span className="font-bold text-[var(--brand-primary)]">{formatRupiah(selectedDpKustom.hargaPaket)}</span>
+                        </div>
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">DP Awal Terbayar</span>
+                          <span className="font-semibold text-emerald-600">{formatRupiah(selectedDpKustom.dpNominal)}</span>
+                        </div>
+                        <div className="col-span-2 pt-1 border-t border-[var(--border)] flex justify-between items-center">
+                          <span className="text-[var(--text-secondary)] text-[10px]">Sisa Tagihan Pelunasan:</span>
+                          <span className="font-bold text-rose-600 text-xs">{formatRupiah(selectedDpKustom.sisaTagihan)}</span>
+                        </div>
+                      </div>
+
+                      {formData.nominal === selectedDpKustom.sisaTagihan && (
+                        <div className="p-2 rounded bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 flex items-start gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-600" />
+                          <div>
+                            <strong>Pelunasan Penuh!</strong> Sisa tagihan DP Kustom ini sebesar <strong>{formatRupiah(selectedDpKustom.sisaTagihan)}</strong> akan lunas seluruhnya.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Context Info & Real-time Calculation Box for Registered Students */}
                   {selectedSiswa && (
                     <div className="pt-2 border-t border-[var(--border)] space-y-2 text-[11px]">
                       <div className="grid grid-cols-2 gap-2 bg-[var(--bg)] p-2 rounded border border-[var(--border)]">
