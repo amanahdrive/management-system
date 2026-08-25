@@ -162,6 +162,16 @@ export default function SiswaDetailPage() {
                 {siswa.status_pembayaran?.label || siswa.status_pembayaran_kode}
               </span>
             </div>
+
+            <div className="pt-2 border-t border-[var(--border)]">
+              <Link
+                href="/kas"
+                className="w-full py-2 px-3 rounded-md bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                <span>Input Pembayaran di Kas</span>
+              </Link>
+            </div>
           </div>
         </div>
       </div>

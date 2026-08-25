@@ -132,7 +132,11 @@ export async function createOrUpdateSiswa(
     let error: any = null;
 
     if (!isNew) {
-      // UPDATE existing student
+      // UPDATE existing student - don't allow modifying payment status directly from student profile
+      delete cleanPayload.status_pembayaran_kode;
+      delete cleanPayload.dp_nominal;
+      delete cleanPayload.dp_tanggal;
+
       const res = await supabase
         .from('siswa')
         .update({
@@ -146,7 +150,12 @@ export async function createOrUpdateSiswa(
       savedSiswa = res.data as Siswa;
       error = res.error;
     } else {
-      // INSERT new student - generate unique kode_siswa with proper numeric ordering
+      // INSERT new student - always start with 'belum_bayar' status (payments are exclusively recorded via Kas & Keuangan)
+      cleanPayload.status_pembayaran_kode = 'belum_bayar';
+      cleanPayload.dp_nominal = null;
+      cleanPayload.dp_tanggal = null;
+
+      // Generate unique kode_siswa with proper numeric ordering
       if (!cleanPayload.kode_siswa) {
         const { data: allCodes } = await supabase
           .from('siswa')

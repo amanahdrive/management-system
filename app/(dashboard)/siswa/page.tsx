@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Siswa, Paket, Promosi, StatusPembayaranMaster } from '@/types/database';
-import { deleteSiswa, getSiswaList, createOrUpdateSiswa, updateSiswaPayment } from '@/lib/actions/siswa';
+import { deleteSiswa, getSiswaList, createOrUpdateSiswa } from '@/lib/actions/siswa';
 import { getPaketList, getPromosiList, getStatusPembayaranMaster } from '@/lib/actions/master-data';
 import { getJadwalBySiswa } from '@/lib/actions/jadwal';
 import { formatRupiah } from '@/lib/utils/currency';
@@ -14,7 +14,7 @@ import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
-import { Plus, Eye, Edit2, Trash2, CreditCard, UserCheck, Archive, Search, Filter, X, Calendar } from 'lucide-react';
+import { Plus, Eye, Edit2, Trash2, Archive, Search, X, Calendar, Info } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SiswaPage() {
@@ -41,7 +41,7 @@ export default function SiswaPage() {
 
   // Modal State Tambah / Edit Data Diri
   const [isModalOpen, setIsModalOpen] = React.useState(false);
-  const [formData, setFormData] = React.useState<Partial<Siswa> & { jenis_pembayaran?: 'tunai' | 'non_tunai' }>({
+  const [formData, setFormData] = React.useState<Partial<Siswa>>({
     nama: '',
     no_whatsapp: '',
     alamat: '',
@@ -50,20 +50,9 @@ export default function SiswaPage() {
     paket_id: '',
     promosi_id: null,
     harga_final: 0,
-    status_pembayaran_kode: 'belum_bayar',
-    dp_nominal: null,
-    dp_tanggal: null,
-    jenis_pembayaran: 'non_tunai',
     sumber: 'meta_ads',
     catatan: '',
   });
-
-  // Modal State Update Pembayaran
-  const [paymentModalSiswa, setPaymentModalSiswa] = React.useState<Siswa | null>(null);
-  const [paymentStatusKode, setPaymentStatusKode] = React.useState('dp');
-  const [paymentDpNominal, setPaymentDpNominal] = React.useState<number>(500000);
-  const [paymentDpTanggal, setPaymentDpTanggal] = React.useState<string>(getTodayDateString());
-  const [paymentMetode, setPaymentMetode] = React.useState<'tunai' | 'non_tunai'>('non_tunai');
 
   const loadData = async () => {
     setLoading(true);
@@ -123,10 +112,6 @@ export default function SiswaPage() {
       paket_id: defaultPaket?.id || '',
       promosi_id: null,
       harga_final: defaultPaket ? defaultPaket.harga_promo || defaultPaket.harga_normal : 0,
-      status_pembayaran_kode: 'belum_bayar',
-      dp_nominal: null,
-      dp_tanggal: null,
-      jenis_pembayaran: 'non_tunai',
       sumber: 'meta_ads',
       catatan: '',
     });
@@ -145,42 +130,11 @@ export default function SiswaPage() {
       paket_id: siswa.paket_id,
       promosi_id: siswa.promosi_id,
       harga_final: siswa.harga_final,
-      status_pembayaran_kode: siswa.status_pembayaran_kode,
-      dp_nominal: siswa.dp_nominal,
-      dp_tanggal: siswa.dp_tanggal,
       sumber: siswa.sumber,
       sumber_kustom_text: siswa.sumber_kustom_text,
       catatan: siswa.catatan,
     });
     setIsModalOpen(true);
-  };
-
-  const handleOpenUpdatePembayaran = (siswa: Siswa) => {
-    setPaymentModalSiswa(siswa);
-    setPaymentStatusKode(siswa.status_pembayaran_kode || 'dp');
-    setPaymentDpNominal(siswa.dp_nominal || Math.round(siswa.harga_final * 0.5));
-    setPaymentDpTanggal(siswa.dp_tanggal || getTodayDateString());
-    setPaymentMetode('non_tunai');
-  };
-
-  const handleSavePembayaran = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!paymentModalSiswa) return;
-
-    const res = await updateSiswaPayment(
-      paymentModalSiswa.id,
-      paymentStatusKode,
-      paymentStatusKode === 'dp' || paymentStatusKode === 'lunas' ? paymentDpNominal : null,
-      paymentStatusKode === 'dp' || paymentStatusKode === 'lunas' ? paymentDpTanggal : null,
-      paymentMetode
-    );
-
-    if (res.success) {
-      setPaymentModalSiswa(null);
-      loadData();
-    } else {
-      alert('Gagal menyimpan pembayaran: ' + res.error);
-    }
   };
 
   const calculatePrice = (paketId: string, promoId: string | null): number => {
@@ -379,13 +333,6 @@ export default function SiswaPage() {
           >
             <Eye className="w-4 h-4" />
           </Link>
-          <button
-            onClick={() => handleOpenUpdatePembayaran(row.original)}
-            className="p-1.5 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30 rounded-md flex items-center gap-1 text-xs font-semibold"
-            title="Update Pembayaran / DP / Lunas"
-          >
-            <CreditCard className="w-4 h-4" />
-          </button>
           <button
             onClick={() => handleOpenEditDataDiri(row.original)}
             className="p-1.5 text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md flex items-center gap-1 text-xs font-semibold"
@@ -692,94 +639,15 @@ export default function SiswaPage() {
                 </div>
               </div>
 
-              {/* Status Pembayaran & Nominal DP / Pelunasan saat Pendaftaran Baru */}
-              <div className="p-3 rounded-md bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                    Status Pembayaran Siswa *
-                  </label>
-                  <select
-                    value={formData.status_pembayaran_kode || 'belum_bayar'}
-                    onChange={(e) => {
-                      const kode = e.target.value;
-                      const defaultDp = kode === 'lunas' ? (formData.harga_final || 0) : Math.round((formData.harga_final || 0) * 0.5);
-                      setFormData({
-                        ...formData,
-                        status_pembayaran_kode: kode,
-                        dp_nominal: kode === 'dp' || kode === 'lunas' ? defaultDp : null,
-                        dp_tanggal: kode === 'dp' || kode === 'lunas' ? getTodayDateString() : null,
-                      });
-                    }}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-[var(--text-primary)]"
-                  >
-                    {statusList.map((st) => (
-                      <option key={st.id} value={st.kode}>
-                        {st.label}
-                      </option>
-                    ))}
-                  </select>
+              {/* Info Alur Pembayaran Terkoneksi Kas */}
+              <div className="p-3 rounded-lg bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-900 flex items-start gap-2.5 text-xs">
+                <Info className="w-4 h-4 text-[var(--brand-primary)] shrink-0 mt-0.5" />
+                <div className="space-y-0.5 text-slate-700 dark:text-slate-300">
+                  <p className="font-bold text-[var(--brand-primary)]">Alur Pembayaran Terintegrasi Kas &amp; Keuangan</p>
+                  <p className="text-[11px] text-[var(--text-secondary)]">
+                    Siswa yang baru didaftarkan otomatis berstatus <strong>Belum Bayar</strong>. Status pembayaran pada daftar siswa akan otomatis terupdate saat transaksi <strong>DP</strong> atau <strong>Pelunasan</strong> diinput melalui menu <strong>Kas &amp; Keuangan</strong>.
+                  </p>
                 </div>
-
-                {(formData.status_pembayaran_kode === 'dp' || formData.status_pembayaran_kode === 'lunas') && (
-                  <div className="space-y-3 pt-2 border-t border-amber-200 dark:border-amber-900">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <CurrencyInput
-                        label={formData.status_pembayaran_kode === 'dp' ? 'Nominal Uang Muka / DP (Rupiah) *' : 'Nominal Pelunasan (Rupiah) *'}
-                        value={formData.dp_nominal || 0}
-                        onChange={(val) => setFormData({ ...formData, dp_nominal: val })}
-                      />
-
-                      <DatePickerWIB
-                        label="Tanggal Pembayaran *"
-                        value={formData.dp_tanggal || getTodayDateString()}
-                        onChange={(val) => setFormData({ ...formData, dp_tanggal: val })}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                        Metode Pembayaran *
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <label
-                          className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
-                            formData.jenis_pembayaran === 'non_tunai'
-                              ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
-                              : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="reg_jenis_pembayaran"
-                            value="non_tunai"
-                            checked={formData.jenis_pembayaran === 'non_tunai'}
-                            onChange={() => setFormData({ ...formData, jenis_pembayaran: 'non_tunai' })}
-                            className="sr-only"
-                          />
-                          <span>Transfer Bank</span>
-                        </label>
-
-                        <label
-                          className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
-                            formData.jenis_pembayaran === 'tunai'
-                              ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'
-                              : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="reg_jenis_pembayaran"
-                            value="tunai"
-                            checked={formData.jenis_pembayaran === 'tunai'}
-                            onChange={() => setFormData({ ...formData, jenis_pembayaran: 'tunai' })}
-                            className="sr-only"
-                          />
-                          <span>Tunai (Kas Fisik)</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div>
@@ -824,125 +692,6 @@ export default function SiswaPage() {
                   className="px-4 py-2 text-xs font-semibold bg-[var(--brand-primary)] text-white rounded-md"
                 >
                   {formData.id ? 'Simpan Perubahan Data Diri' : 'Daftarkan Siswa'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Form Update Pembayaran */}
-      {paymentModalSiswa && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card-container max-w-md w-full bg-[var(--bg)] shadow-lg space-y-4">
-            <h3 className="text-base font-bold text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-amber-600" />
-              Update Pembayaran Siswa
-            </h3>
-
-            <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-md text-xs space-y-1">
-              <p className="font-bold text-[var(--brand-primary)]">
-                {paymentModalSiswa.nama} ({paymentModalSiswa.kode_siswa})
-              </p>
-              <p className="text-[var(--text-secondary)]">
-                Total Tagihan Kursus: <span className="font-bold text-[var(--text-primary)]">{formatRupiah(paymentModalSiswa.harga_final)}</span>
-              </p>
-            </div>
-
-            <form onSubmit={handleSavePembayaran} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Status Pembayaran *
-                </label>
-                <select
-                  value={paymentStatusKode}
-                  onChange={(e) => setPaymentStatusKode(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold"
-                >
-                  {statusList.map((st) => (
-                    <option key={st.id} value={st.kode}>
-                      {st.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {(paymentStatusKode === 'dp' || paymentStatusKode === 'lunas') && (
-                <div className="space-y-3 p-3 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-md">
-                  <CurrencyInput
-                    label={paymentStatusKode === 'dp' ? 'Nominal Uang Muka / DP (Rupiah) *' : 'Nominal Pembayaran / Pelunasan (Rupiah) *'}
-                    value={paymentDpNominal}
-                    onChange={(val) => setPaymentDpNominal(val)}
-                  />
-
-                  <DatePickerWIB
-                    label="Tanggal Pembayaran *"
-                    value={paymentDpTanggal}
-                    onChange={(val) => setPaymentDpTanggal(val)}
-                  />
-
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                      Metode Pembayaran *
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <label
-                        className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
-                          paymentMetode === 'non_tunai'
-                            ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
-                            : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="pay_jenis_pembayaran"
-                          value="non_tunai"
-                          checked={paymentMetode === 'non_tunai'}
-                          onChange={() => setPaymentMetode('non_tunai')}
-                          className="sr-only"
-                        />
-                        <span>Transfer Bank</span>
-                      </label>
-
-                      <label
-                        className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
-                          paymentMetode === 'tunai'
-                            ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'
-                            : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="pay_jenis_pembayaran"
-                          value="tunai"
-                          checked={paymentMetode === 'tunai'}
-                          onChange={() => setPaymentMetode('tunai')}
-                          className="sr-only"
-                        />
-                        <span>Tunai (Kas Fisik)</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  <p className="text-[10px] text-amber-800 dark:text-amber-300 italic">
-                    * Perubahan status ini hanya memperbarui data profil siswa. Catatan transaksi mutasi kas resmi diinput secara manual melalui modul Kas &amp; Keuangan.
-                  </p>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border)]">
-                <button
-                  type="button"
-                  onClick={() => setPaymentModalSiswa(null)}
-                  className="px-4 py-2 text-xs font-medium border border-[var(--border)] rounded-md"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md"
-                >
-                  Simpan Pembayaran
                 </button>
               </div>
             </form>
