@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { dbQuery } from '@/lib/db';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
 
@@ -44,23 +44,22 @@ export async function getTelegramConfig(): Promise<TelegramConfig> {
   if (cached) return cached;
 
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('settings')
-      .select('key, value')
-      .in('key', [
-        'telegram_otomasi_aktif',
-        'telegram_laporan_pagi_aktif',
-        'telegram_laporan_pagi_jam',
-        'telegram_rekap_malam_aktif',
-        'telegram_rekap_malam_jam',
-        'telegram_pengingat_progress_aktif',
-        'telegram_bot_token',
-        'telegram_chat_id',
-        'telegram_include_odometer',
-      ]);
+    const data = await dbQuery<{ key: string; value: string }>(
+      `SELECT key, value FROM settings 
+       WHERE key IN (
+         'telegram_otomasi_aktif',
+         'telegram_laporan_pagi_aktif',
+         'telegram_laporan_pagi_jam',
+         'telegram_rekap_malam_aktif',
+         'telegram_rekap_malam_jam',
+         'telegram_pengingat_progress_aktif',
+         'telegram_bot_token',
+         'telegram_chat_id',
+         'telegram_include_odometer'
+       )`
+    );
 
-    if (error || !data) return DEFAULT_TELEGRAM_CONFIG;
+    if (!data || data.length === 0) return DEFAULT_TELEGRAM_CONFIG;
 
     const map = new Map<string, string>();
     data.forEach((item) => map.set(item.key, item.value || ''));
@@ -92,8 +91,6 @@ export async function saveTelegramConfig(
   config: Partial<TelegramConfig>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-
     const updates = [
       { key: 'telegram_otomasi_aktif', value: String(config.otomasiAktif ?? true), deskripsi: 'Master Switch Automasi Telegram' },
       { key: 'telegram_laporan_pagi_aktif', value: String(config.laporanPagiAktif ?? true), deskripsi: 'Status Laporan Pagi Harian' },
@@ -107,20 +104,13 @@ export async function saveTelegramConfig(
     ];
 
     for (const item of updates) {
-      const { data: existing } = await supabase
-        .from('settings')
-        .select('id')
-        .eq('key', item.key)
-        .maybeSingle();
-
-      if (existing) {
-        await supabase
-          .from('settings')
-          .update({ value: item.value, updated_at: new Date().toISOString() })
-          .eq('key', item.key);
-      } else {
-        await supabase.from('settings').insert(item);
-      }
+      await dbQuery(
+        `INSERT INTO settings (key, value, deskripsi, updated_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (key) DO UPDATE
+         SET value = EXCLUDED.value, deskripsi = EXCLUDED.deskripsi, updated_at = NOW()`,
+        [item.key, item.value, item.deskripsi]
+      );
     }
 
     cacheInvalidate(TELEGRAM_CACHE_KEY);
@@ -193,15 +183,11 @@ async function logNotifikasi(
   errorMessage: string | null
 ) {
   try {
-    const supabase = await createServerClient();
-    await supabase.from('notifikasi_log').insert({
-      tipe,
-      judul,
-      isi_pesan: isiPesan,
-      status_kirim: statusKirim,
-      error_message: errorMessage,
-      dikirim_at: new Date().toISOString(),
-    });
+    await dbQuery(
+      `INSERT INTO notifikasi_log (tipe, judul, isi_pesan, status_kirim, error_message, dikirim_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [tipe, judul, isiPesan, statusKirim, errorMessage]
+    );
   } catch (e) {
     console.error('[Notifikasi Log Save Error]', e);
   }

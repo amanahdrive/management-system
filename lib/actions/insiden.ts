@@ -1,9 +1,9 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { Insiden, StatusPenangananEnum } from '@/types/database';
 import { revalidatePath } from 'next/cache';
-import { formatHariTanggalIndo, formatDateIndo } from '../utils/date';
+import { formatHariTanggalIndo } from '../utils/date';
 import { formatRupiah } from '../utils/currency';
 
 export interface InsidenFilter {
@@ -20,61 +20,69 @@ export interface InsidenFilter {
 
 export async function getInsidenList(filter?: InsidenFilter): Promise<Insiden[]> {
   try {
-    const supabase = await createServerClient();
-    let query = supabase
-      .from('insiden')
-      .select('*, kendaraan(*), staff(*), siswa(*), jadwal_sesi(*)')
-      .order('tanggal_insiden', { ascending: false })
-      .order('created_at', { ascending: false });
+    const whereClauses: string[] = [];
+    const params: any[] = [];
 
     if (filter?.status && filter.status !== 'semua') {
-      query = query.eq('status_penanganan', filter.status);
+      params.push(filter.status);
+      whereClauses.push(`i.status_penanganan = $${params.length}`);
     }
-
     if (filter?.kategori && filter.kategori !== 'semua') {
-      query = query.eq('kategori', filter.kategori);
+      params.push(filter.kategori);
+      whereClauses.push(`i.kategori = $${params.length}`);
     }
-
     if (filter?.tingkatKeparahan && filter.tingkatKeparahan !== 'semua') {
-      query = query.eq('tingkat_keparahan', filter.tingkatKeparahan);
+      params.push(filter.tingkatKeparahan);
+      whereClauses.push(`i.tingkat_keparahan = $${params.length}`);
     }
-
     if (filter?.kendaraanId && filter.kendaraanId !== 'semua') {
-      query = query.eq('kendaraan_id', filter.kendaraanId);
+      params.push(filter.kendaraanId);
+      whereClauses.push(`i.kendaraan_id = $${params.length}`);
     }
-
     if (filter?.staffId && filter.staffId !== 'semua') {
-      query = query.eq('staff_id', filter.staffId);
+      params.push(filter.staffId);
+      whereClauses.push(`i.staff_id = $${params.length}`);
     }
-
     if (filter?.startDate) {
-      query = query.gte('tanggal_insiden', filter.startDate);
+      params.push(filter.startDate);
+      whereClauses.push(`i.tanggal_insiden >= $${params.length}`);
     }
-
     if (filter?.endDate) {
-      query = query.lte('tanggal_insiden', filter.endDate);
+      params.push(filter.endDate);
+      whereClauses.push(`i.tanggal_insiden <= $${params.length}`);
     }
 
-    const { data, error } = await query;
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-    if (error) {
-      console.error('Error fetching insiden list:', error);
-      return [];
-    }
+    const sql = `
+      SELECT 
+        i.*,
+        CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
+        CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS staff,
+        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE WHEN js.id IS NOT NULL THEN to_jsonb(js) ELSE NULL END AS jadwal_sesi
+      FROM insiden i
+      LEFT JOIN kendaraan k ON i.kendaraan_id = k.id
+      LEFT JOIN staff st ON i.staff_id = st.id
+      LEFT JOIN siswa s ON i.siswa_id = s.id
+      LEFT JOIN jadwal_sesi js ON i.jadwal_sesi_id = js.id
+      ${whereSql}
+      ORDER BY i.tanggal_insiden DESC, i.created_at DESC;
+    `;
 
-    let result = (data as Insiden[]) || [];
+    let result = await dbQuery<Insiden>(sql, params);
 
     if (filter?.search && filter.search.trim() !== '') {
       const q = filter.search.toLowerCase().trim();
       result = result.filter(
         (item) =>
-          item.kode_insiden.toLowerCase().includes(q) ||
-          item.lokasi_kejadian.toLowerCase().includes(q) ||
-          item.deskripsi_kejadian.toLowerCase().includes(q) ||
-          item.kendaraan?.nama_kendaraan.toLowerCase().includes(q) ||
-          item.kendaraan?.plat_nomor.toLowerCase().includes(q) ||
-          item.staff?.nama.toLowerCase().includes(q) ||
-          item.siswa?.nama.toLowerCase().includes(q)
+          item.kode_insiden?.toLowerCase().includes(q) ||
+          item.lokasi_kejadian?.toLowerCase().includes(q) ||
+          item.deskripsi_kejadian?.toLowerCase().includes(q) ||
+          item.kendaraan?.nama_kendaraan?.toLowerCase().includes(q) ||
+          item.kendaraan?.plat_nomor?.toLowerCase().includes(q) ||
+          item.staff?.nama?.toLowerCase().includes(q) ||
+          item.siswa?.nama?.toLowerCase().includes(q)
       );
     }
 
@@ -87,19 +95,22 @@ export async function getInsidenList(filter?: InsidenFilter): Promise<Insiden[]>
 
 export async function getInsidenById(id: string): Promise<Insiden | null> {
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('insiden')
-      .select('*, kendaraan(*), staff(*), siswa(*), jadwal_sesi(*)')
-      .eq('id', id)
-      .single();
+    const row = await dbQuerySingle<Insiden>(`
+      SELECT 
+        i.*,
+        CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
+        CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS staff,
+        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE WHEN js.id IS NOT NULL THEN to_jsonb(js) ELSE NULL END AS jadwal_sesi
+      FROM insiden i
+      LEFT JOIN kendaraan k ON i.kendaraan_id = k.id
+      LEFT JOIN staff st ON i.staff_id = st.id
+      LEFT JOIN siswa s ON i.siswa_id = s.id
+      LEFT JOIN jadwal_sesi js ON i.jadwal_sesi_id = js.id
+      WHERE i.id = $1;
+    `, [id]);
 
-    if (error) {
-      console.error('Error fetching insiden by id:', error);
-      return null;
-    }
-
-    return (data as Insiden) || null;
+    return row;
   } catch (err) {
     console.error('Unexpected error in getInsidenById:', err);
     return null;
@@ -107,23 +118,20 @@ export async function getInsidenById(id: string): Promise<Insiden | null> {
 }
 
 async function generateNextKodeInsiden(): Promise<string> {
-  const supabase = await createServerClient();
   const now = new Date();
   const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
   const prefix = `INS-${yearMonth}-`;
 
-  const { data } = await supabase
-    .from('insiden')
-    .select('kode_insiden')
-    .ilike('kode_insiden', `${prefix}%`)
-    .order('kode_insiden', { ascending: false })
-    .limit(1);
+  const rows = await dbQuery<{ kode_insiden: string }>(
+    `SELECT kode_insiden FROM insiden WHERE kode_insiden ILIKE $1 ORDER BY kode_insiden DESC LIMIT 1`,
+    [`${prefix}%`]
+  );
 
-  if (!data || data.length === 0) {
+  if (!rows || rows.length === 0) {
     return `${prefix}001`;
   }
 
-  const lastKode = data[0].kode_insiden;
+  const lastKode = rows[0].kode_insiden;
   const parts = lastKode.split('-');
   const seqStr = parts[parts.length - 1];
   const nextSeq = (parseInt(seqStr, 10) || 0) + 1;
@@ -135,26 +143,22 @@ export async function createInsiden(
   payload: Omit<Insiden, 'id' | 'kode_insiden' | 'created_at' | 'updated_at'>
 ): Promise<{ success: boolean; data?: Insiden; error?: string }> {
   try {
-    const supabase = await createServerClient();
     const kode_insiden = await generateNextKodeInsiden();
 
-    const insertData = {
+    const insertData: any = {
       ...payload,
       kode_insiden,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase
-      .from('insiden')
-      .insert(insertData)
-      .select('*, kendaraan(*), staff(*), siswa(*)')
-      .single();
+    const keys = Object.keys(insertData).filter((k) => insertData[k] !== undefined);
+    const cols = keys.map((k) => `"${k}"`).join(', ');
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+    const values = keys.map((k) => insertData[k]);
 
-    if (error) {
-      console.error('Error creating insiden:', error);
-      return { success: false, error: error.message };
-    }
+    const data = await dbQuerySingle<Insiden>(
+      `INSERT INTO insiden (${cols}) VALUES (${placeholders}) RETURNING *`,
+      values
+    );
 
     revalidatePath('/insiden');
     revalidatePath('/kendaraan');
@@ -172,25 +176,17 @@ export async function updateInsiden(
   payload: Partial<Insiden>
 ): Promise<{ success: boolean; data?: Insiden; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const { kendaraan, staff, siswa, jadwal_sesi, ...cleanPayload } = payload as any;
 
-    // Remove joined fields before updating
-    const { kendaraan, staff, siswa, jadwal_sesi, ...cleanPayload } = payload;
+    const keys = Object.keys(cleanPayload).filter((k) => k !== 'id' && cleanPayload[k] !== undefined);
+    const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+    const values = keys.map((k) => cleanPayload[k]);
+    values.push(id);
 
-    const { data, error } = await supabase
-      .from('insiden')
-      .update({
-        ...cleanPayload,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select('*, kendaraan(*), staff(*), siswa(*)')
-      .single();
-
-    if (error) {
-      console.error('Error updating insiden:', error);
-      return { success: false, error: error.message };
-    }
+    const data = await dbQuerySingle<Insiden>(
+      `UPDATE insiden SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
+      values
+    );
 
     revalidatePath('/insiden');
     revalidatePath('/kendaraan');
@@ -212,45 +208,40 @@ export async function updateInsidenStatus(
   jenisPembayaranKas: 'tunai' | 'non_tunai' = 'non_tunai'
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    const updateData: Record<string, any> = {
-      status_penanganan: status,
-      updated_at: new Date().toISOString(),
-    };
+    const updatedInc = await dbQuerySingle<any>(
+      `UPDATE insiden 
+       SET status_penanganan = $1, 
+           tindakan_penanganan = COALESCE($2, tindakan_penanganan), 
+           biaya_aktual = COALESCE($3, biaya_aktual), 
+           updated_at = NOW() 
+       WHERE id = $4 
+       RETURNING *`,
+      [status, tindakanPenanganan ?? null, biayaAktual ?? null, id]
+    );
 
-    if (tindakanPenanganan !== undefined) {
-      updateData.tindakan_penanganan = tindakanPenanganan;
+    if (!updatedInc) {
+      return { success: false, error: 'Insiden tidak ditemukan' };
     }
 
-    if (biayaAktual !== undefined) {
-      updateData.biaya_aktual = biayaAktual;
-    }
+    if (catatKeKas && biayaAktual && biayaAktual > 0) {
+      const v = await dbQuerySingle<{ plat_nomor: string }>('SELECT plat_nomor FROM kendaraan WHERE id = $1', [updatedInc.kendaraan_id]);
+      const vPlat = v?.plat_nomor ? ` (${v.plat_nomor})` : '';
 
-    const { data: updatedInc, error } = await supabase
-      .from('insiden')
-      .update(updateData)
-      .eq('id', id)
-      .select('*, kendaraan(*)')
-      .single();
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    // Optional integration: Record to kas_transaksi if paid by company
-    if (catatKeKas && biayaAktual && biayaAktual > 0 && updatedInc) {
-      const vPlat = updatedInc.kendaraan?.plat_nomor ? ` (${updatedInc.kendaraan.plat_nomor})` : '';
-      await supabase.from('kas_transaksi').insert({
-        tanggal: new Date().toISOString().slice(0, 10),
-        tipe: 'pengeluaran',
-        kategori: 'perbaikan_kendaraan',
-        keterangan: `Biaya Perbaikan Insiden ${updatedInc.kode_insiden}${vPlat} - ${updatedInc.lokasi_kejadian}`,
-        nominal: biayaAktual,
-        jenis_pembayaran: jenisPembayaranKas || 'non_tunai',
-        pic_tipe: 'finance',
-        pic_nama: 'Finance Admin',
-        sumber_otomatis: true,
-      });
+      await dbQuery(
+        `INSERT INTO kas_transaksi (tanggal, tipe, kategori, keterangan, nominal, jenis_pembayaran, pic_tipe, pic_nama, sumber_otomatis)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          new Date().toISOString().slice(0, 10),
+          'pengeluaran',
+          'perbaikan_kendaraan',
+          `Biaya Perbaikan Insiden ${updatedInc.kode_insiden}${vPlat} - ${updatedInc.lokasi_kejadian}`,
+          biayaAktual,
+          jenisPembayaranKas || 'non_tunai',
+          'finance',
+          'Finance Admin',
+          true,
+        ]
+      );
     }
 
     revalidatePath('/insiden');
@@ -267,12 +258,7 @@ export async function updateInsidenStatus(
 
 export async function deleteInsiden(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    const { error } = await supabase.from('insiden').delete().eq('id', id);
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
+    await dbQuery('DELETE FROM insiden WHERE id = $1', [id]);
 
     revalidatePath('/insiden');
     revalidatePath('/kendaraan');
@@ -294,22 +280,13 @@ export async function getInsidenStats(): Promise<{
   keparahanCounts: Record<string, number>;
 }> {
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('insiden')
-      .select('status_penanganan, kategori, tingkat_keparahan, estimasi_biaya, biaya_aktual');
-
-    if (error || !data) {
-      return {
-        totalInsiden: 0,
-        dalamPenanganan: 0,
-        selesai: 0,
-        totalEstimasiBiaya: 0,
-        totalBiayaAktual: 0,
-        kategoriCounts: {},
-        keparahanCounts: {},
-      };
-    }
+    const data = await dbQuery<{
+      status_penanganan: string;
+      kategori: string;
+      tingkat_keparahan: string;
+      estimasi_biaya: number;
+      biaya_aktual: number;
+    }>('SELECT status_penanganan, kategori, tingkat_keparahan, estimasi_biaya, biaya_aktual FROM insiden');
 
     let totalInsiden = data.length;
     let dalamPenanganan = 0;

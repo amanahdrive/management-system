@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
 import { RekeningBank } from '@/types/database';
@@ -54,25 +54,19 @@ export async function getRekeningList(): Promise<RekeningBank[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'rekening_bank_list')
-      .maybeSingle();
+    const row = await dbQuerySingle<{ value: string }>(
+      "SELECT value FROM settings WHERE key = 'rekening_bank_list'"
+    );
 
-    if (error || !data || !data.value) {
-      cacheSet(REKENING_CACHE_KEY, DEFAULT_REKENING_LIST, 120);
-      return DEFAULT_REKENING_LIST;
+    if (row && row.value) {
+      const parsed = JSON.parse(row.value);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        cacheSet(REKENING_CACHE_KEY, parsed, 60);
+        return parsed;
+      }
     }
 
-    const parsed = JSON.parse(data.value);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      cacheSet(REKENING_CACHE_KEY, parsed, 120);
-      return parsed;
-    }
-
-    cacheSet(REKENING_CACHE_KEY, DEFAULT_REKENING_LIST, 120);
+    cacheSet(REKENING_CACHE_KEY, DEFAULT_REKENING_LIST, 60);
     return DEFAULT_REKENING_LIST;
   } catch (err) {
     console.error('Error in getRekeningList:', err);
@@ -95,38 +89,17 @@ export async function saveRekeningList(
   list: RekeningBank[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
     const jsonStr = JSON.stringify(list);
 
-    const { data: existing } = await supabase
-      .from('settings')
-      .select('id')
-      .eq('key', 'rekening_bank_list')
-      .maybeSingle();
-
-    if (existing?.id) {
-      const { error: updateErr } = await supabase
-        .from('settings')
-        .update({
-          value: jsonStr,
-          deskripsi: 'Daftar Rekening Bank Perusahaan',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existing.id);
-      if (updateErr) throw updateErr;
-    } else {
-      const { error: insertErr } = await supabase.from('settings').insert({
-        key: 'rekening_bank_list',
-        value: jsonStr,
-        deskripsi: 'Daftar Rekening Bank Perusahaan',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-      if (insertErr) throw insertErr;
-    }
+    await dbQuery(`
+      INSERT INTO settings (key, value, deskripsi, updated_at)
+      VALUES ('rekening_bank_list', $1, 'Daftar Rekening Bank Perusahaan', NOW())
+      ON CONFLICT (key) DO UPDATE
+      SET value = EXCLUDED.value, deskripsi = EXCLUDED.deskripsi, updated_at = NOW()
+    `, [jsonStr]);
 
     // Instantly update cache and invalidate related paths
-    cacheSet(REKENING_CACHE_KEY, list, 120);
+    cacheSet(REKENING_CACHE_KEY, list, 60);
     cacheInvalidate('settings*');
 
     revalidatePath('/settings');

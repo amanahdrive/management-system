@@ -1,7 +1,7 @@
 'use server';
 
 import bcrypt from 'bcryptjs';
-import { createServerClient } from '@/lib/supabase/server';
+import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
 
@@ -25,15 +25,11 @@ export async function verifyKasPin(inputPin: string): Promise<{ success: boolean
 
     if (!storedHash) {
       try {
-    const supabase = await createServerClient();
-        const { data } = await supabase
-          .from('settings')
-          .select('value')
-          .eq('key', 'pin_kas')
-          .maybeSingle();
-
-        if (data?.value) {
-          storedHash = data.value;
+        const row = await dbQuerySingle<{ value: string }>(
+          "SELECT value FROM settings WHERE key = 'pin_kas'"
+        );
+        if (row?.value) {
+          storedHash = row.value;
         } else {
           storedHash = DEFAULT_PIN_HASH;
         }
@@ -93,53 +89,14 @@ export async function updateKasPin(
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(pinBaru, salt);
 
-    const supabase = await createServerClient();
-
-    // 3. Check if key 'pin_kas' exists
-    const { data: existing, error: selectErr } = await supabase
-      .from('settings')
-      .select('id')
-      .eq('key', 'pin_kas')
-      .maybeSingle();
-
-    if (selectErr) {
-      console.warn('Error checking existing pin_kas setting:', selectErr);
-    }
-
-    let saveErr: any = null;
-
-    if (existing?.id) {
-      const { error } = await supabase
-        .from('settings')
-        .update({ value: hashed })
-        .eq('id', existing.id);
-      saveErr = error;
-    } else {
-      // Try insert with key & value
-      const { error } = await supabase
-        .from('settings')
-        .insert({
-          key: 'pin_kas',
-          value: hashed,
-        });
-      saveErr = error;
-
-      // If insert failed because key already exists (race condition), fallback to update by key
-      if (saveErr) {
-        const { error: fallbackErr } = await supabase
-          .from('settings')
-          .update({ value: hashed })
-          .eq('key', 'pin_kas');
-        if (!fallbackErr) {
-          saveErr = null;
-        }
-      }
-    }
-
-    if (saveErr) {
-      console.error('Error saving PIN to Supabase:', saveErr);
-      return { success: false, error: `Gagal menyimpan ke database: ${saveErr.message}` };
-    }
+    // 3. Upsert into settings table
+    await dbQuery(
+      `INSERT INTO settings (key, value, deskripsi, updated_at)
+       VALUES ('pin_kas', $1, 'PIN Akses Menu Kas & Keuangan', NOW())
+       ON CONFLICT (key) DO UPDATE
+       SET value = EXCLUDED.value, deskripsi = EXCLUDED.deskripsi, updated_at = NOW()`,
+      [hashed]
+    );
 
     // 4. Instantly update in-memory cache with new hash
     cacheSet(PIN_CACHE_KEY, hashed, 600);

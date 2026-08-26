@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { Siswa } from '@/types/database';
 import { revalidatePath } from 'next/cache';
@@ -12,16 +12,21 @@ export async function getSiswaList(): Promise<Siswa[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('siswa')
-      .select('*, paket(*), promosi(*), status_pembayaran:status_pembayaran_master(*)')
-      .order('created_at', { ascending: false });
+    const rows = await dbQuery<Siswa>(`
+      SELECT 
+        s.*,
+        CASE WHEN p.id IS NOT NULL THEN to_jsonb(p) ELSE NULL END AS paket,
+        CASE WHEN pr.id IS NOT NULL THEN to_jsonb(pr) ELSE NULL END AS promosi,
+        CASE WHEN sp.id IS NOT NULL THEN to_jsonb(sp) ELSE NULL END AS status_pembayaran
+      FROM siswa s
+      LEFT JOIN paket p ON s.paket_id = p.id
+      LEFT JOIN promosi pr ON s.promosi_id = pr.id
+      LEFT JOIN status_pembayaran_master sp ON s.status_pembayaran_kode = sp.kode
+      ORDER BY s.created_at DESC;
+    `);
 
-    if (!error && data) {
-      cacheSet(SISWA_CACHE_KEY, data as Siswa[], 60);
-      return data as Siswa[];
-    }
+    cacheSet(SISWA_CACHE_KEY, rows, 60);
+    return rows;
   } catch (e) {
     console.error('Error fetching siswa list:', e);
   }
@@ -30,14 +35,20 @@ export async function getSiswaList(): Promise<Siswa[]> {
 
 export async function getSiswaById(id: string): Promise<Siswa | null> {
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('siswa')
-      .select('*, paket(*), promosi(*), status_pembayaran:status_pembayaran_master(*)')
-      .eq('id', id)
-      .maybeSingle();
+    const row = await dbQuerySingle<Siswa>(`
+      SELECT 
+        s.*,
+        CASE WHEN p.id IS NOT NULL THEN to_jsonb(p) ELSE NULL END AS paket,
+        CASE WHEN pr.id IS NOT NULL THEN to_jsonb(pr) ELSE NULL END AS promosi,
+        CASE WHEN sp.id IS NOT NULL THEN to_jsonb(sp) ELSE NULL END AS status_pembayaran
+      FROM siswa s
+      LEFT JOIN paket p ON s.paket_id = p.id
+      LEFT JOIN promosi pr ON s.promosi_id = pr.id
+      LEFT JOIN status_pembayaran_master sp ON s.status_pembayaran_kode = sp.kode
+      WHERE s.id = $1
+    `, [id]);
 
-    if (!error && data) return data as Siswa;
+    return row;
   } catch (e) {
     console.error('Error fetching siswa by id:', e);
   }
@@ -52,43 +63,29 @@ export async function updateSiswaPayment(
   jenisPembayaran: 'tunai' | 'non_tunai' = 'non_tunai'
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const currentSiswa = await dbQuerySingle<{ id: string }>(
+      'SELECT id FROM siswa WHERE id = $1',
+      [siswaId]
+    );
 
-    // 1. Fetch current student record
-    const { data: currentSiswa, error: fetchErr } = await supabase
-      .from('siswa')
-      .select('*')
-      .eq('id', siswaId)
-      .single();
-
-    if (fetchErr || !currentSiswa) {
+    if (!currentSiswa) {
       return { success: false, error: 'Data siswa tidak ditemukan di database' };
     }
 
-    // 2. Update student status & payment details in Supabase
-    const updatePayload: Record<string, any> = {
-      status_pembayaran_kode: statusKode,
-      updated_at: new Date().toISOString(),
-    };
+    let dpNominal: number | null = null;
+    let dpTanggal: string | null = null;
 
     if (statusKode === 'dp') {
-      updatePayload.dp_nominal = nominalDibayar;
-      updatePayload.dp_tanggal = tanggalBayar || new Date().toISOString().slice(0, 10);
-    } else if (statusKode === 'belum_bayar' || statusKode === 'batal') {
-      updatePayload.dp_nominal = null;
-      updatePayload.dp_tanggal = null;
+      dpNominal = nominalDibayar;
+      dpTanggal = tanggalBayar || new Date().toISOString().slice(0, 10);
     }
 
-    const { data: updatedSiswa, error: updateErr } = await supabase
-      .from('siswa')
-      .update(updatePayload)
-      .eq('id', siswaId)
-      .select()
-      .single();
-
-    if (updateErr || !updatedSiswa) {
-      return { success: false, error: updateErr?.message || 'Gagal memperbarui status pembayaran' };
-    }
+    await dbQuery(
+      `UPDATE siswa 
+       SET status_pembayaran_kode = $1, dp_nominal = $2, dp_tanggal = $3, updated_at = NOW() 
+       WHERE id = $4`,
+      [statusKode, dpNominal, dpTanggal, siswaId]
+    );
 
     cacheInvalidate('siswa*');
     cacheInvalidate('kas*');
@@ -109,14 +106,11 @@ export async function updateSiswaPayment(
 
 export async function getSiswaPaymentHistory(siswaId: string) {
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('kas_transaksi')
-      .select('*')
-      .eq('siswa_id', siswaId)
-      .order('tanggal', { ascending: false });
-
-    if (!error && data) return data;
+    const rows = await dbQuery(
+      'SELECT * FROM kas_transaksi WHERE siswa_id = $1 ORDER BY tanggal DESC',
+      [siswaId]
+    );
+    return rows;
   } catch (e) {
     console.error('Error fetching siswa payment history:', e);
   }
@@ -127,12 +121,8 @@ export async function createOrUpdateSiswa(
   siswaData: Partial<Siswa> & { jenis_pembayaran?: 'tunai' | 'non_tunai' }
 ): Promise<{ success: boolean; data?: Siswa; error?: string }> {
   try {
-    const supabase = await createServerClient();
-
     const isNew = !siswaData.id;
-    const selectedJenisPembayaran = siswaData.jenis_pembayaran || 'non_tunai';
 
-    // Clean joined objects and non-table fields from payload before upserting
     const {
       paket,
       promosi,
@@ -142,38 +132,30 @@ export async function createOrUpdateSiswa(
     } = siswaData as any;
 
     let savedSiswa: Siswa | null = null;
-    let error: any = null;
 
     if (!isNew) {
-      // UPDATE existing student - don't allow modifying payment status directly from student profile
       delete cleanPayload.status_pembayaran_kode;
       delete cleanPayload.dp_nominal;
       delete cleanPayload.dp_tanggal;
 
-      const res = await supabase
-        .from('siswa')
-        .update({
-          ...cleanPayload,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', cleanPayload.id)
-        .select()
-        .maybeSingle();
+      const keys = Object.keys(cleanPayload).filter((k) => k !== 'id' && cleanPayload[k] !== undefined);
+      const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+      const values = keys.map((k) => cleanPayload[k]);
+      values.push(cleanPayload.id);
 
-      savedSiswa = res.data as Siswa;
-      error = res.error;
+      savedSiswa = await dbQuerySingle<Siswa>(
+        `UPDATE siswa SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
+        values
+      );
     } else {
-      // INSERT new student - always start with 'belum_bayar' status (payments are exclusively recorded via Kas & Keuangan)
       cleanPayload.status_pembayaran_kode = 'belum_bayar';
       cleanPayload.dp_nominal = null;
       cleanPayload.dp_tanggal = null;
 
-      // Generate unique kode_siswa with proper numeric ordering
       if (!cleanPayload.kode_siswa) {
-        const { data: allCodes } = await supabase
-          .from('siswa')
-          .select('kode_siswa')
-          .like('kode_siswa', 'SS%');
+        const allCodes = await dbQuery<{ kode_siswa: string }>(
+          "SELECT kode_siswa FROM siswa WHERE kode_siswa LIKE 'SS%'"
+        );
 
         let maxNum = 0;
         if (allCodes && allCodes.length > 0) {
@@ -188,18 +170,19 @@ export async function createOrUpdateSiswa(
         cleanPayload.kode_siswa = `SS${String(maxNum + 1).padStart(3, '0')}`;
       }
 
-      const res = await supabase
-        .from('siswa')
-        .insert(cleanPayload)
-        .select()
-        .maybeSingle();
+      const keys = Object.keys(cleanPayload).filter((k) => cleanPayload[k] !== undefined);
+      const cols = keys.map((k) => `"${k}"`).join(', ');
+      const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+      const values = keys.map((k) => cleanPayload[k]);
 
-      savedSiswa = res.data as Siswa;
-      error = res.error;
+      savedSiswa = await dbQuerySingle<Siswa>(
+        `INSERT INTO siswa (${cols}) VALUES (${placeholders}) RETURNING *`,
+        values
+      );
     }
 
-    if (error || !savedSiswa) {
-      return { success: false, error: error?.message || 'Gagal menyimpan data siswa' };
+    if (!savedSiswa) {
+      return { success: false, error: 'Gagal menyimpan data siswa' };
     }
 
     cacheInvalidate('siswa*');
@@ -211,7 +194,7 @@ export async function createOrUpdateSiswa(
     revalidatePath('/kas/piutang');
     revalidatePath('/dashboard');
 
-    return { success: true, data: savedSiswa as Siswa };
+    return { success: true, data: savedSiswa };
   } catch (err: any) {
     return { success: false, error: err.message };
   }
@@ -219,10 +202,7 @@ export async function createOrUpdateSiswa(
 
 export async function deleteSiswa(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    const { error } = await supabase.from('siswa').delete().eq('id', id);
-
-    if (error) return { success: false, error: error.message };
+    await dbQuery('DELETE FROM siswa WHERE id = $1', [id]);
 
     cacheInvalidate('siswa*');
     cacheInvalidate('dashboard*');

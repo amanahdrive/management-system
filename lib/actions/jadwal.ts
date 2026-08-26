@@ -1,12 +1,11 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheInvalidate } from '@/lib/utils/cache';
 import { JadwalSesi } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 import {
   generateWhatsAppJadwalMarkdown,
-  generateWhatsAppWeeklyScheduleMarkdown,
   generateWhatsAppRangeScheduleMarkdown,
   generateWhatsAppRecapMarkdown,
   InstrukturJadwalGroup,
@@ -19,20 +18,32 @@ export async function getJadwalByTanggal(
   staffId?: string
 ): Promise<JadwalSesi[]> {
   try {
-    const supabase = await createServerClient();
-    let query = supabase
-      .from('jadwal_sesi')
-      .select(
-        '*, siswa(*), instruktur:staff(*), kendaraan(*), slot_waktu:slot_waktu!slot_waktu_id(*), slot_waktu_akhir:slot_waktu!slot_waktu_id_akhir(*)'
-      )
-      .eq('tanggal_sesi', tanggal);
-
+    const params: any[] = [tanggal];
+    let staffFilter = '';
     if (staffId && staffId !== 'semua') {
-      query = query.eq('staff_id', staffId);
+      params.push(staffId);
+      staffFilter = `AND js.staff_id = $${params.length}`;
     }
 
-    const { data, error } = await query;
-    if (!error && data) return data as JadwalSesi[];
+    const rows = await dbQuery<JadwalSesi>(`
+      SELECT 
+        js.*,
+        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS instruktur,
+        CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
+        CASE WHEN sw1.id IS NOT NULL THEN to_jsonb(sw1) ELSE NULL END AS slot_waktu,
+        CASE WHEN sw2.id IS NOT NULL THEN to_jsonb(sw2) ELSE NULL END AS slot_waktu_akhir
+      FROM jadwal_sesi js
+      LEFT JOIN siswa s ON js.siswa_id = s.id
+      LEFT JOIN staff st ON js.staff_id = st.id
+      LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
+      LEFT JOIN slot_waktu sw1 ON js.slot_waktu_id = sw1.id
+      LEFT JOIN slot_waktu sw2 ON js.slot_waktu_id_akhir = sw2.id
+      WHERE js.tanggal_sesi::date = $1::date ${staffFilter}
+      ORDER BY js.slot_waktu_id ASC;
+    `, params);
+
+    return rows;
   } catch (e) {
     console.error('Error fetching jadwal by tanggal:', e);
   }
@@ -44,20 +55,26 @@ export async function getJadwalByBulan(
   monthIndex: number
 ): Promise<JadwalSesi[]> {
   try {
-    const supabase = await createServerClient();
     const startDate = `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`;
     const lastDay = new Date(year, monthIndex + 1, 0).getDate();
     const endDate = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-    const { data, error } = await supabase
-      .from('jadwal_sesi')
-      .select(
-        '*, siswa(*), instruktur:staff(*), kendaraan(*), slot_waktu:slot_waktu!slot_waktu_id(*)'
-      )
-      .gte('tanggal_sesi', startDate)
-      .lte('tanggal_sesi', endDate);
+    const rows = await dbQuery<JadwalSesi>(`
+      SELECT 
+        js.*,
+        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS instruktur,
+        CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
+        CASE WHEN sw.id IS NOT NULL THEN to_jsonb(sw) ELSE NULL END AS slot_waktu
+      FROM jadwal_sesi js
+      LEFT JOIN siswa s ON js.siswa_id = s.id
+      LEFT JOIN staff st ON js.staff_id = st.id
+      LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
+      LEFT JOIN slot_waktu sw ON js.slot_waktu_id = sw.id
+      WHERE js.tanggal_sesi >= $1 AND js.tanggal_sesi <= $2;
+    `, [startDate, endDate]);
 
-    if (!error && data) return data as JadwalSesi[];
+    return rows;
   } catch (e) {
     console.error('Error fetching jadwal by month:', e);
   }
@@ -66,16 +83,24 @@ export async function getJadwalByBulan(
 
 export async function getJadwalSesiById(id: string): Promise<JadwalSesi | null> {
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('jadwal_sesi')
-      .select(
-        '*, siswa(*), instruktur:staff(*), kendaraan(*), slot_waktu:slot_waktu!slot_waktu_id(*), slot_waktu_akhir:slot_waktu!slot_waktu_id_akhir(*)'
-      )
-      .eq('id', id)
-      .single();
+    const row = await dbQuerySingle<JadwalSesi>(`
+      SELECT 
+        js.*,
+        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS instruktur,
+        CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
+        CASE WHEN sw1.id IS NOT NULL THEN to_jsonb(sw1) ELSE NULL END AS slot_waktu,
+        CASE WHEN sw2.id IS NOT NULL THEN to_jsonb(sw2) ELSE NULL END AS slot_waktu_akhir
+      FROM jadwal_sesi js
+      LEFT JOIN siswa s ON js.siswa_id = s.id
+      LEFT JOIN staff st ON js.staff_id = st.id
+      LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
+      LEFT JOIN slot_waktu sw1 ON js.slot_waktu_id = sw1.id
+      LEFT JOIN slot_waktu sw2 ON js.slot_waktu_id_akhir = sw2.id
+      WHERE js.id = $1;
+    `, [id]);
 
-    if (!error && data) return data as JadwalSesi;
+    return row;
   } catch (e) {
     console.error('Error fetching jadwal by id:', e);
   }
@@ -84,16 +109,25 @@ export async function getJadwalSesiById(id: string): Promise<JadwalSesi | null> 
 
 export async function getJadwalBySiswa(siswaId: string): Promise<JadwalSesi[]> {
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('jadwal_sesi')
-      .select(
-        '*, siswa(*), instruktur:staff(*), kendaraan(*), slot_waktu:slot_waktu!slot_waktu_id(*), slot_waktu_akhir:slot_waktu!slot_waktu_id_akhir(*)'
-      )
-      .eq('siswa_id', siswaId)
-      .order('nomor_sesi_ke', { ascending: true });
+    const rows = await dbQuery<JadwalSesi>(`
+      SELECT 
+        js.*,
+        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS instruktur,
+        CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
+        CASE WHEN sw1.id IS NOT NULL THEN to_jsonb(sw1) ELSE NULL END AS slot_waktu,
+        CASE WHEN sw2.id IS NOT NULL THEN to_jsonb(sw2) ELSE NULL END AS slot_waktu_akhir
+      FROM jadwal_sesi js
+      LEFT JOIN siswa s ON js.siswa_id = s.id
+      LEFT JOIN staff st ON js.staff_id = st.id
+      LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
+      LEFT JOIN slot_waktu sw1 ON js.slot_waktu_id = sw1.id
+      LEFT JOIN slot_waktu sw2 ON js.slot_waktu_id_akhir = sw2.id
+      WHERE js.siswa_id = $1
+      ORDER BY js.nomor_sesi_ke ASC;
+    `, [siswaId]);
 
-    if (!error && data) return data as JadwalSesi[];
+    return rows;
   } catch (e) {
     console.error('Error fetching schedules by student:', e);
   }
@@ -102,24 +136,29 @@ export async function getJadwalBySiswa(siswaId: string): Promise<JadwalSesi[]> {
 
 export async function getJadwalConflictCheckList(): Promise<JadwalSesi[]> {
   try {
-    const supabase = await createServerClient();
-    // Limit to a 120-day window (30 past + 90 future) for performance — avoids full table scan
     const today = new Date();
     const past = new Date(today); past.setDate(today.getDate() - 30);
     const future = new Date(today); future.setDate(today.getDate() + 90);
     const pastStr = past.toISOString().slice(0, 10);
     const futureStr = future.toISOString().slice(0, 10);
 
-    const { data, error } = await supabase
-      .from('jadwal_sesi')
-      .select(
-        'id, siswa_id, staff_id, tanggal_sesi, slot_waktu_id, slot_waktu_id_akhir, status_sesi, nomor_sesi_ke, total_sesi_paket, siswa(id, nama, kode_siswa), instruktur:staff(id, nama), slot_waktu:slot_waktu!slot_waktu_id(id, nama_slot, jam_mulai, jam_selesai)'
-      )
-      .neq('status_sesi', 'batal')
-      .gte('tanggal_sesi', pastStr)
-      .lte('tanggal_sesi', futureStr);
+    const rows = await dbQuery<JadwalSesi>(`
+      SELECT 
+        js.id, js.siswa_id, js.staff_id, js.tanggal_sesi, js.slot_waktu_id, js.slot_waktu_id_akhir, 
+        js.status_sesi, js.nomor_sesi_ke, js.total_sesi_paket,
+        CASE WHEN s.id IS NOT NULL THEN json_build_object('id', s.id, 'nama', s.nama, 'kode_siswa', s.kode_siswa) ELSE NULL END AS siswa,
+        CASE WHEN st.id IS NOT NULL THEN json_build_object('id', st.id, 'nama', st.nama) ELSE NULL END AS instruktur,
+        CASE WHEN sw.id IS NOT NULL THEN json_build_object('id', sw.id, 'nama_slot', sw.nama_slot, 'jam_mulai', sw.jam_mulai, 'jam_selesai', sw.jam_selesai) ELSE NULL END AS slot_waktu
+      FROM jadwal_sesi js
+      LEFT JOIN siswa s ON js.siswa_id = s.id
+      LEFT JOIN staff st ON js.staff_id = st.id
+      LEFT JOIN slot_waktu sw ON js.slot_waktu_id = sw.id
+      WHERE js.status_sesi != 'batal' 
+        AND js.tanggal_sesi >= $1 
+        AND js.tanggal_sesi <= $2;
+    `, [pastStr, futureStr]);
 
-    if (!error && data) return data as unknown as JadwalSesi[];
+    return rows;
   } catch (e) {
     console.error('Error fetching conflict check list:', e);
   }
@@ -132,27 +171,16 @@ export async function updateJadwalStatus(
   catatan_sesi?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const existing = await dbQuerySingle<{ siswa_id: string }>(
+      'SELECT siswa_id FROM jadwal_sesi WHERE id = $1',
+      [id]
+    );
 
-    // Fetch the session first to get siswa_id for complete path revalidation
-    const { data: existing } = await supabase
-      .from('jadwal_sesi')
-      .select('siswa_id')
-      .eq('id', id)
-      .single();
+    await dbQuery(
+      'UPDATE jadwal_sesi SET status_sesi = $1, catatan_sesi = $2, updated_at = NOW() WHERE id = $3',
+      [status_sesi, catatan_sesi || null, id]
+    );
 
-    const { error } = await supabase
-      .from('jadwal_sesi')
-      .update({
-        status_sesi,
-        catatan_sesi: catatan_sesi || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
-
-    if (error) return { success: false, error: error.message };
-
-    // Full cross-section revalidation for progress sync
     revalidatePath('/jadwal');
     revalidatePath('/instruktur');
     revalidatePath('/dashboard');
@@ -170,9 +198,6 @@ export async function upsertJadwalSesi(
   jadwal: Partial<JadwalSesi>
 ): Promise<{ success: boolean; data?: JadwalSesi; error?: string }> {
   try {
-    const supabase = await createServerClient();
-
-    // Clean joined objects from payload
     const {
       siswa,
       instruktur,
@@ -182,28 +207,31 @@ export async function upsertJadwalSesi(
       ...cleanPayload
     } = jadwal as any;
 
-    if (cleanPayload.id) {
-      // Use UPDATE for existing IDs to avoid NOT NULL constraint errors on omitted columns
-      const { data: saved, error } = await supabase
-        .from('jadwal_sesi')
-        .update(cleanPayload)
-        .eq('id', cleanPayload.id)
-        .select()
-        .single();
+    let saved: any = null;
 
-      if (error) return { success: false, error: error.message };
+    if (cleanPayload.id) {
+      const keys = Object.keys(cleanPayload).filter((k) => k !== 'id' && cleanPayload[k] !== undefined);
+      const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+      const values = keys.map((k) => cleanPayload[k]);
+      values.push(cleanPayload.id);
+
+      saved = await dbQuerySingle(
+        `UPDATE jadwal_sesi SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
+        values
+      );
       revalidatePath('/jadwal');
       revalidatePath(`/jadwal/${cleanPayload.id}`);
       return { success: true, data: saved as JadwalSesi };
     } else {
-      // Use INSERT for new records
-      const { data: saved, error } = await supabase
-        .from('jadwal_sesi')
-        .insert(cleanPayload)
-        .select()
-        .single();
+      const keys = Object.keys(cleanPayload).filter((k) => cleanPayload[k] !== undefined);
+      const cols = keys.map((k) => `"${k}"`).join(', ');
+      const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+      const values = keys.map((k) => cleanPayload[k]);
 
-      if (error || !saved) return { success: false, error: error?.message || 'Gagal menyimpan jadwal' };
+      saved = await dbQuerySingle(
+        `INSERT INTO jadwal_sesi (${cols}) VALUES (${placeholders}) RETURNING *`,
+        values
+      );
       revalidatePath('/jadwal');
       return { success: true, data: saved as JadwalSesi };
     }
@@ -216,14 +244,15 @@ export async function upsertJadwalBatch(
   jadwalList: Partial<JadwalSesi>[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    const cleanList = jadwalList.map((item: any) => {
-      const { siswa, instruktur, slot_waktu, kendaraan, slot_waktu_akhir, ...clean } = item;
-      return clean;
-    });
+    for (const item of jadwalList) {
+      const { siswa, instruktur, slot_waktu, kendaraan, slot_waktu_akhir, ...clean } = item as any;
+      const keys = Object.keys(clean).filter((k) => clean[k] !== undefined);
+      const cols = keys.map((k) => `"${k}"`).join(', ');
+      const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+      const values = keys.map((k) => clean[k]);
 
-    const { error } = await supabase.from('jadwal_sesi').insert(cleanList);
-    if (error) return { success: false, error: error.message };
+      await dbQuery(`INSERT INTO jadwal_sesi (${cols}) VALUES (${placeholders})`, values);
+    }
 
     revalidatePath('/jadwal');
     return { success: true };
@@ -239,48 +268,33 @@ export async function updateSesiProgress(
   statusSesi: 'selesai' | 'batal' | 'terjadwal'
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const siswaRecord = await dbQuerySingle<{ jumlah_sesi: number }>(`
+      SELECT p.jumlah_sesi 
+      FROM siswa s 
+      LEFT JOIN paket p ON s.paket_id = p.id 
+      WHERE s.id = $1
+    `, [siswaId]);
 
-    // Fetch siswa data for accurate defaults (no hardcoding)
-    const { data: siswaRecord } = await supabase
-      .from('siswa')
-      .select('paket(jumlah_sesi)')
-      .eq('id', siswaId)
-      .single();
+    const totalSesiPaket = siswaRecord?.jumlah_sesi || 10;
 
-    const totalSesiPaket = (siswaRecord?.paket as any)?.jumlah_sesi || 10;
-
-    const { data: existing } = await supabase
-      .from('jadwal_sesi')
-      .select('id')
-      .eq('siswa_id', siswaId)
-      .eq('nomor_sesi_ke', nomorSesiKe)
-      .maybeSingle();
+    const existing = await dbQuerySingle<{ id: string }>(
+      'SELECT id FROM jadwal_sesi WHERE siswa_id = $1 AND nomor_sesi_ke = $2',
+      [siswaId, nomorSesiKe]
+    );
 
     if (existing) {
-      const { error } = await supabase
-        .from('jadwal_sesi')
-        .update({
-          tanggal_sesi: tanggalSesi,
-          status_sesi: statusSesi,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existing.id);
-      if (error) return { success: false, error: error.message };
+      await dbQuery(
+        'UPDATE jadwal_sesi SET tanggal_sesi = $1, status_sesi = $2, updated_at = NOW() WHERE id = $3',
+        [tanggalSesi, statusSesi, existing.id]
+      );
     } else {
-      // Use data from siswa record, not hardcoded defaults
-      const { error } = await supabase.from('jadwal_sesi').insert({
-        siswa_id: siswaId,
-        nomor_sesi_ke: nomorSesiKe,
-        tanggal_sesi: tanggalSesi,
-        status_sesi: statusSesi,
-        total_sesi_paket: totalSesiPaket,
-        jenis_mobil: 'manual',
-      });
-      if (error) return { success: false, error: error.message };
+      await dbQuery(
+        `INSERT INTO jadwal_sesi (siswa_id, nomor_sesi_ke, tanggal_sesi, status_sesi, total_sesi_paket, jenis_mobil)
+         VALUES ($1, $2, $3, $4, $5, 'manual')`,
+        [siswaId, nomorSesiKe, tanggalSesi, statusSesi, totalSesiPaket]
+      );
     }
 
-    // Full sync revalidation
     revalidatePath('/jadwal');
     revalidatePath(`/jadwal/${siswaId}`);
     revalidatePath('/instruktur');
@@ -292,10 +306,6 @@ export async function updateSesiProgress(
   }
 }
 
-/**
- * Reschedule a session by shifting it and all subsequent sessions of the student forward by +N days.
- * If shiftDays is 1, today's session moves to tomorrow (+1 day), and all remaining sessions after it also advance +1 day.
- */
 export async function rescheduleSesiShiftCascade(
   siswaId: string,
   fromNomorSesiKe: number,
@@ -306,38 +316,26 @@ export async function rescheduleSesiShiftCascade(
       return { success: false, error: 'Jumlah pergeseran hari harus minimal 1 hari' };
     }
 
-    const supabase = await createServerClient();
+    const sessions = await dbQuery<{ id: string; nomor_sesi_ke: number; tanggal_sesi: string }>(
+      `SELECT id, nomor_sesi_ke, tanggal_sesi 
+       FROM jadwal_sesi 
+       WHERE siswa_id = $1 AND nomor_sesi_ke >= $2 AND status_sesi != 'selesai' 
+       ORDER BY nomor_sesi_ke ASC`,
+      [siswaId, fromNomorSesiKe]
+    );
 
-    // Fetch all active/terjadwal sessions for this student starting from fromNomorSesiKe
-    const { data: sessions, error: fetchErr } = await supabase
-      .from('jadwal_sesi')
-      .select('id, nomor_sesi_ke, tanggal_sesi, status_sesi')
-      .eq('siswa_id', siswaId)
-      .gte('nomor_sesi_ke', fromNomorSesiKe)
-      .neq('status_sesi', 'selesai')
-      .order('nomor_sesi_ke', { ascending: true });
-
-    if (fetchErr) return { success: false, error: fetchErr.message };
     if (!sessions || sessions.length === 0) {
       return { success: false, error: 'Tidak ada sesi yang ditemukan untuk di-reschedule' };
     }
 
-    // Update each session with shifted date
     for (const sesi of sessions) {
       const newDate = addDaysToDateStr(sesi.tanggal_sesi, shiftDays);
-      const { error: updateErr } = await supabase
-        .from('jadwal_sesi')
-        .update({
-          tanggal_sesi: newDate,
-          status_sesi: 'terjadwal',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', sesi.id);
-
-      if (updateErr) return { success: false, error: updateErr.message };
+      await dbQuery(
+        "UPDATE jadwal_sesi SET tanggal_sesi = $1, status_sesi = 'terjadwal', updated_at = NOW() WHERE id = $2",
+        [newDate, sesi.id]
+      );
     }
 
-    // Revalidate paths so UI & conflict checks immediately reflect the new dates
     revalidatePath('/jadwal');
     revalidatePath(`/jadwal/${siswaId}`);
     revalidatePath('/instruktur');
@@ -355,16 +353,11 @@ export async function deleteJadwalSesi(
   siswaId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    let query = supabase.from('jadwal_sesi').delete();
     if (siswaId) {
-      query = query.eq('siswa_id', siswaId);
+      await dbQuery('DELETE FROM jadwal_sesi WHERE siswa_id = $1', [siswaId]);
     } else {
-      query = query.eq('id', id);
+      await dbQuery('DELETE FROM jadwal_sesi WHERE id = $1', [id]);
     }
-    const { error } = await query;
-
-    if (error) return { success: false, error: error.message };
 
     revalidatePath('/jadwal');
     revalidatePath('/instruktur');
@@ -375,20 +368,13 @@ export async function deleteJadwalSesi(
   }
 }
 
-
-
 export async function generateWhatsAppScheduleText(
   tanggalStr: string,
   staffId?: string
 ): Promise<string> {
-  const supabase = await createServerClient();
   let staffFilterNama: string | undefined;
   if (staffId && staffId !== 'semua') {
-    const { data: staffData } = await supabase
-      .from('staff')
-      .select('nama')
-      .eq('id', staffId)
-      .single();
+    const staffData = await dbQuerySingle<{ nama: string }>('SELECT nama FROM staff WHERE id = $1', [staffId]);
     if (staffData?.nama) staffFilterNama = staffData.nama;
   }
 
@@ -414,12 +400,8 @@ export async function generateWhatsAppScheduleText(
 
   let footerTemplate: string | undefined;
   try {
-    const { data } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'wa_footer_template')
-      .single();
-    if (data?.value) footerTemplate = data.value;
+    const setRow = await dbQuerySingle<{ value: string }>("SELECT value FROM settings WHERE key = 'wa_footer_template'");
+    if (setRow?.value) footerTemplate = setRow.value;
   } catch (e) {}
 
   return generateWhatsAppJadwalMarkdown(tanggalStr, groupedData, footerTemplate, staffFilterNama);
@@ -431,44 +413,44 @@ export async function generateWhatsAppWeeklyScheduleText(
   staffId?: string
 ): Promise<string> {
   try {
-    const supabase = await createServerClient();
     let staffFilterNama: string | undefined;
+    const params: any[] = [startDateStr, endDateStr];
+    let staffFilter = '';
+
     if (staffId && staffId !== 'semua') {
-      const { data: staffData } = await supabase
-        .from('staff')
-        .select('nama')
-        .eq('id', staffId)
-        .single();
+      const staffData = await dbQuerySingle<{ nama: string }>('SELECT nama FROM staff WHERE id = $1', [staffId]);
       if (staffData?.nama) staffFilterNama = staffData.nama;
+      params.push(staffId);
+      staffFilter = `AND js.staff_id = $${params.length}`;
     }
 
-    let query = supabase
-      .from('jadwal_sesi')
-      .select(
-        '*, siswa(*), instruktur:staff(*), kendaraan(*), slot_waktu:slot_waktu!slot_waktu_id(*), slot_waktu_akhir:slot_waktu!slot_waktu_id_akhir(*)'
-      )
-      .gte('tanggal_sesi', startDateStr)
-      .lte('tanggal_sesi', endDateStr)
-      .order('tanggal_sesi', { ascending: true });
+    const list = await dbQuery<JadwalSesi>(`
+      SELECT 
+        js.*,
+        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS instruktur,
+        CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
+        CASE WHEN sw1.id IS NOT NULL THEN to_jsonb(sw1) ELSE NULL END AS slot_waktu,
+        CASE WHEN sw2.id IS NOT NULL THEN to_jsonb(sw2) ELSE NULL END AS slot_waktu_akhir
+      FROM jadwal_sesi js
+      LEFT JOIN siswa s ON js.siswa_id = s.id
+      LEFT JOIN staff st ON js.staff_id = st.id
+      LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
+      LEFT JOIN slot_waktu sw1 ON js.slot_waktu_id = sw1.id
+      LEFT JOIN slot_waktu sw2 ON js.slot_waktu_id_akhir = sw2.id
+      WHERE js.tanggal_sesi >= $1 AND js.tanggal_sesi <= $2 ${staffFilter}
+      ORDER BY js.tanggal_sesi ASC;
+    `, params);
 
-    if (staffId && staffId !== 'semua') {
-      query = query.eq('staff_id', staffId);
-    }
-
-    const { data: list, error } = await query;
-    if (error || !list) return 'Gagal memuat jadwal mingguan';
-
-    // Group by date
     const dateMap = new Map<string, JadwalSesi[]>();
     list.forEach((s) => {
       const tgl = s.tanggal_sesi;
       if (!dateMap.has(tgl)) dateMap.set(tgl, []);
-      dateMap.get(tgl)!.push(s as JadwalSesi);
+      dateMap.get(tgl)!.push(s);
     });
 
     const daysData: { tanggal: string; groups: InstrukturJadwalGroup[] }[] = [];
 
-    // Iterate through date range
     const start = new Date(startDateStr);
     const end = new Date(endDateStr);
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
@@ -494,19 +476,15 @@ export async function generateWhatsAppWeeklyScheduleText(
 
     let footerTemplate: string | undefined;
     try {
-      const { data } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'wa_footer_template')
-        .single();
-      if (data?.value) footerTemplate = data.value;
+      const setRow = await dbQuerySingle<{ value: string }>("SELECT value FROM settings WHERE key = 'wa_footer_template'");
+      if (setRow?.value) footerTemplate = setRow.value;
     } catch (e) {}
 
     return generateWhatsAppRangeScheduleMarkdown(
       startDateStr,
       endDateStr,
       daysData,
-      true, // weekly Sunday-Saturday mode
+      true,
       staffFilterNama,
       footerTemplate
     );
@@ -521,38 +499,40 @@ export async function generateWhatsAppCustomRangeText(
   staffId?: string
 ): Promise<string> {
   try {
-    const supabase = await createServerClient();
     let staffFilterNama: string | undefined;
+    const params: any[] = [startDateStr, endDateStr];
+    let staffFilter = '';
+
     if (staffId && staffId !== 'semua') {
-      const { data: staffData } = await supabase
-        .from('staff')
-        .select('nama')
-        .eq('id', staffId)
-        .single();
+      const staffData = await dbQuerySingle<{ nama: string }>('SELECT nama FROM staff WHERE id = $1', [staffId]);
       if (staffData?.nama) staffFilterNama = staffData.nama;
+      params.push(staffId);
+      staffFilter = `AND js.staff_id = $${params.length}`;
     }
 
-    let query = supabase
-      .from('jadwal_sesi')
-      .select(
-        '*, siswa(*), instruktur:staff(*), kendaraan(*), slot_waktu:slot_waktu!slot_waktu_id(*), slot_waktu_akhir:slot_waktu!slot_waktu_id_akhir(*)'
-      )
-      .gte('tanggal_sesi', startDateStr)
-      .lte('tanggal_sesi', endDateStr)
-      .order('tanggal_sesi', { ascending: true });
-
-    if (staffId && staffId !== 'semua') {
-      query = query.eq('staff_id', staffId);
-    }
-
-    const { data: list, error } = await query;
-    if (error || !list) return 'Gagal memuat jadwal rentang tanggal';
+    const list = await dbQuery<JadwalSesi>(`
+      SELECT 
+        js.*,
+        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS instruktur,
+        CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
+        CASE WHEN sw1.id IS NOT NULL THEN to_jsonb(sw1) ELSE NULL END AS slot_waktu,
+        CASE WHEN sw2.id IS NOT NULL THEN to_jsonb(sw2) ELSE NULL END AS slot_waktu_akhir
+      FROM jadwal_sesi js
+      LEFT JOIN siswa s ON js.siswa_id = s.id
+      LEFT JOIN staff st ON js.staff_id = st.id
+      LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
+      LEFT JOIN slot_waktu sw1 ON js.slot_waktu_id = sw1.id
+      LEFT JOIN slot_waktu sw2 ON js.slot_waktu_id_akhir = sw2.id
+      WHERE js.tanggal_sesi >= $1 AND js.tanggal_sesi <= $2 ${staffFilter}
+      ORDER BY js.tanggal_sesi ASC;
+    `, params);
 
     const dateMap = new Map<string, JadwalSesi[]>();
     list.forEach((s) => {
       const tgl = s.tanggal_sesi;
       if (!dateMap.has(tgl)) dateMap.set(tgl, []);
-      dateMap.get(tgl)!.push(s as JadwalSesi);
+      dateMap.get(tgl)!.push(s);
     });
 
     const daysData: { tanggal: string; groups: InstrukturJadwalGroup[] }[] = [];
@@ -582,19 +562,15 @@ export async function generateWhatsAppCustomRangeText(
 
     let footerTemplate: string | undefined;
     try {
-      const { data } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'wa_footer_template')
-        .single();
-      if (data?.value) footerTemplate = data.value;
+      const setRow = await dbQuerySingle<{ value: string }>("SELECT value FROM settings WHERE key = 'wa_footer_template'");
+      if (setRow?.value) footerTemplate = setRow.value;
     } catch (e) {}
 
     return generateWhatsAppRangeScheduleMarkdown(
       startDateStr,
       endDateStr,
       daysData,
-      false, // custom range mode
+      false,
       staffFilterNama,
       footerTemplate
     );
@@ -607,14 +583,9 @@ export async function generateWhatsAppRecapText(
   tanggalStr: string,
   staffId?: string
 ): Promise<string> {
-  const supabase = await createServerClient();
   let staffFilterNama: string | undefined;
   if (staffId && staffId !== 'semua') {
-    const { data: staffData } = await supabase
-      .from('staff')
-      .select('nama')
-      .eq('id', staffId)
-      .single();
+    const staffData = await dbQuerySingle<{ nama: string }>('SELECT nama FROM staff WHERE id = $1', [staffId]);
     if (staffData?.nama) staffFilterNama = staffData.nama;
   }
 
@@ -638,5 +609,3 @@ export async function generateWhatsAppRecapText(
 
   return generateWhatsAppRecapMarkdown(tanggalStr, groupedData, staffFilterNama);
 }
-
-

@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { dbQuery } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
 export type ResetModuleKey =
@@ -19,10 +19,9 @@ export type ResetModuleKey =
  */
 export async function resetDataKeuangan(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    await supabase.from('hutang_pembayaran').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('kas_transaksi').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('hutang').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await dbQuery("DELETE FROM hutang_pembayaran WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM kas_transaksi WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM hutang WHERE id != '00000000-0000-0000-0000-000000000000'");
 
     revalidatePath('/kas');
     revalidatePath('/kas/cashflow');
@@ -43,12 +42,10 @@ export async function resetDataKeuangan(): Promise<{ success: boolean; error?: s
  */
 export async function resetDataSiswa(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    // Nullify references in foreign tables or remove sessions tied to siswa
-    await supabase.from('jadwal_sesi').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('insiden').update({ siswa_id: null }).neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('kas_transaksi').update({ siswa_id: null }).neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('siswa').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await dbQuery("DELETE FROM jadwal_sesi WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("UPDATE insiden SET siswa_id = NULL WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("UPDATE kas_transaksi SET siswa_id = NULL WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM siswa WHERE id != '00000000-0000-0000-0000-000000000000'");
 
     revalidatePath('/siswa');
     revalidatePath('/jadwal');
@@ -67,8 +64,7 @@ export async function resetDataSiswa(): Promise<{ success: boolean; error?: stri
  */
 export async function resetDataJadwal(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    await supabase.from('jadwal_sesi').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await dbQuery("DELETE FROM jadwal_sesi WHERE id != '00000000-0000-0000-0000-000000000000'");
 
     revalidatePath('/jadwal');
     revalidatePath('/dashboard');
@@ -86,10 +82,9 @@ export async function resetDataJadwal(): Promise<{ success: boolean; error?: str
  */
 export async function resetDataKendaraanLog(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    await supabase.from('kendaraan_log_harian').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('kendaraan_ban').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('kendaraan_status').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await dbQuery("DELETE FROM kendaraan_log_harian WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM kendaraan_ban WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM kendaraan_status WHERE id != '00000000-0000-0000-0000-000000000000'");
 
     revalidatePath('/kendaraan');
     revalidatePath('/dashboard');
@@ -106,8 +101,7 @@ export async function resetDataKendaraanLog(): Promise<{ success: boolean; error
  */
 export async function resetDataInsiden(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    await supabase.from('insiden').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await dbQuery("DELETE FROM insiden WHERE id != '00000000-0000-0000-0000-000000000000'");
 
     revalidatePath('/insiden');
     revalidatePath('/kendaraan');
@@ -125,8 +119,7 @@ export async function resetDataInsiden(): Promise<{ success: boolean; error?: st
  */
 export async function resetDataNotifikasiLog(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    await supabase.from('notifikasi_log').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await dbQuery("DELETE FROM notifikasi_log WHERE id != '00000000-0000-0000-0000-000000000000'");
 
     revalidatePath('/settings');
 
@@ -142,11 +135,10 @@ export async function resetDataNotifikasiLog(): Promise<{ success: boolean; erro
  */
 export async function resetDataMasterStaff(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    await supabase.from('jadwal_sesi').update({ staff_id: null }).neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('insiden').update({ staff_id: null }).neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('staff_jabatan').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('staff').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await dbQuery("UPDATE jadwal_sesi SET staff_id = NULL WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("UPDATE insiden SET staff_id = NULL WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM staff_jabatan WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM staff WHERE id != '00000000-0000-0000-0000-000000000000'");
 
     revalidatePath('/master-data/staff');
     revalidatePath('/master-data/jabatan');
@@ -164,10 +156,9 @@ export async function resetDataMasterStaff(): Promise<{ success: boolean; error?
  */
 export async function resetDataMasterPaket(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    await supabase.from('siswa').update({ paket_id: null }).neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('promosi').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('paket').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await dbQuery("UPDATE siswa SET paket_id = NULL WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM promosi WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM paket WHERE id != '00000000-0000-0000-0000-000000000000'");
 
     revalidatePath('/master-data/paket');
     revalidatePath('/master-data/promosi');
@@ -185,44 +176,29 @@ export async function resetDataMasterPaket(): Promise<{ success: boolean; error?
  */
 export async function resetSystemAllData(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    await dbQuery("DELETE FROM notifikasi_log WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM insiden WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM hutang_pembayaran WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM kas_transaksi WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM hutang WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM jadwal_sesi WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM siswa WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM kendaraan_ban WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM kendaraan_log_harian WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM kendaraan_status WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM kendaraan WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM staff_jabatan WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM staff WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM jabatan WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM promosi WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM settings WHERE id != '00000000-0000-0000-0000-000000000000'");
 
-    // Delete in safe foreign-key sequence
-    await supabase.from('notifikasi_log').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('insiden').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('hutang_pembayaran').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('kas_transaksi').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('hutang').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('jadwal_sesi').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('siswa').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('kendaraan_ban').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('kendaraan_log_harian').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('kendaraan_status').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('kendaraan').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('staff_jabatan').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('staff').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('jabatan').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('promosi').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('settings').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-
-    // Reset default settings (hashed PIN 210100)
-    await supabase.from('settings').insert([
-      {
-        key: 'pin_kas',
-        value: '$2a$10$wW5V1/0cEwG9G7sX4mXl3.WfK3/h6/Hh.L6xG.O7P3lM8M1b1V7yG',
-        deskripsi: 'PIN Kas Default 210100',
-      },
-      {
-        key: 'nama_perusahaan',
-        value: '',
-        deskripsi: 'Nama Perusahaan',
-      },
-      {
-        key: 'kota_operasional',
-        value: '',
-        deskripsi: 'Kota Operasional',
-      },
-    ]);
+    await dbQuery(`
+      INSERT INTO settings (key, value, deskripsi) VALUES 
+      ('pin_kas', '$2b$10$R8rNaSgluTw0jHqja96RpukOfjeGH0wcgws0OmTZV8qmbgp/dNeFq', 'PIN Kas Default 210100'),
+      ('nama_perusahaan', 'Amanah Drive', 'Nama Perusahaan'),
+      ('kota_operasional', 'Palembang', 'Kota Operasional')
+    `);
 
     revalidatePath('/dashboard');
     revalidatePath('/siswa');

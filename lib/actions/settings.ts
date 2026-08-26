@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
 
@@ -29,12 +29,11 @@ export async function getGeneralSettings(): Promise<GeneralSettings> {
   if (cached) return cached;
 
   try {
-    const supabase = await createServerClient();
-    const { data } = await supabase.from('settings').select('key, value');
+    const rows = await dbQuery<{ key: string; value: string }>('SELECT key, value FROM settings');
 
     const map: Record<string, string> = {};
-    if (data) {
-      data.forEach((row) => {
+    if (rows) {
+      rows.forEach((row) => {
         map[row.key] = row.value;
       });
     }
@@ -47,7 +46,7 @@ export async function getGeneralSettings(): Promise<GeneralSettings> {
       pertamaxPrice: map['harga_bbm_pertamax'] ? Number(map['harga_bbm_pertamax']) : 16300,
     };
 
-    cacheSet(CACHE_KEY, result, 120);
+    cacheSet(CACHE_KEY, result, 60);
     return result;
   } catch (e) {
     console.error('Error fetching general settings:', e);
@@ -65,27 +64,13 @@ export async function getGeneralSettings(): Promise<GeneralSettings> {
  * Save single setting helper (upsert by key)
  */
 async function upsertSetting(key: string, value: string, deskripsi?: string) {
-  const supabase = await createServerClient();
-  const { data: existing } = await supabase.from('settings').select('id').eq('key', key).maybeSingle();
-
-  if (existing) {
-    await supabase
-      .from('settings')
-      .update({
-        value,
-        deskripsi: deskripsi || key,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', existing.id);
-  } else {
-    await supabase.from('settings').insert({
-      key,
-      value,
-      deskripsi: deskripsi || key,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-  }
+  await dbQuery(
+    `INSERT INTO settings (key, value, deskripsi, updated_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (key) DO UPDATE
+     SET value = EXCLUDED.value, deskripsi = EXCLUDED.deskripsi, updated_at = NOW()`,
+    [key, value, deskripsi || key]
+  );
 
   cacheInvalidate(CACHE_KEY);
   cacheInvalidate('settings*');

@@ -1,6 +1,6 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { Paket, Promosi, Jabatan, Staff, StatusPembayaranMaster, SlotWaktu, Kendaraan } from '@/types/database';
 import { revalidatePath } from 'next/cache';
@@ -11,15 +11,9 @@ export async function getPaketList(): Promise<Paket[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('paket')
-      .select('*')
-      .order('created_at', { ascending: true });
-    if (!error && data) {
-      cacheSet('master_paket_list', data as Paket[], 180);
-      return data as Paket[];
-    }
+    const rows = await dbQuery<Paket>('SELECT * FROM paket ORDER BY created_at ASC');
+    cacheSet('master_paket_list', rows, 180);
+    return rows;
   } catch (e) {
     console.error('Error fetching paket:', e);
   }
@@ -28,9 +22,20 @@ export async function getPaketList(): Promise<Paket[]> {
 
 export async function upsertPaket(paket: Partial<Paket>): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    const { error } = await supabase.from('paket').upsert(paket);
-    if (error) return { success: false, error: error.message };
+    const isNew = !paket.id;
+    if (!isNew) {
+      const keys = Object.keys(paket).filter((k) => k !== 'id' && (paket as any)[k] !== undefined);
+      const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+      const values = keys.map((k) => (paket as any)[k]);
+      values.push(paket.id);
+      await dbQuery(`UPDATE paket SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length}`, values);
+    } else {
+      const keys = Object.keys(paket).filter((k) => (paket as any)[k] !== undefined);
+      const cols = keys.map((k) => `"${k}"`).join(', ');
+      const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+      const values = keys.map((k) => (paket as any)[k]);
+      await dbQuery(`INSERT INTO paket (${cols}) VALUES (${placeholders})`, values);
+    }
 
     cacheInvalidate('master_paket*');
     cacheInvalidate('dashboard*');
@@ -48,15 +53,9 @@ export async function getPromosiList(): Promise<Promosi[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('promosi')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (!error && data) {
-      cacheSet('master_promosi_list', data as Promosi[], 180);
-      return data as Promosi[];
-    }
+    const rows = await dbQuery<Promosi>('SELECT * FROM promosi ORDER BY created_at DESC');
+    cacheSet('master_promosi_list', rows, 180);
+    return rows;
   } catch (e) {
     console.error('Error fetching promosi:', e);
   }
@@ -65,9 +64,20 @@ export async function getPromosiList(): Promise<Promosi[]> {
 
 export async function upsertPromosi(promosi: Partial<Promosi>): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    const { error } = await supabase.from('promosi').upsert(promosi);
-    if (error) return { success: false, error: error.message };
+    const isNew = !promosi.id;
+    if (!isNew) {
+      const keys = Object.keys(promosi).filter((k) => k !== 'id' && (promosi as any)[k] !== undefined);
+      const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+      const values = keys.map((k) => (promosi as any)[k]);
+      values.push(promosi.id);
+      await dbQuery(`UPDATE promosi SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length}`, values);
+    } else {
+      const keys = Object.keys(promosi).filter((k) => (promosi as any)[k] !== undefined);
+      const cols = keys.map((k) => `"${k}"`).join(', ');
+      const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+      const values = keys.map((k) => (promosi as any)[k]);
+      await dbQuery(`INSERT INTO promosi (${cols}) VALUES (${placeholders})`, values);
+    }
 
     cacheInvalidate('master_promosi*');
 
@@ -80,10 +90,7 @@ export async function upsertPromosi(promosi: Partial<Promosi>): Promise<{ succes
 
 export async function deletePromosi(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    const { error } = await supabase.from('promosi').delete().eq('id', id);
-    if (error) return { success: false, error: error.message };
-
+    await dbQuery('DELETE FROM promosi WHERE id = $1', [id]);
     cacheInvalidate('master_promosi*');
 
     revalidatePath('/master-data/promosi');
@@ -99,32 +106,10 @@ export async function getJabatanList(): Promise<Jabatan[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('jabatan')
-      .select('*')
-      .order('nama_jabatan', { ascending: true });
-    
-    if (!error && data && data.length > 0) {
-      cacheSet('master_jabatan_list', data as Jabatan[], 300);
-      return data as Jabatan[];
-    }
-
-    // If table is empty, auto-seed default master Jabatan
-    const defaultJabatan = [
-      { nama_jabatan: 'Owner', deskripsi: 'Pemilik Usaha Amanah Drive' },
-      { nama_jabatan: 'Manager', deskripsi: 'Manajer Operasional' },
-      { nama_jabatan: 'Instruktur', deskripsi: 'Pelatih Mengemudi' },
-      { nama_jabatan: 'Admin', deskripsi: 'Administrator Sistem' },
-      { nama_jabatan: 'SM Specialist', deskripsi: 'Social Media Specialist' },
-      { nama_jabatan: 'Content Creator', deskripsi: 'Pembuat Konten' },
-      { nama_jabatan: 'Fleet Officer', deskripsi: 'Petugas Perawatan Armada' },
-    ];
-
-    const { data: seeded } = await supabase.from('jabatan').insert(defaultJabatan).select();
-    if (seeded && seeded.length > 0) {
-      cacheSet('master_jabatan_list', seeded as Jabatan[], 300);
-      return seeded as Jabatan[];
+    const rows = await dbQuery<Jabatan>('SELECT * FROM jabatan ORDER BY nama_jabatan ASC');
+    if (rows && rows.length > 0) {
+      cacheSet('master_jabatan_list', rows, 300);
+      return rows;
     }
   } catch (e) {
     console.error('Error fetching jabatan:', e);
@@ -134,9 +119,20 @@ export async function getJabatanList(): Promise<Jabatan[]> {
 
 export async function upsertJabatan(jabatan: Partial<Jabatan>): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    const { error } = await supabase.from('jabatan').upsert(jabatan);
-    if (error) return { success: false, error: error.message };
+    const isNew = !jabatan.id;
+    if (!isNew) {
+      const keys = Object.keys(jabatan).filter((k) => k !== 'id' && (jabatan as any)[k] !== undefined);
+      const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+      const values = keys.map((k) => (jabatan as any)[k]);
+      values.push(jabatan.id);
+      await dbQuery(`UPDATE jabatan SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length}`, values);
+    } else {
+      const keys = Object.keys(jabatan).filter((k) => (jabatan as any)[k] !== undefined);
+      const cols = keys.map((k) => `"${k}"`).join(', ');
+      const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+      const values = keys.map((k) => (jabatan as any)[k]);
+      await dbQuery(`INSERT INTO jabatan (${cols}) VALUES (${placeholders})`, values);
+    }
 
     cacheInvalidate('master_jabatan*');
 
@@ -153,23 +149,36 @@ export async function getStaffList(): Promise<Staff[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = await createServerClient();
-    const { data: staffData, error: staffError } = await supabase
-      .from('staff')
-      .select('*, staff_jabatan(jabatan(*))')
-      .order('nama', { ascending: true });
+    const staffData = await dbQuery(`
+      SELECT 
+        s.*,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', j.id,
+              'nama_jabatan', j.nama_jabatan,
+              'aktif', j.aktif
+            )
+          ) FILTER (WHERE j.id IS NOT NULL),
+          '[]'
+        ) AS jabatan_list
+      FROM staff s
+      LEFT JOIN staff_jabatan sj ON s.id = sj.staff_id
+      LEFT JOIN jabatan j ON sj.jabatan_id = j.id
+      GROUP BY s.id
+      ORDER BY s.nama ASC;
+    `);
 
-    if (!staffError && staffData) {
-      const mapped = staffData.map((st: any) => ({
-        ...st,
-        jabatan_list: st.staff_jabatan ? st.staff_jabatan.map((sj: any) => sj.jabatan) : [],
-        hari_kerja: st.hari_kerja || ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'],
-        slot_kerja: st.slot_kerja || ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6'],
-        jadwal_ketersediaan: st.jadwal_ketersediaan || {},
-      }));
-      cacheSet('master_staff_list', mapped, 180);
-      return mapped;
-    }
+    const mapped = staffData.map((st: any) => ({
+      ...st,
+      jabatan_list: st.jabatan_list || [],
+      hari_kerja: st.hari_kerja || ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'],
+      slot_kerja: st.slot_kerja || ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6'],
+      jadwal_ketersediaan: st.jadwal_ketersediaan || {},
+    }));
+
+    cacheSet('master_staff_list', mapped, 180);
+    return mapped;
   } catch (e) {
     console.error('Error fetching staff:', e);
   }
@@ -188,9 +197,6 @@ export async function upsertStaff(
   jabatanIds: string[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-
-    // Clean relation columns but KEEP the table columns: hari_kerja, slot_kerja, jadwal_ketersediaan
     const {
       jabatan_list,
       staff_jabatan,
@@ -200,38 +206,33 @@ export async function upsertStaff(
     let savedStaff: any = null;
 
     if (cleanStaff.id) {
-      const { data, error } = await supabase
-        .from('staff')
-        .update({
-          ...cleanStaff,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', cleanStaff.id)
-        .select()
-        .maybeSingle();
+      const keys = Object.keys(cleanStaff).filter((k) => k !== 'id' && cleanStaff[k] !== undefined);
+      const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+      const values = keys.map((k) => cleanStaff[k]);
+      values.push(cleanStaff.id);
 
-      if (error) return { success: false, error: error.message };
-      savedStaff = data;
+      savedStaff = await dbQuerySingle(
+        `UPDATE staff SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
+        values
+      );
     } else {
-      const { data, error } = await supabase
-        .from('staff')
-        .insert(cleanStaff)
-        .select()
-        .maybeSingle();
+      const keys = Object.keys(cleanStaff).filter((k) => cleanStaff[k] !== undefined);
+      const cols = keys.map((k) => `"${k}"`).join(', ');
+      const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+      const values = keys.map((k) => cleanStaff[k]);
 
-      if (error || !data) return { success: false, error: error?.message || 'Gagal menyimpan data staff' };
-      savedStaff = data;
+      savedStaff = await dbQuerySingle(
+        `INSERT INTO staff (${cols}) VALUES (${placeholders}) RETURNING *`,
+        values
+      );
     }
 
-    // Update junction staff_jabatan
     if (savedStaff?.id) {
-      await supabase.from('staff_jabatan').delete().eq('staff_id', savedStaff.id);
+      await dbQuery('DELETE FROM staff_jabatan WHERE staff_id = $1', [savedStaff.id]);
       if (jabatanIds && jabatanIds.length > 0) {
-        const inserts = jabatanIds.map((jId) => ({
-          staff_id: savedStaff.id,
-          jabatan_id: jId,
-        }));
-        await supabase.from('staff_jabatan').insert(inserts);
+        for (const jId of jabatanIds) {
+          await dbQuery('INSERT INTO staff_jabatan (staff_id, jabatan_id) VALUES ($1, $2)', [savedStaff.id, jId]);
+        }
       }
     }
 
@@ -254,15 +255,9 @@ export async function getSlotWaktuList(): Promise<SlotWaktu[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('slot_waktu')
-      .select('*')
-      .order('urutan', { ascending: true });
-    if (!error && data) {
-      cacheSet('master_slot_waktu_list', data as SlotWaktu[], 300);
-      return data as SlotWaktu[];
-    }
+    const rows = await dbQuery<SlotWaktu>('SELECT * FROM slot_waktu ORDER BY urutan ASC');
+    cacheSet('master_slot_waktu_list', rows, 300);
+    return rows;
   } catch (e) {
     console.error('Error fetching slot_waktu:', e);
   }
@@ -271,9 +266,20 @@ export async function getSlotWaktuList(): Promise<SlotWaktu[]> {
 
 export async function upsertSlotWaktu(slot: Partial<SlotWaktu>): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    const { error } = await supabase.from('slot_waktu').upsert(slot);
-    if (error) return { success: false, error: error.message };
+    const isNew = !slot.id;
+    if (!isNew) {
+      const keys = Object.keys(slot).filter((k) => k !== 'id' && (slot as any)[k] !== undefined);
+      const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+      const values = keys.map((k) => (slot as any)[k]);
+      values.push(slot.id);
+      await dbQuery(`UPDATE slot_waktu SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length}`, values);
+    } else {
+      const keys = Object.keys(slot).filter((k) => (slot as any)[k] !== undefined);
+      const cols = keys.map((k) => `"${k}"`).join(', ');
+      const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+      const values = keys.map((k) => (slot as any)[k]);
+      await dbQuery(`INSERT INTO slot_waktu (${cols}) VALUES (${placeholders})`, values);
+    }
 
     cacheInvalidate('master_slot_waktu*');
 
@@ -290,15 +296,9 @@ export async function getStatusPembayaranMaster(): Promise<StatusPembayaranMaste
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('status_pembayaran_master')
-      .select('*')
-      .order('urutan', { ascending: true });
-    if (!error && data) {
-      cacheSet('master_status_pembayaran', data as StatusPembayaranMaster[], 300);
-      return data as StatusPembayaranMaster[];
-    }
+    const rows = await dbQuery<StatusPembayaranMaster>('SELECT * FROM status_pembayaran_master ORDER BY urutan ASC');
+    cacheSet('master_status_pembayaran', rows, 300);
+    return rows;
   } catch (e) {
     console.error('Error fetching status_pembayaran_master:', e);
   }
@@ -311,15 +311,17 @@ export async function getKendaraanMasterList(): Promise<Kendaraan[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('kendaraan')
-      .select('*, status:kendaraan_status(*)')
-      .order('nama_kendaraan', { ascending: true });
-    if (!error && data) {
-      cacheSet('master_kendaraan_list', data as Kendaraan[], 120);
-      return data as Kendaraan[];
-    }
+    const rows = await dbQuery<Kendaraan>(`
+      SELECT 
+        k.*,
+        CASE WHEN ks.id IS NOT NULL THEN to_jsonb(ks) ELSE NULL END AS status
+      FROM kendaraan k
+      LEFT JOIN kendaraan_status ks ON k.id = ks.kendaraan_id
+      ORDER BY k.nama_kendaraan ASC;
+    `);
+
+    cacheSet('master_kendaraan_list', rows, 120);
+    return rows;
   } catch (e) {
     console.error('Error fetching kendaraan master:', e);
   }
@@ -328,15 +330,38 @@ export async function getKendaraanMasterList(): Promise<Kendaraan[]> {
 
 export async function upsertKendaraanMaster(kendaraan: Partial<Kendaraan>): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
     const { status, created_at, updated_at, ...cleanData } = kendaraan as any;
-    const { data: saved, error } = await supabase.from('kendaraan').upsert(cleanData).select().maybeSingle();
-    if (error || !saved) return { success: false, error: error?.message || 'Gagal menyimpan kendaraan' };
+    let saved: any = null;
 
-    // Ensure status row exists (upsert to avoid duplicate key error on update)
-    await supabase
-      .from('kendaraan_status')
-      .upsert({ kendaraan_id: saved.id }, { onConflict: 'kendaraan_id', ignoreDuplicates: true });
+    if (cleanData.id) {
+      const keys = Object.keys(cleanData).filter((k) => k !== 'id' && cleanData[k] !== undefined);
+      const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+      const values = keys.map((k) => cleanData[k]);
+      values.push(cleanData.id);
+
+      saved = await dbQuerySingle(
+        `UPDATE kendaraan SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
+        values
+      );
+    } else {
+      const keys = Object.keys(cleanData).filter((k) => cleanData[k] !== undefined);
+      const cols = keys.map((k) => `"${k}"`).join(', ');
+      const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+      const values = keys.map((k) => cleanData[k]);
+
+      saved = await dbQuerySingle(
+        `INSERT INTO kendaraan (${cols}) VALUES (${placeholders}) RETURNING *`,
+        values
+      );
+    }
+
+    if (!saved) return { success: false, error: 'Gagal menyimpan kendaraan' };
+
+    // Ensure status row exists
+    await dbQuery(
+      `INSERT INTO kendaraan_status (kendaraan_id) VALUES ($1) ON CONFLICT (kendaraan_id) DO NOTHING`,
+      [saved.id]
+    );
 
     cacheInvalidate('master_kendaraan*');
     cacheInvalidate('kendaraan*');
@@ -352,10 +377,7 @@ export async function upsertKendaraanMaster(kendaraan: Partial<Kendaraan>): Prom
 
 export async function deleteKendaraan(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    const { error } = await supabase.from('kendaraan').delete().eq('id', id);
-
-    if (error) return { success: false, error: error.message };
+    await dbQuery('DELETE FROM kendaraan WHERE id = $1', [id]);
 
     cacheInvalidate('master_kendaraan*');
     cacheInvalidate('kendaraan*');

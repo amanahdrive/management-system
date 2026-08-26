@@ -1,15 +1,14 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheInvalidate } from '@/lib/utils/cache';
 import { KendaraanBan, HargaBBM } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 
 export async function getHargaBBMList(): Promise<HargaBBM[]> {
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase.from('harga_bbm').select('*');
-    if (!error && data) return data as HargaBBM[];
+    const rows = await dbQuery<HargaBBM>('SELECT * FROM harga_bbm');
+    return rows;
   } catch (e) {
     console.error('Error fetching harga bbm:', e);
   }
@@ -24,35 +23,29 @@ export async function updateOdometerBasecampLog(
   totalSlotSelesai?: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-
     let jarakTempuh: number | null = null;
     if (outKm !== undefined && inKm !== undefined && inKm >= outKm) {
       jarakTempuh = inKm - outKm;
     }
 
-    const logPayload: any = {
-      kendaraan_id: kendaraanId,
-      tanggal,
-    };
-    if (outKm !== undefined) logPayload.odometer_basecamp_out = outKm;
-    if (inKm !== undefined) logPayload.odometer_basecamp_in = inKm;
-    if (jarakTempuh !== null) logPayload.jarak_tempuh = jarakTempuh;
-    if (totalSlotSelesai !== undefined) logPayload.total_slot_selesai = totalSlotSelesai;
+    await dbQuery(`
+      INSERT INTO kendaraan_log_harian (kendaraan_id, tanggal, odometer_basecamp_out, odometer_basecamp_in, jarak_tempuh, total_slot_selesai)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT (kendaraan_id, tanggal) DO UPDATE
+      SET 
+        odometer_basecamp_out = COALESCE(EXCLUDED.odometer_basecamp_out, kendaraan_log_harian.odometer_basecamp_out),
+        odometer_basecamp_in = COALESCE(EXCLUDED.odometer_basecamp_in, kendaraan_log_harian.odometer_basecamp_in),
+        jarak_tempuh = COALESCE(EXCLUDED.jarak_tempuh, kendaraan_log_harian.jarak_tempuh),
+        total_slot_selesai = COALESCE(EXCLUDED.total_slot_selesai, kendaraan_log_harian.total_slot_selesai),
+        updated_at = NOW()
+    `, [kendaraanId, tanggal, outKm ?? null, inKm ?? null, jarakTempuh, totalSlotSelesai ?? null]);
 
-    const { error } = await supabase.from('kendaraan_log_harian').upsert(logPayload, {
-      onConflict: 'kendaraan_id,tanggal',
-    });
-
-    if (error) return { success: false, error: error.message };
-
-    // Also update kendaraan_status odometer_terkini if inKm provided
     if (inKm || outKm) {
       const latestKm = inKm || outKm;
-      await supabase
-        .from('kendaraan_status')
-        .update({ odometer_terkini: latestKm })
-        .eq('kendaraan_id', kendaraanId);
+      await dbQuery(
+        'UPDATE kendaraan_status SET odometer_terkini = $1 WHERE kendaraan_id = $2',
+        [latestKm, kendaraanId]
+      );
     }
 
     cacheInvalidate('master_kendaraan*');
@@ -72,17 +65,12 @@ export async function updateOliKendaraan(
   km: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    const { error } = await supabase
-      .from('kendaraan_status')
-      .update({
-        oli_tanggal_terakhir: tanggal,
-        oli_km_terakhir: km,
-        odometer_terkini: km,
-      })
-      .eq('kendaraan_id', kendaraanId);
-
-    if (error) return { success: false, error: error.message };
+    await dbQuery(
+      `UPDATE kendaraan_status 
+       SET oli_tanggal_terakhir = $1, oli_km_terakhir = $2, odometer_terkini = $2 
+       WHERE kendaraan_id = $3`,
+      [tanggal, km, kendaraanId]
+    );
 
     cacheInvalidate('master_kendaraan*');
     cacheInvalidate('dashboard*');
@@ -98,10 +86,12 @@ export async function addBanHistory(
   banData: Partial<KendaraanBan>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    const { error } = await supabase.from('kendaraan_ban').insert(banData);
+    const keys = Object.keys(banData).filter((k) => (banData as any)[k] !== undefined);
+    const cols = keys.map((k) => `"${k}"`).join(', ');
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+    const values = keys.map((k) => (banData as any)[k]);
 
-    if (error) return { success: false, error: error.message };
+    await dbQuery(`INSERT INTO kendaraan_ban (${cols}) VALUES (${placeholders})`, values);
 
     revalidatePath(`/kendaraan/${banData.kendaraan_id}`);
     return { success: true };
@@ -115,13 +105,10 @@ export async function updateCuciMobil(
   tanggal: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
-    const { error } = await supabase
-      .from('kendaraan_status')
-      .update({ cuci_tanggal_terakhir: tanggal })
-      .eq('kendaraan_id', kendaraanId);
-
-    if (error) return { success: false, error: error.message };
+    await dbQuery(
+      'UPDATE kendaraan_status SET cuci_tanggal_terakhir = $1 WHERE kendaraan_id = $2',
+      [tanggal, kendaraanId]
+    );
 
     cacheInvalidate('master_kendaraan*');
 
@@ -141,38 +128,36 @@ export async function recordPengisianBBM(
   jenisPembayaran: 'tunai' | 'non_tunai' = 'tunai'
 ): Promise<{ success: boolean; liter?: number; error?: string }> {
   try {
-    const supabase = await createServerClient();
     const liter = parseFloat((nominal / hargaPerLiter).toFixed(2));
 
-    // Update status BBM kendaraan
-    const { error: statusErr } = await supabase
-      .from('kendaraan_status')
-      .update({
-        bensin_tanggal_terakhir: tanggal,
-        bensin_jenis_terakhir: jenisBbm,
-        bensin_nominal_terakhir: nominal,
-        bensin_liter_terakhir: liter,
-      })
-      .eq('kendaraan_id', kendaraanId);
+    await dbQuery(
+      `UPDATE kendaraan_status 
+       SET bensin_tanggal_terakhir = $1, bensin_jenis_terakhir = $2, bensin_nominal_terakhir = $3, bensin_liter_terakhir = $4 
+       WHERE kendaraan_id = $5`,
+      [tanggal, jenisBbm, nominal, liter, kendaraanId]
+    );
 
-    if (statusErr) return { success: false, error: statusErr.message };
-
-    // Get vehicle name for receipt text
-    const { data: v } = await supabase.from('kendaraan').select('nama_kendaraan, plat_nomor').eq('id', kendaraanId).maybeSingle();
+    const v = await dbQuerySingle<{ nama_kendaraan: string; plat_nomor: string }>(
+      'SELECT nama_kendaraan, plat_nomor FROM kendaraan WHERE id = $1',
+      [kendaraanId]
+    );
     const vName = v ? `${v.nama_kendaraan} (${v.plat_nomor})` : 'Kendaraan Operasional';
 
-    // Insert automatic Kas Transaksi Pengeluaran BBM
-    await supabase.from('kas_transaksi').insert({
-      tanggal,
-      tipe: 'pengeluaran',
-      kategori: 'bbm',
-      keterangan: `Isi BBM ${jenisBbm.toUpperCase()} ${liter}L - ${vName}`,
-      nominal,
-      jenis_pembayaran: jenisPembayaran,
-      pic_tipe: 'admin',
-      pic_nama: 'Fleet Admin',
-      sumber_otomatis: true,
-    });
+    await dbQuery(
+      `INSERT INTO kas_transaksi (tanggal, tipe, kategori, keterangan, nominal, jenis_pembayaran, pic_tipe, pic_nama, sumber_otomatis)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        tanggal,
+        'pengeluaran',
+        'bbm',
+        `Isi BBM ${jenisBbm.toUpperCase()} ${liter}L - ${vName}`,
+        nominal,
+        jenisPembayaran,
+        'admin',
+        'Fleet Admin',
+        true,
+      ]
+    );
 
     cacheInvalidate('master_kendaraan*');
     cacheInvalidate('kas*');
@@ -198,37 +183,26 @@ export async function getKendaraanPerformanceStats(
   rasioEfisiensi: number;
 }> {
   try {
-    const supabase = await createServerClient();
     const days = periode === 'weekly' ? 7 : 30;
     const fromDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-    // 1. Total Jarak Tempuh from log harian
-    const { data: logs } = await supabase
-      .from('kendaraan_log_harian')
-      .select('jarak_tempuh')
-      .eq('kendaraan_id', kendaraanId)
-      .gte('tanggal', fromDate);
-
+    const logs = await dbQuery<{ jarak_tempuh: number }>(
+      'SELECT jarak_tempuh FROM kendaraan_log_harian WHERE kendaraan_id = $1 AND tanggal >= $2',
+      [kendaraanId, fromDate]
+    );
     const totalJarakKm = (logs || []).reduce((acc: number, l: any) => acc + (Number(l.jarak_tempuh) || 0), 0);
 
-    // 2. Total Sesi Selesai from jadwal_sesi
-    const { data: sessions } = await supabase
-      .from('jadwal_sesi')
-      .select('id')
-      .eq('kendaraan_id', kendaraanId)
-      .eq('status_sesi', 'selesai')
-      .gte('tanggal_sesi', fromDate);
-
+    const sessions = await dbQuery<{ id: string }>(
+      "SELECT id FROM jadwal_sesi WHERE kendaraan_id = $1 AND status_sesi = 'selesai' AND tanggal_sesi >= $2",
+      [kendaraanId, fromDate]
+    );
     const totalSesi = (sessions || []).length;
 
-    // 3. Vehicle status fallback for BBM
-    const { data: vStatus } = await supabase
-      .from('kendaraan_status')
-      .select('*')
-      .eq('kendaraan_id', kendaraanId)
-      .maybeSingle();
+    const vStatus = await dbQuerySingle<any>(
+      'SELECT * FROM kendaraan_status WHERE kendaraan_id = $1',
+      [kendaraanId]
+    );
 
-    // Default or estimated BBM calculations
     const defaultBiaya = periode === 'weekly' ? 350000 : 1450000;
     const defaultLiter = defaultBiaya / 10000;
     const totalBiayaBBM = vStatus?.bensin_nominal_terakhir ? (vStatus.bensin_nominal_terakhir * (periode === 'weekly' ? 2 : 8)) : defaultBiaya;
