@@ -160,4 +160,54 @@ DROP POLICY IF EXISTS "Allow public all on insiden" ON insiden;
 
 CREATE POLICY "Allow public all on insiden" ON insiden FOR ALL USING (true) WITH CHECK (true);
 
+-- ─────────────────────────────────────────────────────────────────────────
+-- BAGIAN 6: REKENING BANK PERUSAHAAN & SINKRONISASI KAS (v5)
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- 6a. Pastikan tabel settings memiliki RLS aktif
+ALTER TABLE IF EXISTS settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public all on settings" ON settings;
+CREATE POLICY "Allow public all on settings" ON settings FOR ALL USING (true) WITH CHECK (true);
+
+-- 6b. Seed default rekening bank ke settings jika belum ada
+INSERT INTO settings (key, value, deskripsi)
+VALUES (
+  'rekening_bank_list',
+  '[
+    {"id": "rek-bca-1", "nama_bank": "BCA", "nomor_rekening": "8535441234", "atas_nama": "PT Amanah Drive Palembang", "aktif": true, "is_utama": true, "keterangan": "Rekening Utama Operasional & Pemasukan Kursus"},
+    {"id": "rek-mandiri-1", "nama_bank": "Mandiri", "nomor_rekening": "1130018899123", "atas_nama": "Amanah Drive", "aktif": true, "is_utama": false, "keterangan": "Rekening Penerimaan Mandiri"},
+    {"id": "rek-bri-1", "nama_bank": "BRI", "nomor_rekening": "005901002345531", "atas_nama": "Amanah Drive", "aktif": true, "is_utama": false, "keterangan": "Rekening Operasional BRI"},
+    {"id": "rek-bsi-1", "nama_bank": "BSI", "nomor_rekening": "7188991234", "atas_nama": "Amanah Drive", "aktif": true, "is_utama": false, "keterangan": "Rekening Syariah BSI"}
+  ]',
+  'Daftar Rekening Bank Resmi Perusahaan'
+)
+ON CONFLICT (key) DO NOTHING;
+
+-- 6c. Kolom kas_transaksi: jenis_pembayaran & rekening_id
+ALTER TABLE IF EXISTS kas_transaksi
+  ADD COLUMN IF NOT EXISTS jenis_pembayaran text NOT NULL DEFAULT 'tunai',
+  ADD COLUMN IF NOT EXISTS rekening_id text NULL,
+  ADD COLUMN IF NOT EXISTS sumber_otomatis boolean NOT NULL DEFAULT false;
+
+-- Pastikan siswa_id di kas_transaksi nullable untuk DP Kustom (Non-Siswa)
+ALTER TABLE IF EXISTS kas_transaksi
+  ALTER COLUMN siswa_id DROP NOT NULL;
+
+-- Constraint check jenis_pembayaran
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'kas_transaksi_jenis_pembayaran_check'
+      AND conrelid = 'kas_transaksi'::regclass
+  ) THEN
+    ALTER TABLE kas_transaksi 
+      ADD CONSTRAINT kas_transaksi_jenis_pembayaran_check 
+      CHECK (jenis_pembayaran IN ('tunai', 'non_tunai'));
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_kas_transaksi_jenis_bayar ON kas_transaksi(jenis_pembayaran);
+
+
 
