@@ -75,60 +75,87 @@ export async function updateKasPin(
   pinBaru: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    if (!pinLama || pinLama.length !== 6 || !/^\d{6}$/.test(pinLama)) {
+      return { success: false, error: 'PIN lama harus tepat 6 digit angka' };
+    }
+
     if (!pinBaru || pinBaru.length !== 6 || !/^\d{6}$/.test(pinBaru)) {
       return { success: false, error: 'PIN baru harus tepat 6 digit angka' };
     }
 
-    // Verify old PIN first
+    // 1. Verify old PIN first
     const checkOld = await verifyKasPin(pinLama);
     if (!checkOld.success) {
-      return { success: false, error: 'PIN lama tidak cocok!' };
+      return { success: false, error: checkOld.error || 'PIN lama yang Anda masukkan salah!' };
     }
 
+    // 2. Hash new PIN with bcrypt
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(pinBaru, salt);
 
     const supabase = createAdminClient();
 
-    const { data: existing } = await supabase
+    // 3. Check if key 'pin_kas' exists
+    const { data: existing, error: selectErr } = await supabase
       .from('settings')
       .select('id')
       .eq('key', 'pin_kas')
       .maybeSingle();
 
-    if (existing) {
-      const { error } = await supabase
-        .from('settings')
-        .update({
-          value: hashed,
-          deskripsi: 'PIN Kas Keuangan & PWA Finance',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('key', 'pin_kas');
-
-      if (error) return { success: false, error: error.message };
-    } else {
-      const { error } = await supabase.from('settings').insert({
-        key: 'pin_kas',
-        value: hashed,
-        deskripsi: 'PIN Kas Keuangan & PWA Finance',
-      });
-
-      if (error) return { success: false, error: error.message };
+    if (selectErr) {
+      console.warn('Error checking existing pin_kas setting:', selectErr);
     }
 
-    // Instantly update cache with new hash
-    cacheSet(PIN_CACHE_KEY, hashed, 300);
-    cacheInvalidate('settings*');
+    let saveErr: any = null;
 
-    revalidatePath('/settings');
-    revalidatePath('/kas');
-    revalidatePath('/kas/cashflow');
-    revalidatePath('/finance');
+    if (existing?.id) {
+      const { error } = await supabase
+        .from('settings')
+        .update({ value: hashed })
+        .eq('id', existing.id);
+      saveErr = error;
+    } else {
+      // Try insert with key & value
+      const { error } = await supabase
+        .from('settings')
+        .insert({
+          key: 'pin_kas',
+          value: hashed,
+        });
+      saveErr = error;
+
+      // If insert failed because key already exists (race condition), fallback to update by key
+      if (saveErr) {
+        const { error: fallbackErr } = await supabase
+          .from('settings')
+          .update({ value: hashed })
+          .eq('key', 'pin_kas');
+        if (!fallbackErr) {
+          saveErr = null;
+        }
+      }
+    }
+
+    if (saveErr) {
+      console.error('Error saving PIN to Supabase:', saveErr);
+      return { success: false, error: `Gagal menyimpan ke database: ${saveErr.message}` };
+    }
+
+    // 4. Instantly update in-memory cache with new hash
+    cacheSet(PIN_CACHE_KEY, hashed, 600);
+    cacheInvalidate('settings*');
+    cacheInvalidate('kas*');
+
+    try {
+      revalidatePath('/settings');
+      revalidatePath('/kas');
+      revalidatePath('/kas/cashflow');
+      revalidatePath('/finance');
+    } catch {}
 
     return { success: true };
   } catch (err: any) {
-    console.error('Error updating PIN:', err);
-    return { success: false, error: 'Gagal memperbarui PIN kas di database' };
+    console.error('Error in updateKasPin:', err);
+    return { success: false, error: err?.message || 'Terjadi kesalahan sistem saat memperbarui PIN' };
   }
 }

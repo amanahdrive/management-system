@@ -438,6 +438,12 @@ export default function SettingsPage() {
     setPinError(null);
     setPinSuccess(null);
 
+    if (pinLama.length !== 6 || !/^\d+$/.test(pinLama)) {
+      setPinError('PIN Lama harus berupa 6 digit angka');
+      setPinLoading(false);
+      return;
+    }
+
     if (pinBaru.length !== 6 || !/^\d+$/.test(pinBaru)) {
       setPinError('PIN Baru harus berupa 6 digit angka');
       setPinLoading(false);
@@ -445,23 +451,17 @@ export default function SettingsPage() {
     }
 
     try {
-      const verifyRes = await verifyKasPin(pinLama);
-      if (!verifyRes.success) {
-        setPinError(verifyRes.error || 'PIN lama yang Anda masukkan salah');
-        setPinLoading(false);
-        return;
-      }
-
       const updateRes = await updateKasPin(pinLama, pinBaru);
       if (updateRes.success) {
-        setPinSuccess('PIN Keuangan & Kas berhasil diperbarui');
+        setPinSuccess('PIN Keuangan & Kas berhasil diperbarui!');
         setPinLama('');
         setPinBaru('');
+        setTimeout(() => setPinSuccess(null), 5000);
       } else {
         setPinError(updateRes.error || 'Gagal memperbarui PIN');
       }
-    } catch {
-      setPinError('Terjadi kesalahan jaringan atau server');
+    } catch (err: any) {
+      setPinError(err?.message || 'Terjadi kesalahan jaringan atau server');
     } finally {
       setPinLoading(false);
     }
