@@ -4,9 +4,10 @@ import React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { PinGateDialog } from '@/components/shared/PinGateDialog';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
-import { Siswa, Paket } from '@/types/database';
+import { Siswa, Paket, RekeningBank } from '@/types/database';
 import { getSiswaList } from '@/lib/actions/siswa';
 import { getPaketList } from '@/lib/actions/master-data';
+import { getRekeningList } from '@/lib/actions/rekening';
 import { formatRupiah, terbilangRupiah } from '@/lib/utils/currency';
 import { getTodayDateString, formatDateLongIndo } from '@/lib/utils/date';
 import {
@@ -113,8 +114,9 @@ export default function NotaPage() {
 
   // Detail Pembayaran
   const [metodePembayaran, setMetodePembayaran] = React.useState<'tunai' | 'transfer' | 'qris'>('transfer');
-  const [namaBank, setNamaBank] = React.useState('BCA');
+  const [namaBank, setNamaBank] = React.useState('BCA (8535441234 a.n PT Amanah Drive)');
   const [catatanPembayaran, setCatatanPembayaran] = React.useState('Pembayaran Uang Muka (DP) 50% Pelatihan Mengemudi');
+  const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>([]);
 
   // Otorisasi
   const [kota, setKota] = React.useState('Palembang');
@@ -134,9 +136,14 @@ export default function NotaPage() {
   React.useEffect(() => {
     (async () => {
       setLoading(true);
-      const [sList, pList] = await Promise.all([getSiswaList(), getPaketList()]);
+      const [sList, pList, rList] = await Promise.all([getSiswaList(), getPaketList(), getRekeningList()]);
       setSiswaList(sList);
       setPaketList(pList);
+      setRekeningList(rList);
+      const def = rList.find((r) => r.aktif && r.is_utama) || rList.find((r) => r.aktif);
+      if (def) {
+        setNamaBank(`${def.nama_bank} (${def.nomor_rekening} a.n ${def.atas_nama})`);
+      }
       setLoading(false);
     })();
 
@@ -713,17 +720,48 @@ export default function NotaPage() {
                 </div>
 
                 {metodePembayaran === 'transfer' && (
-                  <div>
-                    <label className="block text-[10.5px] font-semibold text-[var(--text-secondary)] mb-1">
-                      Nama Bank Tujuan
-                    </label>
-                    <input
-                      type="text"
-                      value={namaBank}
-                      onChange={(e) => setNamaBank(e.target.value)}
-                      placeholder="Bank BCA / Mandiri / BRI / BSI"
-                      className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs"
-                    />
+                  <div className="space-y-2 p-2.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[10.5px] font-bold text-blue-900 dark:text-blue-300">
+                          Pilih Rekening Bank Resmi Perusahaan
+                        </label>
+                        <a
+                          href="/settings"
+                          target="_blank"
+                          className="text-[10px] text-blue-600 hover:text-blue-700 underline font-medium"
+                        >
+                          Kelola Rekening
+                        </a>
+                      </div>
+
+                      <select
+                        value={namaBank}
+                        onChange={(e) => setNamaBank(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-blue-300 dark:border-blue-800 bg-[var(--bg)] text-xs font-semibold text-[var(--text-primary)]"
+                      >
+                        {rekeningList
+                          .filter((r) => r.aktif)
+                          .map((r) => (
+                            <option
+                              key={r.id}
+                              value={`${r.nama_bank} (${r.nomor_rekening} a.n ${r.atas_nama})`}
+                            >
+                              {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama}) {r.is_utama ? '⭐ Utama' : ''}
+                            </option>
+                          ))}
+                        <option value="custom">-- Input Kustom Bank Lainnya --</option>
+                      </select>
+                    </div>
+
+                    {namaBank === 'custom' && (
+                      <input
+                        type="text"
+                        onChange={(e) => setNamaBank(e.target.value)}
+                        placeholder="Ketik manual: Bank BJB (123456789 a.n PT Amanah Drive)"
+                        className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs"
+                      />
+                    )}
                   </div>
                 )}
 

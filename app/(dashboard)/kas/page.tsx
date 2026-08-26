@@ -19,8 +19,9 @@ import {
 } from '@/lib/actions/kas';
 import { getSiswaList } from '@/lib/actions/siswa';
 import { getPaketList } from '@/lib/actions/master-data';
+import { getRekeningList } from '@/lib/actions/rekening';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
-import { Siswa, Paket } from '@/types/database';
+import { Siswa, Paket, RekeningBank } from '@/types/database';
 import {
   Wallet,
   ArrowUpRight,
@@ -35,6 +36,8 @@ import {
   RotateCcw,
   Sparkles,
   Star,
+  CreditCard,
+  Landmark,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -51,6 +54,8 @@ export default function KasOverviewPage() {
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
   const [paketList, setPaketList] = React.useState<Paket[]>([]);
   const [dpKustomList, setDpKustomList] = React.useState<DpKustomItem[]>([]);
+  const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>([]);
+  const [selectedRekeningId, setSelectedRekeningId] = React.useState<string>('');
   const [loading, setLoading] = React.useState(true);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
@@ -75,13 +80,14 @@ export default function KasOverviewPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const [mRes, tRes, kRes, sRes, pRes, dpKRes] = await Promise.all([
+    const [mRes, tRes, kRes, sRes, pRes, dpKRes, rList] = await Promise.all([
       getKasOverviewMetrics(),
       getKasTransaksiList(),
       getKasKategoriList(),
       getSiswaList(),
       getPaketList(),
       getDpKustomList(),
+      getRekeningList(),
     ]);
     setMetrics(mRes);
     setTransaksiList(tRes);
@@ -89,6 +95,9 @@ export default function KasOverviewPage() {
     setSiswaList(sRes);
     setPaketList(pRes);
     setDpKustomList(dpKRes);
+    setRekeningList(rList);
+    const defRek = rList.find((r) => r.aktif && r.is_utama) || rList.find((r) => r.aktif);
+    if (defRek) setSelectedRekeningId(defRek.id);
     setLoading(false);
   };
 
@@ -295,11 +304,17 @@ export default function KasOverviewPage() {
     const isCustom = formData.siswa_id === 'custom_dp' || formData.siswa_id.startsWith('dp_kustom_');
     const finalSiswaId = isCustom ? null : (formData.siswa_id || null);
 
+    let finalKeterangan = formData.keterangan;
+    const selectedRek = rekeningList.find((r) => r.id === selectedRekeningId);
+    if (formData.jenis_pembayaran === 'non_tunai' && selectedRek && !finalKeterangan.includes(selectedRek.nama_bank)) {
+      finalKeterangan = `[${selectedRek.nama_bank} ${selectedRek.nomor_rekening}] ${finalKeterangan}`;
+    }
+
     await addKasTransaksi({
       tanggal: formData.tanggal,
       tipe: formData.tipe,
       kategori: formData.kategori,
-      keterangan: formData.keterangan,
+      keterangan: finalKeterangan,
       nominal: formData.nominal,
       jenis_pembayaran: formData.jenis_pembayaran,
       pic_tipe: formData.pic_tipe,
@@ -806,6 +821,46 @@ export default function KasOverviewPage() {
                     <span>Non-Tunai / Bank</span>
                   </button>
                 </div>
+
+                {/* Dropdown Rekening Bank Perusahaan (Jika Non-Tunai) */}
+                {formData.jenis_pembayaran === 'non_tunai' && (
+                  <div className="mt-2.5 p-2.5 rounded-md bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 space-y-1.5 animate-fadeIn">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1">
+                        <CreditCard className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Pilih Rekening Tujuan / Penerima *</span>
+                      </label>
+                      <Link
+                        href="/settings"
+                        className="text-[10px] text-blue-600 hover:text-blue-700 font-semibold underline"
+                      >
+                        Kelola Rekening
+                      </Link>
+                    </div>
+
+                    <select
+                      value={selectedRekeningId}
+                      onChange={(e) => setSelectedRekeningId(e.target.value)}
+                      required
+                      className="w-full px-2.5 py-1.5 text-xs rounded border border-blue-300 dark:border-blue-800 bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                    >
+                      <option value="">-- Pilih Rekening Bank Perusahaan --</option>
+                      {rekeningList
+                        .filter((r) => r.aktif)
+                        .map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama}) {r.is_utama ? '⭐ Utama' : ''}
+                          </option>
+                        ))}
+                    </select>
+
+                    {rekeningList.filter((r) => r.aktif).length === 0 && (
+                      <p className="text-[10px] text-amber-700 italic">
+                        Belum ada rekening aktif. Tambahkan di menu Pengaturan.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

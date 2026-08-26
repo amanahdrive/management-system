@@ -14,6 +14,13 @@ import {
   saveTelegramConfig,
   TelegramConfig,
 } from '@/lib/actions/telegram';
+import {
+  getRekeningList,
+  addRekening,
+  updateRekening,
+  deleteRekening,
+} from '@/lib/actions/rekening';
+import { RekeningBank } from '@/types/database';
 import { verifyKasPin, updateKasPin } from '@/lib/actions/kas-pin';
 import { resetModularData, ResetModuleKey } from '@/lib/actions/reset-system';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
@@ -41,6 +48,12 @@ import {
   Package,
   UserCheck,
   Flame,
+  CreditCard,
+  Plus,
+  Edit3,
+  Copy,
+  Star,
+  Landmark,
 } from 'lucide-react';
 
 const INITIAL_TELEGRAM_CONFIG: TelegramConfig = {
@@ -164,6 +177,22 @@ export default function SettingsPage() {
   const [testSending, setTestSending] = React.useState(false);
   const [testResult, setTestResult] = React.useState<{ success: boolean; message?: string } | null>(null);
 
+  // Rekening Bank Management State
+  const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>([]);
+  const [loadingRekening, setLoadingRekening] = React.useState(true);
+  const [showRekeningModal, setShowRekeningModal] = React.useState(false);
+  const [editingRekening, setEditingRekening] = React.useState<RekeningBank | null>(null);
+  const [formRekening, setFormRekening] = React.useState({
+    nama_bank: 'BCA',
+    nomor_rekening: '',
+    atas_nama: '',
+    aktif: true,
+    is_utama: false,
+    keterangan: '',
+  });
+  const [savingRekening, setSavingRekening] = React.useState(false);
+  const [copiedRekeningId, setCopiedRekeningId] = React.useState<string | null>(null);
+
   // Modular Reset State
   const [activeResetModule, setActiveResetModule] = React.useState<{
     key: ResetModuleKey;
@@ -177,17 +206,119 @@ export default function SettingsPage() {
   React.useEffect(() => {
     async function loadAllSettings() {
       setLoadingTelegram(true);
-      const [genCfg, tgCfg] = await Promise.all([getGeneralSettings(), getTelegramConfig()]);
+      setLoadingRekening(true);
+      const [genCfg, tgCfg, rekList] = await Promise.all([
+        getGeneralSettings(),
+        getTelegramConfig(),
+        getRekeningList(),
+      ]);
       setNamaPerusahaan(genCfg.namaPerusahaan);
       setKota(genCfg.kotaOperasional);
       setWaTemplate(genCfg.waTemplate);
       setPertalitePrice(genCfg.pertalitePrice);
       setPertamaxPrice(genCfg.pertamaxPrice);
       setTelegramConfig(tgCfg);
+      setRekeningList(rekList);
       setLoadingTelegram(false);
+      setLoadingRekening(false);
     }
     loadAllSettings();
   }, []);
+
+  const handleOpenAddRekening = () => {
+    setEditingRekening(null);
+    setFormRekening({
+      nama_bank: 'BCA',
+      nomor_rekening: '',
+      atas_nama: namaPerusahaan || 'Amanah Drive',
+      aktif: true,
+      is_utama: rekeningList.length === 0,
+      keterangan: '',
+    });
+    setShowRekeningModal(true);
+  };
+
+  const handleOpenEditRekening = (rek: RekeningBank) => {
+    setEditingRekening(rek);
+    setFormRekening({
+      nama_bank: rek.nama_bank,
+      nomor_rekening: rek.nomor_rekening,
+      atas_nama: rek.atas_nama,
+      aktif: rek.aktif,
+      is_utama: rek.is_utama || false,
+      keterangan: rek.keterangan || '',
+    });
+    setShowRekeningModal(true);
+  };
+
+  const handleSaveRekening = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formRekening.nama_bank || !formRekening.nomor_rekening || !formRekening.atas_nama) {
+      alert('Nama Bank, Nomor Rekening, dan Atas Nama wajib diisi!');
+      return;
+    }
+    setSavingRekening(true);
+
+    if (editingRekening) {
+      const res = await updateRekening(editingRekening.id, {
+        nama_bank: formRekening.nama_bank,
+        nomor_rekening: formRekening.nomor_rekening,
+        atas_nama: formRekening.atas_nama,
+        aktif: formRekening.aktif,
+        is_utama: formRekening.is_utama,
+        keterangan: formRekening.keterangan,
+      });
+      if (res.success) {
+        const updated = await getRekeningList();
+        setRekeningList(updated);
+        setShowRekeningModal(false);
+      } else {
+        alert('Gagal mengubah rekening: ' + res.error);
+      }
+    } else {
+      const res = await addRekening({
+        nama_bank: formRekening.nama_bank,
+        nomor_rekening: formRekening.nomor_rekening,
+        atas_nama: formRekening.atas_nama,
+        aktif: formRekening.aktif,
+        is_utama: formRekening.is_utama,
+        keterangan: formRekening.keterangan,
+      });
+      if (res.success) {
+        const updated = await getRekeningList();
+        setRekeningList(updated);
+        setShowRekeningModal(false);
+      } else {
+        alert('Gagal menambah rekening: ' + res.error);
+      }
+    }
+    setSavingRekening(false);
+  };
+
+  const handleDeleteRekening = async (id: string, nama: string) => {
+    if (!confirm(`Hapus rekening ${nama}?`)) return;
+    const res = await deleteRekening(id);
+    if (res.success) {
+      const updated = await getRekeningList();
+      setRekeningList(updated);
+    } else {
+      alert('Gagal menghapus rekening: ' + res.error);
+    }
+  };
+
+  const handleToggleAktifRekening = async (rek: RekeningBank) => {
+    const res = await updateRekening(rek.id, { aktif: !rek.aktif });
+    if (res.success) {
+      const updated = await getRekeningList();
+      setRekeningList(updated);
+    }
+  };
+
+  const handleCopyRekening = (id: string, noRek: string) => {
+    navigator.clipboard.writeText(noRek);
+    setCopiedRekeningId(id);
+    setTimeout(() => setCopiedRekeningId(null), 2000);
+  };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -525,6 +656,149 @@ export default function SettingsPage() {
           </form>
         </div>
 
+        {/* ── SECTION: KELOLA REKENING BANK PERUSAHAAN ── */}
+        <div className="card-container space-y-4 md:col-span-2 border-l-4 border-l-emerald-600 bg-emerald-50/20 dark:bg-emerald-950/10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-2">
+            <div>
+              <h3 className="font-bold text-sm text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                <Landmark className="w-4 h-4 text-emerald-600" />
+                Kelola Rekening Bank Perusahaan
+              </h3>
+              <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+                Daftar rekening bank resmi untuk pilihan pembayaran uang masuk non-tunai (transfer bank) pada Kas & Keuangan, PWA Finance, dan Invoice/Nota.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleOpenAddRekening}
+              className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors shrink-0 shadow-xs active:scale-95"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Tambah Rekening</span>
+            </button>
+          </div>
+
+          {loadingRekening ? (
+            <div className="py-8 flex items-center justify-center gap-2 text-xs text-[var(--text-secondary)]">
+              <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+              <span>Memuat data rekening...</span>
+            </div>
+          ) : rekeningList.length === 0 ? (
+            <div className="py-6 text-center text-xs text-[var(--text-secondary)]">
+              Belum ada rekening bank yang tersimpan. Klik tombol <strong>+ Tambah Rekening</strong> untuk menambahkan rekening pertama.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {rekeningList.map((rek) => (
+                <div
+                  key={rek.id}
+                  className={`p-3.5 rounded-xl border flex flex-col justify-between gap-3 transition-all relative ${
+                    rek.aktif
+                      ? 'bg-[var(--bg)] border-[var(--border)] shadow-xs hover:border-emerald-500'
+                      : 'bg-gray-100 dark:bg-gray-900/40 border-gray-200 dark:border-gray-800 opacity-60'
+                  }`}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-extrabold text-[11px] uppercase tracking-wider">
+                        {rek.nama_bank}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {rek.is_utama && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 text-[10px] font-bold flex items-center gap-0.5">
+                            <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                            Utama
+                          </span>
+                        )}
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                            rek.aktif
+                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                              : 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                          }`}
+                        >
+                          {rek.aktif ? 'Aktif' : 'Non-aktif'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-[var(--text-secondary)] font-medium">Nomor Rekening</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyRekening(rek.id, rek.nomor_rekening)}
+                          className="text-[10px] text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-0.5"
+                          title="Salin No Rekening"
+                        >
+                          {copiedRekeningId === rek.id ? (
+                            <span className="text-emerald-700 dark:text-emerald-400 font-bold">Disalin!</span>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              <span>Salin</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      <div className="text-sm font-bold font-mono tracking-wider text-[var(--text-primary)] mt-0.5">
+                        {rek.nomor_rekening}
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-[var(--text-secondary)] font-medium">Atas Nama</span>
+                      <div className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                        {rek.atas_nama}
+                      </div>
+                    </div>
+
+                    {rek.keterangan && (
+                      <p className="text-[10px] text-[var(--text-secondary)] italic border-t border-[var(--border)] pt-1.5">
+                        {rek.keterangan}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between gap-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAktifRekening(rek)}
+                      className={`text-[11px] font-semibold px-2 py-1 rounded transition-colors ${
+                        rek.aktif
+                          ? 'text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800'
+                          : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                      }`}
+                    >
+                      {rek.aktif ? 'Nonaktifkan' : 'Aktifkan'}
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditRekening(rek)}
+                        className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded transition-colors"
+                        title="Edit Rekening"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRekening(rek.id, `${rek.nama_bank} - ${rek.nomor_rekening}`)}
+                        className="p-1 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors"
+                        title="Hapus Rekening"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Section 5: Konfigurasi Notifikasi Otomasi Telegram */}
         <div className="card-container space-y-4 md:col-span-2 border-l-4 border-l-sky-500 bg-sky-50/20 dark:bg-sky-950/10">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-2">
@@ -843,6 +1117,137 @@ export default function SettingsPage() {
         confirmText="Ya, Kosongkan Data Ini"
         isDanger
       />
+
+      {/* Tambah / Edit Rekening Modal */}
+      {showRekeningModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-md bg-[var(--bg)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <h3 className="font-bold text-sm text-[var(--text-primary)] flex items-center gap-2">
+                <Landmark className="w-4 h-4 text-emerald-600" />
+                <span>{editingRekening ? 'Edit Rekening Bank' : 'Tambah Rekening Bank Baru'}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowRekeningModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveRekening} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                  Nama Bank *
+                </label>
+                <select
+                  value={formRekening.nama_bank}
+                  onChange={(e) => setFormRekening({ ...formRekening, nama_bank: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                >
+                  <option value="BCA">BCA (Bank Central Asia)</option>
+                  <option value="Mandiri">Bank Mandiri</option>
+                  <option value="BRI">BRI (Bank Rakyat Indonesia)</option>
+                  <option value="BNI">BNI (Bank Negara Indonesia)</option>
+                  <option value="BSI">BSI (Bank Syariah Indonesia)</option>
+                  <option value="CIMB Niaga">CIMB Niaga</option>
+                  <option value="Permata">Bank Permata</option>
+                  <option value="Danamon">Bank Danamon</option>
+                  <option value="BTN">BTN</option>
+                  <option value="BJB">Bank BJB</option>
+                  <option value="Lainnya">Lainnya / Bank Daerah</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                  Nomor Rekening *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: 8535441234"
+                  value={formRekening.nomor_rekening}
+                  onChange={(e) => setFormRekening({ ...formRekening, nomor_rekening: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-mono font-bold tracking-wider text-[var(--text-primary)]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                  Atas Nama (A.n) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: PT Amanah Drive Palembang"
+                  value={formRekening.atas_nama}
+                  onChange={(e) => setFormRekening({ ...formRekening, atas_nama: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                  Keterangan / Catatan (Opsional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Rekening Utama Penerimaan Kursus"
+                  value={formRekening.keterangan}
+                  onChange={(e) => setFormRekening({ ...formRekening, keterangan: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+                />
+              </div>
+
+              <div className="space-y-2 pt-1 border-t border-[var(--border)]">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formRekening.is_utama}
+                    onChange={(e) => setFormRekening({ ...formRekening, is_utama: e.target.checked })}
+                    className="w-4 h-4 rounded text-emerald-600"
+                  />
+                  <span className="text-xs font-semibold text-[var(--text-primary)]">
+                    Jadikan Rekening Utama (Default Pilihan Pertama)
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formRekening.aktif}
+                    onChange={(e) => setFormRekening({ ...formRekening, aktif: e.target.checked })}
+                    className="w-4 h-4 rounded text-emerald-600"
+                  />
+                  <span className="text-xs font-semibold text-[var(--text-primary)]">
+                    Status Rekening Aktif
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => setShowRekeningModal(false)}
+                  className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingRekening}
+                  className="px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white flex items-center gap-1.5 transition-colors shadow-xs"
+                >
+                  {savingRekening ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  <span>{savingRekening ? 'Menyimpan...' : 'Simpan Rekening'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

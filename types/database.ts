@@ -239,6 +239,16 @@ export interface Hutang {
   updated_at: string;
 }
 
+export interface RekeningBank {
+  id: string;
+  nama_bank: string; // e.g. "BCA", "Mandiri", "BRI", "BNI", "BSI"
+  nomor_rekening: string; // e.g. "8535441234"
+  atas_nama: string; // e.g. "PT Amanah Drive Palembang"
+  aktif: boolean;
+  is_utama?: boolean;
+  keterangan?: string | null;
+}
+
 export interface KasTransaksi {
   id: string;
   tanggal: string;
@@ -247,6 +257,7 @@ export interface KasTransaksi {
   keterangan: string;
   nominal: number;
   jenis_pembayaran: 'tunai' | 'non_tunai';
+  rekening_id?: string | null;
   pic_tipe: PicTipeEnum;
   pic_nama: string;
   foto_nota_url: string | null;

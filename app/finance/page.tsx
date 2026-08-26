@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { KasTransaksi, Siswa, Paket } from '@/types/database';
+import { KasTransaksi, Siswa, Paket, RekeningBank } from '@/types/database';
 import {
   getKasOverviewMetrics,
   getKasTransaksiList,
@@ -12,6 +12,7 @@ import {
 } from '@/lib/actions/kas';
 import { getSiswaList } from '@/lib/actions/siswa';
 import { getPaketList } from '@/lib/actions/master-data';
+import { getRekeningList } from '@/lib/actions/rekening';
 import { verifyKasPin } from '@/lib/actions/kas-pin';
 import { formatRupiah } from '@/lib/utils/currency';
 import { getTodayDateString, formatDateIndo, formatDateLongIndo } from '@/lib/utils/date';
@@ -47,6 +48,7 @@ import {
   RotateCcw,
   Sparkles,
   Star,
+  Landmark,
 } from 'lucide-react';
 
 function fmt(n: number): string {
@@ -90,6 +92,8 @@ export default function FinancePortalPage() {
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
   const [paketList, setPaketList] = React.useState<Paket[]>([]);
   const [dpKustomList, setDpKustomList] = React.useState<DpKustomItem[]>([]);
+  const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>([]);
+  const [selectedRekeningId, setSelectedRekeningId] = React.useState<string>('');
   const [loading, setLoading] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [toast, setToast] = React.useState<string | null>(null);
@@ -172,13 +176,14 @@ export default function FinancePortalPage() {
   // Load Data
   const loadData = async () => {
     setLoading(true);
-    const [m, txList, kList, sList, pList, dpKList] = await Promise.all([
+    const [m, txList, kList, sList, pList, dpKList, rList] = await Promise.all([
       getKasOverviewMetrics(),
       getKasTransaksiList(),
       getKasKategoriList(),
       getSiswaList(),
       getPaketList(),
       getDpKustomList(),
+      getRekeningList(),
     ]);
     setMetrics(m as any);
     setRecentTx(txList.slice(0, 30));
@@ -186,6 +191,9 @@ export default function FinancePortalPage() {
     setSiswaList(sList);
     setPaketList(pList);
     setDpKustomList(dpKList);
+    setRekeningList(rList);
+    const defRek = rList.find((r) => r.aktif && r.is_utama) || rList.find((r) => r.aktif);
+    if (defRek) setSelectedRekeningId(defRek.id);
     setLoading(false);
   };
 
@@ -430,11 +438,17 @@ export default function FinancePortalPage() {
     const isCustom = formData.siswa_id === 'custom_dp' || formData.siswa_id.startsWith('dp_kustom_');
     const finalSiswaId = isCustom ? null : (formData.siswa_id || null);
 
+    let finalKeterangan = formData.keterangan;
+    const selectedRek = rekeningList.find((r) => r.id === selectedRekeningId);
+    if (formData.jenis_pembayaran === 'non_tunai' && selectedRek && !finalKeterangan.includes(selectedRek.nama_bank)) {
+      finalKeterangan = `[${selectedRek.nama_bank} ${selectedRek.nomor_rekening}] ${finalKeterangan}`;
+    }
+
     const res = await addKasTransaksi({
       tanggal: formData.tanggal,
       tipe: formData.tipe,
       kategori: formData.kategori,
-      keterangan: formData.keterangan,
+      keterangan: finalKeterangan,
       nominal: formData.nominal,
       jenis_pembayaran: formData.jenis_pembayaran,
       pic_tipe: 'finance',
@@ -1310,6 +1324,41 @@ export default function FinancePortalPage() {
                     );
                   })}
                 </div>
+
+                {/* Dropdown Rekening Bank Perusahaan (Jika Non-Tunai) */}
+                {formData.jenis_pembayaran === 'non_tunai' && (
+                  <div className="mt-2.5 p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 space-y-1.5 animate-fadeIn">
+                    <label className="block text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
+                      <Landmark className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Pilih Rekening Tujuan / Penerima *</span>
+                    </label>
+
+                    <div className="relative">
+                      <select
+                        value={selectedRekeningId}
+                        onChange={(e) => setSelectedRekeningId(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-blue-300 dark:border-blue-800 bg-[var(--bg)] font-semibold text-[var(--text-primary)] appearance-none pr-8"
+                      >
+                        <option value="">-- Pilih Rekening Bank --</option>
+                        {rekeningList
+                          .filter((r) => r.aktif)
+                          .map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama}) {r.is_utama ? '⭐ Utama' : ''}
+                            </option>
+                          ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-blue-600" />
+                    </div>
+
+                    {rekeningList.filter((r) => r.aktif).length === 0 && (
+                      <p className="text-[10px] text-amber-700 italic">
+                        Belum ada rekening aktif.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <button

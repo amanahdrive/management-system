@@ -5,20 +5,23 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { PinGateDialog } from '@/components/shared/PinGateDialog';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
-import { Siswa } from '@/types/database';
+import { Siswa, RekeningBank } from '@/types/database';
 import { getSiswaList } from '@/lib/actions/siswa';
 import { addKasTransaksi } from '@/lib/actions/kas';
+import { getRekeningList } from '@/lib/actions/rekening';
 import { formatRupiah } from '@/lib/utils/currency';
 import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
 import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { StatCard } from '@/components/shared/StatCard';
-import { ArrowLeft, CreditCard, MessageSquare, Users, Wallet, ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, CreditCard, MessageSquare, Users, Wallet, ArrowUpRight, Landmark } from 'lucide-react';
 import Link from 'next/link';
 
 export default function PiutangPage() {
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
+  const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>([]);
+  const [selectedRekeningId, setSelectedRekeningId] = React.useState<string>('');
   const [loading, setLoading] = React.useState(true);
 
   // Modal Pelunasan State
@@ -29,12 +32,15 @@ export default function PiutangPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const data = await getSiswaList();
+    const [data, rList] = await Promise.all([getSiswaList(), getRekeningList()]);
     // Filter only students with outstanding balance (status dp or belum_bayar)
     const piutangData = data.filter(
       (s) => s.status_pembayaran_kode === 'dp' || s.status_pembayaran_kode === 'belum_bayar'
     );
     setSiswaList(piutangData);
+    setRekeningList(rList);
+    const defRek = rList.find((r) => r.aktif && r.is_utama) || rList.find((r) => r.aktif);
+    if (defRek) setSelectedRekeningId(defRek.id);
     setLoading(false);
   };
 
@@ -56,14 +62,21 @@ export default function PiutangPage() {
     e.preventDefault();
     if (!selectedSiswa || bayarNominal <= 0) return;
 
+    let baseKeterangan =
+      selectedSiswa.status_pembayaran_kode === 'dp'
+        ? `Pelunasan Kursus - ${selectedSiswa.nama} (${selectedSiswa.kode_siswa})`
+        : `Pembayaran DP Kursus - ${selectedSiswa.nama} (${selectedSiswa.kode_siswa})`;
+
+    const selectedRek = rekeningList.find((r) => r.id === selectedRekeningId);
+    if (bayarMetode === 'non_tunai' && selectedRek) {
+      baseKeterangan = `[${selectedRek.nama_bank} ${selectedRek.nomor_rekening}] ${baseKeterangan}`;
+    }
+
     await addKasTransaksi({
       tanggal: bayarTanggal,
       tipe: 'pemasukan',
       kategori: selectedSiswa.status_pembayaran_kode === 'dp' ? 'pelunasan_siswa' : 'dp_siswa',
-      keterangan:
-        selectedSiswa.status_pembayaran_kode === 'dp'
-          ? `Pelunasan Kursus - ${selectedSiswa.nama} (${selectedSiswa.kode_siswa})`
-          : `Pembayaran DP Kursus - ${selectedSiswa.nama} (${selectedSiswa.kode_siswa})`,
+      keterangan: baseKeterangan,
       nominal: bayarNominal,
       jenis_pembayaran: bayarMetode,
       pic_tipe: 'admin',
@@ -331,6 +344,41 @@ export default function PiutangPage() {
                       <span>Tunai (Kas Fisik)</span>
                     </label>
                   </div>
+
+                  {/* Dropdown Rekening Bank Perusahaan (Jika Non-Tunai) */}
+                  {bayarMetode === 'non_tunai' && (
+                    <div className="mt-2.5 p-2.5 rounded-md bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 space-y-1.5 animate-fadeIn">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-[11px] font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1">
+                          <Landmark className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Pilih Rekening Tujuan / Penerima *</span>
+                        </label>
+                        <Link
+                          href="/settings"
+                          target="_blank"
+                          className="text-[10px] text-blue-600 hover:text-blue-700 font-semibold underline"
+                        >
+                          Kelola Rekening
+                        </Link>
+                      </div>
+
+                      <select
+                        value={selectedRekeningId}
+                        onChange={(e) => setSelectedRekeningId(e.target.value)}
+                        required
+                        className="w-full px-2.5 py-1.5 text-xs rounded border border-blue-300 dark:border-blue-800 bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                      >
+                        <option value="">-- Pilih Rekening Bank Perusahaan --</option>
+                        {rekeningList
+                          .filter((r) => r.aktif)
+                          .map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama}) {r.is_utama ? '⭐ Utama' : ''}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 <p className="text-[10px] text-emerald-800 dark:text-emerald-300 italic">
