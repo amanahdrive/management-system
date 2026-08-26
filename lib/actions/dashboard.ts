@@ -39,8 +39,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       siswaList,
       sesiList,
       siswaBaruCount,
-      kasMonthly,
-      kasAll,
+      kasMetrics,
       sesiHariIniCount,
       kendaraanList,
       trenSiswaData,
@@ -56,12 +55,12 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
         'SELECT count(*) FROM siswa WHERE tanggal_booking >= $1',
         [firstDayThisMonth]
       ),
-      dbQuery<{ nominal: number; tipe: string }>(
-        "SELECT nominal, tipe FROM kas_transaksi WHERE tipe = 'pemasukan' AND tanggal >= $1",
+      dbQuery<{ pendapatan_bulan_ini: number; saldo_kas_aktif: number }>(
+        `SELECT
+          COALESCE(SUM(CASE WHEN tipe = 'pemasukan' AND tanggal >= $1 THEN nominal ELSE 0 END), 0) AS pendapatan_bulan_ini,
+          COALESCE(SUM(CASE WHEN tipe = 'pemasukan' THEN nominal ELSE 0 END), 0) - COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' THEN nominal ELSE 0 END), 0) AS saldo_kas_aktif
+        FROM kas_transaksi`,
         [firstDayThisMonth]
-      ),
-      dbQuery<{ nominal: number; tipe: string }>(
-        'SELECT nominal, tipe FROM kas_transaksi'
       ),
       dbQuery<{ count: string }>(
         "SELECT count(*) FROM jadwal_sesi WHERE tanggal_sesi::date = $1::date AND status_sesi = 'terjadwal'",
@@ -76,8 +75,15 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
         'SELECT tanggal_booking FROM siswa WHERE tanggal_booking >= $1',
         [sixMonthsAgoStr]
       ),
-      dbQuery<{ tanggal: string; tipe: string; nominal: number }>(
-        'SELECT tanggal, tipe, nominal FROM kas_transaksi WHERE tanggal >= $1',
+      dbQuery<{ bulan_key: string; pemasukan: number; pengeluaran: number }>(
+        `SELECT 
+          TO_CHAR(tanggal, 'YYYY-MM') as bulan_key,
+          COALESCE(SUM(CASE WHEN tipe = 'pemasukan' THEN nominal ELSE 0 END), 0) as pemasukan,
+          COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' THEN nominal ELSE 0 END), 0) as pengeluaran
+        FROM kas_transaksi 
+        WHERE tanggal >= $1
+        GROUP BY TO_CHAR(tanggal, 'YYYY-MM')
+        ORDER BY bulan_key ASC`,
         [sixMonthsAgoStr]
       ),
     ]);
@@ -94,15 +100,8 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       (s) => s.status_pembayaran_kode === 'lunas' && scheduledSiswaIds.has(s.id) && !onProgressIds.has(s.id)
     ).length;
 
-    const totalPendapatanBulanIni = kasMonthly.reduce((sum, t) => sum + (Number(t.nominal) || 0), 0);
-    let totalPemasukan = 0;
-    let totalPengeluaran = 0;
-    kasAll.forEach((t) => {
-      const nom = Number(t.nominal) || 0;
-      if (t.tipe === 'pemasukan') totalPemasukan += nom;
-      else totalPengeluaran += nom;
-    });
-    const saldoKasAktif = totalPemasukan - totalPengeluaran;
+    const totalPendapatanBulanIni = Number(kasMetrics[0]?.pendapatan_bulan_ini) || 0;
+    const saldoKasAktif = Number(kasMetrics[0]?.saldo_kas_aktif) || 0;
 
     const leadsMap = new Map<string, number>();
     siswaList.forEach((s) => {
@@ -155,12 +154,11 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       monthlyKasMap[k] = { pemasukan: 0, pengeluaran: 0 };
     }
     trenKasData.forEach((t) => {
-      if (!t.tanggal) return;
-      const k = String(t.tanggal).slice(0, 7);
-      const nom = Number(t.nominal) || 0;
+      if (!t.bulan_key) return;
+      const k = t.bulan_key;
       if (monthlyKasMap[k]) {
-        if (t.tipe === 'pemasukan') monthlyKasMap[k].pemasukan += nom;
-        else monthlyKasMap[k].pengeluaran += nom;
+        monthlyKasMap[k].pemasukan = Number(t.pemasukan) || 0;
+        monthlyKasMap[k].pengeluaran = Number(t.pengeluaran) || 0;
       }
     });
     const trenCashflow = Object.entries(monthlyKasMap).map(([k, v]) => {

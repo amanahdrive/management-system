@@ -326,6 +326,7 @@ export default function KasOverviewPage() {
       keterangan: finalKeterangan,
       nominal: formData.nominal,
       jenis_pembayaran: formData.jenis_pembayaran,
+      rekening_id: formData.jenis_pembayaran === 'non_tunai' ? selectedRekeningId || null : null,
       pic_tipe: formData.pic_tipe,
       pic_nama: formData.pic_tipe === 'finance' ? 'Lia (Finance)' : formData.pic_nama || 'Admin Staff',
       siswa_id: finalSiswaId,
@@ -487,8 +488,12 @@ export default function KasOverviewPage() {
                   className="w-full px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
                 >
                   {availableKategoriList.map((k) => (
-                    <option key={k.id} value={k.id}>
-                      {k.nama_kategori}
+                    <option key={k.id} value={k.nama_kategori}>
+                      {k.nama_kategori === 'dp_siswa' ? 'DP Siswa Kursus'
+                        : k.nama_kategori === 'pelunasan_siswa' ? 'Pelunasan Siswa'
+                        : k.nama_kategori === 'refund_siswa' ? 'Refund / Pembatalan'
+                        : k.nama_kategori === 'cicilan_hutang' ? 'Cicilan Hutang'
+                        : k.nama_kategori.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
                     </option>
                   ))}
                 </select>

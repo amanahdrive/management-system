@@ -489,6 +489,7 @@ export default function FinancePortalPage() {
       keterangan: finalKeterangan,
       nominal: formData.nominal,
       jenis_pembayaran: formData.jenis_pembayaran,
+      rekening_id: formData.jenis_pembayaran === 'non_tunai' ? selectedRekeningId || null : null,
       pic_tipe: 'finance',
       pic_nama: 'Lia (Finance)',
       siswa_id: finalSiswaId,
@@ -496,6 +497,11 @@ export default function FinancePortalPage() {
     });
     setSubmitting(false);
     if (res.success) {
+      // Invalidate stale SWR cache so fresh data is shown immediately
+      try {
+        localStorage.removeItem('fin_cached_metrics');
+        localStorage.removeItem('fin_cached_tx');
+      } catch {}
       showToast(formData.tipe === 'pemasukan' ? 'Pemasukan tersimpan' : 'Pengeluaran tersimpan');
       setFormData((prev) => ({
         ...prev,

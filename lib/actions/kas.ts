@@ -424,6 +424,7 @@ export async function updateKasTransaksi(
     revalidatePath('/kas/piutang');
     revalidatePath('/siswa');
     revalidatePath('/dashboard');
+    revalidatePath('/finance');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -452,6 +453,7 @@ export async function deleteKasTransaksi(id: string): Promise<{ success: boolean
     revalidatePath('/kas/piutang');
     revalidatePath('/siswa');
     revalidatePath('/dashboard');
+    revalidatePath('/finance');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
