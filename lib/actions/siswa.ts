@@ -1,6 +1,6 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { Siswa } from '@/types/database';
 import { revalidatePath } from 'next/cache';
@@ -12,7 +12,7 @@ export async function getSiswaList(): Promise<Siswa[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data, error } = await supabase
       .from('siswa')
       .select('*, paket(*), promosi(*), status_pembayaran:status_pembayaran_master(*)')
@@ -30,7 +30,7 @@ export async function getSiswaList(): Promise<Siswa[]> {
 
 export async function getSiswaById(id: string): Promise<Siswa | null> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data, error } = await supabase
       .from('siswa')
       .select('*, paket(*), promosi(*), status_pembayaran:status_pembayaran_master(*)')
@@ -52,7 +52,7 @@ export async function updateSiswaPayment(
   jenisPembayaran: 'tunai' | 'non_tunai' = 'non_tunai'
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
 
     // 1. Fetch current student record
     const { data: currentSiswa, error: fetchErr } = await supabase
@@ -109,7 +109,7 @@ export async function updateSiswaPayment(
 
 export async function getSiswaPaymentHistory(siswaId: string) {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data, error } = await supabase
       .from('kas_transaksi')
       .select('*')
@@ -127,7 +127,7 @@ export async function createOrUpdateSiswa(
   siswaData: Partial<Siswa> & { jenis_pembayaran?: 'tunai' | 'non_tunai' }
 ): Promise<{ success: boolean; data?: Siswa; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
 
     const isNew = !siswaData.id;
     const selectedJenisPembayaran = siswaData.jenis_pembayaran || 'non_tunai';
@@ -219,7 +219,7 @@ export async function createOrUpdateSiswa(
 
 export async function deleteSiswa(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { error } = await supabase.from('siswa').delete().eq('id', id);
 
     if (error) return { success: false, error: error.message };

@@ -1,6 +1,6 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { Paket, Promosi, Jabatan, Staff, StatusPembayaranMaster, SlotWaktu, Kendaraan } from '@/types/database';
 import { revalidatePath } from 'next/cache';
@@ -11,7 +11,7 @@ export async function getPaketList(): Promise<Paket[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data, error } = await supabase
       .from('paket')
       .select('*')
@@ -28,7 +28,7 @@ export async function getPaketList(): Promise<Paket[]> {
 
 export async function upsertPaket(paket: Partial<Paket>): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { error } = await supabase.from('paket').upsert(paket);
     if (error) return { success: false, error: error.message };
 
@@ -48,7 +48,7 @@ export async function getPromosiList(): Promise<Promosi[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data, error } = await supabase
       .from('promosi')
       .select('*')
@@ -65,7 +65,7 @@ export async function getPromosiList(): Promise<Promosi[]> {
 
 export async function upsertPromosi(promosi: Partial<Promosi>): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { error } = await supabase.from('promosi').upsert(promosi);
     if (error) return { success: false, error: error.message };
 
@@ -80,7 +80,7 @@ export async function upsertPromosi(promosi: Partial<Promosi>): Promise<{ succes
 
 export async function deletePromosi(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { error } = await supabase.from('promosi').delete().eq('id', id);
     if (error) return { success: false, error: error.message };
 
@@ -99,7 +99,7 @@ export async function getJabatanList(): Promise<Jabatan[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data, error } = await supabase
       .from('jabatan')
       .select('*')
@@ -134,7 +134,7 @@ export async function getJabatanList(): Promise<Jabatan[]> {
 
 export async function upsertJabatan(jabatan: Partial<Jabatan>): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { error } = await supabase.from('jabatan').upsert(jabatan);
     if (error) return { success: false, error: error.message };
 
@@ -153,7 +153,7 @@ export async function getStaffList(): Promise<Staff[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
       .select('*, staff_jabatan(jabatan(*))')
@@ -179,7 +179,7 @@ export async function getStaffList(): Promise<Staff[]> {
 export async function getInstrukturList(): Promise<Staff[]> {
   const allStaff = await getStaffList();
   return allStaff.filter(
-    (st) => st.aktif && st.jabatan_list?.some((j) => j.nama_jabatan === 'Instruktur')
+    (st) => st.aktif && st.jabatan_list?.some((j) => j?.nama_jabatan?.toLowerCase().includes('instruktur'))
   );
 }
 
@@ -188,7 +188,7 @@ export async function upsertStaff(
   jabatanIds: string[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
 
     // Clean relation columns but KEEP the table columns: hari_kerja, slot_kerja, jadwal_ketersediaan
     const {
@@ -254,7 +254,7 @@ export async function getSlotWaktuList(): Promise<SlotWaktu[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data, error } = await supabase
       .from('slot_waktu')
       .select('*')
@@ -271,7 +271,7 @@ export async function getSlotWaktuList(): Promise<SlotWaktu[]> {
 
 export async function upsertSlotWaktu(slot: Partial<SlotWaktu>): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { error } = await supabase.from('slot_waktu').upsert(slot);
     if (error) return { success: false, error: error.message };
 
@@ -290,7 +290,7 @@ export async function getStatusPembayaranMaster(): Promise<StatusPembayaranMaste
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data, error } = await supabase
       .from('status_pembayaran_master')
       .select('*')
@@ -311,7 +311,7 @@ export async function getKendaraanMasterList(): Promise<Kendaraan[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data, error } = await supabase
       .from('kendaraan')
       .select('*, status:kendaraan_status(*)')
@@ -328,7 +328,7 @@ export async function getKendaraanMasterList(): Promise<Kendaraan[]> {
 
 export async function upsertKendaraanMaster(kendaraan: Partial<Kendaraan>): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { status, created_at, updated_at, ...cleanData } = kendaraan as any;
     const { data: saved, error } = await supabase.from('kendaraan').upsert(cleanData).select().maybeSingle();
     if (error || !saved) return { success: false, error: error?.message || 'Gagal menyimpan kendaraan' };
@@ -352,7 +352,7 @@ export async function upsertKendaraanMaster(kendaraan: Partial<Kendaraan>): Prom
 
 export async function deleteKendaraan(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { error } = await supabase.from('kendaraan').delete().eq('id', id);
 
     if (error) return { success: false, error: error.message };

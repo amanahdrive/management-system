@@ -1,6 +1,6 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
 
@@ -44,7 +44,7 @@ export async function getTelegramConfig(): Promise<TelegramConfig> {
   if (cached) return cached;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data, error } = await supabase
       .from('settings')
       .select('key, value')
@@ -92,7 +92,7 @@ export async function saveTelegramConfig(
   config: Partial<TelegramConfig>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
 
     const updates = [
       { key: 'telegram_otomasi_aktif', value: String(config.otomasiAktif ?? true), deskripsi: 'Master Switch Automasi Telegram' },
@@ -193,7 +193,7 @@ async function logNotifikasi(
   errorMessage: string | null
 ) {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     await supabase.from('notifikasi_log').insert({
       tipe,
       judul,

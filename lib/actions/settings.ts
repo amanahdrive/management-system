@@ -1,6 +1,6 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
 
@@ -29,7 +29,7 @@ export async function getGeneralSettings(): Promise<GeneralSettings> {
   if (cached) return cached;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data } = await supabase.from('settings').select('key, value');
 
     const map: Record<string, string> = {};
@@ -65,7 +65,7 @@ export async function getGeneralSettings(): Promise<GeneralSettings> {
  * Save single setting helper (upsert by key)
  */
 async function upsertSetting(key: string, value: string, deskripsi?: string) {
-  const supabase = createAdminClient();
+  const supabase = await createServerClient();
   const { data: existing } = await supabase.from('settings').select('id').eq('key', key).maybeSingle();
 
   if (existing) {

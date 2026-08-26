@@ -1,6 +1,6 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 export type ResetModuleKey =
@@ -19,7 +19,7 @@ export type ResetModuleKey =
  */
 export async function resetDataKeuangan(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     await supabase.from('hutang_pembayaran').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('kas_transaksi').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('hutang').delete().neq('id', '00000000-0000-0000-0000-000000000000');
@@ -43,7 +43,7 @@ export async function resetDataKeuangan(): Promise<{ success: boolean; error?: s
  */
 export async function resetDataSiswa(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     // Nullify references in foreign tables or remove sessions tied to siswa
     await supabase.from('jadwal_sesi').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('insiden').update({ siswa_id: null }).neq('id', '00000000-0000-0000-0000-000000000000');
@@ -67,7 +67,7 @@ export async function resetDataSiswa(): Promise<{ success: boolean; error?: stri
  */
 export async function resetDataJadwal(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     await supabase.from('jadwal_sesi').delete().neq('id', '00000000-0000-0000-0000-000000000000');
 
     revalidatePath('/jadwal');
@@ -86,7 +86,7 @@ export async function resetDataJadwal(): Promise<{ success: boolean; error?: str
  */
 export async function resetDataKendaraanLog(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     await supabase.from('kendaraan_log_harian').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('kendaraan_ban').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('kendaraan_status').delete().neq('id', '00000000-0000-0000-0000-000000000000');
@@ -106,7 +106,7 @@ export async function resetDataKendaraanLog(): Promise<{ success: boolean; error
  */
 export async function resetDataInsiden(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     await supabase.from('insiden').delete().neq('id', '00000000-0000-0000-0000-000000000000');
 
     revalidatePath('/insiden');
@@ -125,7 +125,7 @@ export async function resetDataInsiden(): Promise<{ success: boolean; error?: st
  */
 export async function resetDataNotifikasiLog(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     await supabase.from('notifikasi_log').delete().neq('id', '00000000-0000-0000-0000-000000000000');
 
     revalidatePath('/settings');
@@ -142,7 +142,7 @@ export async function resetDataNotifikasiLog(): Promise<{ success: boolean; erro
  */
 export async function resetDataMasterStaff(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     await supabase.from('jadwal_sesi').update({ staff_id: null }).neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('insiden').update({ staff_id: null }).neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('staff_jabatan').delete().neq('id', '00000000-0000-0000-0000-000000000000');
@@ -164,7 +164,7 @@ export async function resetDataMasterStaff(): Promise<{ success: boolean; error?
  */
 export async function resetDataMasterPaket(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     await supabase.from('siswa').update({ paket_id: null }).neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('promosi').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('paket').delete().neq('id', '00000000-0000-0000-0000-000000000000');
@@ -185,7 +185,7 @@ export async function resetDataMasterPaket(): Promise<{ success: boolean; error?
  */
 export async function resetSystemAllData(): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
 
     // Delete in safe foreign-key sequence
     await supabase.from('notifikasi_log').delete().neq('id', '00000000-0000-0000-0000-000000000000');

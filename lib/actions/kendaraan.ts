@@ -1,13 +1,13 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { cacheInvalidate } from '@/lib/utils/cache';
 import { KendaraanBan, HargaBBM } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 
 export async function getHargaBBMList(): Promise<HargaBBM[]> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data, error } = await supabase.from('harga_bbm').select('*');
     if (!error && data) return data as HargaBBM[];
   } catch (e) {
@@ -24,7 +24,7 @@ export async function updateOdometerBasecampLog(
   totalSlotSelesai?: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
 
     let jarakTempuh: number | null = null;
     if (outKm !== undefined && inKm !== undefined && inKm >= outKm) {
@@ -72,7 +72,7 @@ export async function updateOliKendaraan(
   km: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { error } = await supabase
       .from('kendaraan_status')
       .update({
@@ -98,7 +98,7 @@ export async function addBanHistory(
   banData: Partial<KendaraanBan>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { error } = await supabase.from('kendaraan_ban').insert(banData);
 
     if (error) return { success: false, error: error.message };
@@ -115,7 +115,7 @@ export async function updateCuciMobil(
   tanggal: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { error } = await supabase
       .from('kendaraan_status')
       .update({ cuci_tanggal_terakhir: tanggal })
@@ -141,7 +141,7 @@ export async function recordPengisianBBM(
   jenisPembayaran: 'tunai' | 'non_tunai' = 'tunai'
 ): Promise<{ success: boolean; liter?: number; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const liter = parseFloat((nominal / hargaPerLiter).toFixed(2));
 
     // Update status BBM kendaraan
@@ -198,7 +198,7 @@ export async function getKendaraanPerformanceStats(
   rasioEfisiensi: number;
 }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const days = periode === 'weekly' ? 7 : 30;
     const fromDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 

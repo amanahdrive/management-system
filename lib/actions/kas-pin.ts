@@ -1,7 +1,7 @@
 'use server';
 
 import bcrypt from 'bcryptjs';
-import { createAdminClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
 
@@ -25,7 +25,7 @@ export async function verifyKasPin(inputPin: string): Promise<{ success: boolean
 
     if (!storedHash) {
       try {
-        const supabase = createAdminClient();
+    const supabase = await createServerClient();
         const { data } = await supabase
           .from('settings')
           .select('value')
@@ -93,7 +93,7 @@ export async function updateKasPin(
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(pinBaru, salt);
 
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
 
     // 3. Check if key 'pin_kas' exists
     const { data: existing, error: selectErr } = await supabase
