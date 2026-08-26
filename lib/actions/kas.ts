@@ -1,18 +1,27 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
+import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { KasTransaksi, Hutang, KasKategori } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 
+const METRICS_CACHE_KEY = 'kas_overview_metrics';
+
 export async function getKasOverviewMetrics() {
+  const cached = cacheGet<any>(METRICS_CACHE_KEY);
+  if (cached) return cached;
+
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
-    // Query Saldo — breakdown by tipe and jenis_pembayaran
-    const { data: txList } = await supabase
-      .from('kas_transaksi')
-      .select('tipe, nominal, jenis_pembayaran');
+    // Query Saldo, Piutang, Hutang concurrently with minimal fields
+    const [txRes, siswaRes, hutangRes] = await Promise.all([
+      supabase.from('kas_transaksi').select('tipe, nominal, jenis_pembayaran'),
+      supabase.from('siswa').select('harga_final, dp_nominal, status_pembayaran_kode'),
+      supabase.from('hutang').select('sisa_hutang').eq('status', 'berjalan'),
+    ]);
 
+    const txList = txRes.data;
     let totalPemasukan = 0;
     let totalPengeluaran = 0;
     let saldoTunai = 0;
@@ -28,8 +37,7 @@ export async function getKasOverviewMetrics() {
       });
     }
 
-    // Query Piutang
-    const { data: siswaList } = await supabase.from('siswa').select('harga_final, dp_nominal, status_pembayaran_kode');
+    const siswaList = siswaRes.data;
     let totalPiutang = 0;
     if (siswaList) {
       siswaList.forEach((s) => {
@@ -41,8 +49,7 @@ export async function getKasOverviewMetrics() {
       });
     }
 
-    // Query Hutang
-    const { data: hutangList } = await supabase.from('hutang').select('sisa_hutang').eq('status', 'berjalan');
+    const hutangList = hutangRes.data;
     let totalHutang = 0;
     if (hutangList) {
       hutangList.forEach((h) => {
@@ -50,13 +57,16 @@ export async function getKasOverviewMetrics() {
       });
     }
 
-    return {
+    const result = {
       saldoAktif: totalPemasukan - totalPengeluaran,
       saldoTunai,
       saldoNonTunai,
       totalPiutang,
       totalHutang,
     };
+
+    cacheSet(METRICS_CACHE_KEY, result, 30);
+    return result;
   } catch (e) {
     console.error('Error fetching kas overview metrics:', e);
   }
@@ -72,14 +82,14 @@ export async function getKasOverviewMetrics() {
 
 export async function syncSiswaPaymentState(siswaId: string): Promise<void> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     // Fetch student
     const { data: siswa } = await supabase
       .from('siswa')
       .select('id, harga_final, status_pembayaran_kode')
       .eq('id', siswaId)
-      .single();
+      .maybeSingle();
     if (!siswa) return;
 
     // Fetch all transactions for this student
@@ -144,6 +154,10 @@ export async function syncSiswaPaymentState(siswaId: string): Promise<void> {
       })
       .eq('id', siswaId);
 
+    cacheInvalidate('siswa*');
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+
     revalidatePath('/siswa');
     revalidatePath(`/siswa/${siswaId}`);
     revalidatePath('/kas/piutang');
@@ -153,8 +167,11 @@ export async function syncSiswaPaymentState(siswaId: string): Promise<void> {
 }
 
 export async function getKasKategoriList(): Promise<KasKategori[]> {
+  const cached = cacheGet<KasKategori[]>('kas_kategori_list');
+  if (cached && cached.length > 0) return cached;
+
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { data, error } = await supabase.from('kas_kategori').select('*').order('nama_kategori');
 
     const defaultCategories: Partial<KasKategori>[] = [
@@ -170,22 +187,25 @@ export async function getKasKategoriList(): Promise<KasKategori[]> {
 
     if (!error && data && data.length > 0) {
       const hasRefund = data.some((k) => k.nama_kategori === 'refund_siswa');
-      if (!hasRefund) {
-        return [
-          ...data,
-          { id: 'kat-refund-siswa', nama_kategori: 'refund_siswa', tipe: 'pengeluaran', created_at: '', updated_at: '' },
-        ] as KasKategori[];
-      }
-      return data as KasKategori[];
+      const finalData = hasRefund
+        ? data
+        : [
+            ...data,
+            { id: 'kat-refund-siswa', nama_kategori: 'refund_siswa', tipe: 'pengeluaran', created_at: '', updated_at: '' },
+          ];
+      cacheSet('kas_kategori_list', finalData as KasKategori[], 300);
+      return finalData as KasKategori[];
     }
 
-    return defaultCategories.map((c, i) => ({
+    const fallback = defaultCategories.map((c, i) => ({
       id: `default-${i}`,
       nama_kategori: c.nama_kategori!,
       tipe: c.tipe as any,
       created_at: '',
       updated_at: '',
     }));
+    cacheSet('kas_kategori_list', fallback, 300);
+    return fallback;
   } catch (e) {
     console.error('Error fetching kas kategori:', e);
   }
@@ -200,7 +220,7 @@ export async function getKasTransaksiList(filters?: {
   sumberOtomatis?: boolean;
 }): Promise<KasTransaksi[]> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     let q = supabase
       .from('kas_transaksi')
       .select('*, siswa(*), hutang(*)')
@@ -224,7 +244,7 @@ export async function addKasTransaksi(
   txData: Partial<KasTransaksi>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { error } = await supabase.from('kas_transaksi').insert(txData);
 
     if (error) return { success: false, error: error.message };
@@ -233,11 +253,16 @@ export async function addKasTransaksi(
       await syncSiswaPaymentState(txData.siswa_id);
     }
 
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('siswa*');
+
     revalidatePath('/kas');
     revalidatePath('/kas/cashflow');
     revalidatePath('/kas/piutang');
     revalidatePath('/siswa');
     revalidatePath('/dashboard');
+    revalidatePath('/finance');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -246,10 +271,16 @@ export async function addKasTransaksi(
 
 // --- HUTANG ACTIONS ---
 export async function getHutangList(): Promise<Hutang[]> {
+  const cached = cacheGet<Hutang[]>('hutang_list');
+  if (cached) return cached;
+
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { data, error } = await supabase.from('hutang').select('*').order('created_at', { ascending: false });
-    if (!error && data) return data as Hutang[];
+    if (!error && data) {
+      cacheSet('hutang_list', data as Hutang[], 60);
+      return data as Hutang[];
+    }
   } catch (e) {
     console.error('Error fetching hutang list:', e);
   }
@@ -258,7 +289,7 @@ export async function getHutangList(): Promise<Hutang[]> {
 
 export async function addHutang(hutangData: Partial<Hutang>): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const payload = {
       ...hutangData,
       sisa_hutang: hutangData.total_hutang || 0,
@@ -266,6 +297,10 @@ export async function addHutang(hutangData: Partial<Hutang>): Promise<{ success:
     };
     const { error } = await supabase.from('hutang').insert(payload);
     if (error) return { success: false, error: error.message };
+
+    cacheInvalidate('hutang*');
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
 
     revalidatePath('/kas/hutang');
     revalidatePath('/kas');
@@ -282,10 +317,10 @@ export async function payHutangCicilan(
   jenisPembayaran: 'tunai' | 'non_tunai' = 'non_tunai'
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     // 1. Get current hutang
-    const { data: h } = await supabase.from('hutang').select('sisa_hutang, nama_hutang').eq('id', hutangId).single();
+    const { data: h } = await supabase.from('hutang').select('sisa_hutang, nama_hutang').eq('id', hutangId).maybeSingle();
     if (!h) return { success: false, error: 'Hutang tidak ditemukan' };
 
     const newSisa = Math.max(0, h.sisa_hutang - nominal);
@@ -307,9 +342,9 @@ export async function payHutangCicilan(
         sumber_otomatis: true,
       })
       .select()
-      .single();
+      .maybeSingle();
 
-    if (kasErr) return { success: false, error: kasErr.message };
+    if (kasErr || !kasTx) return { success: false, error: kasErr?.message || 'Gagal membuat transaksi kas' };
 
     // 3. Insert hutang_pembayaran record
     await supabase.from('hutang_pembayaran').insert({
@@ -325,6 +360,10 @@ export async function payHutangCicilan(
       .update({ sisa_hutang: newSisa, status: newStatus })
       .eq('id', hutangId);
 
+    cacheInvalidate('hutang*');
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+
     revalidatePath('/kas/hutang');
     revalidatePath('/kas');
     return { success: true };
@@ -338,10 +377,10 @@ export async function updateKasTransaksi(
   updates: Partial<KasTransaksi>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     // Fetch old tx to check previous siswa_id
-    const { data: oldTx } = await supabase.from('kas_transaksi').select('siswa_id').eq('id', id).single();
+    const { data: oldTx } = await supabase.from('kas_transaksi').select('siswa_id').eq('id', id).maybeSingle();
 
     const { siswa, hutang, ...cleanUpdates } = updates as any;
     const { error } = await supabase
@@ -358,6 +397,10 @@ export async function updateKasTransaksi(
       await syncSiswaPaymentState(cleanUpdates.siswa_id);
     }
 
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('siswa*');
+
     revalidatePath('/kas');
     revalidatePath('/kas/cashflow');
     revalidatePath('/kas/piutang');
@@ -371,10 +414,10 @@ export async function updateKasTransaksi(
 
 export async function deleteKasTransaksi(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     // Fetch tx to check if it is linked to a siswa
-    const { data: tx } = await supabase.from('kas_transaksi').select('siswa_id').eq('id', id).single();
+    const { data: tx } = await supabase.from('kas_transaksi').select('siswa_id').eq('id', id).maybeSingle();
 
     const { error } = await supabase.from('kas_transaksi').delete().eq('id', id);
 
@@ -383,6 +426,10 @@ export async function deleteKasTransaksi(id: string): Promise<{ success: boolean
     if (tx?.siswa_id) {
       await syncSiswaPaymentState(tx.siswa_id);
     }
+
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('siswa*');
 
     revalidatePath('/kas');
     revalidatePath('/kas/cashflow');
@@ -408,8 +455,11 @@ export interface DpKustomItem {
 }
 
 export async function getDpKustomList(): Promise<DpKustomItem[]> {
+  const cached = cacheGet<DpKustomItem[]>('dp_kustom_list');
+  if (cached) return cached;
+
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     // Query all non-student pemasukan transactions
     const { data: txList } = await supabase
       .from('kas_transaksi')
@@ -484,6 +534,7 @@ export async function getDpKustomList(): Promise<DpKustomItem[]> {
       });
     }
 
+    cacheSet('dp_kustom_list', result, 60);
     return result;
   } catch (err) {
     console.error('Error in getDpKustomList:', err);

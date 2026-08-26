@@ -1,18 +1,27 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
+import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { Siswa } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 
+const SISWA_CACHE_KEY = 'siswa_list';
+
 export async function getSiswaList(): Promise<Siswa[]> {
+  const cached = cacheGet<Siswa[]>(SISWA_CACHE_KEY);
+  if (cached && cached.length > 0) return cached;
+
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('siswa')
       .select('*, paket(*), promosi(*), status_pembayaran:status_pembayaran_master(*)')
       .order('created_at', { ascending: false });
 
-    if (!error && data) return data as Siswa[];
+    if (!error && data) {
+      cacheSet(SISWA_CACHE_KEY, data as Siswa[], 60);
+      return data as Siswa[];
+    }
   } catch (e) {
     console.error('Error fetching siswa list:', e);
   }
@@ -21,12 +30,12 @@ export async function getSiswaList(): Promise<Siswa[]> {
 
 export async function getSiswaById(id: string): Promise<Siswa | null> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('siswa')
       .select('*, paket(*), promosi(*), status_pembayaran:status_pembayaran_master(*)')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
     if (!error && data) return data as Siswa;
   } catch (e) {
@@ -43,7 +52,7 @@ export async function updateSiswaPayment(
   jenisPembayaran: 'tunai' | 'non_tunai' = 'non_tunai'
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     // 1. Fetch current student record
     const { data: currentSiswa, error: fetchErr } = await supabase
@@ -81,6 +90,10 @@ export async function updateSiswaPayment(
       return { success: false, error: updateErr?.message || 'Gagal memperbarui status pembayaran' };
     }
 
+    cacheInvalidate('siswa*');
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+
     revalidatePath('/siswa');
     revalidatePath(`/siswa/${siswaId}`);
     revalidatePath('/kas');
@@ -96,7 +109,7 @@ export async function updateSiswaPayment(
 
 export async function getSiswaPaymentHistory(siswaId: string) {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('kas_transaksi')
       .select('*')
@@ -114,7 +127,7 @@ export async function createOrUpdateSiswa(
   siswaData: Partial<Siswa> & { jenis_pembayaran?: 'tunai' | 'non_tunai' }
 ): Promise<{ success: boolean; data?: Siswa; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     const isNew = !siswaData.id;
     const selectedJenisPembayaran = siswaData.jenis_pembayaran || 'non_tunai';
@@ -145,7 +158,7 @@ export async function createOrUpdateSiswa(
         })
         .eq('id', cleanPayload.id)
         .select()
-        .single();
+        .maybeSingle();
 
       savedSiswa = res.data as Siswa;
       error = res.error;
@@ -179,7 +192,7 @@ export async function createOrUpdateSiswa(
         .from('siswa')
         .insert(cleanPayload)
         .select()
-        .single();
+        .maybeSingle();
 
       savedSiswa = res.data as Siswa;
       error = res.error;
@@ -188,6 +201,9 @@ export async function createOrUpdateSiswa(
     if (error || !savedSiswa) {
       return { success: false, error: error?.message || 'Gagal menyimpan data siswa' };
     }
+
+    cacheInvalidate('siswa*');
+    cacheInvalidate('dashboard*');
 
     revalidatePath('/siswa');
     revalidatePath('/kas');
@@ -203,10 +219,13 @@ export async function createOrUpdateSiswa(
 
 export async function deleteSiswa(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { error } = await supabase.from('siswa').delete().eq('id', id);
 
     if (error) return { success: false, error: error.message };
+
+    cacheInvalidate('siswa*');
+    cacheInvalidate('dashboard*');
 
     revalidatePath('/siswa');
     revalidatePath('/dashboard');

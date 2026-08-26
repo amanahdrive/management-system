@@ -27,12 +27,28 @@ export function PinGateDialog({ children }: PinGateDialogProps) {
     return <>{children}</>;
   }
 
+  const handlePinChange = async (val: string) => {
+    const cleaned = val.replace(/[^0-9]/g, '').slice(0, 6);
+    setPin(cleaned);
+    setError(null);
+
+    if (cleaned.length === 6) {
+      setLoading(true);
+      const res = await verifyKasPin(cleaned);
+      setLoading(false);
+
+      if (res.success) {
+        setVerified(true);
+        setPin('');
+      } else {
+        setError(res.error || 'PIN Salah');
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin.length !== 6) {
-      setError('PIN harus 6 digit');
-      return;
-    }
+    if (pin.length !== 6 || loading) return;
 
     setLoading(true);
     setError(null);
@@ -66,10 +82,8 @@ export function PinGateDialog({ children }: PinGateDialogProps) {
                 type="password"
                 maxLength={6}
                 value={pin}
-                onChange={(e) => {
-                  setPin(e.target.value.replace(/[^0-9]/g, ''));
-                  setError(null);
-                }}
+                disabled={loading}
+                onChange={(e) => handlePinChange(e.target.value)}
                 placeholder="******"
                 autoFocus
                 className="w-full px-4 py-3 text-center text-2xl tracking-widest font-bold tabular-num rounded-md border border-[var(--border)] bg-[var(--bg-subtle)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"

@@ -204,25 +204,37 @@ export default function SettingsPage() {
 
   // Load All Settings on Mount
   React.useEffect(() => {
+    let isMounted = true;
     async function loadAllSettings() {
       setLoadingTelegram(true);
       setLoadingRekening(true);
-      const [genCfg, tgCfg, rekList] = await Promise.all([
-        getGeneralSettings(),
-        getTelegramConfig(),
-        getRekeningList(),
-      ]);
-      setNamaPerusahaan(genCfg.namaPerusahaan);
-      setKota(genCfg.kotaOperasional);
-      setWaTemplate(genCfg.waTemplate);
-      setPertalitePrice(genCfg.pertalitePrice);
-      setPertamaxPrice(genCfg.pertamaxPrice);
-      setTelegramConfig(tgCfg);
-      setRekeningList(rekList);
-      setLoadingTelegram(false);
-      setLoadingRekening(false);
+      try {
+        const [genCfg, tgCfg, rekList] = await Promise.all([
+          getGeneralSettings(),
+          getTelegramConfig(),
+          getRekeningList(),
+        ]);
+        if (!isMounted) return;
+        setNamaPerusahaan(genCfg.namaPerusahaan);
+        setKota(genCfg.kotaOperasional);
+        setWaTemplate(genCfg.waTemplate);
+        setPertalitePrice(genCfg.pertalitePrice);
+        setPertamaxPrice(genCfg.pertamaxPrice);
+        setTelegramConfig(tgCfg);
+        setRekeningList(rekList);
+      } catch (err) {
+        console.error('Error loading settings:', err);
+      } finally {
+        if (isMounted) {
+          setLoadingTelegram(false);
+          setLoadingRekening(false);
+        }
+      }
     }
     loadAllSettings();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleOpenAddRekening = () => {

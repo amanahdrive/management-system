@@ -1,12 +1,13 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
+import { cacheInvalidate } from '@/lib/utils/cache';
 import { KendaraanBan, HargaBBM } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 
 export async function getHargaBBMList(): Promise<HargaBBM[]> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { data, error } = await supabase.from('harga_bbm').select('*');
     if (!error && data) return data as HargaBBM[];
   } catch (e) {
@@ -23,7 +24,7 @@ export async function updateOdometerBasecampLog(
   totalSlotSelesai?: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     let jarakTempuh: number | null = null;
     if (outKm !== undefined && inKm !== undefined && inKm >= outKm) {
@@ -54,6 +55,9 @@ export async function updateOdometerBasecampLog(
         .eq('kendaraan_id', kendaraanId);
     }
 
+    cacheInvalidate('master_kendaraan*');
+    cacheInvalidate('dashboard*');
+
     revalidatePath(`/kendaraan/${kendaraanId}`);
     revalidatePath('/kendaraan');
     return { success: true };
@@ -68,7 +72,7 @@ export async function updateOliKendaraan(
   km: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { error } = await supabase
       .from('kendaraan_status')
       .update({
@@ -79,6 +83,9 @@ export async function updateOliKendaraan(
       .eq('kendaraan_id', kendaraanId);
 
     if (error) return { success: false, error: error.message };
+
+    cacheInvalidate('master_kendaraan*');
+    cacheInvalidate('dashboard*');
 
     revalidatePath(`/kendaraan/${kendaraanId}`);
     return { success: true };
@@ -91,7 +98,7 @@ export async function addBanHistory(
   banData: Partial<KendaraanBan>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { error } = await supabase.from('kendaraan_ban').insert(banData);
 
     if (error) return { success: false, error: error.message };
@@ -108,13 +115,15 @@ export async function updateCuciMobil(
   tanggal: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { error } = await supabase
       .from('kendaraan_status')
       .update({ cuci_tanggal_terakhir: tanggal })
       .eq('kendaraan_id', kendaraanId);
 
     if (error) return { success: false, error: error.message };
+
+    cacheInvalidate('master_kendaraan*');
 
     revalidatePath(`/kendaraan/${kendaraanId}`);
     return { success: true };
@@ -132,7 +141,7 @@ export async function recordPengisianBBM(
   jenisPembayaran: 'tunai' | 'non_tunai' = 'tunai'
 ): Promise<{ success: boolean; liter?: number; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const liter = parseFloat((nominal / hargaPerLiter).toFixed(2));
 
     // Update status BBM kendaraan
@@ -149,7 +158,7 @@ export async function recordPengisianBBM(
     if (statusErr) return { success: false, error: statusErr.message };
 
     // Get vehicle name for receipt text
-    const { data: v } = await supabase.from('kendaraan').select('nama_kendaraan, plat_nomor').eq('id', kendaraanId).single();
+    const { data: v } = await supabase.from('kendaraan').select('nama_kendaraan, plat_nomor').eq('id', kendaraanId).maybeSingle();
     const vName = v ? `${v.nama_kendaraan} (${v.plat_nomor})` : 'Kendaraan Operasional';
 
     // Insert automatic Kas Transaksi Pengeluaran BBM
@@ -164,6 +173,10 @@ export async function recordPengisianBBM(
       pic_nama: 'Fleet Admin',
       sumber_otomatis: true,
     });
+
+    cacheInvalidate('master_kendaraan*');
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
 
     revalidatePath(`/kendaraan/${kendaraanId}`);
     revalidatePath('/kas');
@@ -185,7 +198,7 @@ export async function getKendaraanPerformanceStats(
   rasioEfisiensi: number;
 }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const days = periode === 'weekly' ? 7 : 30;
     const fromDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -213,7 +226,7 @@ export async function getKendaraanPerformanceStats(
       .from('kendaraan_status')
       .select('*')
       .eq('kendaraan_id', kendaraanId)
-      .single();
+      .maybeSingle();
 
     // Default or estimated BBM calculations
     const defaultBiaya = periode === 'weekly' ? 350000 : 1450000;

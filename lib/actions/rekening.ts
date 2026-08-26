@@ -1,6 +1,7 @@
 'use server';
 
 import { createAdminClient } from '@/lib/supabase/server';
+import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
 import { RekeningBank } from '@/types/database';
 
@@ -43,10 +44,15 @@ export const DEFAULT_REKENING_LIST: RekeningBank[] = [
   },
 ];
 
+const REKENING_CACHE_KEY = 'rekening_bank_list';
+
 /**
- * Fetch all company bank accounts from settings
+ * Fetch all company bank accounts from settings with in-memory caching
  */
 export async function getRekeningList(): Promise<RekeningBank[]> {
+  const cached = cacheGet<RekeningBank[]>(REKENING_CACHE_KEY);
+  if (cached && cached.length > 0) return cached;
+
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -56,13 +62,17 @@ export async function getRekeningList(): Promise<RekeningBank[]> {
       .maybeSingle();
 
     if (error || !data || !data.value) {
+      cacheSet(REKENING_CACHE_KEY, DEFAULT_REKENING_LIST, 120);
       return DEFAULT_REKENING_LIST;
     }
 
     const parsed = JSON.parse(data.value);
     if (Array.isArray(parsed) && parsed.length > 0) {
+      cacheSet(REKENING_CACHE_KEY, parsed, 120);
       return parsed;
     }
+
+    cacheSet(REKENING_CACHE_KEY, DEFAULT_REKENING_LIST, 120);
     return DEFAULT_REKENING_LIST;
   } catch (err) {
     console.error('Error in getRekeningList:', err);
@@ -112,6 +122,10 @@ export async function saveRekeningList(
         updated_at: new Date().toISOString(),
       });
     }
+
+    // Instantly update cache and invalidate related paths
+    cacheSet(REKENING_CACHE_KEY, list, 120);
+    cacheInvalidate('settings*');
 
     revalidatePath('/settings');
     revalidatePath('/kas');

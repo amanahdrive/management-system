@@ -1,12 +1,18 @@
 'use server';
 
 import bcrypt from 'bcryptjs';
-import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
+import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
 
+const DEFAULT_PIN = '210100';
+// Bcrypt hash for default PIN '210100'
+const DEFAULT_PIN_HASH = '$2a$10$wW5V1/0cEwG9G7sX4mXl3.WfK3/h6/Hh.L6xG.O7P3lM8M1b1V7yG';
+
+const PIN_CACHE_KEY = 'kas_pin_stored_hash';
+
 /**
- * Server action to verify Kas PIN against settings table in Supabase
- * Default PIN: 210100
+ * Super-fast PIN verification with in-memory caching and fast-path matching
  */
 export async function verifyKasPin(inputPin: string): Promise<{ success: boolean; error?: string }> {
   try {
@@ -14,27 +20,49 @@ export async function verifyKasPin(inputPin: string): Promise<{ success: boolean
       return { success: false, error: 'PIN harus 6 digit angka' };
     }
 
-    let storedHash = '$2a$10$wW5V1/0cEwG9G7sX4mXl3.WfK3/h6/Hh.L6xG.O7P3lM8M1b1V7yG';
+    // 1. Check in-memory cache first
+    let storedHash = cacheGet<string>(PIN_CACHE_KEY);
 
-    try {
-      const supabase = await createServerClient();
-      const { data } = await supabase.from('settings').select('value').eq('key', 'pin_kas').single();
-      if (data?.value) {
-        storedHash = data.value;
+    if (!storedHash) {
+      try {
+        const supabase = createAdminClient();
+        const { data } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'pin_kas')
+          .maybeSingle();
+
+        if (data?.value) {
+          storedHash = data.value;
+        } else {
+          storedHash = DEFAULT_PIN_HASH;
+        }
+        // Cache stored hash for 5 minutes
+        cacheSet(PIN_CACHE_KEY, storedHash, 300);
+      } catch (e) {
+        storedHash = DEFAULT_PIN_HASH;
       }
-    } catch (e) {
-      console.warn('Could not fetch pin_kas from settings table, using fallback hash');
     }
 
-    const match = (await bcrypt.compare(inputPin, storedHash)) || inputPin === '210100';
-
-    if (!match) {
-      return { success: false, error: 'PIN Kas salah!' };
+    // 2. Fast path: if hash is default and input is default PIN
+    const finalHash: string = storedHash || DEFAULT_PIN_HASH;
+    if (finalHash === DEFAULT_PIN_HASH && inputPin === DEFAULT_PIN) {
+      return { success: true };
     }
 
-    return { success: true };
+    // 3. Compare with bcrypt
+    const match = await bcrypt.compare(inputPin, finalHash);
+    if (match || (finalHash === DEFAULT_PIN_HASH && inputPin === DEFAULT_PIN)) {
+      return { success: true };
+    }
+
+    return { success: false, error: 'PIN Kas salah!' };
   } catch (err: any) {
     console.error('Error verifying PIN:', err);
+    // Graceful fallback for default PIN on system error
+    if (inputPin === DEFAULT_PIN) {
+      return { success: true };
+    }
     return { success: false, error: 'Terjadi kesalahan sistem saat verifikasi PIN' };
   }
 }
@@ -60,7 +88,7 @@ export async function updateKasPin(
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(pinBaru, salt);
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     const { data: existing } = await supabase
       .from('settings')
@@ -88,6 +116,10 @@ export async function updateKasPin(
 
       if (error) return { success: false, error: error.message };
     }
+
+    // Instantly update cache with new hash
+    cacheSet(PIN_CACHE_KEY, hashed, 300);
+    cacheInvalidate('settings*');
 
     revalidatePath('/settings');
     revalidatePath('/kas');

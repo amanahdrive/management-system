@@ -1,6 +1,7 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
+import { cacheInvalidate } from '@/lib/utils/cache';
 import { JadwalSesi } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 import {
@@ -18,7 +19,7 @@ export async function getJadwalByTanggal(
   staffId?: string
 ): Promise<JadwalSesi[]> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     let query = supabase
       .from('jadwal_sesi')
       .select(
@@ -43,7 +44,7 @@ export async function getJadwalByBulan(
   monthIndex: number
 ): Promise<JadwalSesi[]> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const startDate = `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`;
     const lastDay = new Date(year, monthIndex + 1, 0).getDate();
     const endDate = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
@@ -65,7 +66,7 @@ export async function getJadwalByBulan(
 
 export async function getJadwalSesiById(id: string): Promise<JadwalSesi | null> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('jadwal_sesi')
       .select(
@@ -83,7 +84,7 @@ export async function getJadwalSesiById(id: string): Promise<JadwalSesi | null> 
 
 export async function getJadwalBySiswa(siswaId: string): Promise<JadwalSesi[]> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('jadwal_sesi')
       .select(
@@ -101,7 +102,7 @@ export async function getJadwalBySiswa(siswaId: string): Promise<JadwalSesi[]> {
 
 export async function getJadwalConflictCheckList(): Promise<JadwalSesi[]> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     // Limit to a 120-day window (30 past + 90 future) for performance — avoids full table scan
     const today = new Date();
     const past = new Date(today); past.setDate(today.getDate() - 30);
@@ -131,7 +132,7 @@ export async function updateJadwalStatus(
   catatan_sesi?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     // Fetch the session first to get siswa_id for complete path revalidation
     const { data: existing } = await supabase
@@ -169,7 +170,7 @@ export async function upsertJadwalSesi(
   jadwal: Partial<JadwalSesi>
 ): Promise<{ success: boolean; data?: JadwalSesi; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     // Clean joined objects from payload
     const {
@@ -215,7 +216,7 @@ export async function upsertJadwalBatch(
   jadwalList: Partial<JadwalSesi>[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const cleanList = jadwalList.map((item: any) => {
       const { siswa, instruktur, slot_waktu, kendaraan, slot_waktu_akhir, ...clean } = item;
       return clean;
@@ -238,7 +239,7 @@ export async function updateSesiProgress(
   statusSesi: 'selesai' | 'batal' | 'terjadwal'
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     // Fetch siswa data for accurate defaults (no hardcoding)
     const { data: siswaRecord } = await supabase
@@ -305,7 +306,7 @@ export async function rescheduleSesiShiftCascade(
       return { success: false, error: 'Jumlah pergeseran hari harus minimal 1 hari' };
     }
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     // Fetch all active/terjadwal sessions for this student starting from fromNomorSesiKe
     const { data: sessions, error: fetchErr } = await supabase
@@ -354,7 +355,7 @@ export async function deleteJadwalSesi(
   siswaId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     let query = supabase.from('jadwal_sesi').delete();
     if (siswaId) {
       query = query.eq('siswa_id', siswaId);
@@ -380,7 +381,7 @@ export async function generateWhatsAppScheduleText(
   tanggalStr: string,
   staffId?: string
 ): Promise<string> {
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
   let staffFilterNama: string | undefined;
   if (staffId && staffId !== 'semua') {
     const { data: staffData } = await supabase
@@ -430,7 +431,7 @@ export async function generateWhatsAppWeeklyScheduleText(
   staffId?: string
 ): Promise<string> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     let staffFilterNama: string | undefined;
     if (staffId && staffId !== 'semua') {
       const { data: staffData } = await supabase
@@ -520,7 +521,7 @@ export async function generateWhatsAppCustomRangeText(
   staffId?: string
 ): Promise<string> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     let staffFilterNama: string | undefined;
     if (staffId && staffId !== 'semua') {
       const { data: staffData } = await supabase
@@ -606,7 +607,7 @@ export async function generateWhatsAppRecapText(
   tanggalStr: string,
   staffId?: string
 ): Promise<string> {
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
   let staffFilterNama: string | undefined;
   if (staffId && staffId !== 'semua') {
     const { data: staffData } = await supabase

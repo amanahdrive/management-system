@@ -1,6 +1,7 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
+import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
 
 export interface TelegramConfig {
@@ -33,12 +34,17 @@ const DEFAULT_TELEGRAM_CONFIG: TelegramConfig = {
   includeOdometer: true,
 };
 
+const TELEGRAM_CACHE_KEY = 'telegram_config';
+
 /**
- * Get Telegram configuration from database settings table
+ * Get Telegram configuration from database settings table with in-memory caching
  */
 export async function getTelegramConfig(): Promise<TelegramConfig> {
+  const cached = cacheGet<TelegramConfig>(TELEGRAM_CACHE_KEY);
+  if (cached) return cached;
+
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('settings')
       .select('key, value')
@@ -59,7 +65,7 @@ export async function getTelegramConfig(): Promise<TelegramConfig> {
     const map = new Map<string, string>();
     data.forEach((item) => map.set(item.key, item.value || ''));
 
-    return {
+    const result: TelegramConfig = {
       otomasiAktif: map.get('telegram_otomasi_aktif') !== 'false',
       laporanPagiAktif: map.get('telegram_laporan_pagi_aktif') !== 'false',
       laporanPagiJam: map.get('telegram_laporan_pagi_jam') || '06:00',
@@ -70,6 +76,9 @@ export async function getTelegramConfig(): Promise<TelegramConfig> {
       chatId: map.get('telegram_chat_id') || process.env.TELEGRAM_CHAT_ID || '',
       includeOdometer: map.get('telegram_include_odometer') !== 'false',
     };
+
+    cacheSet(TELEGRAM_CACHE_KEY, result, 120);
+    return result;
   } catch (e) {
     console.error('Error fetching telegram config:', e);
     return DEFAULT_TELEGRAM_CONFIG;
@@ -83,7 +92,7 @@ export async function saveTelegramConfig(
   config: Partial<TelegramConfig>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     const updates = [
       { key: 'telegram_otomasi_aktif', value: String(config.otomasiAktif ?? true), deskripsi: 'Master Switch Automasi Telegram' },
@@ -113,6 +122,9 @@ export async function saveTelegramConfig(
         await supabase.from('settings').insert(item);
       }
     }
+
+    cacheInvalidate(TELEGRAM_CACHE_KEY);
+    cacheInvalidate('settings*');
 
     revalidatePath('/settings');
     return { success: true };
@@ -181,7 +193,7 @@ async function logNotifikasi(
   errorMessage: string | null
 ) {
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
     await supabase.from('notifikasi_log').insert({
       tipe,
       judul,

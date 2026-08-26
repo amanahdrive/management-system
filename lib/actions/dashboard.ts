@@ -1,6 +1,7 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
+import { cacheGet, cacheSet } from '@/lib/utils/cache';
 
 export interface DashboardMetrics {
   siswaBelumDijadwalkan: number;
@@ -16,7 +17,12 @@ export interface DashboardMetrics {
   trenCashflow: { bulan: string; pemasukan: number; pengeluaran: number }[];
 }
 
+const DASHBOARD_CACHE_KEY = 'dashboard_metrics';
+
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {
+  const cached = cacheGet<DashboardMetrics>(DASHBOARD_CACHE_KEY);
+  if (cached) return cached;
+
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
   const currentMonth = now.getMonth();
@@ -29,7 +35,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
   try {
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     // Run all queries concurrently with minimum field selection
     const [
@@ -185,7 +191,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       }
     });
 
-    return {
+    const result = {
       siswaBelumDijadwalkan,
       siswaOnProgress,
       siswaSelesai,
@@ -202,6 +208,9 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
         pengeluaran: data.pengeluaran,
       })),
     };
+
+    cacheSet(DASHBOARD_CACHE_KEY, result, 30);
+    return result;
   } catch (e) {
     console.error('Error in getDashboardMetrics:', e);
   }

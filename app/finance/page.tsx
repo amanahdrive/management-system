@@ -128,8 +128,16 @@ export default function FinancePortalPage() {
   // Tab State
   const [activeTab, setActiveTab] = React.useState<'dashboard' | 'riwayat'>('dashboard');
 
-  // Check PIN session on mount (8-hour session)
+  // Check PIN session on mount (8-hour session) & SWR Cache
   React.useEffect(() => {
+    // SWR: Hydrate immediately from localStorage if available
+    try {
+      const cachedMetrics = localStorage.getItem('fin_cached_metrics');
+      const cachedTx = localStorage.getItem('fin_cached_tx');
+      if (cachedMetrics) setMetrics(JSON.parse(cachedMetrics));
+      if (cachedTx) setRecentTx(JSON.parse(cachedTx));
+    } catch {}
+
     const saved = localStorage.getItem('amanah_finance_pin_ok');
     const savedTime = localStorage.getItem('amanah_finance_pin_time');
     if (saved === 'true' && savedTime) {
@@ -173,28 +181,39 @@ export default function FinancePortalPage() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  // Load Data
+  // Load Data with background refresh and local cache save
   const loadData = async () => {
     setLoading(true);
-    const [m, txList, kList, sList, pList, dpKList, rList] = await Promise.all([
-      getKasOverviewMetrics(),
-      getKasTransaksiList(),
-      getKasKategoriList(),
-      getSiswaList(),
-      getPaketList(),
-      getDpKustomList(),
-      getRekeningList(),
-    ]);
-    setMetrics(m as any);
-    setRecentTx(txList.slice(0, 30));
-    setKategoriList(kList);
-    setSiswaList(sList);
-    setPaketList(pList);
-    setDpKustomList(dpKList);
-    setRekeningList(rList);
-    const defRek = rList.find((r) => r.aktif && r.is_utama) || rList.find((r) => r.aktif);
-    if (defRek) setSelectedRekeningId(defRek.id);
-    setLoading(false);
+    try {
+      const [m, txList, kList, sList, pList, dpKList, rList] = await Promise.all([
+        getKasOverviewMetrics(),
+        getKasTransaksiList(),
+        getKasKategoriList(),
+        getSiswaList(),
+        getPaketList(),
+        getDpKustomList(),
+        getRekeningList(),
+      ]);
+      setMetrics(m as any);
+      setRecentTx(txList.slice(0, 30));
+      setKategoriList(kList);
+      setSiswaList(sList);
+      setPaketList(pList);
+      setDpKustomList(dpKList);
+      setRekeningList(rList);
+      const defRek = rList.find((r) => r.aktif && r.is_utama) || rList.find((r) => r.aktif);
+      if (defRek) setSelectedRekeningId(defRek.id);
+
+      // Save to localStorage for instant SWR on next open
+      try {
+        localStorage.setItem('fin_cached_metrics', JSON.stringify(m));
+        localStorage.setItem('fin_cached_tx', JSON.stringify(txList.slice(0, 30)));
+      } catch {}
+    } catch (err) {
+      console.error('Error loading finance data:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRefresh = async () => {
@@ -396,12 +415,31 @@ export default function FinancePortalPage() {
   }, [kategoriList, formData.tipe]);
 
   // PIN Verification
+  const handlePinChange = async (val: string) => {
+    const cleaned = val.replace(/\D/g, '').slice(0, 6);
+    setPinInput(cleaned);
+    setPinError(null);
+
+    if (cleaned.length === 6) {
+      setPinLoading(true);
+      const res = await verifyKasPin(cleaned);
+      setPinLoading(false);
+
+      if (res.success) {
+        setPinVerified(true);
+        localStorage.setItem('amanah_finance_pin_ok', 'true');
+        localStorage.setItem('amanah_finance_pin_time', Date.now().toString());
+        setPinInput('');
+      } else {
+        setPinError(res.error || 'PIN Salah');
+        setPinInput('');
+      }
+    }
+  };
+
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pinInput.length !== 6) {
-      setPinError('PIN harus 6 digit');
-      return;
-    }
+    if (pinInput.length !== 6 || pinLoading) return;
 
     setPinLoading(true);
     setPinError(null);
@@ -519,10 +557,8 @@ export default function FinancePortalPage() {
                   inputMode="numeric"
                   maxLength={6}
                   value={pinInput}
-                  onChange={(e) => {
-                    setPinInput(e.target.value.replace(/\D/g, ''));
-                    setPinError(null);
-                  }}
+                  disabled={pinLoading}
+                  onChange={(e) => handlePinChange(e.target.value)}
                   placeholder="••••••"
                   className="w-full text-center text-2xl tracking-[0.3em] font-bold tabular-num py-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-primary)]"
                   autoFocus

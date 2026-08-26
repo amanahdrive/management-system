@@ -80,25 +80,30 @@ export default function KasOverviewPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const [mRes, tRes, kRes, sRes, pRes, dpKRes, rList] = await Promise.all([
-      getKasOverviewMetrics(),
-      getKasTransaksiList(),
-      getKasKategoriList(),
-      getSiswaList(),
-      getPaketList(),
-      getDpKustomList(),
-      getRekeningList(),
-    ]);
-    setMetrics(mRes);
-    setTransaksiList(tRes);
-    setKategoriList(kRes);
-    setSiswaList(sRes);
-    setPaketList(pRes);
-    setDpKustomList(dpKRes);
-    setRekeningList(rList);
-    const defRek = rList.find((r) => r.aktif && r.is_utama) || rList.find((r) => r.aktif);
-    if (defRek) setSelectedRekeningId(defRek.id);
-    setLoading(false);
+    try {
+      const [mRes, tRes, kRes, sRes, pRes, dpKRes, rList] = await Promise.all([
+        getKasOverviewMetrics(),
+        getKasTransaksiList(),
+        getKasKategoriList(),
+        getSiswaList(),
+        getPaketList(),
+        getDpKustomList(),
+        getRekeningList(),
+      ]);
+      setMetrics(mRes);
+      setTransaksiList(tRes);
+      setKategoriList(kRes);
+      setSiswaList(sRes);
+      setPaketList(pRes);
+      setDpKustomList(dpKRes);
+      setRekeningList(rList);
+      const defRek = rList.find((r) => r.aktif && r.is_utama) || rList.find((r) => r.aktif);
+      if (defRek) setSelectedRekeningId(defRek.id);
+    } catch (err) {
+      console.error('Error loading kas data:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   React.useEffect(() => {

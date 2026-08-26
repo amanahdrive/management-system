@@ -1,6 +1,7 @@
 'use server';
 
 import { createAdminClient } from '@/lib/supabase/server';
+import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
 
 export interface GeneralSettings {
@@ -18,10 +19,15 @@ const DEFAULT_WA_TEMPLATE =
   '• Laporan saat sesi selesai.\n' +
   '• Laporan kembali ke Basecamp beserta foto odometer.';
 
+const CACHE_KEY = 'general_settings';
+
 /**
- * Fetch all general settings from database
+ * Fetch all general settings from database with in-memory caching
  */
 export async function getGeneralSettings(): Promise<GeneralSettings> {
+  const cached = cacheGet<GeneralSettings>(CACHE_KEY);
+  if (cached) return cached;
+
   try {
     const supabase = createAdminClient();
     const { data } = await supabase.from('settings').select('key, value');
@@ -33,13 +39,16 @@ export async function getGeneralSettings(): Promise<GeneralSettings> {
       });
     }
 
-    return {
+    const result: GeneralSettings = {
       namaPerusahaan: map['nama_perusahaan'] || 'Amanah Drive',
       kotaOperasional: map['kota_operasional'] || 'Palembang',
       waTemplate: map['wa_footer_template'] || DEFAULT_WA_TEMPLATE,
       pertalitePrice: map['harga_bbm_pertalite'] ? Number(map['harga_bbm_pertalite']) : 10000,
       pertamaxPrice: map['harga_bbm_pertamax'] ? Number(map['harga_bbm_pertamax']) : 16300,
     };
+
+    cacheSet(CACHE_KEY, result, 120);
+    return result;
   } catch (e) {
     console.error('Error fetching general settings:', e);
     return {
@@ -57,9 +66,9 @@ export async function getGeneralSettings(): Promise<GeneralSettings> {
  */
 async function upsertSetting(key: string, value: string, deskripsi?: string) {
   const supabase = createAdminClient();
-  const { data: existing } = await supabase.from('settings').select('id').eq('key', key).limit(1);
+  const { data: existing } = await supabase.from('settings').select('id').eq('key', key).maybeSingle();
 
-  if (existing && existing.length > 0) {
+  if (existing) {
     await supabase
       .from('settings')
       .update({
@@ -67,7 +76,7 @@ async function upsertSetting(key: string, value: string, deskripsi?: string) {
         deskripsi: deskripsi || key,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', existing[0].id);
+      .eq('id', existing.id);
   } else {
     await supabase.from('settings').insert({
       key,
@@ -77,6 +86,9 @@ async function upsertSetting(key: string, value: string, deskripsi?: string) {
       updated_at: new Date().toISOString(),
     });
   }
+
+  cacheInvalidate(CACHE_KEY);
+  cacheInvalidate('settings*');
 }
 
 /**
