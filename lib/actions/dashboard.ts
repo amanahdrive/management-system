@@ -1,6 +1,6 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { cacheGet, cacheSet } from '@/lib/utils/cache';
 
 export interface DashboardMetrics {
@@ -35,7 +35,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
 
     // Run all queries concurrently with minimum field selection
     const [

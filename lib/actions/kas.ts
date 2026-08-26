@@ -1,6 +1,6 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { KasTransaksi, Hutang, KasKategori } from '@/types/database';
 import { revalidatePath } from 'next/cache';
@@ -12,9 +12,9 @@ export async function getKasOverviewMetrics() {
   if (cached) return cached;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
 
-    // Query Saldo, Piutang, Hutang concurrently with minimal fields
+    // Query Saldo, Piutang, Hutang concurrently
     const [txRes, siswaRes, hutangRes] = await Promise.all([
       supabase.from('kas_transaksi').select('tipe, nominal, jenis_pembayaran'),
       supabase.from('siswa').select('harga_final, dp_nominal, status_pembayaran_kode'),
@@ -27,7 +27,7 @@ export async function getKasOverviewMetrics() {
     let saldoTunai = 0;
     let saldoNonTunai = 0;
 
-    if (txList) {
+    if (txList && txList.length > 0) {
       txList.forEach((t) => {
         const signed = t.tipe === 'pemasukan' ? t.nominal : -t.nominal;
         if (t.tipe === 'pemasukan') totalPemasukan += t.nominal;
@@ -39,21 +39,21 @@ export async function getKasOverviewMetrics() {
 
     const siswaList = siswaRes.data;
     let totalPiutang = 0;
-    if (siswaList) {
+    if (siswaList && siswaList.length > 0) {
       siswaList.forEach((s) => {
         if (s.status_pembayaran_kode === 'dp') {
-          totalPiutang += s.harga_final - (s.dp_nominal || 0);
+          totalPiutang += Math.max(0, s.harga_final - (s.dp_nominal || 0));
         } else if (s.status_pembayaran_kode === 'belum_bayar') {
-          totalPiutang += s.harga_final;
+          totalPiutang += s.harga_final || 0;
         }
       });
     }
 
     const hutangList = hutangRes.data;
     let totalHutang = 0;
-    if (hutangList) {
+    if (hutangList && hutangList.length > 0) {
       hutangList.forEach((h) => {
-        totalHutang += h.sisa_hutang;
+        totalHutang += h.sisa_hutang || 0;
       });
     }
 
@@ -65,7 +65,9 @@ export async function getKasOverviewMetrics() {
       totalHutang,
     };
 
-    cacheSet(METRICS_CACHE_KEY, result, 30);
+    if (txList) {
+      cacheSet(METRICS_CACHE_KEY, result, 30);
+    }
     return result;
   } catch (e) {
     console.error('Error fetching kas overview metrics:', e);
@@ -82,7 +84,7 @@ export async function getKasOverviewMetrics() {
 
 export async function syncSiswaPaymentState(siswaId: string): Promise<void> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
 
     // Fetch student
     const { data: siswa } = await supabase
@@ -171,7 +173,7 @@ export async function getKasKategoriList(): Promise<KasKategori[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data, error } = await supabase.from('kas_kategori').select('*').order('nama_kategori');
 
     const defaultCategories: Partial<KasKategori>[] = [
@@ -220,7 +222,7 @@ export async function getKasTransaksiList(filters?: {
   sumberOtomatis?: boolean;
 }): Promise<KasTransaksi[]> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     let q = supabase
       .from('kas_transaksi')
       .select('*, siswa(*), hutang(*)')
@@ -244,7 +246,7 @@ export async function addKasTransaksi(
   txData: Partial<KasTransaksi>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { error } = await supabase.from('kas_transaksi').insert(txData);
 
     if (error) return { success: false, error: error.message };
@@ -275,7 +277,7 @@ export async function getHutangList(): Promise<Hutang[]> {
   if (cached) return cached;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data, error } = await supabase.from('hutang').select('*').order('created_at', { ascending: false });
     if (!error && data) {
       cacheSet('hutang_list', data as Hutang[], 60);
@@ -289,7 +291,7 @@ export async function getHutangList(): Promise<Hutang[]> {
 
 export async function addHutang(hutangData: Partial<Hutang>): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const payload = {
       ...hutangData,
       sisa_hutang: hutangData.total_hutang || 0,
@@ -317,7 +319,7 @@ export async function payHutangCicilan(
   jenisPembayaran: 'tunai' | 'non_tunai' = 'non_tunai'
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
 
     // 1. Get current hutang
     const { data: h } = await supabase.from('hutang').select('sisa_hutang, nama_hutang').eq('id', hutangId).maybeSingle();
@@ -377,7 +379,7 @@ export async function updateKasTransaksi(
   updates: Partial<KasTransaksi>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
 
     // Fetch old tx to check previous siswa_id
     const { data: oldTx } = await supabase.from('kas_transaksi').select('siswa_id').eq('id', id).maybeSingle();
@@ -414,7 +416,7 @@ export async function updateKasTransaksi(
 
 export async function deleteKasTransaksi(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
 
     // Fetch tx to check if it is linked to a siswa
     const { data: tx } = await supabase.from('kas_transaksi').select('siswa_id').eq('id', id).maybeSingle();
@@ -459,7 +461,7 @@ export async function getDpKustomList(): Promise<DpKustomItem[]> {
   if (cached) return cached;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     // Query all non-student pemasukan transactions
     const { data: txList } = await supabase
       .from('kas_transaksi')
