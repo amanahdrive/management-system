@@ -246,6 +246,15 @@ export default function FinancePortalPage() {
     }));
   };
 
+  const handleCustomHargaPaketChange = (newHarga: number) => {
+    setCustomHargaPaket(newHarga);
+    const p = paketList.find((item) => item.id === customPaketId) || paketList[0];
+    setFormData((prev) => ({
+      ...prev,
+      keterangan: `DP Kustom - ${customNama || 'Customer'} | Paket: ${p?.nama_paket || 'Paket Kursus'} | Total: ${formatRupiah(newHarga)}`,
+    }));
+  };
+
   const handleCustomNamaChange = (nama: string) => {
     setCustomNama(nama);
     const p = paketList.find((item) => item.id === customPaketId) || paketList[0];
@@ -1087,10 +1096,18 @@ export default function FinancePortalPage() {
                             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-[var(--text-secondary)]" />
                           </div>
                         </div>
+
+                        <div>
+                          <CurrencyInput
+                            label="Ubah Total Harga Paket (Rupiah) *"
+                            value={customHargaPaket}
+                            onChange={(val) => handleCustomHargaPaketChange(val)}
+                          />
+                        </div>
                       </div>
 
                       <div className="p-2 rounded-lg bg-amber-100/70 dark:bg-amber-900/30 text-[10px] text-amber-800 dark:text-amber-300">
-                        💡 <strong>Info:</strong> Transaksi DP Kustom ini disimpan tanpa data siswa terdaftar. Saat pelunasan nantinya, nama ini akan otomatis muncul di <strong>bagian paling atas dropdown Pelunasan</strong>.
+                        💡 <strong>Info:</strong> Total harga paket dapat diubah manual (misal harga negosiasi/diskon). Sisa pelunasan nantinya otomatis terhitung dari nominal <strong>{formatRupiah(customHargaPaket)}</strong>.
                       </div>
                     </div>
                   )}

@@ -147,6 +147,15 @@ export default function KasOverviewPage() {
     }));
   };
 
+  const handleCustomHargaPaketChange = (newHarga: number) => {
+    setCustomHargaPaket(newHarga);
+    const p = paketList.find((item) => item.id === customPaketId) || paketList[0];
+    setFormData((prev) => ({
+      ...prev,
+      keterangan: `DP Kustom - ${customNama || 'Customer'} | Paket: ${p?.nama_paket || 'Paket Kursus'} | Total: ${formatRupiah(newHarga)}`,
+    }));
+  };
+
   const handleCustomNamaChange = (nama: string) => {
     setCustomNama(nama);
     const p = paketList.find((item) => item.id === customPaketId) || paketList[0];
@@ -546,7 +555,7 @@ export default function KasOverviewPage() {
                         <span>Form Input DP Kustom (Non-Siswa)</span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                           <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
                             Nama Customer / Calon Siswa *
@@ -577,10 +586,21 @@ export default function KasOverviewPage() {
                             ))}
                           </select>
                         </div>
+
+                        <div>
+                          <CurrencyInput
+                            label="Total Harga Paket (Rupiah) *"
+                            value={customHargaPaket}
+                            onChange={(val) => handleCustomHargaPaketChange(val)}
+                          />
+                        </div>
                       </div>
 
-                      <div className="p-2 rounded bg-amber-100/70 dark:bg-amber-900/30 text-[10px] text-amber-800 dark:text-amber-300">
-                        💡 <strong>Info:</strong> Transaksi DP Kustom ini disimpan tanpa memerlukan data siswa di database. Saat pelunasan nantinya, nama ini akan otomatis muncul di <strong>bagian paling atas dropdown Pelunasan</strong>.
+                      <div className="p-2 rounded bg-amber-100/70 dark:bg-amber-900/30 text-[10px] text-amber-800 dark:text-amber-300 flex items-start gap-1.5">
+                        <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600" />
+                        <span>
+                          💡 <strong>Harga paket dapat disesuaikan manual</strong> (misal harga negosiasi atau promo khusus). Total tagihan paket ini akan tercatat sebesar <strong>{formatRupiah(customHargaPaket)}</strong> dan sisa piutang pelunasan akan otomatis dihitung dari total harga ini.
+                        </span>
                       </div>
                     </div>
                   )}
