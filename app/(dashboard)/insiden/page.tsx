@@ -29,6 +29,7 @@ import { formatRupiah } from '@/lib/utils/currency';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { TimePicker24H } from '@/components/shared/TimePicker24H';
 import {
   AlertOctagon,
   AlertTriangle,
@@ -798,14 +799,12 @@ export default function InsidenPage() {
                   </div>
                   <div>
                     <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                      Jam Kejadian (WIB) *
+                      Jam Kejadian (Format 24 Jam WIB) *
                     </label>
-                    <input
-                      type="time"
-                      value={formData.jam_insiden}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, jam_insiden: e.target.value }))}
-                      required
-                      className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-xs"
+                    <TimePicker24H
+                      value={formData.jam_insiden || '12:00'}
+                      onChange={(val) => setFormData((prev) => ({ ...prev, jam_insiden: val }))}
+                      className="w-full justify-center"
                     />
                   </div>
                   <div>

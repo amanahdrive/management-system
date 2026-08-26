@@ -8,6 +8,7 @@ import { SlotWaktu } from '@/types/database';
 import { getSlotWaktuList, upsertSlotWaktu } from '@/lib/actions/master-data';
 import { Edit2 } from 'lucide-react';
 import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
+import { TimePicker24H } from '@/components/shared/TimePicker24H';
 
 export default function MasterSlotWaktuPage() {
   const [slotList, setSlotList] = React.useState<SlotWaktu[]>([]);
@@ -128,24 +129,20 @@ export default function MasterSlotWaktuPage() {
                   <label className="block font-medium text-[var(--text-secondary)] mb-1">
                     Jam Mulai
                   </label>
-                  <input
-                    type="time"
-                    required
+                  <TimePicker24H
                     value={editingSlot.jam_mulai ? editingSlot.jam_mulai.substring(0, 5) : '09:00'}
-                    onChange={(e) => setEditingSlot({ ...editingSlot, jam_mulai: e.target.value })}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold"
+                    onChange={(val) => setEditingSlot({ ...editingSlot, jam_mulai: val })}
+                    className="w-full justify-center"
                   />
                 </div>
                 <div>
                   <label className="block font-medium text-[var(--text-secondary)] mb-1">
                     Jam Selesai
                   </label>
-                  <input
-                    type="time"
-                    required
+                  <TimePicker24H
                     value={editingSlot.jam_selesai ? editingSlot.jam_selesai.substring(0, 5) : '10:30'}
-                    onChange={(e) => setEditingSlot({ ...editingSlot, jam_selesai: e.target.value })}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold"
+                    onChange={(val) => setEditingSlot({ ...editingSlot, jam_selesai: val })}
+                    className="w-full justify-center"
                   />
                 </div>
               </div>

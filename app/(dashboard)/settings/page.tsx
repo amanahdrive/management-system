@@ -24,6 +24,7 @@ import { RekeningBank } from '@/types/database';
 import { verifyKasPin, updateKasPin } from '@/lib/actions/kas-pin';
 import { resetModularData, ResetModuleKey } from '@/lib/actions/reset-system';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { TimePicker24H } from '@/components/shared/TimePicker24H';
 import {
   Send,
   KeyRound,
@@ -912,19 +913,17 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
                     <span className="text-[11px] text-[var(--text-secondary)]">Pukul Pengiriman:</span>
-                    <input
-                      type="time"
+                    <TimePicker24H
                       value={telegramConfig.laporanPagiJam || '06:00'}
-                      onChange={(e) =>
+                      onChange={(val) =>
                         setTelegramConfig((prev) => ({
                           ...prev,
-                          laporanPagiJam: e.target.value,
+                          laporanPagiJam: val,
                         }))
                       }
                       disabled={!telegramConfig.laporanPagiAktif}
-                      className="px-2 py-1 border border-[var(--border)] rounded-md bg-[var(--bg)] font-bold text-xs disabled:opacity-50"
+                      size="sm"
                     />
                   </div>
                 </div>
@@ -946,19 +945,17 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
                     <span className="text-[11px] text-[var(--text-secondary)]">Pukul Pengiriman:</span>
-                    <input
-                      type="time"
+                    <TimePicker24H
                       value={telegramConfig.rekapMalamJam || '21:00'}
-                      onChange={(e) =>
+                      onChange={(val) =>
                         setTelegramConfig((prev) => ({
                           ...prev,
-                          rekapMalamJam: e.target.value,
+                          rekapMalamJam: val,
                         }))
                       }
                       disabled={!telegramConfig.rekapMalamAktif}
-                      className="px-2 py-1 border border-[var(--border)] rounded-md bg-[var(--bg)] font-bold text-xs disabled:opacity-50"
+                      size="sm"
                     />
                   </div>
                 </div>
