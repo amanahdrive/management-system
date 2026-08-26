@@ -76,10 +76,15 @@ export default function CashflowPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const [tData, kData] = await Promise.all([getKasTransaksiList(), getKasKategoriList()]);
-    setTransaksiList(tData);
-    setKategoriList(kData);
-    setLoading(false);
+    try {
+      const [tRes, kRes] = await Promise.allSettled([getKasTransaksiList(), getKasKategoriList()]);
+      if (tRes.status === 'fulfilled' && tRes.value) setTransaksiList(tRes.value);
+      if (kRes.status === 'fulfilled' && kRes.value) setKategoriList(kRes.value);
+    } catch (err) {
+      console.error('Error loading cashflow data:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   React.useEffect(() => {

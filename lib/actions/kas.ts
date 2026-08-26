@@ -8,68 +8,61 @@ import { revalidatePath } from 'next/cache';
 const METRICS_CACHE_KEY = 'kas_overview_metrics';
 
 export async function getKasOverviewMetrics() {
-  const cached = cacheGet<any>(METRICS_CACHE_KEY);
-  if (cached) return cached;
-
   try {
-    const [txList, siswaList, hutangList] = await Promise.all([
-      dbQuery<{ tipe: string; nominal: number; jenis_pembayaran: string }>(
-        'SELECT tipe, nominal, jenis_pembayaran FROM kas_transaksi'
+    const sql = `
+      WITH kas_calc AS (
+        SELECT
+          COALESCE(SUM(CASE WHEN tipe = 'pemasukan' THEN nominal ELSE 0 END), 0) AS total_masuk,
+          COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' THEN nominal ELSE 0 END), 0) AS total_keluar,
+          COALESCE(SUM(CASE WHEN tipe = 'pemasukan' AND COALESCE(jenis_pembayaran, 'tunai') = 'tunai' THEN nominal 
+                            WHEN tipe = 'pengeluaran' AND COALESCE(jenis_pembayaran, 'tunai') = 'tunai' THEN -nominal ELSE 0 END), 0) AS saldo_tunai,
+          COALESCE(SUM(CASE WHEN tipe = 'pemasukan' AND jenis_pembayaran = 'non_tunai' THEN nominal 
+                            WHEN tipe = 'pengeluaran' AND jenis_pembayaran = 'non_tunai' THEN -nominal ELSE 0 END), 0) AS saldo_non_tunai
+        FROM kas_transaksi
       ),
-      dbQuery<{ harga_final: number; dp_nominal: number | null; status_pembayaran_kode: string }>(
-        'SELECT harga_final, dp_nominal, status_pembayaran_kode FROM siswa'
+      piutang_calc AS (
+        SELECT
+          COALESCE(SUM(
+            CASE 
+              WHEN status_pembayaran_kode = 'dp' THEN GREATEST(0, COALESCE(harga_final, 0) - COALESCE(dp_nominal, 0))
+              WHEN status_pembayaran_kode = 'belum_bayar' THEN COALESCE(harga_final, 0)
+              ELSE 0 
+            END
+          ), 0) AS total_piutang
+        FROM siswa
       ),
-      dbQuery<{ sisa_hutang: number }>(
-        "SELECT sisa_hutang FROM hutang WHERE status = 'berjalan'"
-      ),
-    ]);
+      hutang_calc AS (
+        SELECT
+          COALESCE(SUM(COALESCE(sisa_hutang, 0)), 0) AS total_hutang
+        FROM hutang
+        WHERE status = 'berjalan'
+      )
+      SELECT 
+        (k.total_masuk - k.total_keluar)::numeric AS "saldoAktif",
+        k.saldo_tunai::numeric AS "saldoTunai",
+        k.saldo_non_tunai::numeric AS "saldoNonTunai",
+        p.total_piutang::numeric AS "totalPiutang",
+        h.total_hutang::numeric AS "totalHutang"
+      FROM kas_calc k, piutang_calc p, hutang_calc h;
+    `;
 
-    let totalPemasukan = 0;
-    let totalPengeluaran = 0;
-    let saldoTunai = 0;
-    let saldoNonTunai = 0;
+    const row = await dbQuerySingle<{
+      saldoAktif: number;
+      saldoTunai: number;
+      saldoNonTunai: number;
+      totalPiutang: number;
+      totalHutang: number;
+    }>(sql);
 
-    if (txList && txList.length > 0) {
-      txList.forEach((t) => {
-        const nom = Number(t.nominal) || 0;
-        const signed = t.tipe === 'pemasukan' ? nom : -nom;
-        if (t.tipe === 'pemasukan') totalPemasukan += nom;
-        else totalPengeluaran += nom;
-        if (t.jenis_pembayaran === 'non_tunai') saldoNonTunai += signed;
-        else saldoTunai += signed;
-      });
+    if (row) {
+      return {
+        saldoAktif: Number(row.saldoAktif) || 0,
+        saldoTunai: Number(row.saldoTunai) || 0,
+        saldoNonTunai: Number(row.saldoNonTunai) || 0,
+        totalPiutang: Number(row.totalPiutang) || 0,
+        totalHutang: Number(row.totalHutang) || 0,
+      };
     }
-
-    let totalPiutang = 0;
-    if (siswaList && siswaList.length > 0) {
-      siswaList.forEach((s) => {
-        const hrg = Number(s.harga_final) || 0;
-        const dp = Number(s.dp_nominal) || 0;
-        if (s.status_pembayaran_kode === 'dp') {
-          totalPiutang += Math.max(0, hrg - dp);
-        } else if (s.status_pembayaran_kode === 'belum_bayar') {
-          totalPiutang += hrg;
-        }
-      });
-    }
-
-    let totalHutang = 0;
-    if (hutangList && hutangList.length > 0) {
-      hutangList.forEach((h) => {
-        totalHutang += Number(h.sisa_hutang) || 0;
-      });
-    }
-
-    const result = {
-      saldoAktif: totalPemasukan - totalPengeluaran,
-      saldoTunai,
-      saldoNonTunai,
-      totalPiutang,
-      totalHutang,
-    };
-
-    cacheSet(METRICS_CACHE_KEY, result, 30);
-    return result;
   } catch (e) {
     console.error('Error fetching kas overview metrics:', e);
   }

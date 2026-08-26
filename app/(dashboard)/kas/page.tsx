@@ -38,6 +38,7 @@ import {
   Star,
   CreditCard,
   Landmark,
+  RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -81,7 +82,7 @@ export default function KasOverviewPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [mRes, tRes, kRes, sRes, pRes, dpKRes, rList] = await Promise.all([
+      const [mRes, tRes, kRes, sRes, pRes, dpKRes, rList] = await Promise.allSettled([
         getKasOverviewMetrics(),
         getKasTransaksiList(),
         getKasKategoriList(),
@@ -90,15 +91,18 @@ export default function KasOverviewPage() {
         getDpKustomList(),
         getRekeningList(),
       ]);
-      setMetrics(mRes);
-      setTransaksiList(tRes);
-      setKategoriList(kRes);
-      setSiswaList(sRes);
-      setPaketList(pRes);
-      setDpKustomList(dpKRes);
-      setRekeningList(rList);
-      const defRek = rList.find((r) => r.aktif && r.is_utama) || rList.find((r) => r.aktif);
-      if (defRek) setSelectedRekeningId(defRek.id);
+
+      if (mRes.status === 'fulfilled' && mRes.value) setMetrics(mRes.value);
+      if (tRes.status === 'fulfilled' && tRes.value) setTransaksiList(tRes.value);
+      if (kRes.status === 'fulfilled' && kRes.value) setKategoriList(kRes.value);
+      if (sRes.status === 'fulfilled' && sRes.value) setSiswaList(sRes.value);
+      if (pRes.status === 'fulfilled' && pRes.value) setPaketList(pRes.value);
+      if (dpKRes.status === 'fulfilled' && dpKRes.value) setDpKustomList(dpKRes.value);
+      if (rList.status === 'fulfilled' && rList.value) {
+        setRekeningList(rList.value);
+        const defRek = rList.value.find((r) => r.aktif && r.is_utama) || rList.value.find((r) => r.aktif);
+        if (defRek) setSelectedRekeningId(defRek.id);
+      }
     } catch (err) {
       console.error('Error loading kas data:', err);
     } finally {
@@ -355,6 +359,16 @@ export default function KasOverviewPage() {
           description="Pencatatan kas masuk/keluar, piutang siswa, dan hutang perusahaan"
           actions={
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={loadData}
+                disabled={loading}
+                className="px-3 py-1.5 bg-[var(--bg-subtle)] hover:bg-[var(--border)] border border-[var(--border)] rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 active:scale-95"
+                title="Muat ulang sinkronisasi data dari database"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
+                <span>{loading ? 'Menyinkronkan...' : 'Sinkronkan Kas'}</span>
+              </button>
               <Link
                 href="/kas/cashflow"
                 className="px-3 py-1.5 border border-[var(--border)] rounded-md text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
