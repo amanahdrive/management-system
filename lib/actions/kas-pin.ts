@@ -6,8 +6,8 @@ import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
 
 const DEFAULT_PIN = '210100';
-// Bcrypt hash for default PIN '210100'
-const DEFAULT_PIN_HASH = '$2a$10$wW5V1/0cEwG9G7sX4mXl3.WfK3/h6/Hh.L6xG.O7P3lM8M1b1V7yG';
+// Verified Bcrypt hash for default PIN '210100'
+const DEFAULT_PIN_HASH = '$2b$10$R8rNaSgluTw0jHqja96RpukOfjeGH0wcgws0OmTZV8qmbgp/dNeFq';
 
 const PIN_CACHE_KEY = 'kas_pin_stored_hash';
 

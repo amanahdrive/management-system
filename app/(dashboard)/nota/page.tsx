@@ -136,15 +136,20 @@ export default function NotaPage() {
   React.useEffect(() => {
     (async () => {
       setLoading(true);
-      const [sList, pList, rList] = await Promise.all([getSiswaList(), getPaketList(), getRekeningList()]);
-      setSiswaList(sList);
-      setPaketList(pList);
-      setRekeningList(rList);
-      const def = rList.find((r) => r.aktif && r.is_utama) || rList.find((r) => r.aktif);
-      if (def) {
-        setNamaBank(`${def.nama_bank} (${def.nomor_rekening} a.n ${def.atas_nama})`);
+      try {
+        const [sList, pList, rList] = await Promise.all([getSiswaList(), getPaketList(), getRekeningList()]);
+        setSiswaList(sList);
+        setPaketList(pList);
+        setRekeningList(rList);
+        const def = rList.find((r) => r.aktif && r.is_utama) || rList.find((r) => r.aktif);
+        if (def) {
+          setNamaBank(`${def.nama_bank} (${def.nomor_rekening} a.n ${def.atas_nama})`);
+        }
+      } catch (err) {
+        console.error('Error loading nota data:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     })();
 
     // Convert local asset images to Base64 Data URL to guarantee html2canvas never encounters CORS or tainting
