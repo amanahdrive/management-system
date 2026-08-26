@@ -239,12 +239,8 @@ export async function getKasTransaksiList(filters?: {
     const sql = `
       SELECT 
         k.*,
-        CASE WHEN s.id IS NOT NULL THEN
-          json_build_object('id', s.id, 'nama', s.nama, 'kode_siswa', s.kode_siswa, 'telepon', s.telepon)
-        ELSE NULL END AS siswa,
-        CASE WHEN h.id IS NOT NULL THEN
-          json_build_object('id', h.id, 'nama_hutang', h.nama_hutang)
-        ELSE NULL END AS hutang
+        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE WHEN h.id IS NOT NULL THEN to_jsonb(h) ELSE NULL END AS hutang
       FROM kas_transaksi k
       LEFT JOIN siswa s ON k.siswa_id = s.id
       LEFT JOIN hutang h ON k.hutang_id = h.id
