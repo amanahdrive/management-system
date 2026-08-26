@@ -14,6 +14,10 @@ export const metadata: Metadata = {
     icon: '/assets/app-icon-1024.png',
     apple: '/assets/app-icon-1024.png',
   },
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export const viewport: Viewport = {

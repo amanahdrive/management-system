@@ -17,6 +17,10 @@ const nextConfig: NextConfig = {
         source: '/:path*',
         headers: [
           {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow, noarchive, nosnippet',
+          },
+          {
             key: 'X-DNS-Prefetch-Control',
             value: 'on',
           },
