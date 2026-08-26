@@ -5,11 +5,12 @@ interface PinState {
   isVerified: boolean;
   verifiedAt: number | null;
   setVerified: (verified: boolean) => void;
+  lockSession: () => void;
   checkTimeout: () => boolean;
   initSession: () => void;
 }
 
-const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 const SESSION_KEY = 'amanah_web_pin_verified_at';
 
 export const usePinStore = create<PinState>((set, get) => ({
@@ -19,10 +20,10 @@ export const usePinStore = create<PinState>((set, get) => ({
   initSession: () => {
     if (typeof window === 'undefined') return;
     try {
-      const savedAt = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
+      const savedAt = sessionStorage.getItem(SESSION_KEY);
       if (savedAt) {
         const time = parseInt(savedAt, 10);
-        if (Date.now() - time < FOUR_HOURS_MS) {
+        if (Date.now() - time < TWO_HOURS_MS) {
           set({ isVerified: true, verifiedAt: time });
           return;
         }
@@ -37,10 +38,8 @@ export const usePinStore = create<PinState>((set, get) => ({
       try {
         if (verified && now) {
           sessionStorage.setItem(SESSION_KEY, now.toString());
-          localStorage.setItem(SESSION_KEY, now.toString());
         } else {
           sessionStorage.removeItem(SESSION_KEY);
-          localStorage.removeItem(SESSION_KEY);
         }
       } catch {}
     }
@@ -50,15 +49,24 @@ export const usePinStore = create<PinState>((set, get) => ({
     });
   },
 
+  lockSession: () => {
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem(SESSION_KEY);
+        localStorage.removeItem(SESSION_KEY);
+      } catch {}
+    }
+    set({ isVerified: false, verifiedAt: null });
+  },
+
   checkTimeout: () => {
     const { isVerified, verifiedAt } = get();
     if (!isVerified || !verifiedAt) return false;
     const now = Date.now();
-    if (now - verifiedAt > FOUR_HOURS_MS) {
+    if (now - verifiedAt > TWO_HOURS_MS) {
       if (typeof window !== 'undefined') {
         try {
           sessionStorage.removeItem(SESSION_KEY);
-          localStorage.removeItem(SESSION_KEY);
         } catch {}
       }
       set({ isVerified: false, verifiedAt: null });

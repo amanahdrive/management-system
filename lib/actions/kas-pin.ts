@@ -10,6 +10,41 @@ const DEFAULT_PIN = '210100';
 const DEFAULT_PIN_HASH = '$2b$10$R8rNaSgluTw0jHqja96RpukOfjeGH0wcgws0OmTZV8qmbgp/dNeFq';
 
 const PIN_CACHE_KEY = 'kas_pin_stored_hash';
+const PIN_ENABLED_CACHE_KEY = 'kas_pin_enabled_status';
+
+export interface PinConfig {
+  isEnabled: boolean;
+  hasPin: boolean;
+}
+
+/**
+ * Get PIN Protection Settings (is enabled and if PIN exists)
+ */
+export async function getPinSettings(): Promise<PinConfig> {
+  const cached = cacheGet<PinConfig>(PIN_ENABLED_CACHE_KEY);
+  if (cached) return cached;
+
+  try {
+    const rows = await dbQuery<{ key: string; value: string }>(
+      "SELECT key, value FROM settings WHERE key IN ('pin_kas', 'pin_kas_enabled')"
+    );
+
+    const map: Record<string, string> = {};
+    rows.forEach((r) => {
+      map[r.key] = r.value;
+    });
+
+    const isEnabled = map['pin_kas_enabled'] !== 'false'; // default true
+    const hasPin = Boolean(map['pin_kas'] || DEFAULT_PIN_HASH);
+
+    const result: PinConfig = { isEnabled, hasPin };
+    cacheSet(PIN_ENABLED_CACHE_KEY, result, 60);
+    return result;
+  } catch (e) {
+    console.error('Error fetching pin settings:', e);
+    return { isEnabled: true, hasPin: true };
+  }
+}
 
 /**
  * Super-fast PIN verification with in-memory caching and fast-path matching
@@ -33,20 +68,18 @@ export async function verifyKasPin(inputPin: string): Promise<{ success: boolean
         } else {
           storedHash = DEFAULT_PIN_HASH;
         }
-        // Cache stored hash for 5 minutes
         cacheSet(PIN_CACHE_KEY, storedHash, 300);
       } catch (e) {
         storedHash = DEFAULT_PIN_HASH;
       }
     }
 
-    // 2. Fast path: if hash is default and input is default PIN
     const finalHash: string = storedHash || DEFAULT_PIN_HASH;
     if (finalHash === DEFAULT_PIN_HASH && inputPin === DEFAULT_PIN) {
       return { success: true };
     }
 
-    // 3. Compare with bcrypt
+    // Compare with bcrypt
     const match = await bcrypt.compare(inputPin, finalHash);
     if (match || (finalHash === DEFAULT_PIN_HASH && inputPin === DEFAULT_PIN)) {
       return { success: true };
@@ -55,7 +88,6 @@ export async function verifyKasPin(inputPin: string): Promise<{ success: boolean
     return { success: false, error: 'PIN Kas salah!' };
   } catch (err: any) {
     console.error('Error verifying PIN:', err);
-    // Graceful fallback for default PIN on system error
     if (inputPin === DEFAULT_PIN) {
       return { success: true };
     }
@@ -64,7 +96,94 @@ export async function verifyKasPin(inputPin: string): Promise<{ success: boolean
 }
 
 /**
- * Server action to update Kas PIN in settings table in Supabase
+ * Toggle PIN Protection Status (Aktif / Nonaktif)
+ */
+export async function toggleKasPin(
+  enabled: boolean,
+  pinKonfirmasi?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // If disabling PIN, require current PIN confirmation for security
+    if (!enabled) {
+      if (!pinKonfirmasi || pinKonfirmasi.length !== 6) {
+        return { success: false, error: 'Masukkan 6 digit PIN saat ini untuk menonaktifkan kunci PIN' };
+      }
+      const verifyRes = await verifyKasPin(pinKonfirmasi);
+      if (!verifyRes.success) {
+        return { success: false, error: verifyRes.error || 'PIN konfirmasi salah!' };
+      }
+    }
+
+    await dbQuery(
+      `INSERT INTO settings (key, value, deskripsi, updated_at)
+       VALUES ('pin_kas_enabled', $1, 'Status Proteksi PIN Kas & Keuangan (true/false)', NOW())
+       ON CONFLICT (key) DO UPDATE
+       SET value = EXCLUDED.value, deskripsi = EXCLUDED.deskripsi, updated_at = NOW()`,
+      [enabled ? 'true' : 'false']
+    );
+
+    cacheInvalidate(PIN_ENABLED_CACHE_KEY);
+    cacheInvalidate('settings*');
+
+    revalidatePath('/settings');
+    revalidatePath('/kas');
+    revalidatePath('/kas/cashflow');
+    revalidatePath('/nota');
+    revalidatePath('/finance');
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error in toggleKasPin:', err);
+    return { success: false, error: err?.message || 'Gagal mengubah status proteksi PIN' };
+  }
+}
+
+/**
+ * Create or Set initial PIN (when creating for the first time)
+ */
+export async function setInitialKasPin(
+  pinBaru: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!pinBaru || pinBaru.length !== 6 || !/^\d{6}$/.test(pinBaru)) {
+      return { success: false, error: 'PIN baru harus tepat 6 digit angka' };
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashed = await bcrypt.hash(pinBaru, salt);
+
+    await dbQuery(
+      `INSERT INTO settings (key, value, deskripsi, updated_at)
+       VALUES ('pin_kas', $1, 'PIN Akses Menu Kas & Keuangan', NOW())
+       ON CONFLICT (key) DO UPDATE
+       SET value = EXCLUDED.value, deskripsi = EXCLUDED.deskripsi, updated_at = NOW()`,
+      [hashed]
+    );
+
+    // Auto enable PIN protection
+    await dbQuery(
+      `INSERT INTO settings (key, value, deskripsi, updated_at)
+       VALUES ('pin_kas_enabled', 'true', 'Status Proteksi PIN Kas & Keuangan (true/false)', NOW())
+       ON CONFLICT (key) DO UPDATE
+       SET value = EXCLUDED.value, deskripsi = EXCLUDED.deskripsi, updated_at = NOW()`
+    );
+
+    cacheSet(PIN_CACHE_KEY, hashed, 600);
+    cacheInvalidate(PIN_ENABLED_CACHE_KEY);
+    cacheInvalidate('settings*');
+
+    revalidatePath('/settings');
+    revalidatePath('/kas');
+    revalidatePath('/nota');
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error in setInitialKasPin:', err);
+    return { success: false, error: err?.message || 'Gagal membuat PIN baru' };
+  }
+}
+
+/**
+ * Server action to update Kas PIN from old to new
  */
 export async function updateKasPin(
   pinLama: string,
@@ -108,6 +227,7 @@ export async function updateKasPin(
       revalidatePath('/kas');
       revalidatePath('/kas/cashflow');
       revalidatePath('/finance');
+      revalidatePath('/nota');
     } catch {}
 
     return { success: true };

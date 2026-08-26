@@ -21,13 +21,18 @@ import {
   deleteRekening,
 } from '@/lib/actions/rekening';
 import { RekeningBank } from '@/types/database';
-import { verifyKasPin, updateKasPin } from '@/lib/actions/kas-pin';
+import { getPinSettings, verifyKasPin, updateKasPin, toggleKasPin, setInitialKasPin } from '@/lib/actions/kas-pin';
+import { usePinStore } from '@/lib/store/pin-store';
 import { resetModularData, ResetModuleKey } from '@/lib/actions/reset-system';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { TimePicker24H } from '@/components/shared/TimePicker24H';
 import {
   Send,
   KeyRound,
+  Lock,
+  Shield,
+  ShieldCheck,
+  ShieldOff,
   Building,
   Fuel,
   Bell,
@@ -163,12 +168,24 @@ export default function SettingsPage() {
   const [savingSop, setSavingSop] = React.useState(false);
   const [sopSuccess, setSopSuccess] = React.useState(false);
 
-  // PIN Change State
+  // PIN Protection & Change State
+  const [pinEnabled, setPinEnabled] = React.useState(true);
+  const [hasExistingPin, setHasExistingPin] = React.useState(true);
   const [pinLama, setPinLama] = React.useState('');
   const [pinBaru, setPinBaru] = React.useState('');
+  const [pinKonfirmasi, setPinKonfirmasi] = React.useState('');
   const [pinLoading, setPinLoading] = React.useState(false);
   const [pinSuccess, setPinSuccess] = React.useState<string | null>(null);
   const [pinError, setPinError] = React.useState<string | null>(null);
+  const [lockFeedback, setLockFeedback] = React.useState(false);
+
+  // Disable PIN Confirmation Modal
+  const [showDisablePinModal, setShowDisablePinModal] = React.useState(false);
+  const [disablePinInput, setDisablePinInput] = React.useState('');
+  const [disablePinError, setDisablePinError] = React.useState<string | null>(null);
+  const [disablePinLoading, setDisablePinLoading] = React.useState(false);
+
+  const { lockSession } = usePinStore();
 
   // Telegram Config State
   const [telegramConfig, setTelegramConfig] = React.useState<TelegramConfig>(INITIAL_TELEGRAM_CONFIG);
@@ -210,10 +227,11 @@ export default function SettingsPage() {
       setLoadingTelegram(true);
       setLoadingRekening(true);
       try {
-        const [genCfg, tgCfg, rekList] = await Promise.all([
+        const [genCfg, tgCfg, rekList, pinCfg] = await Promise.all([
           getGeneralSettings(),
           getTelegramConfig(),
           getRekeningList(),
+          getPinSettings(),
         ]);
         if (!isMounted) return;
         setNamaPerusahaan(genCfg.namaPerusahaan);
@@ -223,6 +241,8 @@ export default function SettingsPage() {
         setPertamaxPrice(genCfg.pertamaxPrice);
         setTelegramConfig(tgCfg);
         setRekeningList(rekList);
+        setPinEnabled(pinCfg.isEnabled);
+        setHasExistingPin(pinCfg.hasPin);
       } catch (err) {
         console.error('Error loading settings:', err);
       } finally {
@@ -443,16 +463,69 @@ export default function SettingsPage() {
     }
   };
 
+  const handleTogglePinSwitch = async () => {
+    if (pinEnabled) {
+      // If currently enabled, require PIN before disabling
+      setDisablePinInput('');
+      setDisablePinError(null);
+      setShowDisablePinModal(true);
+    } else {
+      // If currently disabled, turn ON directly
+      setPinLoading(true);
+      const res = await toggleKasPin(true);
+      setPinLoading(false);
+      if (res.success) {
+        setPinEnabled(true);
+        setPinSuccess('Proteksi PIN Kas & Keuangan diaktifkan!');
+        setTimeout(() => setPinSuccess(null), 4000);
+      } else {
+        setPinError(res.error || 'Gagal mengaktifkan proteksi PIN');
+      }
+    }
+  };
+
+  const handleConfirmDisablePin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (disablePinInput.length !== 6) {
+      setDisablePinError('PIN harus 6 digit angka');
+      return;
+    }
+
+    setDisablePinLoading(true);
+    setDisablePinError(null);
+
+    const res = await toggleKasPin(false, disablePinInput);
+    setDisablePinLoading(false);
+
+    if (res.success) {
+      setPinEnabled(false);
+      setShowDisablePinModal(false);
+      setDisablePinInput('');
+      setPinSuccess('Proteksi PIN Kas telah dinonaktifkan.');
+      setTimeout(() => setPinSuccess(null), 4000);
+    } else {
+      setDisablePinError(res.error || 'PIN konfirmasi salah!');
+    }
+  };
+
+  const handleLockSessionNow = () => {
+    lockSession();
+    setLockFeedback(true);
+    setTimeout(() => setLockFeedback(false), 3000);
+  };
+
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPinLoading(true);
     setPinError(null);
     setPinSuccess(null);
 
-    if (pinLama.length !== 6 || !/^\d+$/.test(pinLama)) {
-      setPinError('PIN Lama harus berupa 6 digit angka');
-      setPinLoading(false);
-      return;
+    if (hasExistingPin) {
+      if (pinLama.length !== 6 || !/^\d+$/.test(pinLama)) {
+        setPinError('PIN Lama harus berupa 6 digit angka');
+        setPinLoading(false);
+        return;
+      }
     }
 
     if (pinBaru.length !== 6 || !/^\d+$/.test(pinBaru)) {
@@ -461,15 +534,30 @@ export default function SettingsPage() {
       return;
     }
 
+    if (pinBaru !== pinKonfirmasi) {
+      setPinError('Konfirmasi PIN Baru tidak cocok dengan PIN Baru');
+      setPinLoading(false);
+      return;
+    }
+
     try {
-      const updateRes = await updateKasPin(pinLama, pinBaru);
-      if (updateRes.success) {
+      let res: { success: boolean; error?: string };
+      if (hasExistingPin) {
+        res = await updateKasPin(pinLama, pinBaru);
+      } else {
+        res = await setInitialKasPin(pinBaru);
+      }
+
+      if (res.success) {
         setPinSuccess('PIN Keuangan & Kas berhasil diperbarui!');
+        setHasExistingPin(true);
+        setPinEnabled(true);
         setPinLama('');
         setPinBaru('');
+        setPinKonfirmasi('');
         setTimeout(() => setPinSuccess(null), 5000);
       } else {
-        setPinError(updateRes.error || 'Gagal memperbarui PIN');
+        setPinError(res.error || 'Gagal memperbarui PIN');
       }
     } catch (err: any) {
       setPinError(err?.message || 'Terjadi kesalahan jaringan atau server');
@@ -540,62 +628,167 @@ export default function SettingsPage() {
           </form>
         </div>
 
-        {/* Section 2: Ganti PIN Keuangan */}
+        {/* Section 2: Keamanan & Kunci PIN Kas/Keuangan */}
         <div className="card-container space-y-4">
-          <h3 className="font-bold text-sm text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
-            <KeyRound className="w-4 h-4 text-amber-500" />
-            Keamanan PIN Kas & Keuangan
-          </h3>
+          <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+            <h3 className="font-bold text-sm text-[var(--text-primary)] flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-amber-500" />
+              <span>Proteksi Kunci PIN Kas & Keuangan</span>
+            </h3>
 
-          <form onSubmit={handlePinSubmit} className="space-y-3 text-xs">
-            {pinError && (
-              <div className="p-2.5 rounded-md bg-rose-50 dark:bg-rose-950/30 text-[var(--danger)] text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{pinError}</span>
-              </div>
-            )}
-            {pinSuccess && (
-              <div className="p-2.5 rounded-md bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 text-xs flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>{pinSuccess}</span>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-[var(--text-secondary)] mb-1 font-semibold">PIN Lama</label>
-              <input
-                type="password"
-                maxLength={6}
-                value={pinLama}
-                onChange={(e) => setPinLama(e.target.value.replace(/\D/g, ''))}
-                placeholder="Masukkan 6 digit PIN saat ini"
-                required
-                className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold tabular-num tracking-widest"
-              />
+            {/* PIN Enable / Disable Toggle Switch */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleTogglePinSwitch}
+                disabled={pinLoading}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  pinEnabled ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-700'
+                }`}
+                title={pinEnabled ? 'Klik untuk menonaktifkan PIN' : 'Klik untuk mengaktifkan PIN'}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    pinEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className={`text-xs font-bold ${pinEnabled ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`}>
+                {pinEnabled ? 'AKTIF' : 'NONAKTIF'}
+              </span>
             </div>
+          </div>
 
-            <div>
-              <label className="block text-[var(--text-secondary)] mb-1 font-semibold">PIN Baru (6 Digit)</label>
-              <input
-                type="password"
-                maxLength={6}
-                value={pinBaru}
-                onChange={(e) => setPinBaru(e.target.value.replace(/\D/g, ''))}
-                placeholder="Masukkan 6 digit PIN baru"
-                required
-                className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold tabular-num tracking-widest"
-              />
+          <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+            {pinEnabled
+              ? 'Proteksi PIN aktif: Halaman Kas, Cashflow, Hutang, Piutang, dan Cetak Nota dilindungi kode otorisasi 6 digit.'
+              : 'Proteksi PIN dinonaktifkan: Seluruh staf dapat membuka menu Keuangan dan Cetak Nota secara langsung tanpa memasukkan kode PIN.'}
+          </p>
+
+          {pinError && (
+            <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-[var(--danger)] text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{pinError}</span>
             </div>
+          )}
 
-            <button
-              type="submit"
-              disabled={pinLoading || pinLama.length !== 6 || pinBaru.length !== 6}
-              className="w-full py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] disabled:opacity-50 text-white font-bold rounded-md flex items-center justify-center gap-1 transition-colors"
-            >
-              {pinLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              <span>Simpan PIN Baru</span>
-            </button>
-          </form>
+          {pinSuccess && (
+            <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 text-xs flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{pinSuccess}</span>
+            </div>
+          )}
+
+          {pinEnabled ? (
+            <div className="space-y-4 pt-1">
+              {/* Quick Lock Session Button */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40">
+                <div className="text-xs">
+                  <div className="font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Kunci Sesi Browser</span>
+                  </div>
+                  <div className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5">
+                    Uji coba kunci PIN atau kunci akses kas segera
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLockSessionNow}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-1 shrink-0 active:scale-95 shadow-xs"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>{lockFeedback ? 'Sesi Terkunci!' : 'Kunci Sekarang'}</span>
+                </button>
+              </div>
+
+              {/* Form Ganti / Set PIN */}
+              <form onSubmit={handlePinSubmit} className="space-y-3 text-xs border-t border-[var(--border)] pt-3">
+                <div className="font-bold text-xs text-[var(--text-primary)]">
+                  {hasExistingPin ? 'Ubah Kode PIN Kas' : 'Buat Kode PIN Baru'}
+                </div>
+
+                {hasExistingPin && (
+                  <div>
+                    <label className="block text-[var(--text-secondary)] mb-1 font-semibold">PIN Lama (Saat Ini)</label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      value={pinLama}
+                      onChange={(e) => setPinLama(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Masukkan 6 digit PIN lama"
+                      required
+                      className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-bold tabular-nums tracking-widest text-center text-sm"
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[var(--text-secondary)] mb-1 font-semibold">PIN Baru (6 Digit)</label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      value={pinBaru}
+                      onChange={(e) => setPinBaru(e.target.value.replace(/\D/g, ''))}
+                      placeholder="6 digit angka"
+                      required
+                      className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-bold tabular-nums tracking-widest text-center text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Konfirmasi PIN Baru</label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      value={pinKonfirmasi}
+                      onChange={(e) => setPinKonfirmasi(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Ulangi 6 digit"
+                      required
+                      className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-bold tabular-nums tracking-widest text-center text-sm"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={
+                    pinLoading ||
+                    (hasExistingPin && pinLama.length !== 6) ||
+                    pinBaru.length !== 6 ||
+                    pinKonfirmasi.length !== 6
+                  }
+                  className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                >
+                  {pinLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  <span>Simpan Perubahan PIN</span>
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 text-center space-y-3">
+              <ShieldOff className="w-8 h-8 text-gray-400 mx-auto" />
+              <div className="text-xs text-[var(--text-secondary)]">
+                Kunci PIN saat ini dinonaktifkan. Anda dapat mengaktifkannya kembali kapan saja.
+              </div>
+              <button
+                type="button"
+                onClick={handleTogglePinSwitch}
+                disabled={pinLoading}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition-colors inline-flex items-center gap-1.5 shadow-xs"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Aktifkan Kunci PIN Sekarang</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Section 3: Parameter BBM */}
@@ -1262,6 +1455,59 @@ export default function SettingsPage() {
                 >
                   {savingRekening ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   <span>{savingRekening ? 'Menyimpan...' : 'Simpan Rekening'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Modal Konfirmasi Nonaktifkan PIN */}
+      {showDisablePinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl space-y-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center mx-auto">
+              <ShieldOff className="w-6 h-6" />
+            </div>
+
+            <div>
+              <h3 className="font-bold text-base text-[var(--text-primary)]">Konfirmasi Nonaktifkan PIN</h3>
+              <p className="text-xs text-[var(--text-secondary)] mt-1">
+                Masukkan 6 digit PIN saat ini untuk memverifikasi wewenang sebelum menonaktifkan proteksi kunci keuangan.
+              </p>
+            </div>
+
+            <form onSubmit={handleConfirmDisablePin} className="space-y-4">
+              <div>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={disablePinInput}
+                  onChange={(e) => setDisablePinInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="••••••"
+                  autoFocus
+                  className="w-full px-4 py-2.5 text-center text-2xl tracking-widest font-bold tabular-nums rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                {disablePinError && (
+                  <p className="text-xs text-[var(--danger)] mt-2 font-medium">{disablePinError}</p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => setShowDisablePinModal(false)}
+                  className="flex-1 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={disablePinLoading || disablePinInput.length !== 6}
+                  className="flex-1 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white transition-colors shadow-xs"
+                >
+                  {disablePinLoading ? 'Memproses...' : 'Nonaktifkan'}
                 </button>
               </div>
             </form>

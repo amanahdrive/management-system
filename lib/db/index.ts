@@ -1,4 +1,12 @@
-import { Pool } from 'pg';
+import { Pool, types } from 'pg';
+
+// Configure PostgreSQL type parsers to return plain JavaScript numbers and strings
+// so dates never arrive as complex Date objects and numerics never arrive as strings
+types.setTypeParser(1082, (val) => val); // DATE (1082) -> string 'YYYY-MM-DD'
+types.setTypeParser(1114, (val) => val); // TIMESTAMP (1114) -> string
+types.setTypeParser(1184, (val) => val); // TIMESTAMPTZ (1184) -> string
+types.setTypeParser(1700, (val) => (val === null ? null : parseFloat(val))); // NUMERIC/DECIMAL (1700) -> number
+types.setTypeParser(20, (val) => (val === null ? null : parseInt(val, 10))); // BIGINT (20) -> number
 
 // Official Supabase IPv4 Transaction Pooler for project 'yhwwhqqffgtiavapgjvc' in Singapore (ap-southeast-1)
 // Guaranteed IPv4 accessibility from Vercel Serverless / AWS Lambda environments
