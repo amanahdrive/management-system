@@ -1,9 +1,14 @@
-import { Pool, PoolClient } from 'pg';
+import { Pool } from 'pg';
+
+// Official Supabase IPv4 Transaction Pooler for project 'yhwwhqqffgtiavapgjvc' in Singapore (ap-southeast-1)
+// Guaranteed IPv4 accessibility from Vercel Serverless / AWS Lambda environments
+const DEFAULT_POOLER_URL =
+  'postgresql://postgres.yhwwhqqffgtiavapgjvc:%40Limabelas15@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres';
 
 const DB_URL =
   process.env.DATABASE_URL ||
   process.env.POSTGRES_URL ||
-  'postgresql://postgres:%40Limabelas15@db.yhwwhqqffgtiavapgjvc.supabase.co:5432/postgres';
+  DEFAULT_POOLER_URL;
 
 let globalPool: Pool | null = null;
 
