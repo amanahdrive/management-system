@@ -1,19 +1,28 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
 import { RekeningBank } from '@/types/database';
 
 export const DEFAULT_REKENING_LIST: RekeningBank[] = [
   {
+    id: 'rek-bri-utama',
+    nama_bank: 'BRI',
+    nomor_rekening: '110401019850504',
+    atas_nama: 'Nur Awalia Rianti',
+    aktif: true,
+    is_utama: true,
+    keterangan: 'Rekening Utama Operasional & Transfer Amanah Drive',
+  },
+  {
     id: 'rek-bca-1',
     nama_bank: 'BCA',
     nomor_rekening: '8535441234',
-    atas_nama: 'PT Amanah Drive Palembang',
+    atas_nama: 'Amanah Drive Palembang',
     aktif: true,
-    is_utama: true,
-    keterangan: 'Rekening Utama Operasional & Pemasukan Kursus',
+    is_utama: false,
+    keterangan: 'Rekening BCA Cadangan',
   },
   {
     id: 'rek-mandiri-1',
@@ -23,15 +32,6 @@ export const DEFAULT_REKENING_LIST: RekeningBank[] = [
     aktif: true,
     is_utama: false,
     keterangan: 'Rekening Penerimaan Mandiri',
-  },
-  {
-    id: 'rek-bri-1',
-    nama_bank: 'BRI',
-    nomor_rekening: '005901002345531',
-    atas_nama: 'Amanah Drive',
-    aktif: true,
-    is_utama: false,
-    keterangan: 'Rekening Operasional BRI',
   },
   {
     id: 'rek-bsi-1',
@@ -54,7 +54,7 @@ export async function getRekeningList(): Promise<RekeningBank[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const { data, error } = await supabase
       .from('settings')
       .select('value')
@@ -95,32 +95,34 @@ export async function saveRekeningList(
   list: RekeningBank[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createServerClient();
     const jsonStr = JSON.stringify(list);
 
     const { data: existing } = await supabase
       .from('settings')
       .select('id')
       .eq('key', 'rekening_bank_list')
-      .limit(1);
+      .maybeSingle();
 
-    if (existing && existing.length > 0) {
-      await supabase
+    if (existing?.id) {
+      const { error: updateErr } = await supabase
         .from('settings')
         .update({
           value: jsonStr,
           deskripsi: 'Daftar Rekening Bank Perusahaan',
           updated_at: new Date().toISOString(),
         })
-        .eq('id', existing[0].id);
+        .eq('id', existing.id);
+      if (updateErr) throw updateErr;
     } else {
-      await supabase.from('settings').insert({
+      const { error: insertErr } = await supabase.from('settings').insert({
         key: 'rekening_bank_list',
         value: jsonStr,
         deskripsi: 'Daftar Rekening Bank Perusahaan',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
+      if (insertErr) throw insertErr;
     }
 
     // Instantly update cache and invalidate related paths

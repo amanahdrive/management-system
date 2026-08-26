@@ -272,50 +272,61 @@ export default function SettingsPage() {
     }
     setSavingRekening(true);
 
-    if (editingRekening) {
-      const res = await updateRekening(editingRekening.id, {
-        nama_bank: formRekening.nama_bank,
-        nomor_rekening: formRekening.nomor_rekening,
-        atas_nama: formRekening.atas_nama,
-        aktif: formRekening.aktif,
-        is_utama: formRekening.is_utama,
-        keterangan: formRekening.keterangan,
-      });
-      if (res.success) {
-        const updated = await getRekeningList();
-        setRekeningList(updated);
-        setShowRekeningModal(false);
+    try {
+      if (editingRekening) {
+        const res = await updateRekening(editingRekening.id, {
+          nama_bank: formRekening.nama_bank,
+          nomor_rekening: formRekening.nomor_rekening,
+          atas_nama: formRekening.atas_nama,
+          aktif: formRekening.aktif,
+          is_utama: formRekening.is_utama,
+          keterangan: formRekening.keterangan,
+        });
+        if (res.success) {
+          const updated = await getRekeningList();
+          setRekeningList(updated);
+          setShowRekeningModal(false);
+        } else {
+          alert('Gagal mengubah rekening: ' + (res.error || 'Terjadi kesalahan'));
+        }
       } else {
-        alert('Gagal mengubah rekening: ' + res.error);
+        const res = await addRekening({
+          nama_bank: formRekening.nama_bank,
+          nomor_rekening: formRekening.nomor_rekening,
+          atas_nama: formRekening.atas_nama,
+          aktif: formRekening.aktif,
+          is_utama: formRekening.is_utama,
+          keterangan: formRekening.keterangan,
+        });
+        if (res.success) {
+          const updated = await getRekeningList();
+          setRekeningList(updated);
+          setShowRekeningModal(false);
+        } else {
+          alert('Gagal menambah rekening: ' + (res.error || 'Terjadi kesalahan'));
+        }
       }
-    } else {
-      const res = await addRekening({
-        nama_bank: formRekening.nama_bank,
-        nomor_rekening: formRekening.nomor_rekening,
-        atas_nama: formRekening.atas_nama,
-        aktif: formRekening.aktif,
-        is_utama: formRekening.is_utama,
-        keterangan: formRekening.keterangan,
-      });
-      if (res.success) {
-        const updated = await getRekeningList();
-        setRekeningList(updated);
-        setShowRekeningModal(false);
-      } else {
-        alert('Gagal menambah rekening: ' + res.error);
-      }
+    } catch (err: any) {
+      console.error('Error saving rekening:', err);
+      alert('Terjadi kesalahan sistem saat menyimpan rekening: ' + (err?.message || 'Error'));
+    } finally {
+      setSavingRekening(false);
     }
-    setSavingRekening(false);
   };
 
   const handleDeleteRekening = async (id: string, nama: string) => {
     if (!confirm(`Hapus rekening ${nama}?`)) return;
-    const res = await deleteRekening(id);
-    if (res.success) {
-      const updated = await getRekeningList();
-      setRekeningList(updated);
-    } else {
-      alert('Gagal menghapus rekening: ' + res.error);
+    try {
+      const res = await deleteRekening(id);
+      if (res.success) {
+        const updated = await getRekeningList();
+        setRekeningList(updated);
+      } else {
+        alert('Gagal menghapus rekening: ' + res.error);
+      }
+    } catch (err: any) {
+      console.error('Error deleting rekening:', err);
+      alert('Terjadi kesalahan saat menghapus rekening');
     }
   };
 
