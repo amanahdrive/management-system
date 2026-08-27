@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { KasTransaksi, Siswa, Paket, RekeningBank, Hutang, JenisHutangEnum } from '@/types/database';
+import { KasTransaksi, KasKategori, Siswa, Paket, RekeningBank, Hutang, JenisHutangEnum } from '@/types/database';
 import {
   getKasOverviewMetrics,
   getKasTransaksiList,
@@ -19,6 +19,13 @@ import { getSiswaList } from '@/lib/actions/siswa';
 import { getPaketList } from '@/lib/actions/master-data';
 import { getRekeningList } from '@/lib/actions/rekening';
 import { getPinSettings, verifyKasPin } from '@/lib/actions/kas-pin';
+import {
+  DEFAULT_KAS_KATEGORI,
+  DEFAULT_REKENING_LIST,
+  DEFAULT_METRICS,
+  calculateLocalKasMetrics,
+  formatKategoriLabel,
+} from '@/lib/constants/finance';
 import { formatRupiah } from '@/lib/utils/currency';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
@@ -94,22 +101,16 @@ export default function FinancePortalPage() {
   // Tab State: 'kas' | 'cashflow' | 'piutang' | 'hutang'
   const [activeTab, setActiveTab] = React.useState<'kas' | 'cashflow' | 'piutang' | 'hutang'>('kas');
 
-  // Data State
-  const [metrics, setMetrics] = React.useState({
-    saldoAktif: 0,
-    saldoTunai: 0,
-    saldoNonTunai: 0,
-    totalPiutang: 0,
-    totalHutang: 0,
-  });
+  // Data State with resilient master defaults (zero-empty guarantee)
+  const [metrics, setMetrics] = React.useState(DEFAULT_METRICS);
   const [recentTx, setRecentTx] = React.useState<KasTransaksi[]>([]);
-  const [kategoriList, setKategoriList] = React.useState<any[]>([]);
+  const [kategoriList, setKategoriList] = React.useState<KasKategori[]>(DEFAULT_KAS_KATEGORI);
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
   const [paketList, setPaketList] = React.useState<Paket[]>([]);
   const [hutangList, setHutangList] = React.useState<Hutang[]>([]);
   const [dpKustomList, setDpKustomList] = React.useState<DpKustomItem[]>([]);
-  const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>([]);
-  const [selectedRekeningId, setSelectedRekeningId] = React.useState<string>('');
+  const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>(DEFAULT_REKENING_LIST);
+  const [selectedRekeningId, setSelectedRekeningId] = React.useState<string>(DEFAULT_REKENING_LIST[0].id);
   const [loading, setLoading] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [toast, setToast] = React.useState<string | null>(null);
@@ -186,30 +187,25 @@ export default function FinancePortalPage() {
   const [savingEditHutang, setSavingEditHutang] = React.useState(false);
   const [deletingHutang, setDeletingHutang] = React.useState<Hutang | null>(null);
 
-  // Check PIN Configuration on mount (Respect settings: default off)
+  // Check PIN Configuration on mount (Fast local session + server config)
   React.useEffect(() => {
     (async () => {
+      // 1. Instant local session check (Fast-path)
+      const saved = localStorage.getItem('amanah_finance_pin_ok');
+      const savedTime = localStorage.getItem('amanah_finance_pin_time');
+      if (saved === 'true' && savedTime) {
+        const elapsed = Date.now() - parseInt(savedTime, 10);
+        const TWELVE_HOURS = 12 * 60 * 60 * 1000;
+        if (elapsed < TWELVE_HOURS) {
+          setPinVerified(true);
+        }
+      }
+
       try {
         const pinCfg = await getPinSettings();
         if (!pinCfg.isEnabled) {
           // PIN protection is turned OFF in settings -> bypass gate immediately
           setPinVerified(true);
-          setCheckingPinConfig(false);
-          return;
-        }
-
-        // Check local session
-        const saved = localStorage.getItem('amanah_finance_pin_ok');
-        const savedTime = localStorage.getItem('amanah_finance_pin_time');
-        if (saved === 'true' && savedTime) {
-          const elapsed = Date.now() - parseInt(savedTime, 10);
-          const EIGHT_HOURS = 8 * 60 * 60 * 1000;
-          if (elapsed < EIGHT_HOURS) {
-            setPinVerified(true);
-          } else {
-            localStorage.removeItem('amanah_finance_pin_ok');
-            localStorage.removeItem('amanah_finance_pin_time');
-          }
         }
       } catch (err) {
         console.error('Error checking PIN settings:', err);
@@ -217,6 +213,28 @@ export default function FinancePortalPage() {
         setCheckingPinConfig(false);
       }
     })();
+  }, []);
+
+  // 1. Instant Cache Restoration on Mount (Stale-While-Revalidate)
+  React.useEffect(() => {
+    try {
+      const cachedStr = localStorage.getItem('amanah_finance_cache_v2');
+      if (cachedStr) {
+        const cached = JSON.parse(cachedStr);
+        if (cached && typeof cached === 'object') {
+          if (cached.metrics) setMetrics(cached.metrics);
+          if (Array.isArray(cached.transaksi) && cached.transaksi.length > 0) setRecentTx(cached.transaksi);
+          if (Array.isArray(cached.kategori) && cached.kategori.length > 0) setKategoriList(cached.kategori);
+          if (Array.isArray(cached.siswa)) setSiswaList(cached.siswa);
+          if (Array.isArray(cached.paket)) setPaketList(cached.paket);
+          if (Array.isArray(cached.hutang)) setHutangList(cached.hutang);
+          if (Array.isArray(cached.rekening) && cached.rekening.length > 0) setRekeningList(cached.rekening);
+          if (Array.isArray(cached.dpKustom)) setDpKustomList(cached.dpKustom);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read finance cache:', e);
+    }
   }, []);
 
   React.useEffect(() => {
@@ -248,69 +266,133 @@ export default function FinancePortalPage() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  // Load Data with background refresh and local cache
+  // Load Data with Single-Endpoint API, Local Calculation & Resilient Fallback
   const loadData = async () => {
     setLoading(true);
     try {
-      const [m, txList, kList, sList, pList, hList, dpKList, rList] = await Promise.all([
-        getKasOverviewMetrics(),
-        getKasTransaksiList(),
-        getKasKategoriList(),
-        getSiswaList(),
-        getPaketList(),
-        getHutangList(),
-        getDpKustomList(),
-        getRekeningList(),
-      ]);
-      let calculatedMetrics = { ...m };
-      if (txList) {
-        let tunai = 0;
-        let nonTunai = 0;
-        txList.forEach((tx) => {
-          const nom = Number(tx.nominal) || 0;
-          const isTunai = (tx.jenis_pembayaran || 'tunai') === 'tunai';
-          if (tx.tipe === 'pemasukan') {
-            if (isTunai) tunai += nom;
-            else nonTunai += nom;
-          } else {
-            if (isTunai) tunai -= nom;
-            else nonTunai -= nom;
-          }
+      let dataLoaded = false;
+
+      // Primary: Single Consolidated API Endpoint (High Speed, Mobile-Friendly)
+      try {
+        const res = await fetch('/api/finance/data', {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
         });
-        calculatedMetrics.saldoTunai = tunai;
-        calculatedMetrics.saldoNonTunai = nonTunai;
-        calculatedMetrics.saldoAktif = tunai + nonTunai;
-      }
-      if (sList) {
-        let pTotal = 0;
-        sList.forEach((s) => {
-          if (s.status_pembayaran_kode === 'dp') {
-            pTotal += Math.max(0, (Number(s.harga_final) || 0) - (Number(s.dp_nominal) || 0));
-          } else if (s.status_pembayaran_kode === 'belum_bayar') {
-            pTotal += Number(s.harga_final) || 0;
+
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) {
+            const tx = Array.isArray(json.transaksi) ? json.transaksi : [];
+            const sis = Array.isArray(json.siswa) ? json.siswa : [];
+            const hut = Array.isArray(json.hutang) ? json.hutang : [];
+            const pak = Array.isArray(json.paket) ? json.paket : [];
+            const dpk = Array.isArray(json.dpKustom) ? json.dpKustom : [];
+            const kat =
+              Array.isArray(json.kategori) && json.kategori.length > 0
+                ? json.kategori
+                : DEFAULT_KAS_KATEGORI;
+            const rek =
+              Array.isArray(json.rekening) && json.rekening.length > 0
+                ? json.rekening
+                : DEFAULT_REKENING_LIST;
+
+            // Instant client-side calculation to guarantee 100% synchronization
+            const localMetrics = calculateLocalKasMetrics(tx, sis, hut);
+
+            setRecentTx(tx);
+            setKategoriList(kat);
+            setSiswaList(sis);
+            setPaketList(pak);
+            setHutangList(hut);
+            setDpKustomList(dpk);
+            setRekeningList(rek);
+            setMetrics(localMetrics);
+
+            const defRek =
+              rek.find((r: RekeningBank) => r.aktif && r.is_utama) ||
+              rek.find((r: RekeningBank) => r.aktif);
+            if (defRek) setSelectedRekeningId(defRek.id);
+
+            // Persist to local cache for instant offline reload
+            localStorage.setItem(
+              'amanah_finance_cache_v2',
+              JSON.stringify({
+                metrics: localMetrics,
+                transaksi: tx,
+                kategori: kat,
+                siswa: sis,
+                paket: pak,
+                hutang: hut,
+                rekening: rek,
+                dpKustom: dpk,
+                updatedAt: Date.now(),
+              })
+            );
+            dataLoaded = true;
           }
-        });
-        calculatedMetrics.totalPiutang = pTotal;
+        }
+      } catch (apiErr) {
+        console.warn('API route unavailable, using Server Actions fallback:', apiErr);
       }
-      if (hList) {
-        let hTotal = 0;
-        hList.forEach((h) => {
-          if (h.status === 'berjalan') {
-            hTotal += Number(h.sisa_hutang) || 0;
-          }
-        });
-        calculatedMetrics.totalHutang = hTotal;
+
+      // Secondary Fallback: Server Actions (Promise.allSettled)
+      if (!dataLoaded) {
+        const [mRes, tRes, kRes, sRes, pRes, hRes, dpKRes, rRes] = await Promise.allSettled([
+          getKasOverviewMetrics(),
+          getKasTransaksiList(),
+          getKasKategoriList(),
+          getSiswaList(),
+          getPaketList(),
+          getHutangList(),
+          getDpKustomList(),
+          getRekeningList(),
+        ]);
+
+        const tx = tRes.status === 'fulfilled' && Array.isArray(tRes.value) ? tRes.value : [];
+        const sis = sRes.status === 'fulfilled' && Array.isArray(sRes.value) ? sRes.value : [];
+        const hut = hRes.status === 'fulfilled' && Array.isArray(hRes.value) ? hRes.value : [];
+        const pak = pRes.status === 'fulfilled' && Array.isArray(pRes.value) ? pRes.value : [];
+        const dpk = dpKRes.status === 'fulfilled' && Array.isArray(dpKRes.value) ? dpKRes.value : [];
+        const kat =
+          kRes.status === 'fulfilled' && Array.isArray(kRes.value) && kRes.value.length > 0
+            ? kRes.value
+            : DEFAULT_KAS_KATEGORI;
+        const rek =
+          rRes.status === 'fulfilled' && Array.isArray(rRes.value) && rRes.value.length > 0
+            ? rRes.value
+            : DEFAULT_REKENING_LIST;
+
+        const localMetrics = calculateLocalKasMetrics(tx, sis, hut);
+
+        setRecentTx(tx);
+        setKategoriList(kat);
+        setSiswaList(sis);
+        setPaketList(pak);
+        setHutangList(hut);
+        setDpKustomList(dpk);
+        setRekeningList(rek);
+        setMetrics(localMetrics);
+
+        const defRek =
+          rek.find((r: RekeningBank) => r.aktif && r.is_utama) ||
+          rek.find((r: RekeningBank) => r.aktif);
+        if (defRek) setSelectedRekeningId(defRek.id);
+
+        localStorage.setItem(
+          'amanah_finance_cache_v2',
+          JSON.stringify({
+            metrics: localMetrics,
+            transaksi: tx,
+            kategori: kat,
+            siswa: sis,
+            paket: pak,
+            hutang: hut,
+            rekening: rek,
+            dpKustom: dpk,
+            updatedAt: Date.now(),
+          })
+        );
       }
-      setMetrics(calculatedMetrics as any);
-      setRecentTx(txList);
-      setKategoriList(kList);
-      setSiswaList(sList);
-      setPaketList(pList);
-      setHutangList(hList);
-      setDpKustomList(dpKList);
-      setRekeningList(rList);
-      const defRek = rList.find((r) => r.aktif && r.is_utama) || rList.find((r) => r.aktif);
-      if (defRek) setSelectedRekeningId(defRek.id);
     } catch (err) {
       console.error('Error loading finance data:', err);
     } finally {
@@ -725,9 +807,10 @@ export default function FinancePortalPage() {
     return { masuk, keluar, net, catMap };
   }, [recentTx]);
 
-  // Categories available for current type
+  // Categories available for current type with fallback guarantee
   const availableKategoriList = React.useMemo(() => {
-    return kategoriList.filter((k) => {
+    const list = kategoriList && kategoriList.length > 0 ? kategoriList : DEFAULT_KAS_KATEGORI;
+    return list.filter((k) => {
       if (formData.tipe === 'pemasukan') return k.tipe === 'pemasukan' || k.tipe === 'keduanya';
       return k.tipe === 'pengeluaran' || k.tipe === 'keduanya';
     });
@@ -1443,7 +1526,7 @@ export default function FinancePortalPage() {
                 >
                   {availableKategoriList.map((k) => (
                     <option key={k.id} value={k.nama_kategori}>
-                      {k.nama_kategori.replace('_', ' ').toUpperCase()}
+                      {formatKategoriLabel(k.nama_kategori)}
                     </option>
                   ))}
                 </select>

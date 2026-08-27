@@ -3,6 +3,7 @@
 import { dbQuery, dbQuerySingle, dbExecute } from '@/lib/db';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { KasTransaksi, Hutang, KasKategori, HutangPembayaran } from '@/types/database';
+import { DEFAULT_KAS_KATEGORI } from '@/lib/constants/finance';
 import { revalidatePath } from 'next/cache';
 
 const METRICS_CACHE_KEY = 'kas_overview_metrics';
@@ -161,17 +162,6 @@ export async function getKasKategoriList(): Promise<KasKategori[]> {
   try {
     const data = await dbQuery<KasKategori>('SELECT * FROM kas_kategori ORDER BY nama_kategori ASC');
 
-    const defaultCategories: Partial<KasKategori>[] = [
-      { nama_kategori: 'dp_siswa', tipe: 'pemasukan' },
-      { nama_kategori: 'pelunasan_siswa', tipe: 'pemasukan' },
-      { nama_kategori: 'refund_siswa', tipe: 'pengeluaran' },
-      { nama_kategori: 'operasional', tipe: 'pengeluaran' },
-      { nama_kategori: 'bbm', tipe: 'pengeluaran' },
-      { nama_kategori: 'gaji', tipe: 'pengeluaran' },
-      { nama_kategori: 'cicilan_hutang', tipe: 'pengeluaran' },
-      { nama_kategori: 'lainnya', tipe: 'keduanya' },
-    ];
-
     if (data && data.length > 0) {
       const hasRefund = data.some((k) => k.nama_kategori === 'refund_siswa');
       const finalData = hasRefund
@@ -184,19 +174,12 @@ export async function getKasKategoriList(): Promise<KasKategori[]> {
       return finalData as KasKategori[];
     }
 
-    const fallback = defaultCategories.map((c, i) => ({
-      id: `default-${i}`,
-      nama_kategori: c.nama_kategori!,
-      tipe: c.tipe as any,
-      created_at: '',
-      updated_at: '',
-    }));
-    cacheSet('kas_kategori_list', fallback, 300);
-    return fallback;
+    cacheSet('kas_kategori_list', DEFAULT_KAS_KATEGORI, 300);
+    return DEFAULT_KAS_KATEGORI;
   } catch (e) {
     console.error('Error fetching kas kategori:', e);
+    return DEFAULT_KAS_KATEGORI;
   }
-  return [];
 }
 
 export async function getKasTransaksiList(filters?: {

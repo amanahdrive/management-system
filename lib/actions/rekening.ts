@@ -4,45 +4,7 @@ import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
 import { RekeningBank } from '@/types/database';
-
-export const DEFAULT_REKENING_LIST: RekeningBank[] = [
-  {
-    id: 'rek-bri-utama',
-    nama_bank: 'BRI',
-    nomor_rekening: '110401019850504',
-    atas_nama: 'Nur Awalia Rianti',
-    aktif: true,
-    is_utama: true,
-    keterangan: 'Rekening Utama Operasional & Transfer Amanah Drive',
-  },
-  {
-    id: 'rek-bca-1',
-    nama_bank: 'BCA',
-    nomor_rekening: '8535441234',
-    atas_nama: 'Amanah Drive Palembang',
-    aktif: true,
-    is_utama: false,
-    keterangan: 'Rekening BCA Cadangan',
-  },
-  {
-    id: 'rek-mandiri-1',
-    nama_bank: 'Mandiri',
-    nomor_rekening: '1130018899123',
-    atas_nama: 'Amanah Drive',
-    aktif: true,
-    is_utama: false,
-    keterangan: 'Rekening Penerimaan Mandiri',
-  },
-  {
-    id: 'rek-bsi-1',
-    nama_bank: 'BSI',
-    nomor_rekening: '7188991234',
-    atas_nama: 'Amanah Drive',
-    aktif: true,
-    is_utama: false,
-    keterangan: 'Rekening Syariah BSI',
-  },
-];
+import { DEFAULT_REKENING_LIST } from '@/lib/constants/finance';
 
 const REKENING_CACHE_KEY = 'rekening_bank_list';
 

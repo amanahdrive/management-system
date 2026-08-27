@@ -16,8 +16,13 @@ const DEFAULT_POOLER_URL =
 function resolveDatabaseUrl(): string {
   const envUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
   if (!envUrl) return DEFAULT_POOLER_URL;
-  // Direct port 5432 on Supabase Singapore lacks IPv4 and is unreachable from Vercel Lambda
-  if (envUrl.includes('supabase.co:5432')) {
+  // Supabase Singapore project 'yhwwhqqffgtiavapgjvc' direct host (db.*) or port 5432 lacks IPv4
+  // and times out in Vercel Lambda / AWS serverless environments.
+  if (
+    (envUrl.includes('supabase.co') && !envUrl.includes('pooler.supabase.com')) ||
+    envUrl.includes('db.yhwwhqqffgtiavapgjvc') ||
+    envUrl.includes(':5432')
+  ) {
     return DEFAULT_POOLER_URL;
   }
   return envUrl;

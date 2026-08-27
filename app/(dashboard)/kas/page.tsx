@@ -21,6 +21,13 @@ import {
 import { getSiswaList } from '@/lib/actions/siswa';
 import { getPaketList } from '@/lib/actions/master-data';
 import { getRekeningList } from '@/lib/actions/rekening';
+import {
+  DEFAULT_KAS_KATEGORI,
+  DEFAULT_REKENING_LIST,
+  DEFAULT_METRICS,
+  calculateLocalKasMetrics,
+  formatKategoriLabel,
+} from '@/lib/constants/finance';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 import { Siswa, Paket, RekeningBank } from '@/types/database';
 import {
@@ -44,20 +51,14 @@ import {
 import Link from 'next/link';
 
 export default function KasOverviewPage() {
-  const [metrics, setMetrics] = React.useState({
-    saldoAktif: 0,
-    saldoTunai: 0,
-    saldoNonTunai: 0,
-    totalPiutang: 0,
-    totalHutang: 0,
-  });
+  const [metrics, setMetrics] = React.useState(DEFAULT_METRICS);
   const [transaksiList, setTransaksiList] = React.useState<any[]>([]);
-  const [kategoriList, setKategoriList] = React.useState<any[]>([]);
+  const [kategoriList, setKategoriList] = React.useState<any[]>(DEFAULT_KAS_KATEGORI);
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
   const [paketList, setPaketList] = React.useState<Paket[]>([]);
   const [dpKustomList, setDpKustomList] = React.useState<DpKustomItem[]>([]);
-  const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>([]);
-  const [selectedRekeningId, setSelectedRekeningId] = React.useState<string>('');
+  const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>(DEFAULT_REKENING_LIST);
+  const [selectedRekeningId, setSelectedRekeningId] = React.useState<string>(DEFAULT_REKENING_LIST[0].id);
   const [loading, setLoading] = React.useState(true);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
@@ -80,89 +81,143 @@ export default function KasOverviewPage() {
   const [customHargaPaket, setCustomHargaPaket] = React.useState(0);
   const [customDpNominal, setCustomDpNominal] = React.useState(0);
 
+  // 1. Instant Cache Restoration on Mount (Stale-While-Revalidate)
+  React.useEffect(() => {
+    try {
+      const cachedStr = localStorage.getItem('amanah_kas_web_cache_v2');
+      if (cachedStr) {
+        const cached = JSON.parse(cachedStr);
+        if (cached && typeof cached === 'object') {
+          if (cached.metrics) setMetrics(cached.metrics);
+          if (Array.isArray(cached.transaksi) && cached.transaksi.length > 0) setTransaksiList(cached.transaksi);
+          if (Array.isArray(cached.kategori) && cached.kategori.length > 0) setKategoriList(cached.kategori);
+          if (Array.isArray(cached.siswa)) setSiswaList(cached.siswa);
+          if (Array.isArray(cached.paket)) setPaketList(cached.paket);
+          if (Array.isArray(cached.dpKustom)) setDpKustomList(cached.dpKustom);
+          if (Array.isArray(cached.rekening) && cached.rekening.length > 0) setRekeningList(cached.rekening);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read kas cache:', e);
+    }
+  }, []);
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [mRes, tRes, kRes, sRes, pRes, dpKRes, rList, hList] = await Promise.allSettled([
-        getKasOverviewMetrics(),
-        getKasTransaksiList(),
-        getKasKategoriList(),
-        getSiswaList(),
-        getPaketList(),
-        getDpKustomList(),
-        getRekeningList(),
-        getHutangList(),
-      ]);
+      let dataLoaded = false;
 
-      let calculatedMetrics = {
-        saldoAktif: 0,
-        saldoTunai: 0,
-        saldoNonTunai: 0,
-        totalPiutang: 0,
-        totalHutang: 0,
-      };
-
-      if (mRes.status === 'fulfilled' && mRes.value) {
-        calculatedMetrics = { ...mRes.value };
-      }
-
-      if (tRes.status === 'fulfilled' && tRes.value) {
-        setTransaksiList(tRes.value);
-        let tunai = 0;
-        let nonTunai = 0;
-        tRes.value.forEach((tx) => {
-          const nom = Number(tx.nominal) || 0;
-          const isTunai = (tx.jenis_pembayaran || 'tunai') === 'tunai';
-          if (tx.tipe === 'pemasukan') {
-            if (isTunai) tunai += nom;
-            else nonTunai += nom;
-          } else {
-            if (isTunai) tunai -= nom;
-            else nonTunai -= nom;
-          }
+      // Primary: Single Consolidated API Endpoint
+      try {
+        const res = await fetch('/api/finance/data', {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
         });
-        calculatedMetrics.saldoTunai = tunai;
-        calculatedMetrics.saldoNonTunai = nonTunai;
-        calculatedMetrics.saldoAktif = tunai + nonTunai;
-      }
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) {
+            const tx = Array.isArray(json.transaksi) ? json.transaksi : [];
+            const sis = Array.isArray(json.siswa) ? json.siswa : [];
+            const hut = Array.isArray(json.hutang) ? json.hutang : [];
+            const kat =
+              Array.isArray(json.kategori) && json.kategori.length > 0
+                ? json.kategori
+                : DEFAULT_KAS_KATEGORI;
+            const rek =
+              Array.isArray(json.rekening) && json.rekening.length > 0
+                ? json.rekening
+                : DEFAULT_REKENING_LIST;
 
-      if (kRes.status === 'fulfilled' && kRes.value) setKategoriList(kRes.value);
+            const localMetrics = calculateLocalKasMetrics(tx, sis, hut);
 
-      if (sRes.status === 'fulfilled' && sRes.value) {
-        setSiswaList(sRes.value);
-        let pTotal = 0;
-        sRes.value.forEach((s) => {
-          if (s.status_pembayaran_kode === 'dp') {
-            pTotal += Math.max(0, (Number(s.harga_final) || 0) - (Number(s.dp_nominal) || 0));
-          } else if (s.status_pembayaran_kode === 'belum_bayar') {
-            pTotal += Number(s.harga_final) || 0;
+            setTransaksiList(tx);
+            setKategoriList(kat);
+            setSiswaList(sis);
+            setPaketList(json.paket || []);
+            setDpKustomList(json.dpKustom || []);
+            setRekeningList(rek);
+            setMetrics(localMetrics);
+
+            const defRek =
+              rek.find((r: RekeningBank) => r.aktif && r.is_utama) ||
+              rek.find((r: RekeningBank) => r.aktif);
+            if (defRek) setSelectedRekeningId(defRek.id);
+
+            localStorage.setItem(
+              'amanah_kas_web_cache_v2',
+              JSON.stringify({
+                metrics: localMetrics,
+                transaksi: tx,
+                kategori: kat,
+                siswa: sis,
+                paket: json.paket || [],
+                rekening: rek,
+                dpKustom: json.dpKustom || [],
+                updatedAt: Date.now(),
+              })
+            );
+            dataLoaded = true;
           }
-        });
-        if (pTotal > 0 || calculatedMetrics.totalPiutang === 0) {
-          calculatedMetrics.totalPiutang = pTotal;
         }
+      } catch (apiErr) {
+        console.warn('API route unavailable, using Server Actions fallback:', apiErr);
       }
 
-      if (hList.status === 'fulfilled' && hList.value) {
-        let hTotal = 0;
-        hList.value.forEach((h) => {
-          if (h.status === 'berjalan') {
-            hTotal += Number(h.sisa_hutang) || 0;
-          }
-        });
-        if (hTotal > 0 || calculatedMetrics.totalHutang === 0) {
-          calculatedMetrics.totalHutang = hTotal;
-        }
-      }
+      // Secondary Fallback: Server Actions (Promise.allSettled)
+      if (!dataLoaded) {
+        const [mRes, tRes, kRes, sRes, pRes, dpKRes, rList, hList] = await Promise.allSettled([
+          getKasOverviewMetrics(),
+          getKasTransaksiList(),
+          getKasKategoriList(),
+          getSiswaList(),
+          getPaketList(),
+          getDpKustomList(),
+          getRekeningList(),
+          getHutangList(),
+        ]);
 
-      setMetrics(calculatedMetrics);
+        const tx = tRes.status === 'fulfilled' && Array.isArray(tRes.value) ? tRes.value : [];
+        const sis = sRes.status === 'fulfilled' && Array.isArray(sRes.value) ? sRes.value : [];
+        const hut = hList.status === 'fulfilled' && Array.isArray(hList.value) ? hList.value : [];
+        const pak = pRes.status === 'fulfilled' && Array.isArray(pRes.value) ? pRes.value : [];
+        const dpk = dpKRes.status === 'fulfilled' && Array.isArray(dpKRes.value) ? dpKRes.value : [];
+        const kat =
+          kRes.status === 'fulfilled' && Array.isArray(kRes.value) && kRes.value.length > 0
+            ? kRes.value
+            : DEFAULT_KAS_KATEGORI;
+        const rek =
+          rList.status === 'fulfilled' && Array.isArray(rList.value) && rList.value.length > 0
+            ? rList.value
+            : DEFAULT_REKENING_LIST;
 
-      if (pRes.status === 'fulfilled' && pRes.value) setPaketList(pRes.value);
-      if (dpKRes.status === 'fulfilled' && dpKRes.value) setDpKustomList(dpKRes.value);
-      if (rList.status === 'fulfilled' && rList.value) {
-        setRekeningList(rList.value);
-        const defRek = rList.value.find((r) => r.aktif && r.is_utama) || rList.value.find((r) => r.aktif);
+        const localMetrics = calculateLocalKasMetrics(tx, sis, hut);
+
+        setTransaksiList(tx);
+        setKategoriList(kat);
+        setSiswaList(sis);
+        setPaketList(pak);
+        setDpKustomList(dpk);
+        setRekeningList(rek);
+        setMetrics(localMetrics);
+
+        const defRek =
+          rek.find((r: RekeningBank) => r.aktif && r.is_utama) ||
+          rek.find((r: RekeningBank) => r.aktif);
         if (defRek) setSelectedRekeningId(defRek.id);
+
+        localStorage.setItem(
+          'amanah_kas_web_cache_v2',
+          JSON.stringify({
+            metrics: localMetrics,
+            transaksi: tx,
+            kategori: kat,
+            siswa: sis,
+            paket: pak,
+            rekening: rek,
+            dpKustom: dpk,
+            updatedAt: Date.now(),
+          })
+        );
       }
     } catch (err) {
       console.error('Error loading kas data:', err);
@@ -357,9 +412,10 @@ export default function KasOverviewPage() {
     ? siswaList.find((s) => s.id === formData.siswa_id)
     : null;
 
-  // Available categories for selected type
+  // Available categories for selected type with fallback guarantee
   const availableKategoriList = React.useMemo(() => {
-    return kategoriList.filter((k) => {
+    const list = kategoriList && kategoriList.length > 0 ? kategoriList : DEFAULT_KAS_KATEGORI;
+    return list.filter((k) => {
       if (formData.tipe === 'pemasukan') {
         return k.tipe === 'pemasukan' || k.tipe === 'keduanya';
       }
