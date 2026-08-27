@@ -34,15 +34,15 @@ export async function getPinSettings(): Promise<PinConfig> {
       map[r.key] = r.value;
     });
 
-    const isEnabled = map['pin_kas_enabled'] !== 'false'; // default true
-    const hasPin = Boolean(map['pin_kas'] || DEFAULT_PIN_HASH);
+    const isEnabled = map['pin_kas_enabled'] === 'true'; // default false
+    const hasPin = Boolean(map['pin_kas']);
 
     const result: PinConfig = { isEnabled, hasPin };
     cacheSet(PIN_ENABLED_CACHE_KEY, result, 60);
     return result;
   } catch (e) {
     console.error('Error fetching pin settings:', e);
-    return { isEnabled: true, hasPin: true };
+    return { isEnabled: false, hasPin: false };
   }
 }
 

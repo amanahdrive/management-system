@@ -84,24 +84,104 @@ export async function getTelegramConfig(): Promise<TelegramConfig> {
   }
 }
 
+export interface TelegramConnectionStatus {
+  isValid: boolean;
+  botName?: string;
+  botUsername?: string;
+  chatIdConfigured: boolean;
+  chatIdMasked?: string;
+  error?: string;
+}
+
 /**
- * Save Telegram configuration to settings table
+ * Check live connection status to Telegram Bot via getMe
+ */
+export async function checkTelegramConnection(): Promise<TelegramConnectionStatus> {
+  const config = await getTelegramConfig();
+  const token = config.botToken || process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = config.chatId || process.env.TELEGRAM_CHAT_ID;
+
+  const chatIdConfigured = Boolean(chatId);
+  const chatIdMasked = chatId ? `${chatId.slice(0, 3)}***${chatId.slice(-3)}` : undefined;
+
+  if (!token) {
+    return {
+      isValid: false,
+      chatIdConfigured,
+      chatIdMasked,
+      error: 'Token bot belum terpasang pada Environment Variables (TELEGRAM_BOT_TOKEN)',
+    };
+  }
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/getMe`, {
+      method: 'GET',
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+    const data = await res.json();
+
+    if (data.ok && data.result) {
+      return {
+        isValid: true,
+        botName: data.result.first_name,
+        botUsername: data.result.username ? `@${data.result.username}` : undefined,
+        chatIdConfigured,
+        chatIdMasked,
+      };
+    } else {
+      return {
+        isValid: false,
+        chatIdConfigured,
+        chatIdMasked,
+        error: data.description || 'Kredensial token bot Telegram tidak valid',
+      };
+    }
+  } catch (err: any) {
+    return {
+      isValid: false,
+      chatIdConfigured,
+      chatIdMasked,
+      error: err?.message || 'Gagal menghubungi server Telegram',
+    };
+  }
+}
+
+/**
+ * Save Telegram configuration to settings table (focusing on operational schedule & automation switches)
  */
 export async function saveTelegramConfig(
   config: Partial<TelegramConfig>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const updates = [
-      { key: 'telegram_otomasi_aktif', value: String(config.otomasiAktif ?? true), deskripsi: 'Master Switch Automasi Telegram' },
-      { key: 'telegram_laporan_pagi_aktif', value: String(config.laporanPagiAktif ?? true), deskripsi: 'Status Laporan Pagi Harian' },
-      { key: 'telegram_laporan_pagi_jam', value: config.laporanPagiJam || '06:00', deskripsi: 'Jam Pengiriman Laporan Pagi' },
-      { key: 'telegram_rekap_malam_aktif', value: String(config.rekapMalamAktif ?? true), deskripsi: 'Status Rekap Sesi Malam' },
-      { key: 'telegram_rekap_malam_jam', value: config.rekapMalamJam || '21:00', deskripsi: 'Jam Pengiriman Rekap Malam' },
-      { key: 'telegram_pengingat_progress_aktif', value: String(config.pengingatProgressAktif ?? true), deskripsi: 'Status Pengingat Progress Instruktur' },
-      { key: 'telegram_bot_token', value: config.botToken || '', deskripsi: 'Custom Telegram Bot Token' },
-      { key: 'telegram_chat_id', value: config.chatId || '', deskripsi: 'Custom Telegram Chat ID' },
-      { key: 'telegram_include_odometer', value: String(config.includeOdometer ?? true), deskripsi: 'Sertakan Status Odometer Armada' },
-    ];
+    const updates: { key: string; value: string; deskripsi: string }[] = [];
+
+    if (config.otomasiAktif !== undefined) {
+      updates.push({ key: 'telegram_otomasi_aktif', value: String(config.otomasiAktif), deskripsi: 'Master Switch Automasi Telegram' });
+    }
+    if (config.laporanPagiAktif !== undefined) {
+      updates.push({ key: 'telegram_laporan_pagi_aktif', value: String(config.laporanPagiAktif), deskripsi: 'Status Laporan Pagi Harian' });
+    }
+    if (config.laporanPagiJam !== undefined) {
+      updates.push({ key: 'telegram_laporan_pagi_jam', value: config.laporanPagiJam, deskripsi: 'Jam Pengiriman Laporan Pagi' });
+    }
+    if (config.rekapMalamAktif !== undefined) {
+      updates.push({ key: 'telegram_rekap_malam_aktif', value: String(config.rekapMalamAktif), deskripsi: 'Status Rekap Sesi Malam' });
+    }
+    if (config.rekapMalamJam !== undefined) {
+      updates.push({ key: 'telegram_rekap_malam_jam', value: config.rekapMalamJam, deskripsi: 'Jam Pengiriman Rekap Malam' });
+    }
+    if (config.pengingatProgressAktif !== undefined) {
+      updates.push({ key: 'telegram_pengingat_progress_aktif', value: String(config.pengingatProgressAktif), deskripsi: 'Status Pengingat Progress Instruktur' });
+    }
+    if (config.includeOdometer !== undefined) {
+      updates.push({ key: 'telegram_include_odometer', value: String(config.includeOdometer), deskripsi: 'Sertakan Status Odometer Armada' });
+    }
+    if (config.botToken !== undefined && config.botToken !== '') {
+      updates.push({ key: 'telegram_bot_token', value: config.botToken, deskripsi: 'Custom Telegram Bot Token' });
+    }
+    if (config.chatId !== undefined && config.chatId !== '') {
+      updates.push({ key: 'telegram_chat_id', value: config.chatId, deskripsi: 'Custom Telegram Chat ID' });
+    }
 
     for (const item of updates) {
       await dbQuery(

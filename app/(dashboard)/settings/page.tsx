@@ -12,7 +12,9 @@ import {
   sendTelegramMessageAction,
   getTelegramConfig,
   saveTelegramConfig,
+  checkTelegramConnection,
   TelegramConfig,
+  TelegramConnectionStatus,
 } from '@/lib/actions/telegram';
 import {
   getRekeningList,
@@ -185,10 +187,19 @@ export default function SettingsPage() {
   const [disablePinError, setDisablePinError] = React.useState<string | null>(null);
   const [disablePinLoading, setDisablePinLoading] = React.useState(false);
 
+  // Initial PIN Creation Modal (when toggling ON for first time)
+  const [showCreatePinModal, setShowCreatePinModal] = React.useState(false);
+  const [createPinInput, setCreatePinInput] = React.useState('');
+  const [createPinConfirmInput, setCreatePinConfirmInput] = React.useState('');
+  const [createPinError, setCreatePinError] = React.useState<string | null>(null);
+  const [createPinLoading, setCreatePinLoading] = React.useState(false);
+
   const { lockSession } = usePinStore();
 
   // Telegram Config State
   const [telegramConfig, setTelegramConfig] = React.useState<TelegramConfig>(INITIAL_TELEGRAM_CONFIG);
+  const [telegramStatus, setTelegramStatus] = React.useState<TelegramConnectionStatus | null>(null);
+  const [checkingTelegram, setCheckingTelegram] = React.useState(false);
   const [loadingTelegram, setLoadingTelegram] = React.useState(true);
   const [savingTelegram, setSavingTelegram] = React.useState(false);
   const [telegramSaveSuccess, setTelegramSaveSuccess] = React.useState(false);
@@ -227,11 +238,12 @@ export default function SettingsPage() {
       setLoadingTelegram(true);
       setLoadingRekening(true);
       try {
-        const [genCfg, tgCfg, rekList, pinCfg] = await Promise.all([
+        const [genCfg, tgCfg, rekList, pinCfg, tgStatus] = await Promise.all([
           getGeneralSettings(),
           getTelegramConfig(),
           getRekeningList(),
           getPinSettings(),
+          checkTelegramConnection(),
         ]);
         if (!isMounted) return;
         setNamaPerusahaan(genCfg.namaPerusahaan);
@@ -240,6 +252,7 @@ export default function SettingsPage() {
         setPertalitePrice(genCfg.pertalitePrice);
         setPertamaxPrice(genCfg.pertamaxPrice);
         setTelegramConfig(tgCfg);
+        setTelegramStatus(tgStatus);
         setRekeningList(rekList);
         setPinEnabled(pinCfg.isEnabled);
         setHasExistingPin(pinCfg.hasPin);
@@ -449,6 +462,18 @@ export default function SettingsPage() {
     }
   };
 
+  const handleCheckTelegramStatus = async () => {
+    setCheckingTelegram(true);
+    try {
+      const status = await checkTelegramConnection();
+      setTelegramStatus(status);
+    } catch (e) {
+      console.error('Error checking telegram status:', e);
+    } finally {
+      setCheckingTelegram(false);
+    }
+  };
+
   const handleSaveTelegram = async () => {
     setSavingTelegram(true);
     setTelegramSaveSuccess(false);
@@ -458,6 +483,7 @@ export default function SettingsPage() {
     if (res.success) {
       setTelegramSaveSuccess(true);
       setTimeout(() => setTelegramSaveSuccess(false), 3000);
+      handleCheckTelegramStatus();
     } else {
       alert('Gagal menyimpan pengaturan Telegram: ' + res.error);
     }
@@ -465,22 +491,59 @@ export default function SettingsPage() {
 
   const handleTogglePinSwitch = async () => {
     if (pinEnabled) {
-      // If currently enabled, require PIN before disabling
+      // If currently enabled, require current PIN before disabling
       setDisablePinInput('');
       setDisablePinError(null);
       setShowDisablePinModal(true);
     } else {
-      // If currently disabled, turn ON directly
-      setPinLoading(true);
-      const res = await toggleKasPin(true);
-      setPinLoading(false);
-      if (res.success) {
-        setPinEnabled(true);
-        setPinSuccess('Proteksi PIN Kas & Keuangan diaktifkan!');
-        setTimeout(() => setPinSuccess(null), 4000);
+      // If currently disabled, check if PIN has been set
+      if (!hasExistingPin) {
+        setCreatePinInput('');
+        setCreatePinConfirmInput('');
+        setCreatePinError(null);
+        setShowCreatePinModal(true);
       } else {
-        setPinError(res.error || 'Gagal mengaktifkan proteksi PIN');
+        setPinLoading(true);
+        const res = await toggleKasPin(true);
+        setPinLoading(false);
+        if (res.success) {
+          setPinEnabled(true);
+          setPinSuccess('Proteksi PIN Kas & Keuangan diaktifkan!');
+          setTimeout(() => setPinSuccess(null), 4000);
+        } else {
+          setPinError(res.error || 'Gagal mengaktifkan proteksi PIN');
+        }
       }
+    }
+  };
+
+  const handleConfirmCreateInitialPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (createPinInput.length !== 6 || !/^\d+$/.test(createPinInput)) {
+      setCreatePinError('PIN Baru harus berupa 6 digit angka');
+      return;
+    }
+    if (createPinInput !== createPinConfirmInput) {
+      setCreatePinError('Konfirmasi PIN tidak cocok dengan PIN baru');
+      return;
+    }
+
+    setCreatePinLoading(true);
+    setCreatePinError(null);
+
+    const res = await setInitialKasPin(createPinInput);
+    setCreatePinLoading(false);
+
+    if (res.success) {
+      setHasExistingPin(true);
+      setPinEnabled(true);
+      setShowCreatePinModal(false);
+      setCreatePinInput('');
+      setCreatePinConfirmInput('');
+      setPinSuccess('PIN baru berhasil dibuat dan proteksi PIN diaktifkan!');
+      setTimeout(() => setPinSuccess(null), 4000);
+    } else {
+      setCreatePinError(res.error || 'Gagal membuat PIN baru');
     }
   };
 
@@ -1061,40 +1124,65 @@ export default function SettingsPage() {
             </div>
           ) : (
             <div className="space-y-4 text-xs">
-              {/* Credentials Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Bot Token Telegram</label>
-                  <input
-                    type="text"
-                    value={telegramConfig.botToken}
-                    onChange={(e) =>
-                      setTelegramConfig((prev) => ({
-                        ...prev,
-                        botToken: e.target.value,
-                      }))
-                    }
-                    placeholder="Contoh: 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-medium"
-                  />
+              {/* Status Koneksi Telegram (Realtime dari Environment Variables Vercel) */}
+              <div className="p-4 rounded-2xl bg-[var(--bg)] border border-[var(--border)] shadow-xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-xs text-[var(--text-primary)]">Status Koneksi Bot Telegram:</span>
+                    {telegramStatus?.isValid ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Terkoneksi & Valid
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                        Tidak Terhubung
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCheckTelegramStatus}
+                    disabled={checkingTelegram}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:underline disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${checkingTelegram ? 'animate-spin' : ''}`} />
+                    <span>{checkingTelegram ? 'Memeriksa...' : 'Periksa Ulang'}</span>
+                  </button>
                 </div>
 
-                <div>
-                  <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                    Chat ID / Group ID Tujuan
-                  </label>
-                  <input
-                    type="text"
-                    value={telegramConfig.chatId}
-                    onChange={(e) =>
-                      setTelegramConfig((prev) => ({
-                        ...prev,
-                        chatId: e.target.value,
-                      }))
-                    }
-                    placeholder="Contoh: -1001234567890 atau @channel_username"
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-medium"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <span className="text-[10px] text-[var(--text-secondary)] block">Nama Bot</span>
+                    <span className="font-semibold text-[var(--text-primary)]">
+                      {telegramStatus?.botName || (telegramStatus?.isValid ? 'Amanah Drive Bot' : '-')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[var(--text-secondary)] block">Username Bot</span>
+                    <span className="font-mono font-bold text-sky-600 dark:text-sky-400">
+                      {telegramStatus?.botUsername || '-'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[var(--text-secondary)] block">Target Chat ID</span>
+                    <span className="font-mono font-medium text-[var(--text-primary)]">
+                      {telegramStatus?.chatIdMasked ? `${telegramStatus.chatIdMasked} (Terkonfigurasi)` : 'Belum Terpasang'}
+                    </span>
+                  </div>
+                </div>
+
+                {telegramStatus?.error && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-[var(--danger)] text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{telegramStatus.error}</span>
+                  </div>
+                )}
+
+                <div className="p-2.5 rounded-xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-900/40 text-[11px] text-sky-900 dark:text-sky-200 leading-relaxed">
+                  Kredensial Telegram dikelola secara aman melalui <strong>Environment Variables Vercel</strong> (<code>TELEGRAM_BOT_TOKEN</code> & <code>TELEGRAM_CHAT_ID</code>). Kredensial aktif langsung di server dan tidak perlu diinput manual ke database.
                 </div>
               </div>
 
@@ -1202,7 +1290,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={handleTestTelegram}
-                  disabled={testSending || !telegramConfig.botToken || !telegramConfig.chatId}
+                  disabled={testSending || !telegramStatus?.isValid}
                   className="py-2 px-3 border border-sky-400 dark:border-sky-700 bg-sky-100 dark:bg-sky-950/40 hover:bg-sky-200 dark:hover:bg-sky-900/50 disabled:opacity-50 text-sky-800 dark:text-sky-300 font-bold rounded-xl flex items-center gap-1.5 transition-colors"
                 >
                   <Send className="w-3.5 h-3.5" />
@@ -1508,6 +1596,82 @@ export default function SettingsPage() {
                   className="flex-1 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white transition-colors shadow-xs"
                 >
                   {disablePinLoading ? 'Memproses...' : 'Nonaktifkan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Pembuatan PIN Baru Pertama Kali */}
+      {showCreatePinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl space-y-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center mx-auto">
+              <KeyRound className="w-6 h-6" />
+            </div>
+
+            <div>
+              <h3 className="font-bold text-base text-[var(--text-primary)]">Buat PIN Baru Pertama Kali</h3>
+              <p className="text-xs text-[var(--text-secondary)] mt-1">
+                Tentukan 6 digit kode PIN untuk mengunci akses menu Kas, Keuangan, dan Cetak Nota.
+              </p>
+            </div>
+
+            <form onSubmit={handleConfirmCreateInitialPin} className="space-y-3.5 text-left">
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                  PIN Baru (6 Digit)
+                </label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={createPinInput}
+                  onChange={(e) => setCreatePinInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="••••••"
+                  required
+                  autoFocus
+                  className="w-full px-4 py-2 text-center text-xl tracking-widest font-bold tabular-nums rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                  Ulangi Konfirmasi PIN Baru
+                </label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={createPinConfirmInput}
+                  onChange={(e) => setCreatePinConfirmInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="••••••"
+                  required
+                  className="w-full px-4 py-2 text-center text-xl tracking-widest font-bold tabular-nums rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              {createPinError && (
+                <p className="text-xs text-[var(--danger)] font-medium text-center">{createPinError}</p>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => setShowCreatePinModal(false)}
+                  className="flex-1 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] transition-colors text-center"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={createPinLoading || createPinInput.length !== 6 || createPinConfirmInput.length !== 6}
+                  className="flex-1 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white transition-colors shadow-xs text-center"
+                >
+                  {createPinLoading ? 'Menyimpan...' : 'Simpan & Aktifkan'}
                 </button>
               </div>
             </form>

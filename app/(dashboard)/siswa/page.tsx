@@ -310,12 +310,66 @@ export default function SiswaPage() {
       sortingFn: 'text',
       cell: ({ row }) => {
         const s = row.original.status_pembayaran;
+        const kode = row.original.status_pembayaran_kode;
+        const hargaFinal = Number(row.original.harga_final) || 0;
+        const dpNominal = Number(row.original.dp_nominal) || 0;
+
+        if (kode === 'dp') {
+          const pct = hargaFinal > 0 ? Math.round((dpNominal / hargaFinal) * 100) : 0;
+          const sisa = Math.max(0, hargaFinal - dpNominal);
+          return (
+            <div className="space-y-0.5">
+              <span
+                className="px-2.5 py-0.5 text-xs text-white font-bold rounded-md inline-block shadow-xs"
+                style={{ backgroundColor: s?.warna_badge || '#B9821B' }}
+              >
+                DP {pct}% ({formatRupiah(dpNominal)})
+              </span>
+              <div className="text-[10.5px] text-[var(--danger)] font-semibold">
+                Sisa Piutang: {formatRupiah(sisa)}
+              </div>
+            </div>
+          );
+        }
+
+        if (kode === 'belum_bayar') {
+          return (
+            <div className="space-y-0.5">
+              <span
+                className="px-2.5 py-0.5 text-xs text-white font-bold rounded-md inline-block shadow-xs"
+                style={{ backgroundColor: s?.warna_badge || '#C13D3D' }}
+              >
+                Belum Bayar
+              </span>
+              <div className="text-[10.5px] text-[var(--danger)] font-semibold">
+                Piutang: {formatRupiah(hargaFinal)}
+              </div>
+            </div>
+          );
+        }
+
+        if (kode === 'lunas') {
+          return (
+            <div className="space-y-0.5">
+              <span
+                className="px-2.5 py-0.5 text-xs text-white font-bold rounded-md inline-block shadow-xs"
+                style={{ backgroundColor: s?.warna_badge || '#1B8A5A' }}
+              >
+                Lunas (100%)
+              </span>
+              <div className="text-[10.5px] text-emerald-600 font-semibold">
+                Terbayar Penuh
+              </div>
+            </div>
+          );
+        }
+
         return (
           <span
             className="px-2.5 py-1 text-xs text-white font-bold rounded-md inline-block"
             style={{ backgroundColor: s?.warna_badge || '#5C6E6B' }}
           >
-            {s?.label || row.original.status_pembayaran_kode}
+            {s?.label || kode}
           </span>
         );
       },

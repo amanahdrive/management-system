@@ -155,12 +155,16 @@ export default function SiswaDetailPage() {
 
             <div className="pt-1">
               <span className="text-[var(--text-secondary)] block">Status Pembayaran:</span>
-              <span
-                className="inline-block mt-1 px-3 py-1 text-xs font-bold text-white rounded-md"
-                style={{ backgroundColor: siswa.status_pembayaran?.warna_badge || '#5C6E6B' }}
-              >
-                {siswa.status_pembayaran?.label || siswa.status_pembayaran_kode}
-              </span>
+              <div className="mt-1">
+                <span
+                  className="inline-block px-3 py-1 text-xs font-bold text-white rounded-md shadow-xs"
+                  style={{ backgroundColor: siswa.status_pembayaran?.warna_badge || (siswa.status_pembayaran_kode === 'lunas' ? '#1B8A5A' : siswa.status_pembayaran_kode === 'dp' ? '#B9821B' : '#C13D3D') }}
+                >
+                  {siswa.status_pembayaran_kode === 'dp'
+                    ? `DP ${siswa.harga_final > 0 ? Math.round(((siswa.dp_nominal || 0) / siswa.harga_final) * 100) : 0}% (${formatRupiah(siswa.dp_nominal || 0)})`
+                    : (siswa.status_pembayaran?.label || siswa.status_pembayaran_kode)}
+                </span>
+              </div>
             </div>
 
             <div className="pt-2 border-t border-[var(--border)]">
