@@ -9,6 +9,8 @@ import {
   getKasKategoriList,
   getHutangList,
   addHutang,
+  updateHutang,
+  deleteHutang,
   payHutangCicilan,
   getDpKustomList,
   DpKustomItem,
@@ -20,6 +22,7 @@ import { getPinSettings, verifyKasPin } from '@/lib/actions/kas-pin';
 import { formatRupiah } from '@/lib/utils/currency';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { PwaInstallModal } from '@/components/shared/PwaInstallModal';
 import {
@@ -27,6 +30,8 @@ import {
   TrendingDown,
   Wallet,
   Plus,
+  Pencil,
+  Trash2,
   RefreshCw,
   Download,
   Check,
@@ -175,6 +180,12 @@ export default function FinancePortalPage() {
   });
   const [savingHutang, setSavingHutang] = React.useState(false);
 
+  // Edit & Delete Hutang State
+  const [editHutang, setEditHutang] = React.useState<Hutang | null>(null);
+  const [editHutangForm, setEditHutangForm] = React.useState<Partial<Hutang>>({});
+  const [savingEditHutang, setSavingEditHutang] = React.useState(false);
+  const [deletingHutang, setDeletingHutang] = React.useState<Hutang | null>(null);
+
   // Check PIN Configuration on mount (Respect settings: default off)
   React.useEffect(() => {
     (async () => {
@@ -251,7 +262,46 @@ export default function FinancePortalPage() {
         getDpKustomList(),
         getRekeningList(),
       ]);
-      setMetrics(m as any);
+      let calculatedMetrics = { ...m };
+      if (txList) {
+        let tunai = 0;
+        let nonTunai = 0;
+        txList.forEach((tx) => {
+          const nom = Number(tx.nominal) || 0;
+          const isTunai = (tx.jenis_pembayaran || 'tunai') === 'tunai';
+          if (tx.tipe === 'pemasukan') {
+            if (isTunai) tunai += nom;
+            else nonTunai += nom;
+          } else {
+            if (isTunai) tunai -= nom;
+            else nonTunai -= nom;
+          }
+        });
+        calculatedMetrics.saldoTunai = tunai;
+        calculatedMetrics.saldoNonTunai = nonTunai;
+        calculatedMetrics.saldoAktif = tunai + nonTunai;
+      }
+      if (sList) {
+        let pTotal = 0;
+        sList.forEach((s) => {
+          if (s.status_pembayaran_kode === 'dp') {
+            pTotal += Math.max(0, (Number(s.harga_final) || 0) - (Number(s.dp_nominal) || 0));
+          } else if (s.status_pembayaran_kode === 'belum_bayar') {
+            pTotal += Number(s.harga_final) || 0;
+          }
+        });
+        calculatedMetrics.totalPiutang = pTotal;
+      }
+      if (hList) {
+        let hTotal = 0;
+        hList.forEach((h) => {
+          if (h.status === 'berjalan') {
+            hTotal += Number(h.sisa_hutang) || 0;
+          }
+        });
+        calculatedMetrics.totalHutang = hTotal;
+      }
+      setMetrics(calculatedMetrics as any);
       setRecentTx(txList);
       setKategoriList(kList);
       setSiswaList(sList);
@@ -525,6 +575,49 @@ export default function FinancePortalPage() {
       loadData();
     } else {
       alert('Gagal menambah hutang: ' + res.error);
+    }
+  };
+
+  const handleOpenEditHutang = (h: Hutang) => {
+    setEditHutang(h);
+    setEditHutangForm({
+      nama_hutang: h.nama_hutang,
+      jenis: h.jenis,
+      total_hutang: h.total_hutang,
+      sisa_hutang: h.sisa_hutang,
+      cicilan_per_bulan: h.cicilan_per_bulan || 0,
+      jatuh_tempo_bulanan: h.jatuh_tempo_bulanan || 1,
+      status: h.status,
+    });
+  };
+
+  const handleSaveEditHutang = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editHutang) return;
+    setSavingEditHutang(true);
+
+    const res = await updateHutang(editHutang.id, editHutangForm);
+    setSavingEditHutang(false);
+
+    if (res.success) {
+      setEditHutang(null);
+      showToast('Data hutang berhasil diperbarui!');
+      loadData();
+    } else {
+      alert('Gagal memperbarui hutang: ' + res.error);
+    }
+  };
+
+  const handleConfirmDeleteHutang = async () => {
+    if (!deletingHutang) return;
+    const res = await deleteHutang(deletingHutang.id);
+    setDeletingHutang(null);
+
+    if (res.success) {
+      showToast('Data hutang berhasil dihapus!');
+      loadData();
+    } else {
+      alert('Gagal menghapus hutang: ' + res.error);
     }
   };
 
@@ -1123,12 +1216,29 @@ export default function FinancePortalPage() {
                         </div>
                       </div>
 
-                      {!isLunas && (
-                        <div className="flex items-center justify-between pt-1">
-                          <div className="text-[10.5px] text-[var(--text-secondary)]">
-                            Cicilan: <strong>{formatRupiah(h.cicilan_per_bulan || 0)}/bln</strong>
-                          </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditHutang(h)}
+                            className="px-2.5 py-1 text-[11px] font-semibold text-amber-600 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg flex items-center gap-1 transition-colors"
+                            title="Edit Hutang"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingHutang(h)}
+                            className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-lg flex items-center gap-1 transition-colors"
+                            title="Hapus Hutang"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Hapus</span>
+                          </button>
+                        </div>
 
+                        {!isLunas ? (
                           <button
                             type="button"
                             onClick={() => handleOpenCicilan(h)}
@@ -1137,8 +1247,10 @@ export default function FinancePortalPage() {
                             <Banknote className="w-3.5 h-3.5" />
                             <span>Bayar Cicilan</span>
                           </button>
-                        </div>
-                      )}
+                        ) : (
+                          <span className="text-[10px] font-semibold text-emerald-600">Lunas Penuh</span>
+                        )}
+                      </div>
                     </div>
                   );
                 })
@@ -1691,6 +1803,108 @@ export default function FinancePortalPage() {
           </div>
         </div>
       )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* ── MODAL 5: EDIT HUTANG ── */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {editHutang && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <h3 className="font-bold text-sm text-[var(--text-primary)] flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-amber-600" />
+                <span>Edit Catatan Hutang</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditHutang(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditHutang} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                  Nama Hutang / Entitas *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editHutangForm.nama_hutang || ''}
+                  onChange={(e) => setEditHutangForm({ ...editHutangForm, nama_hutang: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <CurrencyInput
+                  label="Total Hutang *"
+                  value={editHutangForm.total_hutang}
+                  onChange={(val) => setEditHutangForm({ ...editHutangForm, total_hutang: val })}
+                />
+                <CurrencyInput
+                  label="Sisa Hutang *"
+                  value={editHutangForm.sisa_hutang}
+                  onChange={(val) => setEditHutangForm({ ...editHutangForm, sisa_hutang: val })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <CurrencyInput
+                    label="Cicilan/Bulan"
+                    value={editHutangForm.cicilan_per_bulan}
+                    onChange={(val) => setEditHutangForm({ ...editHutangForm, cicilan_per_bulan: val })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={editHutangForm.status || 'berjalan'}
+                    onChange={(e) => setEditHutangForm({ ...editHutangForm, status: e.target.value as any })}
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                  >
+                    <option value="berjalan">Berjalan</option>
+                    <option value="lunas">Lunas</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-[var(--border)] flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditHutang(null)}
+                  className="flex-1 py-2 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] font-semibold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEditHutang}
+                  className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-xs disabled:opacity-50"
+                >
+                  {savingEditHutang ? 'Menyimpan...' : 'Simpan Perubahan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Dialog Hapus Hutang */}
+      <ConfirmDialog
+        isOpen={!!deletingHutang}
+        onClose={() => setDeletingHutang(null)}
+        onConfirm={handleConfirmDeleteHutang}
+        title="Hapus Catatan Hutang"
+        description={`Apakah Anda yakin ingin menghapus catatan hutang "${deletingHutang?.nama_hutang}"? Riwayat pembayaran cicilan hutang ini juga akan dihapus.`}
+        confirmText="Hapus Hutang"
+        isDanger
+      />
 
       {/* PWA Install Modal */}
       {showInstallModal && deferredPrompt && (

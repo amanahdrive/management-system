@@ -15,6 +15,7 @@ import {
   getKasKategoriList,
   deleteKasTransaksi,
   getDpKustomList,
+  getHutangList,
   DpKustomItem,
 } from '@/lib/actions/kas';
 import { getSiswaList } from '@/lib/actions/siswa';
@@ -82,7 +83,7 @@ export default function KasOverviewPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [mRes, tRes, kRes, sRes, pRes, dpKRes, rList] = await Promise.allSettled([
+      const [mRes, tRes, kRes, sRes, pRes, dpKRes, rList, hList] = await Promise.allSettled([
         getKasOverviewMetrics(),
         getKasTransaksiList(),
         getKasKategoriList(),
@@ -90,12 +91,72 @@ export default function KasOverviewPage() {
         getPaketList(),
         getDpKustomList(),
         getRekeningList(),
+        getHutangList(),
       ]);
 
-      if (mRes.status === 'fulfilled' && mRes.value) setMetrics(mRes.value);
-      if (tRes.status === 'fulfilled' && tRes.value) setTransaksiList(tRes.value);
+      let calculatedMetrics = {
+        saldoAktif: 0,
+        saldoTunai: 0,
+        saldoNonTunai: 0,
+        totalPiutang: 0,
+        totalHutang: 0,
+      };
+
+      if (mRes.status === 'fulfilled' && mRes.value) {
+        calculatedMetrics = { ...mRes.value };
+      }
+
+      if (tRes.status === 'fulfilled' && tRes.value) {
+        setTransaksiList(tRes.value);
+        let tunai = 0;
+        let nonTunai = 0;
+        tRes.value.forEach((tx) => {
+          const nom = Number(tx.nominal) || 0;
+          const isTunai = (tx.jenis_pembayaran || 'tunai') === 'tunai';
+          if (tx.tipe === 'pemasukan') {
+            if (isTunai) tunai += nom;
+            else nonTunai += nom;
+          } else {
+            if (isTunai) tunai -= nom;
+            else nonTunai -= nom;
+          }
+        });
+        calculatedMetrics.saldoTunai = tunai;
+        calculatedMetrics.saldoNonTunai = nonTunai;
+        calculatedMetrics.saldoAktif = tunai + nonTunai;
+      }
+
       if (kRes.status === 'fulfilled' && kRes.value) setKategoriList(kRes.value);
-      if (sRes.status === 'fulfilled' && sRes.value) setSiswaList(sRes.value);
+
+      if (sRes.status === 'fulfilled' && sRes.value) {
+        setSiswaList(sRes.value);
+        let pTotal = 0;
+        sRes.value.forEach((s) => {
+          if (s.status_pembayaran_kode === 'dp') {
+            pTotal += Math.max(0, (Number(s.harga_final) || 0) - (Number(s.dp_nominal) || 0));
+          } else if (s.status_pembayaran_kode === 'belum_bayar') {
+            pTotal += Number(s.harga_final) || 0;
+          }
+        });
+        if (pTotal > 0 || calculatedMetrics.totalPiutang === 0) {
+          calculatedMetrics.totalPiutang = pTotal;
+        }
+      }
+
+      if (hList.status === 'fulfilled' && hList.value) {
+        let hTotal = 0;
+        hList.value.forEach((h) => {
+          if (h.status === 'berjalan') {
+            hTotal += Number(h.sisa_hutang) || 0;
+          }
+        });
+        if (hTotal > 0 || calculatedMetrics.totalHutang === 0) {
+          calculatedMetrics.totalHutang = hTotal;
+        }
+      }
+
+      setMetrics(calculatedMetrics);
+
       if (pRes.status === 'fulfilled' && pRes.value) setPaketList(pRes.value);
       if (dpKRes.status === 'fulfilled' && dpKRes.value) setDpKustomList(dpKRes.value);
       if (rList.status === 'fulfilled' && rList.value) {

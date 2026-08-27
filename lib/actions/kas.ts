@@ -2,7 +2,7 @@
 
 import { dbQuery, dbQuerySingle, dbExecute } from '@/lib/db';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
-import { KasTransaksi, Hutang, KasKategori } from '@/types/database';
+import { KasTransaksi, Hutang, KasKategori, HutangPembayaran } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 
 const METRICS_CACHE_KEY = 'kas_overview_metrics';
@@ -56,11 +56,11 @@ export async function getKasOverviewMetrics() {
 
     if (row) {
       return {
-        saldoAktif: Number(row.saldoAktif) || 0,
-        saldoTunai: Number(row.saldoTunai) || 0,
-        saldoNonTunai: Number(row.saldoNonTunai) || 0,
-        totalPiutang: Number(row.totalPiutang) || 0,
-        totalHutang: Number(row.totalHutang) || 0,
+        saldoAktif: Number((row as any).saldoAktif ?? (row as any).saldoaktif ?? (row as any).saldo_aktif ?? 0),
+        saldoTunai: Number((row as any).saldoTunai ?? (row as any).saldotunai ?? (row as any).saldo_tunai ?? 0),
+        saldoNonTunai: Number((row as any).saldoNonTunai ?? (row as any).saldonontunai ?? (row as any).saldo_non_tunai ?? 0),
+        totalPiutang: Number((row as any).totalPiutang ?? (row as any).totalpiutang ?? (row as any).total_piutang ?? 0),
+        totalHutang: Number((row as any).totalHutang ?? (row as any).totalhutang ?? (row as any).total_hutang ?? 0),
       };
     }
   } catch (e) {
@@ -375,6 +375,177 @@ export async function payHutangCicilan(
       'UPDATE hutang SET sisa_hutang = $1, status = $2, updated_at = NOW() WHERE id = $3',
       [newSisa, newStatus, hutangId]
     );
+
+    cacheInvalidate('hutang*');
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+
+    revalidatePath('/kas/hutang');
+    revalidatePath('/kas');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function updateHutang(
+  id: string,
+  updates: Partial<Hutang>
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { id: _, created_at, updated_at, ...cleanUpdates } = updates as any;
+    const keys = Object.keys(cleanUpdates).filter((k) => cleanUpdates[k] !== undefined);
+
+    if (keys.length > 0) {
+      const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+      const values = keys.map((k) => cleanUpdates[k]);
+      values.push(id);
+      await dbQuery(`UPDATE hutang SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length}`, values);
+    }
+
+    cacheInvalidate('hutang*');
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+
+    revalidatePath('/kas/hutang');
+    revalidatePath('/kas');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function deleteHutang(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    // 1. Delete associated payment logs in hutang_pembayaran
+    await dbQuery('DELETE FROM hutang_pembayaran WHERE hutang_id = $1', [id]);
+    // 2. Unlink kas_transaksi so transaction history isn't deleted
+    await dbQuery('UPDATE kas_transaksi SET hutang_id = NULL WHERE hutang_id = $1', [id]);
+    // 3. Delete the hutang record
+    await dbQuery('DELETE FROM hutang WHERE id = $1', [id]);
+
+    cacheInvalidate('hutang*');
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+
+    revalidatePath('/kas/hutang');
+    revalidatePath('/kas');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export interface HutangPembayaranDetail extends HutangPembayaran {
+  nama_hutang?: string;
+  jenis_pembayaran?: string;
+  pic_nama?: string;
+}
+
+export async function getHutangPembayaranList(): Promise<HutangPembayaranDetail[]> {
+  try {
+    const rows = await dbQuery<HutangPembayaranDetail>(`
+      SELECT 
+        hp.*,
+        h.nama_hutang,
+        COALESCE(kt.jenis_pembayaran, 'non_tunai') AS jenis_pembayaran,
+        COALESCE(kt.pic_nama, 'Finance Admin') AS pic_nama
+      FROM hutang_pembayaran hp
+      LEFT JOIN hutang h ON hp.hutang_id = h.id
+      LEFT JOIN kas_transaksi kt ON hp.kas_transaksi_id = kt.id
+      ORDER BY hp.tanggal_bayar DESC, hp.created_at DESC
+    `);
+    return rows;
+  } catch (err) {
+    console.error('Error fetching hutang pembayaran list:', err);
+    return [];
+  }
+}
+
+export async function updateHutangPembayaran(
+  id: string,
+  updates: { nominal: number; tanggal_bayar: string; jenis_pembayaran?: 'tunai' | 'non_tunai' }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const old = await dbQuerySingle<HutangPembayaran>(
+      'SELECT * FROM hutang_pembayaran WHERE id = $1',
+      [id]
+    );
+    if (!old) return { success: false, error: 'Data pembayaran cicilan tidak ditemukan' };
+
+    const nominalBaru = Number(updates.nominal) || 0;
+    const nominalLama = Number(old.nominal) || 0;
+    const diff = nominalBaru - nominalLama;
+
+    if (diff !== 0 && old.hutang_id) {
+      const h = await dbQuerySingle<{ id: string; sisa_hutang: number }>(
+        'SELECT id, sisa_hutang FROM hutang WHERE id = $1',
+        [old.hutang_id]
+      );
+      if (h) {
+        const sisaBaru = Math.max(0, (Number(h.sisa_hutang) || 0) - diff);
+        const statusBaru = sisaBaru <= 0 ? 'lunas' : 'berjalan';
+        await dbQuery(
+          'UPDATE hutang SET sisa_hutang = $1, status = $2, updated_at = NOW() WHERE id = $3',
+          [sisaBaru, statusBaru, old.hutang_id]
+        );
+      }
+    }
+
+    if (old.kas_transaksi_id) {
+      await dbQuery(
+        'UPDATE kas_transaksi SET nominal = $1, tanggal = $2, jenis_pembayaran = COALESCE($3, jenis_pembayaran), updated_at = NOW() WHERE id = $4',
+        [nominalBaru, updates.tanggal_bayar, updates.jenis_pembayaran || null, old.kas_transaksi_id]
+      );
+    }
+
+    await dbQuery(
+      'UPDATE hutang_pembayaran SET nominal = $1, tanggal_bayar = $2, updated_at = NOW() WHERE id = $3',
+      [nominalBaru, updates.tanggal_bayar, id]
+    );
+
+    cacheInvalidate('hutang*');
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+
+    revalidatePath('/kas/hutang');
+    revalidatePath('/kas');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function deleteHutangPembayaran(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const old = await dbQuerySingle<HutangPembayaran>(
+      'SELECT * FROM hutang_pembayaran WHERE id = $1',
+      [id]
+    );
+    if (!old) return { success: false, error: 'Data pembayaran cicilan tidak ditemukan' };
+
+    // Reverse sisa hutang
+    if (old.hutang_id) {
+      const h = await dbQuerySingle<{ id: string; sisa_hutang: number }>(
+        'SELECT id, sisa_hutang FROM hutang WHERE id = $1',
+        [old.hutang_id]
+      );
+      if (h) {
+        const sisaBaru = (Number(h.sisa_hutang) || 0) + (Number(old.nominal) || 0);
+        await dbQuery(
+          'UPDATE hutang SET sisa_hutang = $1, status = $2, updated_at = NOW() WHERE id = $3',
+          [sisaBaru, 'berjalan', old.hutang_id]
+        );
+      }
+    }
+
+    // Delete kas transaksi record
+    if (old.kas_transaksi_id) {
+      await dbQuery('DELETE FROM kas_transaksi WHERE id = $1', [old.kas_transaksi_id]);
+    }
+
+    // Delete hutang pembayaran record
+    await dbQuery('DELETE FROM hutang_pembayaran WHERE id = $1', [id]);
 
     cacheInvalidate('hutang*');
     cacheInvalidate('kas*');

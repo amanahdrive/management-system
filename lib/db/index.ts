@@ -13,10 +13,17 @@ types.setTypeParser(20, (val) => (val === null ? null : parseInt(val, 10))); // 
 const DEFAULT_POOLER_URL =
   'postgresql://postgres.yhwwhqqffgtiavapgjvc:%40Limabelas15@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres';
 
-const DB_URL =
-  process.env.DATABASE_URL ||
-  process.env.POSTGRES_URL ||
-  DEFAULT_POOLER_URL;
+function resolveDatabaseUrl(): string {
+  const envUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  if (!envUrl) return DEFAULT_POOLER_URL;
+  // Direct port 5432 on Supabase Singapore lacks IPv4 and is unreachable from Vercel Lambda
+  if (envUrl.includes('supabase.co:5432')) {
+    return DEFAULT_POOLER_URL;
+  }
+  return envUrl;
+}
+
+const DB_URL = resolveDatabaseUrl();
 
 let globalPool: Pool | null = null;
 
