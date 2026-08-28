@@ -5,14 +5,17 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { PinGateDialog } from '@/components/shared/PinGateDialog';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
-import { KasTransaksi } from '@/types/database';
+import { KasTransaksi, RekeningBank } from '@/types/database';
 import { getKasTransaksiList, getKasKategoriList, deleteKasTransaksi, updateKasTransaksi } from '@/lib/actions/kas';
+import { getRekeningList } from '@/lib/actions/rekening';
+import { DEFAULT_REKENING_LIST, LABEL_REKENING_DEFAULT } from '@/lib/constants/finance';
 import { formatRupiah } from '@/lib/utils/currency';
 import { formatDateIndo, getTodayDateString, formatTime24 } from '@/lib/utils/date';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { printStatementPdf, StatementData } from '@/lib/utils/pdf-statement';
+import Link from 'next/link';
 import ExcelJS from 'exceljs';
 import {
   ArrowLeft,
@@ -35,7 +38,6 @@ import {
   X,
   ChevronDown,
 } from 'lucide-react';
-import Link from 'next/link';
 
 const BULAN_LIST = [
   { no: 1, code: '01', short: 'Jan', long: 'Januari' },
@@ -55,6 +57,7 @@ const BULAN_LIST = [
 export default function CashflowPage() {
   const [transaksiList, setTransaksiList] = React.useState<KasTransaksi[]>([]);
   const [kategoriList, setKategoriList] = React.useState<any[]>([]);
+  const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>(DEFAULT_REKENING_LIST);
   const [loading, setLoading] = React.useState(true);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
@@ -77,9 +80,14 @@ export default function CashflowPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [tRes, kRes] = await Promise.allSettled([getKasTransaksiList(), getKasKategoriList()]);
+      const [tRes, kRes, rRes] = await Promise.allSettled([
+        getKasTransaksiList(),
+        getKasKategoriList(),
+        getRekeningList(),
+      ]);
       if (tRes.status === 'fulfilled' && tRes.value) setTransaksiList(tRes.value);
       if (kRes.status === 'fulfilled' && kRes.value) setKategoriList(kRes.value);
+      if (rRes.status === 'fulfilled' && rRes.value && rRes.value.length > 0) setRekeningList(rRes.value);
     } catch (err) {
       console.error('Error loading cashflow data:', err);
     } finally {
@@ -310,6 +318,7 @@ export default function CashflowPage() {
       keterangan: tx.keterangan,
       nominal: tx.nominal,
       jenis_pembayaran: tx.jenis_pembayaran || 'tunai',
+      rekening_id: tx.rekening_id || '',
       pic_nama: tx.pic_nama,
       pic_tipe: tx.pic_tipe,
     });
@@ -1084,7 +1093,12 @@ export default function CashflowPage() {
                     <select
                       value={editForm.jenis_pembayaran || 'tunai'}
                       onChange={(e) =>
-                        setEditForm((prev) => ({ ...prev, jenis_pembayaran: e.target.value as any }))
+                        setEditForm((prev) => ({
+                          ...prev,
+                          jenis_pembayaran: e.target.value as any,
+                          // If switching to tunai, clear rekening_id
+                          rekening_id: e.target.value === 'tunai' ? '' : prev.rekening_id,
+                        }))
                       }
                       className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
                     >
@@ -1093,6 +1107,39 @@ export default function CashflowPage() {
                     </select>
                   </div>
                 </div>
+
+                {/* Pilih Rekening Bank untuk Non-Tunai */}
+                {editForm.jenis_pembayaran === 'non_tunai' && (
+                  <div className="p-2.5 rounded-md bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 space-y-1 animate-fadeIn">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1">
+                        <CreditCard className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Pilih Rekening Bank (Non-Tunai)</span>
+                      </label>
+                      <Link
+                        href="/settings"
+                        target="_blank"
+                        className="text-[10px] text-blue-600 hover:text-blue-700 font-semibold underline"
+                      >
+                        Kelola Rekening
+                      </Link>
+                    </div>
+                    <select
+                      value={editForm.rekening_id || ''}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, rekening_id: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 rounded border border-blue-300 dark:border-blue-800 bg-[var(--bg)] font-semibold text-xs text-[var(--text-primary)]"
+                    >
+                      <option value="">{LABEL_REKENING_DEFAULT}</option>
+                      {rekeningList
+                        .filter((r) => r.aktif)
+                        .map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama}) {r.is_utama ? '⭐ Utama' : ''}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Kategori Kas</label>

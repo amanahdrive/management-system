@@ -14,6 +14,7 @@ import {
   addKasTransaksi,
   getKasKategoriList,
   deleteKasTransaksi,
+  updateKasTransaksi,
   getDpKustomList,
   getHutangList,
   DpKustomItem,
@@ -25,11 +26,12 @@ import {
   DEFAULT_KAS_KATEGORI,
   DEFAULT_REKENING_LIST,
   DEFAULT_METRICS,
+  LABEL_REKENING_DEFAULT,
   calculateLocalKasMetrics,
   formatKategoriLabel,
 } from '@/lib/constants/finance';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
-import { Siswa, Paket, RekeningBank } from '@/types/database';
+import { Siswa, Paket, RekeningBank, KasTransaksi } from '@/types/database';
 import {
   Wallet,
   ArrowUpRight,
@@ -37,6 +39,8 @@ import {
   Plus,
   FileText,
   Trash2,
+  Pencil,
+  X,
   User,
   Info,
   CheckCircle2,
@@ -61,6 +65,11 @@ export default function KasOverviewPage() {
   const [selectedRekeningId, setSelectedRekeningId] = React.useState<string>(DEFAULT_REKENING_LIST[0].id);
   const [loading, setLoading] = React.useState(true);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
+
+  // Edit modal state
+  const [editingTx, setEditingTx] = React.useState<KasTransaksi | null>(null);
+  const [editForm, setEditForm] = React.useState<Partial<KasTransaksi>>({});
+  const [savingEdit, setSavingEdit] = React.useState(false);
 
   // Form State
   const [formData, setFormData] = React.useState({
@@ -235,6 +244,36 @@ export default function KasOverviewPage() {
     await deleteKasTransaksi(deletingId);
     setDeletingId(null);
     loadData();
+  };
+
+  const handleOpenEdit = (tx: any) => {
+    setEditingTx(tx);
+    setEditForm({
+      tanggal: tx.tanggal,
+      tipe: tx.tipe,
+      kategori: tx.kategori,
+      keterangan: tx.keterangan,
+      nominal: tx.nominal,
+      jenis_pembayaran: tx.jenis_pembayaran || 'tunai',
+      rekening_id: tx.rekening_id || '',
+      pic_nama: tx.pic_nama,
+      pic_tipe: tx.pic_tipe,
+      siswa_id: tx.siswa_id || '',
+    });
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTx) return;
+    setSavingEdit(true);
+    const res = await updateKasTransaksi(editingTx.id, editForm);
+    setSavingEdit(false);
+    if (res.success) {
+      setEditingTx(null);
+      loadData();
+    } else {
+      alert('Gagal menyimpan perubahan: ' + res.error);
+    }
   };
 
   const handleTipeChange = (newTipe: 'pemasukan' | 'pengeluaran') => {
@@ -982,10 +1021,9 @@ export default function KasOverviewPage() {
                     <select
                       value={selectedRekeningId}
                       onChange={(e) => setSelectedRekeningId(e.target.value)}
-                      required
                       className="w-full px-2.5 py-1.5 text-xs rounded border border-blue-300 dark:border-blue-800 bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
                     >
-                      <option value="">-- Pilih Rekening Bank Perusahaan --</option>
+                      <option value="">{LABEL_REKENING_DEFAULT}</option>
                       {rekeningList
                         .filter((r) => r.aktif)
                         .map((r) => (
@@ -1108,6 +1146,13 @@ export default function KasOverviewPage() {
                       {tx.tipe === 'pemasukan' ? '+' : '-'} {formatRupiah(tx.nominal)}
                     </div>
                     <button
+                      onClick={() => handleOpenEdit(tx)}
+                      className="p-1 text-[var(--brand-primary)] hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded"
+                      title="Edit Transaksi Kas"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => setDeletingId(tx.id)}
                       className="p-1 text-[var(--danger)] hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded"
                       title="Hapus Transaksi Kas"
@@ -1131,6 +1176,161 @@ export default function KasOverviewPage() {
           confirmText="Hapus Transaksi"
           isDanger
         />
+
+        {/* EDIT MODAL TRANSAKSI KAS */}
+        {editingTx && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="card-container max-w-md w-full bg-[var(--bg)] shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto text-xs">
+              <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+                <h3 className="font-bold text-sm text-[var(--text-primary)]">Edit Transaksi Kas</h3>
+                <button
+                  type="button"
+                  onClick={() => setEditingTx(null)}
+                  className="p-1 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEdit} className="space-y-3">
+                <div>
+                  <DatePickerWIB
+                    label="Tanggal Transaksi"
+                    value={editForm.tanggal || ''}
+                    onChange={(val) => setEditForm((prev) => ({ ...prev, tanggal: val }))}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Tipe Transaksi</label>
+                    <select
+                      value={editForm.tipe}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, tipe: e.target.value as any }))}
+                      className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
+                    >
+                      <option value="pemasukan">Pemasukan (+)</option>
+                      <option value="pengeluaran">Pengeluaran (−)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Jenis Pembayaran</label>
+                    <select
+                      value={editForm.jenis_pembayaran || 'tunai'}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          jenis_pembayaran: e.target.value as any,
+                          rekening_id: e.target.value === 'tunai' ? '' : prev.rekening_id,
+                        }))
+                      }
+                      className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
+                    >
+                      <option value="tunai">Tunai</option>
+                      <option value="non_tunai">Non-Tunai</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Dropdown Rekening Bank Perusahaan (Jika Non-Tunai) */}
+                {editForm.jenis_pembayaran === 'non_tunai' && (
+                  <div className="p-2.5 rounded-md bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 space-y-1 animate-fadeIn">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1">
+                        <CreditCard className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Pilih Rekening Bank (Non-Tunai)</span>
+                      </label>
+                      <Link
+                        href="/settings"
+                        target="_blank"
+                        className="text-[10px] text-blue-600 hover:text-blue-700 font-semibold underline"
+                      >
+                        Kelola Rekening
+                      </Link>
+                    </div>
+                    <select
+                      value={editForm.rekening_id || ''}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, rekening_id: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 rounded border border-blue-300 dark:border-blue-800 bg-[var(--bg)] font-semibold text-xs text-[var(--text-primary)]"
+                    >
+                      <option value="">{LABEL_REKENING_DEFAULT}</option>
+                      {rekeningList
+                        .filter((r) => r.aktif)
+                        .map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama}) {r.is_utama ? '⭐ Utama' : ''}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Kategori Kas</label>
+                  <select
+                    value={editForm.kategori}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, kategori: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] text-xs"
+                  >
+                    {kategoriList.map((k) => (
+                      <option key={k.id} value={k.nama_kategori}>
+                        {formatKategoriLabel(k.nama_kategori)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Uraian / Keterangan</label>
+                  <input
+                    type="text"
+                    value={editForm.keterangan || ''}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, keterangan: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] text-xs font-medium"
+                  />
+                </div>
+
+                <div>
+                  <CurrencyInput
+                    label="Nominal (Rp)"
+                    value={editForm.nominal || 0}
+                    onChange={(val) => setEditForm((prev) => ({ ...prev, nominal: val }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Nama PIC Transaksi</label>
+                  <input
+                    type="text"
+                    value={editForm.pic_nama || ''}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, pic_nama: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] text-xs"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+                  <button
+                    type="button"
+                    onClick={() => setEditingTx(null)}
+                    className="px-4 py-2 border border-[var(--border)] rounded-md font-medium text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingEdit}
+                    className="px-4 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 text-white rounded-md font-medium text-xs"
+                  >
+                    {savingEdit ? 'Menyimpan...' : 'Simpan Perubahan'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </PinGateDialog>
   );

@@ -9,6 +9,7 @@ import { Siswa, RekeningBank } from '@/types/database';
 import { getSiswaList } from '@/lib/actions/siswa';
 import { addKasTransaksi } from '@/lib/actions/kas';
 import { getRekeningList } from '@/lib/actions/rekening';
+import { DEFAULT_REKENING_LIST, LABEL_REKENING_DEFAULT } from '@/lib/constants/finance';
 import { formatRupiah } from '@/lib/utils/currency';
 import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
 import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
@@ -20,8 +21,8 @@ import Link from 'next/link';
 
 export default function PiutangPage() {
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
-  const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>([]);
-  const [selectedRekeningId, setSelectedRekeningId] = React.useState<string>('');
+  const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>(DEFAULT_REKENING_LIST);
+  const [selectedRekeningId, setSelectedRekeningId] = React.useState<string>(DEFAULT_REKENING_LIST[0].id);
   const [loading, setLoading] = React.useState(true);
 
   // Modal Pelunasan State
@@ -365,10 +366,9 @@ export default function PiutangPage() {
                       <select
                         value={selectedRekeningId}
                         onChange={(e) => setSelectedRekeningId(e.target.value)}
-                        required
                         className="w-full px-2.5 py-1.5 text-xs rounded border border-blue-300 dark:border-blue-800 bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
                       >
-                        <option value="">-- Pilih Rekening Bank Perusahaan --</option>
+                        <option value="">{LABEL_REKENING_DEFAULT}</option>
                         {rekeningList
                           .filter((r) => r.aktif)
                           .map((r) => (

@@ -8,6 +8,7 @@ import { Siswa, Paket, RekeningBank } from '@/types/database';
 import { getSiswaList } from '@/lib/actions/siswa';
 import { getPaketList } from '@/lib/actions/master-data';
 import { getRekeningList } from '@/lib/actions/rekening';
+import { LABEL_REKENING_DEFAULT } from '@/lib/constants/finance';
 import { formatRupiah } from '@/lib/utils/currency';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 import { NotaDocumentPaper } from '@/components/shared/NotaDocumentPaper';
@@ -816,6 +817,7 @@ export default function NotaPage() {
                       onChange={(e) => setNamaBank(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold text-[var(--text-primary)] mt-1"
                     >
+                      <option value="">{LABEL_REKENING_DEFAULT}</option>
                       {rekeningList
                         .filter((r) => r.aktif)
                         .map((r) => (

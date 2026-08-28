@@ -236,8 +236,18 @@ export async function addKasTransaksi(
   txData: Partial<KasTransaksi>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const keys = Object.keys(txData).filter((k) => (txData as any)[k] !== undefined);
-    const values = keys.map((k) => (txData as any)[k]);
+    const cleanData = { ...txData } as any;
+    if (
+      cleanData.rekening_id === '' ||
+      cleanData.rekening_id === 'undefined' ||
+      cleanData.rekening_id === 'null' ||
+      cleanData.jenis_pembayaran === 'tunai'
+    ) {
+      cleanData.rekening_id = null;
+    }
+
+    const keys = Object.keys(cleanData).filter((k) => cleanData[k] !== undefined);
+    const values = keys.map((k) => cleanData[k]);
     const cols = keys.map((k) => `"${k}"`).join(', ');
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
 
@@ -553,6 +563,14 @@ export async function updateKasTransaksi(
     );
 
     const { siswa, hutang, ...cleanUpdates } = updates as any;
+    if (
+      cleanUpdates.rekening_id === '' ||
+      cleanUpdates.rekening_id === 'undefined' ||
+      cleanUpdates.rekening_id === 'null' ||
+      cleanUpdates.jenis_pembayaran === 'tunai'
+    ) {
+      cleanUpdates.rekening_id = null;
+    }
     const keys = Object.keys(cleanUpdates).filter((k) => cleanUpdates[k] !== undefined);
     
     if (keys.length > 0) {

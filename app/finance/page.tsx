@@ -6,6 +6,7 @@ import {
   getKasOverviewMetrics,
   getKasTransaksiList,
   addKasTransaksi,
+  updateKasTransaksi,
   getKasKategoriList,
   getHutangList,
   addHutang,
@@ -23,6 +24,7 @@ import {
   DEFAULT_KAS_KATEGORI,
   DEFAULT_REKENING_LIST,
   DEFAULT_METRICS,
+  LABEL_REKENING_DEFAULT,
   calculateLocalKasMetrics,
   formatKategoriLabel,
 } from '@/lib/constants/finance';
@@ -186,6 +188,11 @@ export default function FinancePortalPage() {
   const [editHutangForm, setEditHutangForm] = React.useState<Partial<Hutang>>({});
   const [savingEditHutang, setSavingEditHutang] = React.useState(false);
   const [deletingHutang, setDeletingHutang] = React.useState<Hutang | null>(null);
+
+  // Edit Transaction State
+  const [editingTx, setEditingTx] = React.useState<KasTransaksi | null>(null);
+  const [editTxForm, setEditTxForm] = React.useState<Partial<KasTransaksi>>({});
+  const [savingEditTx, setSavingEditTx] = React.useState(false);
 
   // Check PIN Configuration on mount (Fast local session + server config)
   React.useEffect(() => {
@@ -614,6 +621,37 @@ export default function FinancePortalPage() {
       loadData();
     } else {
       alert('Gagal menambah transaksi: ' + res.error);
+    }
+  };
+
+  const handleOpenEditTx = (tx: KasTransaksi) => {
+    setEditingTx(tx);
+    setEditTxForm({
+      tanggal: tx.tanggal,
+      tipe: tx.tipe,
+      kategori: tx.kategori,
+      keterangan: tx.keterangan,
+      nominal: tx.nominal,
+      jenis_pembayaran: tx.jenis_pembayaran || 'tunai',
+      rekening_id: tx.rekening_id || '',
+      pic_nama: tx.pic_nama,
+      pic_tipe: tx.pic_tipe,
+      siswa_id: tx.siswa_id || '',
+    });
+  };
+
+  const handleSaveEditTx = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTx) return;
+    setSavingEditTx(true);
+    const res = await updateKasTransaksi(editingTx.id, editTxForm);
+    setSavingEditTx(false);
+    if (res.success) {
+      setEditingTx(null);
+      showToast('Transaksi kas berhasil diperbarui');
+      loadData();
+    } else {
+      alert('Gagal menyimpan perubahan: ' + res.error);
     }
   };
 
@@ -1091,7 +1129,7 @@ export default function FinancePortalPage() {
                           </div>
                         </div>
 
-                        <div className="text-right shrink-0">
+                        <div className="text-right shrink-0 flex flex-col items-end gap-1">
                           <div
                             className={`text-xs font-black tabular-nums ${
                               isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
@@ -1099,6 +1137,15 @@ export default function FinancePortalPage() {
                           >
                             {isIncome ? '+' : '-'} {formatRupiah(tx.nominal)}
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditTx(tx)}
+                            className="px-2 py-0.5 text-[var(--brand-primary)] bg-[var(--brand-primary-light)] hover:opacity-80 rounded-lg flex items-center gap-1 text-[10px] font-semibold transition-all"
+                            title="Edit Transaksi Kas"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
                         </div>
                       </div>
                     );
@@ -1614,11 +1661,12 @@ export default function FinancePortalPage() {
                     onChange={(e) => setSelectedRekeningId(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold mt-2"
                   >
+                    <option value="">{LABEL_REKENING_DEFAULT}</option>
                     {rekeningList
                       .filter((r) => r.aktif)
                       .map((r) => (
                         <option key={r.id} value={r.id}>
-                          {r.nama_bank} - {r.nomor_rekening} ({r.atas_nama})
+                          {r.nama_bank} - {r.nomor_rekening} ({r.atas_nama}) {r.is_utama ? '⭐' : ''}
                         </option>
                       ))}
                   </select>
@@ -1732,11 +1780,12 @@ export default function FinancePortalPage() {
                     onChange={(e) => setSelectedRekeningId(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold mt-2"
                   >
+                    <option value="">{LABEL_REKENING_DEFAULT}</option>
                     {rekeningList
                       .filter((r) => r.aktif)
                       .map((r) => (
                         <option key={r.id} value={r.id}>
-                          {r.nama_bank} - {r.nomor_rekening} ({r.atas_nama})
+                          {r.nama_bank} - {r.nomor_rekening} ({r.atas_nama}) {r.is_utama ? '⭐' : ''}
                         </option>
                       ))}
                   </select>
@@ -2028,6 +2077,171 @@ export default function FinancePortalPage() {
                   className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-xs disabled:opacity-50"
                 >
                   {savingEditHutang ? 'Menyimpan...' : 'Simpan Perubahan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Transaksi Kas Modal (Mobile PWA) */}
+      {editingTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="card-container max-w-sm w-full bg-[var(--bg)] shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto text-xs">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+              <h3 className="font-bold text-sm text-[var(--text-primary)]">Edit Transaksi Kas</h3>
+              <button
+                type="button"
+                onClick={() => setEditingTx(null)}
+                className="p-1 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditTx} className="space-y-3">
+              {/* Tanggal */}
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                  Tanggal Transaksi *
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={editTxForm.tanggal || ''}
+                  onChange={(e) => setEditTxForm((prev) => ({ ...prev, tanggal: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                />
+              </div>
+
+              {/* Tipe & Jenis */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Tipe Kas
+                  </label>
+                  <select
+                    value={editTxForm.tipe || 'pengeluaran'}
+                    onChange={(e) => setEditTxForm((prev) => ({ ...prev, tipe: e.target.value as any }))}
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
+                  >
+                    <option value="pemasukan">Pemasukan (+)</option>
+                    <option value="pengeluaran">Pengeluaran (−)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Pembayaran
+                  </label>
+                  <select
+                    value={editTxForm.jenis_pembayaran || 'tunai'}
+                    onChange={(e) =>
+                      setEditTxForm((prev) => ({
+                        ...prev,
+                        jenis_pembayaran: e.target.value as any,
+                        rekening_id: e.target.value === 'tunai' ? '' : prev.rekening_id,
+                      }))
+                    }
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
+                  >
+                    <option value="tunai">Tunai</option>
+                    <option value="non_tunai">Non-Tunai</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Rekening Bank (Jika Non-Tunai) */}
+              {editTxForm.jenis_pembayaran === 'non_tunai' && (
+                <div className="p-2.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 space-y-1">
+                  <label className="block text-[11px] font-bold text-blue-900 dark:text-blue-300">
+                    Pilih Rekening Bank (Non-Tunai)
+                  </label>
+                  <select
+                    value={editTxForm.rekening_id || ''}
+                    onChange={(e) => setEditTxForm((prev) => ({ ...prev, rekening_id: e.target.value }))}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-blue-300 dark:border-blue-800 bg-[var(--bg)] font-semibold text-xs text-[var(--text-primary)]"
+                  >
+                    <option value="">{LABEL_REKENING_DEFAULT}</option>
+                    {rekeningList
+                      .filter((r) => r.aktif)
+                      .map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.nama_bank} - {r.nomor_rekening} ({r.atas_nama}) {r.is_utama ? '⭐' : ''}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Kategori */}
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                  Kategori Kas
+                </label>
+                <select
+                  value={editTxForm.kategori || 'operasional'}
+                  onChange={(e) => setEditTxForm((prev) => ({ ...prev, kategori: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                >
+                  {(kategoriList && kategoriList.length > 0 ? kategoriList : DEFAULT_KAS_KATEGORI).map((k) => (
+                    <option key={k.id} value={k.nama_kategori}>
+                      {formatKategoriLabel(k.nama_kategori)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Keterangan */}
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                  Keterangan Transaksi *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTxForm.keterangan || ''}
+                  onChange={(e) => setEditTxForm((prev) => ({ ...prev, keterangan: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-medium"
+                />
+              </div>
+
+              {/* Nominal */}
+              <div>
+                <CurrencyInput
+                  label="Nominal (Rp) *"
+                  value={editTxForm.nominal || 0}
+                  onChange={(val) => setEditTxForm((prev) => ({ ...prev, nominal: val }))}
+                />
+              </div>
+
+              {/* PIC */}
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                  Nama PIC Transaksi *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTxForm.pic_nama || ''}
+                  onChange={(e) => setEditTxForm((prev) => ({ ...prev, pic_nama: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs"
+                />
+              </div>
+
+              <div className="pt-2 border-t border-[var(--border)] flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingTx(null)}
+                  className="flex-1 py-2 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] font-semibold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEditTx}
+                  className="flex-1 py-2 bg-[var(--brand-primary)] hover:opacity-90 text-white font-bold rounded-xl shadow-xs disabled:opacity-50"
+                >
+                  {savingEditTx ? 'Menyimpan...' : 'Simpan Perubahan'}
                 </button>
               </div>
             </form>

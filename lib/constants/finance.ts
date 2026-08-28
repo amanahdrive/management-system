@@ -98,6 +98,8 @@ export const DEFAULT_REKENING_LIST: RekeningBank[] = [
   },
 ];
 
+export const LABEL_REKENING_DEFAULT = '-- Rekening Umum / Data Lama (Tanpa Rekening Khusus) --';
+
 export interface KasOverviewMetrics {
   saldoAktif: number;
   saldoTunai: number;
