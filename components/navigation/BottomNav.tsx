@@ -18,7 +18,7 @@ export function BottomNav() {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--bg)] border-t border-[var(--border)] h-16 flex items-center justify-around px-2">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--bg)]/90 backdrop-blur-xl border-t border-[var(--border)] h-16 flex items-center justify-around px-2 shadow-lg">
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon;
         const isActive =
@@ -28,12 +28,16 @@ export function BottomNav() {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex flex-col items-center justify-center w-full py-1 text-[10px] font-medium transition-colors ${
-              isActive ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)]'
+            className={`flex flex-col items-center justify-center w-full py-1 text-[10px] font-semibold transition-all ${
+              isActive
+                ? 'text-[var(--brand-primary)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--brand-primary)]'
             }`}
           >
-            <Icon className="w-5 h-5 mb-0.5" />
-            <span>{item.label}</span>
+            <div className={`p-1 rounded-full transition-all ${isActive ? 'bg-[var(--brand-primary-light)]' : ''}`}>
+              <Icon className="w-5 h-5" />
+            </div>
+            <span className="mt-0.5">{item.label}</span>
           </Link>
         );
       })}
@@ -44,8 +48,10 @@ export function BottomNav() {
         aria-label="Buka Menu Navigasi Lainnya"
         className="flex flex-col items-center justify-center w-full py-1 text-[10px] font-medium text-[var(--text-secondary)] hover:text-[var(--brand-primary)]"
       >
-        <Menu className="w-5 h-5 mb-0.5" />
-        <span>Lainnya</span>
+        <div className="p-1 rounded-full">
+          <Menu className="w-5 h-5" />
+        </div>
+        <span className="mt-0.5">Lainnya</span>
       </button>
     </nav>
   );

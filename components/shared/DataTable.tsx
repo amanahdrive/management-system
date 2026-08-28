@@ -48,20 +48,20 @@ export function DataTable<TData, TValue>({
       {searchKey && (
         <div className="flex items-center justify-between pb-1">
           <div className="relative w-full max-w-sm">
-            <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder={`Cari data ${searchKey}...`}
               value={globalFilter ?? ''}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              className="pl-9 pr-3 py-1.5 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] w-full focus:outline-none focus:border-[var(--brand-primary)] shadow-xs transition-colors"
+              className="pl-10 pr-4 py-2 text-xs rounded-full border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] w-full focus:outline-none focus:border-[var(--brand-primary)] shadow-xs transition-all"
             />
           </div>
         </div>
       )}
 
       {/* Desktop Table View (>= 768px) with Clean Minimalist Border */}
-      <div className="hidden md:block overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg)]">
+      <div className="hidden md:block overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--bg)] shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left text-[var(--text-primary)]">
             <thead className="bg-[var(--bg-subtle)] border-b border-[var(--border)]">
@@ -166,7 +166,7 @@ export function DataTable<TData, TValue>({
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
             aria-label="Halaman Sebelumnya"
-            className="p-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-30 disabled:cursor-not-allowed shadow-xs transition-colors"
+            className="p-2 rounded-full border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-30 disabled:cursor-not-allowed shadow-xs transition-all hover:-translate-y-0.5"
           >
             <ChevronLeft className="w-3.5 h-3.5 text-[var(--text-primary)]" />
           </button>
@@ -174,7 +174,7 @@ export function DataTable<TData, TValue>({
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
             aria-label="Halaman Berikutnya"
-            className="p-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-30 disabled:cursor-not-allowed shadow-xs transition-colors"
+            className="p-2 rounded-full border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-30 disabled:cursor-not-allowed shadow-xs transition-all hover:-translate-y-0.5"
           >
             <ChevronRight className="w-3.5 h-3.5 text-[var(--text-primary)]" />
           </button>

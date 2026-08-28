@@ -48,13 +48,13 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
                   contentStyle={{
                     backgroundColor: 'var(--bento-bg)',
                     border: '1px solid var(--bento-border)',
-                    borderRadius: '8px',
-                    boxShadow: 'var(--shadow-sm)',
+                    borderRadius: '16px',
+                    boxShadow: 'var(--shadow-md)',
                     color: 'var(--text-primary)',
                     fontSize: '12px',
                   }}
                 />
-                <Bar dataKey="total" fill="var(--brand-primary)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="total" fill="var(--brand-primary)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -79,8 +79,8 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
                   contentStyle={{
                     backgroundColor: 'var(--bento-bg)',
                     border: '1px solid var(--bento-border)',
-                    borderRadius: '8px',
-                    boxShadow: 'var(--shadow-sm)',
+                    borderRadius: '16px',
+                    boxShadow: 'var(--shadow-md)',
                     color: 'var(--text-primary)',
                     fontSize: '12px',
                   }}

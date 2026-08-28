@@ -1535,16 +1535,18 @@ export default function FinancePortalPage() {
 
       {/* Navigasi Bawah */}
       <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto z-40">
-        <div className="bg-[var(--bg-elevated)]/90 backdrop-blur-lg border border-[var(--border)] rounded-3xl shadow-2xl px-3 py-2 flex items-center justify-between">
+        <div className="bg-[var(--bg)]/90 backdrop-blur-2xl border border-[var(--border)] rounded-full shadow-[0_12px_36px_rgba(0,0,0,0.18)] px-4 py-2 flex items-center justify-between">
           {/* Tab 1: Kas */}
           <button
             type="button"
             onClick={() => setActiveTab('kas')}
-            className={`flex-1 py-1 flex flex-col items-center gap-1 transition-colors ${
+            className={`flex-1 py-1 flex flex-col items-center gap-0.5 transition-all ${
               activeTab === 'kas' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)]'
             }`}
           >
-            <Wallet className="w-5 h-5" />
+            <div className={`p-1.5 rounded-full transition-all ${activeTab === 'kas' ? 'bg-[var(--brand-primary-light)] scale-110' : ''}`}>
+              <Wallet className="w-5 h-5" />
+            </div>
             <span className="text-[10px]">Kas</span>
           </button>
 
@@ -1552,11 +1554,13 @@ export default function FinancePortalPage() {
           <button
             type="button"
             onClick={() => setActiveTab('cashflow')}
-            className={`flex-1 py-1 flex flex-col items-center gap-1 transition-colors ${
+            className={`flex-1 py-1 flex flex-col items-center gap-0.5 transition-all ${
               activeTab === 'cashflow' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)]'
             }`}
           >
-            <TrendingUp className="w-5 h-5" />
+            <div className={`p-1.5 rounded-full transition-all ${activeTab === 'cashflow' ? 'bg-[var(--brand-primary-light)] scale-110' : ''}`}>
+              <TrendingUp className="w-5 h-5" />
+            </div>
             <span className="text-[10px]">Cashflow</span>
           </button>
 
@@ -1565,7 +1569,7 @@ export default function FinancePortalPage() {
             <button
               type="button"
               onClick={() => setShowAddForm(true)}
-              className="w-13 h-13 rounded-full bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white flex items-center justify-center shadow-lg shadow-teal-500/40 border-4 border-[var(--bg)] transition-transform active:scale-90"
+              className="w-13 h-13 rounded-full bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white flex items-center justify-center shadow-[0_6px_20px_var(--brand-glow)] border-4 border-[var(--bg)] transition-transform active:scale-90 hover:scale-105"
               title="Tambah Transaksi Kas"
             >
               <Plus className="w-6 h-6 stroke-[3]" />
@@ -1576,11 +1580,13 @@ export default function FinancePortalPage() {
           <button
             type="button"
             onClick={() => setActiveTab('piutang')}
-            className={`flex-1 py-1 flex flex-col items-center gap-1 transition-colors ${
+            className={`flex-1 py-1 flex flex-col items-center gap-0.5 transition-all ${
               activeTab === 'piutang' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)]'
             }`}
           >
-            <CreditCard className="w-5 h-5" />
+            <div className={`p-1.5 rounded-full transition-all ${activeTab === 'piutang' ? 'bg-[var(--brand-primary-light)] scale-110' : ''}`}>
+              <CreditCard className="w-5 h-5" />
+            </div>
             <span className="text-[10px]">Piutang</span>
           </button>
 
@@ -1588,11 +1594,13 @@ export default function FinancePortalPage() {
           <button
             type="button"
             onClick={() => setActiveTab('hutang')}
-            className={`flex-1 py-1 flex flex-col items-center gap-1 transition-colors ${
+            className={`flex-1 py-1 flex flex-col items-center gap-0.5 transition-all ${
               activeTab === 'hutang' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)]'
             }`}
           >
-            <Banknote className="w-5 h-5" />
+            <div className={`p-1.5 rounded-full transition-all ${activeTab === 'hutang' ? 'bg-[var(--brand-primary-light)] scale-110' : ''}`}>
+              <Banknote className="w-5 h-5" />
+            </div>
             <span className="text-[10px]">Hutang</span>
           </button>
         </div>

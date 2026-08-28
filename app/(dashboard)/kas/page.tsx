@@ -574,12 +574,12 @@ export default function KasOverviewPage() {
           title="Manajemen Kas & Arus Keuangan"
           description="Pencatatan kas masuk/keluar, piutang siswa, dan hutang perusahaan"
           actions={
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
                 onClick={loadData}
                 disabled={loading}
-                className="px-3 py-1.5 bg-[var(--bg-subtle)] hover:bg-[var(--border)] border border-[var(--border)] rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 active:scale-95"
+                className="px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
                 title="Muat ulang sinkronisasi data dari database"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
@@ -588,7 +588,7 @@ export default function KasOverviewPage() {
               <button
                 type="button"
                 onClick={handleOpenSetorTunai}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm active:scale-95"
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm hover:-translate-y-0.5"
                 title="Pindahkan saldo tunai ke rekening bank"
               >
                 <Landmark className="w-3.5 h-3.5" />
@@ -596,20 +596,20 @@ export default function KasOverviewPage() {
               </button>
               <Link
                 href="/kas/cashflow"
-                className="px-3 py-1.5 border border-[var(--border)] rounded-md text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                className="px-3.5 py-1.5 border border-[var(--border)] bg-[var(--bg)] rounded-full text-xs font-semibold hover:bg-[var(--bg-subtle)] transition-all shadow-xs hover:-translate-y-0.5"
               >
                 Laporan Arus Kas
               </Link>
               <Link
                 href="/kas/piutang"
-                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-1"
+                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1 shadow-sm hover:-translate-y-0.5"
               >
                 <Wallet className="w-3.5 h-3.5" />
                 <span>Manajemen Piutang</span>
               </Link>
               <Link
                 href="/kas/hutang"
-                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-1"
+                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1 shadow-sm hover:-translate-y-0.5"
               >
                 <FileText className="w-3.5 h-3.5" />
                 <span>Hutang Perusahaan</span>

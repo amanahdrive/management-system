@@ -1,40 +1,46 @@
 @import "tailwindcss";
 
 /* =====================================================
-   AMANAH DRIVE — CLEAN MINIMALIST DESIGN SYSTEM
-   Official Specification Version 2.2
+   AMANAH DRIVE — ANTIGRAVITY-INSPIRED SAAS DESIGN SYSTEM
+   Modern Futuristic Minimalist Specification Version 3.0
    ===================================================== */
 
 @layer base {
-  /*  */
   :root {
-    /* Brand Chroma (Amanah Drive Teal) */
+    /* Typography Stacks */
+    --font-sans:           'Google Sans Flex', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono:           'Google Sans Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --font-symbols:        'Google Symbols', sans-serif;
+
+    /* Brand Chroma (Amanah Drive Emerald / Teal Accents) */
     --brand-primary:       #0F7A73;
     --brand-primary-dark:  #0A5954;
-    --brand-primary-light: #E6F4F2;
-    --brand-primary-muted: #C7E3E1;
+    --brand-primary-light: rgba(15, 122, 115, 0.08);
+    --brand-primary-muted: rgba(15, 122, 115, 0.16);
+    --brand-glow:          rgba(16, 185, 129, 0.16);
     --brand-navy:          #0B2545;
     --brand-navy-dark:     #071A33;
 
-    /* Ground & Container Surfaces */
+    /* Ground & Container Surfaces (Ultra Clean & Pure) */
     --bg:                  #FFFFFF;
-    --bg-subtle:           #F3F4F6; /* Cool graphite-white ground */
+    --bg-subtle:           #FAFAFC; /* Crisp ultra-clean canvas ground */
     --bg-elevated:         #FFFFFF;
-    --bg-overlay:          rgba(15, 23, 42, 0.04);
+    --bg-glass:            rgba(255, 255, 255, 0.82);
+    --bg-overlay:          rgba(15, 23, 42, 0.03);
     --bento-bg:            #FFFFFF;
-    --bento-hero-bg:       #F0FDFA; /* Crisp light teal hero tile */
+    --bento-hero-bg:       #F0FDF9; /* Light emerald ambient hero tile */
 
-    /* Hairline Borders */
-    --border:              #E2E8F0;
-    --border-strong:       #CBD5E1;
+    /* Hairline Subtle Borders */
+    --border:              rgba(15, 23, 42, 0.08);
+    --border-strong:       rgba(15, 23, 42, 0.14);
     --border-focus:        #0F7A73;
-    --bento-border:        #E2E8F0;
-    --bento-border-hover:  #CBD5E1;
+    --bento-border:        rgba(15, 23, 42, 0.07);
+    --bento-border-hover:  rgba(15, 122, 115, 0.3);
 
-    /* Inset Highlights & Shadows */
-    --bento-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    --bento-shadow:        0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
-    --bento-shadow-hover:  0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+    /* Inset Highlights & Ambient Soft Shadows */
+    --bento-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    --bento-shadow:        0 1px 3px rgba(15, 23, 42, 0.03), 0 4px 16px rgba(15, 23, 42, 0.02);
+    --bento-shadow-hover:  0 6px 24px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.03);
 
     /* Text */
     --text-primary:        #0F172A; /* Deep Slate */
@@ -43,97 +49,101 @@
     --text-inverted:       #FFFFFF;
     --text-on-brand:       #FFFFFF;
 
-    /* Semantic / Category-Native Colors */
-    --success:             #14713A;
-    --success-bg:          #E8F7EE;
-    --success-border:      #A7D7B8;
-    --warning:             #B9821B;
-    --warning-bg:          #FEF3E2;
-    --warning-border:      #F5C07B;
-    --danger:              #B3112D;
-    --danger-bg:           #FDE8EC;
-    --danger-border:       #F4A0B0;
-    --info:                #1A4FB0;
-    --info-bg:             #E8EFFE;
-    --info-border:         #93B4EF;
+    /* Semantic Colors */
+    --success:             #059669;
+    --success-bg:          #ECFDF5;
+    --success-border:      #A7F3D0;
+    --warning:             #D97706;
+    --warning-bg:          #FFFBEB;
+    --warning-border:      #FDE68A;
+    --danger:              #E11D48;
+    --danger-bg:           #FFF1F2;
+    --danger-border:       #FECDD3;
+    --info:                #0284C7;
+    --info-bg:             #F0F9FF;
+    --info-border:         #BAE6FD;
 
-    /* Shadows */
-    --shadow-xs:           0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-sm:           0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0,0,0,0.03);
-    --shadow-md:           0 4px 10px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.04);
-    --shadow-lg:           0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    /* Elevation Shadows */
+    --shadow-xs:           0 1px 2px rgba(15, 23, 42, 0.03);
+    --shadow-sm:           0 2px 6px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02);
+    --shadow-md:           0 6px 18px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.03);
+    --shadow-lg:           0 16px 36px -6px rgba(15, 23, 42, 0.08);
+    --shadow-glow:         0 0 24px var(--brand-glow);
 
-    /* Minimalist Radius Tokens */
-    --radius-sm:           6px;
-    --radius-md:           8px;
-    --radius-lg:           12px;
-    --radius-card:         12px;
-    --radius-bento:        12px;
+    /* Geometry & Radii Hierarchy (Antigravity Standard) */
+    --radius-xs:           6px;
+    --radius-sm:           8px;
+    --radius-md:           12px;
+    --radius-lg:           18px;
+    --radius-card:         24px; /* Large squircle cards */
+    --radius-bento:        24px;
+    --radius-pill:         9999px; /* Pill shapes for buttons/badges */
     --radius-full:         9999px;
 
-    /* Transition */
-    --transition-fast:     150ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-base:     200ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bento:    250ms ease;
+    /* Transitions */
+    --transition-fast:     150ms cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-base:     250ms cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-bento:    300ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  /*  */
   [data-theme="dark"],
   .dark {
-    /* Brand Chroma (Vibrant Teal in Dark Console) */
-    --brand-primary:       #14B8A6;
-    --brand-primary-dark:  #0F7A73;
-    --brand-primary-light: #0A2421;
-    --brand-primary-muted: #16403D;
+    /* Brand Chroma (Luminous Emerald in Dark Console) */
+    --brand-primary:       #10B981;
+    --brand-primary-dark:  #059669;
+    --brand-primary-light: rgba(16, 185, 129, 0.12);
+    --brand-primary-muted: rgba(16, 185, 129, 0.22);
+    --brand-glow:          rgba(16, 185, 129, 0.25);
 
     /* Ground & Container Surfaces */
-    --bg:                  #16181F; /* Matte dark tile */
-    --bg-subtle:           #0E0F14; /* Cool graphite ground */
-    --bg-elevated:         #1B1E27; /* Hero bento tile */
-    --bg-overlay:          rgba(255, 255, 255, 0.04);
-    --bento-bg:            #16181F;
-    --bento-hero-bg:       #1B1E27;
+    --bg:                  #12141B; /* Refined dark slate tile */
+    --bg-subtle:           #090A0F; /* Deep obsidian background */
+    --bg-elevated:         #191C26; /* Hero bento tile */
+    --bg-glass:            rgba(18, 20, 27, 0.82);
+    --bg-overlay:          rgba(255, 255, 255, 0.03);
+    --bento-bg:            #12141B;
+    --bento-hero-bg:       #131F1D;
 
     /* Hairline Borders */
-    --border:              #262A35;
-    --border-strong:       #3A4050;
-    --border-focus:        #14B8A6;
-    --bento-border:        #262A35;
-    --bento-border-hover:  #3A4050;
+    --border:              rgba(255, 255, 255, 0.08);
+    --border-strong:       rgba(255, 255, 255, 0.16);
+    --border-focus:        #10B981;
+    --bento-border:        rgba(255, 255, 255, 0.07);
+    --bento-border-hover:  rgba(16, 185, 129, 0.35);
 
     /* Inset Highlights & Shadows */
-    --bento-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    --bento-shadow:        0 4px 14px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
-    --bento-shadow-hover:  0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+    --bento-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    --bento-shadow:        0 4px 16px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --bento-shadow-hover:  0 8px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.3);
 
     /* Text */
-    --text-primary:        #F2F3F7; /* Bone white */
-    --text-secondary:      #A6ABB8; /* Cool grey */
-    --text-muted:          #6B7180; /* Tracked uppercase eyebrows */
-    --text-inverted:       #0E0F14;
-    --text-on-brand:       #0E0F14;
+    --text-primary:        #F8FAFC; /* Pure bone white */
+    --text-secondary:      #94A3B8; /* Slate light */
+    --text-muted:          #64748B; /* Tracked uppercase eyebrows */
+    --text-inverted:       #090A0F;
+    --text-on-brand:       #090A0F;
 
     /* Semantic Colors */
-    --success:             #10B981;
-    --success-bg:          #062D1B;
-    --success-border:      #0E5A36;
-    --warning:             #F59E0B;
-    --warning-bg:          #2A1D05;
-    --warning-border:      #5E400B;
-    --danger:              #F43F5E;
-    --danger-bg:           #2D0B14;
-    --danger-border:       #6B1227;
+    --success:             #34D399;
+    --success-bg:          rgba(5, 150, 105, 0.15);
+    --success-border:      rgba(52, 211, 153, 0.3);
+    --warning:             #FBBF24;
+    --warning-bg:          rgba(217, 119, 6, 0.15);
+    --warning-border:      rgba(251, 191, 36, 0.3);
+    --danger:              #FB7185;
+    --danger-bg:           rgba(225, 29, 72, 0.15);
+    --danger-border:       rgba(251, 113, 133, 0.3);
     --info:                #38BDF8;
-    --info-bg:             #0B2236;
-    --info-border:         #154B72;
+    --info-bg:             rgba(2, 132, 199, 0.15);
+    --info-border:         rgba(56, 189, 248, 0.3);
 
     --shadow-xs:           0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-sm:           0 1px 4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.04);
-    --shadow-md:           0 4px 14px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.4);
-    --shadow-lg:           0 12px 30px -8px rgba(0, 0, 0, 0.7);
+    --shadow-sm:           0 2px 6px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    --shadow-md:           0 6px 20px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    --shadow-lg:           0 18px 40px -8px rgba(0, 0, 0, 0.8);
+    --shadow-glow:         0 0 30px rgba(16, 185, 129, 0.25);
   }
 
-  /*  */
   * {
     box-sizing: border-box;
     margin: 0;
@@ -149,23 +159,23 @@
   }
 
   body {
-    font-family: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sans), 'Google Sans Flex', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background-color: var(--bg-subtle);
     color: var(--text-primary);
     line-height: 1.6;
     min-height: 100vh;
   }
 
-  /* Headings use Inter for clean, crisp data-console typography */
+  /* Headings use Google Sans Flex with tight tracking */
   h1, h2, h3, h4 {
-    font-family: var(--font-inter), 'Inter', sans-serif;
+    font-family: var(--font-sans), 'Google Sans Flex', sans-serif;
     font-weight: 700;
     color: var(--text-primary);
-    letter-spacing: -0.025em;
+    letter-spacing: -0.03em;
   }
 
   h5, h6 {
-    font-family: var(--font-inter), 'Inter', sans-serif;
+    font-family: var(--font-sans), 'Google Sans Flex', sans-serif;
     font-weight: 600;
     color: var(--text-primary);
     letter-spacing: -0.015em;
@@ -182,7 +192,7 @@
   }
 
   input, textarea, select, button {
-    font-family: var(--font-inter), 'Inter', sans-serif;
+    font-family: var(--font-sans), 'Google Sans Flex', sans-serif;
     font-size: inherit;
   }
 
@@ -197,27 +207,27 @@
 }
 
 /* =====================================================
-   CLEAN MINIMALIST CONTAINER ARCHITECTURE
+   ANTIGRAVITY CONTAINER & CARD ARCHITECTURE
    ===================================================== */
 
-/* Minimalist Card Container with Mandatory Internal Padding */
+/* Minimalist Card Container with 24px Squircle Corners */
 .card-container,
 .bento-tile {
   background-color: var(--bento-bg);
   border: 1px solid var(--bento-border);
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: var(--radius-card);
+  padding: 22px;
   box-shadow: var(--bento-shadow), var(--bento-inset-highlight);
-  transition: transform 0.2s ease,
-              box-shadow 0.2s ease,
-              border-color 0.2s ease;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
 }
 
 @media (min-width: 768px) {
   .card-container,
   .bento-tile {
-    padding: 24px;
+    padding: 26px;
   }
 }
 
@@ -230,79 +240,89 @@
 .bento-hero {
   background-color: var(--bento-hero-bg);
   border: 1px solid var(--bento-border);
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: var(--radius-card);
+  padding: 22px;
   box-shadow: var(--bento-shadow), var(--bento-inset-highlight);
-  transition: transform 0.2s ease,
-              box-shadow 0.2s ease,
-              border-color 0.2s ease;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @media (min-width: 768px) {
   .bento-hero {
-    padding: 24px;
+    padding: 26px;
   }
 }
 
 .bento-hero:hover {
   border-color: var(--brand-primary);
+  box-shadow: var(--bento-shadow-hover), var(--shadow-glow);
 }
 
-/* Static Container (Tables, forms, without extra outer hover jump) */
+/* Static Container (Tables, forms) */
 .bento-static {
   background-color: var(--bento-bg);
   border: 1px solid var(--bento-border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   box-shadow: var(--bento-shadow), var(--bento-inset-highlight);
+}
+
+/* Glassmorphism Panel */
+.glass-panel {
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
 }
 
 /* Tracked Eyebrow Caps Label */
 .eyebrow-label {
-  font-family: var(--font-inter), sans-serif;
-  font-size: 10px;
+  font-family: var(--font-sans), sans-serif;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
 }
 
-/* Tabular Numerals for Data Alignment (Full Inter Typography) */
+/* Tabular Numerals (Google Sans Code) for Data Alignment */
 .tabular-num,
 .font-tabular,
 .font-mono,
+.font-code,
 code,
 kbd,
 samp,
 pre {
-  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-family: var(--font-mono), 'Google Sans Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
   font-feature-settings: "tnum" 1;
   font-variant-numeric: tabular-nums;
 }
 
-/* Brand Font Utility (Inter Bold) */
+/* Brand Font Utility */
 .font-brand {
-  font-family: var(--font-inter), 'Inter', -apple-system, sans-serif !important;
+  font-family: var(--font-sans), 'Google Sans Flex', -apple-system, sans-serif !important;
   font-weight: 700;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
 }
 
 /* =====================================================
-   BUTTONS
+   PILL BUTTONS & CONTROLS (ANTIGRAVITY STYLE)
    ===================================================== */
 
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-family: var(--font-inter), sans-serif;
+  gap: 8px;
+  font-family: var(--font-sans), sans-serif;
   font-weight: 600;
   font-size: 13px;
-  border-radius: 8px;
-  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  padding: 9px 20px;
   cursor: pointer;
-  transition: all 0.15s ease;
-  border: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid transparent;
   white-space: nowrap;
 }
 
@@ -313,18 +333,19 @@ pre {
 }
 
 .btn:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 .btn-primary {
   background-color: var(--brand-primary);
   color: var(--text-on-brand);
-  box-shadow: 0 1px 3px rgba(15, 122, 115, 0.3);
+  box-shadow: 0 2px 8px rgba(15, 122, 115, 0.25);
 }
 
 .btn-primary:hover {
   background-color: var(--brand-primary-dark);
-  box-shadow: 0 2px 6px rgba(15, 122, 115, 0.4);
+  box-shadow: 0 4px 14px rgba(15, 122, 115, 0.35);
+  transform: translateY(-1px);
 }
 
 .btn-secondary {
@@ -337,6 +358,7 @@ pre {
 .btn-secondary:hover {
   background-color: var(--bg-subtle);
   border-color: var(--border-strong);
+  transform: translateY(-1px);
 }
 
 /* =====================================================
@@ -346,8 +368,8 @@ pre {
 .form-input {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  padding: 9px 14px;
   font-size: 13px;
   color: var(--text-primary);
   width: 100%;
@@ -357,19 +379,19 @@ pre {
 
 .form-input:focus {
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 2px rgba(15, 122, 115, 0.15);
+  box-shadow: 0 0 0 3px rgba(15, 122, 115, 0.15);
 }
 
 /* =====================================================
-   BADGES & CATEGORY CHIPS
+   BADGES & PILL CHIPS
    ===================================================== */
 
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 6px;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.01em;

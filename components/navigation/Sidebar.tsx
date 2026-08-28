@@ -59,17 +59,17 @@ export function Sidebar() {
   };
 
   const navItemClass = (isActive: boolean) =>
-    `flex items-center ${
-      sidebarOpen ? 'gap-3 px-3' : 'justify-center px-0'
-    } py-2.5 rounded-lg text-xs font-semibold transition-all ${
+    `group relative flex items-center ${
+      sidebarOpen ? 'gap-3 px-3.5' : 'justify-center px-0'
+    } py-2.5 rounded-full text-xs font-semibold transition-all duration-200 ${
       isActive
-        ? 'bg-[var(--brand-primary)] text-white shadow-xs'
+        ? 'bg-[var(--brand-primary)] text-white shadow-[0_2px_12px_var(--brand-glow)]'
         : 'text-[var(--text-secondary)] hover:bg-[var(--brand-primary-light)] hover:text-[var(--brand-primary)]'
     }`;
 
   return (
     <aside
-      className={`hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-40 bg-[var(--bg)] border-r border-[var(--border)] transition-all duration-300 ${
+      className={`hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-40 bg-[var(--bg)]/95 backdrop-blur-xl border-r border-[var(--border)] transition-all duration-300 ${
         sidebarOpen ? 'w-64' : 'w-20'
       }`}
     >
@@ -190,8 +190,8 @@ export function Sidebar() {
           <button
             onClick={handleMasterClick}
             className={`w-full flex items-center ${
-              sidebarOpen ? 'justify-between px-3' : 'justify-center px-0'
-            } py-2.5 rounded-lg text-xs font-semibold transition-all ${
+              sidebarOpen ? 'justify-between px-3.5' : 'justify-center px-0'
+            } py-2.5 rounded-full text-xs font-semibold transition-all ${
               isMasterActive
                 ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                 : 'text-[var(--text-secondary)] hover:bg-[var(--brand-primary-light)] hover:text-[var(--brand-primary)]'
@@ -209,7 +209,7 @@ export function Sidebar() {
 
           {/* Expanded Sub Menu List */}
           {sidebarOpen && masterExpanded && (
-            <div className="pl-5 pt-1 space-y-1 border-l-2 border-[var(--brand-primary)] ml-5 my-1">
+            <div className="pl-4 pt-1 space-y-1 border-l-2 border-[var(--brand-primary)]/40 ml-5 my-1.5">
               {MASTER_SUB_ITEMS.map((sub) => {
                 const SubIcon = sub.icon;
                 const isSubActive = pathname === sub.href;
@@ -218,9 +218,9 @@ export function Sidebar() {
                   <Link
                     key={sub.href}
                     href={sub.href}
-                    className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                       isSubActive
-                        ? 'bg-[var(--brand-primary)] text-white font-semibold'
+                        ? 'bg-[var(--brand-primary)] text-white font-semibold shadow-xs'
                         : 'text-[var(--text-secondary)] hover:bg-[var(--brand-primary-light)] hover:text-[var(--brand-primary)]'
                     }`}
                   >

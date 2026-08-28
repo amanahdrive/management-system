@@ -45,13 +45,13 @@ export function Topbar() {
 
   return (
     <header
-      className={`h-16 fixed top-0 right-0 z-30 bg-[var(--bg)]/90 backdrop-blur-md border-b border-[var(--border)] flex items-center justify-between px-4 md:px-6 transition-all duration-300 left-0 ${
+      className={`h-16 fixed top-0 right-0 z-30 bg-[var(--bg)]/80 backdrop-blur-xl border-b border-[var(--border)] flex items-center justify-between px-4 md:px-6 transition-all duration-300 left-0 ${
         sidebarOpen ? 'md:left-64' : 'md:left-20'
       }`}
     >
       {/* Toast Notification Alert */}
       {toastMessage && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 px-4 py-1.5 bg-emerald-700 text-white text-xs font-bold rounded-full shadow-xl flex items-center gap-2 animate-in fade-in zoom-in-95">
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-emerald-700 text-white text-xs font-bold rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in zoom-in-95">
           <Check className="w-4 h-4" />
           <span>{toastMessage}</span>
         </div>
@@ -71,13 +71,13 @@ export function Topbar() {
         </div>
 
         {/* Live Database Sync Badge */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--bg-subtle)] border border-[var(--border)] text-[11px]">
+        <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--bg)] border border-[var(--border)] text-[11px] shadow-xs">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
           </span>
           <span className="eyebrow-label text-[10px] text-[var(--text-primary)]">Live Sync</span>
-          <span className="text-[var(--text-muted)] font-medium tabular-num text-[10px]">
+          <span className="text-[var(--text-muted)] font-mono tabular-num text-[10px]">
             • {lastSyncTime ? `${lastSyncTime}` : 'Terhubung'}
           </span>
         </div>
@@ -90,7 +90,7 @@ export function Topbar() {
           onClick={handleRefreshDatabase}
           disabled={isRefreshing}
           aria-label="Refresh Data dan Sinkronisasi Database"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] text-xs font-semibold text-[var(--text-primary)] transition-all shadow-xs"
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] text-xs font-semibold text-[var(--text-primary)] transition-all shadow-xs hover:-translate-y-0.5"
           title="Refresh Data & Sinkronisasi Database"
         >
           <RefreshCw className={`w-3.5 h-3.5 text-[var(--brand-primary)] ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -100,7 +100,7 @@ export function Topbar() {
         <ThemeToggle />
 
         <div className="flex items-center gap-2.5 pl-2.5 border-l border-[var(--border)]">
-          <div className="w-8 h-8 rounded-xl bg-[var(--brand-primary)] text-white text-xs font-extrabold flex items-center justify-center shadow-xs">
+          <div className="w-8 h-8 rounded-full bg-[var(--brand-primary)] text-white text-xs font-bold flex items-center justify-center shadow-[0_2px_8px_var(--brand-glow)]">
             AD
           </div>
           <div className="hidden sm:block text-left">
