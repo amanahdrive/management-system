@@ -455,7 +455,8 @@ export async function generateWhatsAppScheduleText(
   }
 
   const jadwalList = await getJadwalByTanggal(tanggalStr, staffId);
-  const activeSesi = jadwalList.filter((j) => j.status_sesi !== 'batal');
+  // Hanya ambil siswa yang berstatus 'terjadwal' (abaikan sesi selesai dan batal)
+  const activeSesi = jadwalList.filter((j) => j.status_sesi === 'terjadwal');
 
   const groupMap = new Map<string, { nama: string; list: JadwalSesi[] }>();
 

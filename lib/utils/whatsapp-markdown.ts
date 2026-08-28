@@ -36,7 +36,7 @@ export function generateWhatsAppJadwalMarkdown(
   const tglFormatted = formatHariTanggalIndo(tanggalStr);
 
   const defaultFooter =
-    '• Minta share lokasi kepada klien sebelum berangkat.\n' +
+    '• Instruktur Hubungi Siswa sebelum berangkat.\n' +
     '• Laporan keluar Basecamp beserta foto odometer.\n' +
     '• Laporan saat sesi dimulai.\n' +
     '• Laporan saat sesi selesai.\n' +
@@ -44,95 +44,74 @@ export function generateWhatsAppJadwalMarkdown(
 
   const catatanFooter = footerTemplate?.trim() || defaultFooter;
 
-  // Calculate stats
-  let totalSesi = 0;
-  let totalSelesai = 0;
-  let totalTerjadwal = 0;
-  let totalBatal = 0;
-
-  groupedData.forEach((g) => {
-    g.sesiList.forEach((s) => {
-      totalSesi++;
-      if (s.status_sesi === 'selesai') totalSelesai++;
-      else if (s.status_sesi === 'batal') totalBatal++;
-      else totalTerjadwal++;
-    });
-  });
-
   let body = `*JADWAL OPERASIONAL HARIAN AMANAH DRIVE*\n`;
   body += `Tanggal: *${tglFormatted}*\n`;
   if (staffFilterNama) {
     body += `Instruktur: *${staffFilterNama.toUpperCase()}*\n`;
   }
-  body += `────────────────────────\n`;
-  body += `*Ringkasan Sesi:* ${totalSesi} Total | ${totalSelesai} Selesai | ${totalTerjadwal} Terjadwal`;
-  if (totalBatal > 0) body += ` | ${totalBatal} Batal`;
   body += `\n────────────────────────\n\n`;
 
-  if (groupedData.length === 0 || totalSesi === 0) {
+  // Saring hanya sesi yang berstatus 'terjadwal' (abaikan sesi 'selesai' dan 'batal')
+  const activeGroups = groupedData
+    .map((g) => ({
+      ...g,
+      sesiList: sortSesiBySlotUrutan(
+        g.sesiList.filter((s) => s.status_sesi === 'terjadwal')
+      ),
+    }))
+    .filter((g) => g.sesiList.length > 0)
+    .sort((a, b) => a.instrukturNama.localeCompare(b.instrukturNama));
+
+  if (activeGroups.length === 0) {
     body += `_Tidak ada sesi mengemudi terjadwal pada tanggal ini._\n\n`;
   } else {
-    const sortedGroups = [...groupedData].sort((a, b) =>
-      a.instrukturNama.localeCompare(b.instrukturNama)
-    );
-
-    sortedGroups.forEach((group) => {
-      const sortedSesi = sortSesiBySlotUrutan(group.sesiList);
-
-      body += `Instruktur: *${group.instrukturNama.toUpperCase()}*\n`;
-
-      if (sortedSesi.length === 0) {
-        body += `  _Libur / Tidak ada jadwal sesi_\n\n`;
-        return;
+    activeGroups.forEach((group, idx) => {
+      if (idx > 0) {
+        body += `────────────────────────\n\n`;
       }
 
-      sortedSesi.forEach((sesi) => {
+      body += `*Instruktur: ${group.instrukturNama.toUpperCase()}*\n\n`;
+
+      group.sesiList.forEach((sesi) => {
         const namaSiswa = sesi.siswa?.nama || 'Siswa';
-        const kodeSiswa = sesi.siswa?.kode_siswa || '-';
         const noWa = sesi.siswa?.no_whatsapp || '-';
         const alamat = sesi.siswa?.alamat || '-';
-
         const totalPaket = sesi.total_sesi_paket || 10;
         const sesiKe = sesi.nomor_sesi_ke || 1;
 
-        let slotDisplay = '';
-        let jamMulai = '';
-        let jamSelesai = '';
-
+        let slotHeader = 'Slot Sesi';
         if (sesi.slot_waktu) {
           const namaSlotAwal = sesi.slot_waktu.nama_slot;
-          jamMulai = sesi.slot_waktu.jam_mulai.substring(0, 5);
+          const jamMulai = sesi.slot_waktu.jam_mulai
+            ? sesi.slot_waktu.jam_mulai.substring(0, 5).replace(':', '.')
+            : '';
+          let jamSelesai = sesi.slot_waktu.jam_selesai
+            ? sesi.slot_waktu.jam_selesai.substring(0, 5).replace(':', '.')
+            : '';
 
           if (sesi.slot_waktu_akhir && sesi.slot_waktu_akhir.id !== sesi.slot_waktu.id) {
             const namaSlotAkhir = sesi.slot_waktu_akhir.nama_slot;
-            slotDisplay = `${namaSlotAwal} s/d ${namaSlotAkhir}`;
-            jamSelesai = sesi.slot_waktu_akhir.jam_selesai.substring(0, 5);
+            if (sesi.slot_waktu_akhir.jam_selesai) {
+              jamSelesai = sesi.slot_waktu_akhir.jam_selesai.substring(0, 5).replace(':', '.');
+            }
+            const timeStr = jamMulai && jamSelesai ? ` (${jamMulai} - ${jamSelesai})` : '';
+            slotHeader = `${namaSlotAwal} s/d ${namaSlotAkhir}${timeStr}`;
           } else {
-            slotDisplay = namaSlotAwal;
-            jamSelesai = sesi.slot_waktu.jam_selesai.substring(0, 5);
+            const timeStr = jamMulai && jamSelesai ? ` (${jamMulai} - ${jamSelesai})` : '';
+            slotHeader = `${namaSlotAwal}${timeStr}`;
           }
-        } else {
-          slotDisplay = 'Slot Sesi';
-          jamMulai = '-';
-          jamSelesai = '-';
         }
 
-        let jenisMobilLabel = 'Manual';
-        if (sesi.jenis_mobil === 'matic') jenisMobilLabel = 'Matic';
-        if (sesi.jenis_mobil === 'mobil_sendiri') jenisMobilLabel = 'Mobil Sendiri';
-
-        const statusText = sesi.status_sesi === 'selesai' ? '[SELESAI]' : sesi.status_sesi === 'batal' ? '[BATAL]' : '[TERJADWAL]';
-
-        body += `• ${statusText} *${slotDisplay}* (${jamMulai} - ${jamSelesai} WIB)\n`;
-        body += `  Siswa: *${namaSiswa}* (${kodeSiswa})\n`;
-        body += `  Sesi: ${sesiKe}/${totalPaket} | Mobil: ${jenisMobilLabel}\n`;
-        body += `  Alamat: ${alamat}\n`;
-        body += `  No. WA: ${noWa}\n\n`;
+        body += `• *${slotHeader}*\n`;
+        body += `Siswa: *${namaSiswa}*\n`;
+        body += `Sesi: ${sesiKe}/${totalPaket}\n`;
+        body += `Alamat: *${alamat}*\n`;
+        body += `No. WA: *${noWa}*\n\n`;
       });
     });
   }
 
-  body += `────────────────────────\n`;
+  body += `────────────────────────\n\n`;
   body += `*SOP & Catatan Instruktur:*\n`;
   body += `${catatanFooter}`;
 
