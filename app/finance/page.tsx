@@ -6,6 +6,7 @@ import {
   getKasOverviewMetrics,
   getKasTransaksiList,
   addKasTransaksi,
+  setorTunaiKas,
   updateKasTransaksi,
   getKasKategoriList,
   getHutangList,
@@ -16,7 +17,7 @@ import {
   getDpKustomList,
   DpKustomItem,
 } from '@/lib/actions/kas';
-import { getSiswaList } from '@/lib/actions/siswa';
+import { getSiswaList, recordPelunasanDirect } from '@/lib/actions/siswa';
 import { getPaketList } from '@/lib/actions/master-data';
 import { getRekeningList } from '@/lib/actions/rekening';
 import { getPinSettings, verifyKasPin } from '@/lib/actions/kas-pin';
@@ -154,7 +155,17 @@ export default function FinancePortalPage() {
   const [pelunasanNominal, setPelunasanNominal] = React.useState(0);
   const [pelunasanTanggal, setPelunasanTanggal] = React.useState(TODAY);
   const [pelunasanMetode, setPelunasanMetode] = React.useState<'tunai' | 'non_tunai'>('non_tunai');
+  const [pelunasanCatatKeKas, setPelunasanCatatKeKas] = React.useState(true);
   const [pelunasanLoading, setPelunasanLoading] = React.useState(false);
+
+  // Modal Setor Tunai State
+  const [showSetorTunaiModal, setShowSetorTunaiModal] = React.useState(false);
+  const [setorNominal, setSetorNominal] = React.useState(0);
+  const [setorRekeningId, setSetorRekeningId] = React.useState('');
+  const [setorTanggal, setSetorTanggal] = React.useState(TODAY);
+  const [setorPicNama, setSetorPicNama] = React.useState('Lia (Finance)');
+  const [setorKeterangan, setSetorKeterangan] = React.useState('');
+  const [setorLoading, setSetorLoading] = React.useState(false);
 
   // Modal Bayar Cicilan Hutang State
   const [showCicilanModal, setShowCicilanModal] = React.useState(false);
@@ -197,7 +208,7 @@ export default function FinancePortalPage() {
   // Check PIN Configuration on mount (Fast local session + server config)
   React.useEffect(() => {
     (async () => {
-      // 1. Instant local session check (Fast-path)
+      // Cek sesi lokal
       const saved = localStorage.getItem('amanah_finance_pin_ok');
       const savedTime = localStorage.getItem('amanah_finance_pin_time');
       if (saved === 'true' && savedTime) {
@@ -222,7 +233,7 @@ export default function FinancePortalPage() {
     })();
   }, []);
 
-  // 1. Instant Cache Restoration on Mount (Stale-While-Revalidate)
+  // Inisialisasi cache lokal
   React.useEffect(() => {
     try {
       const cachedStr = localStorage.getItem('amanah_finance_cache_v2');
@@ -662,6 +673,7 @@ export default function FinancePortalPage() {
     setPelunasanNominal(sisa);
     setPelunasanTanggal(TODAY);
     setPelunasanMetode('non_tunai');
+    setPelunasanCatatKeKas(true);
     setShowPelunasanModal(true);
   };
 
@@ -670,36 +682,96 @@ export default function FinancePortalPage() {
     if (!selectedPiutangSiswa || pelunasanNominal <= 0) return;
     setPelunasanLoading(true);
 
-    let ket = selectedPiutangSiswa.status_pembayaran_kode === 'dp'
-      ? `Pelunasan Kursus - ${selectedPiutangSiswa.nama} (${selectedPiutangSiswa.kode_siswa})`
-      : `Pembayaran Kursus - ${selectedPiutangSiswa.nama} (${selectedPiutangSiswa.kode_siswa})`;
+    if (pelunasanCatatKeKas) {
+      let ket = selectedPiutangSiswa.status_pembayaran_kode === 'dp'
+        ? `Pelunasan Kursus - ${selectedPiutangSiswa.nama} (${selectedPiutangSiswa.kode_siswa})`
+        : `Pembayaran Kursus - ${selectedPiutangSiswa.nama} (${selectedPiutangSiswa.kode_siswa})`;
 
-    const selectedRek = rekeningList.find((r) => r.id === selectedRekeningId);
-    if (pelunasanMetode === 'non_tunai' && selectedRek) {
-      ket = `[${selectedRek.nama_bank} ${selectedRek.nomor_rekening}] ${ket}`;
+      const selectedRek = rekeningList.find((r) => r.id === selectedRekeningId);
+      if (pelunasanMetode === 'non_tunai' && selectedRek) {
+        ket = `[${selectedRek.nama_bank} ${selectedRek.nomor_rekening}] ${ket}`;
+      }
+
+      const res = await addKasTransaksi({
+        tanggal: pelunasanTanggal,
+        tipe: 'pemasukan',
+        kategori: selectedPiutangSiswa.status_pembayaran_kode === 'dp' ? 'pelunasan_siswa' : 'dp_siswa',
+        keterangan: ket,
+        nominal: pelunasanNominal,
+        jenis_pembayaran: pelunasanMetode,
+        rekening_id: pelunasanMetode === 'non_tunai' ? selectedRekeningId || null : null,
+        pic_tipe: 'finance',
+        pic_nama: 'Lia (Finance)',
+        siswa_id: selectedPiutangSiswa.id,
+        sumber_otomatis: false,
+      });
+
+      setPelunasanLoading(false);
+      if (res.success) {
+        setShowPelunasanModal(false);
+        showToast(`Pelunasan atas nama ${selectedPiutangSiswa.nama} berhasil dicatat!`);
+        loadData();
+      } else {
+        alert('Gagal mencatat pelunasan: ' + res.error);
+      }
+    } else {
+      const res = await recordPelunasanDirect(selectedPiutangSiswa.id, pelunasanNominal, pelunasanTanggal);
+      setPelunasanLoading(false);
+      if (res.success) {
+        setShowPelunasanModal(false);
+        showToast(`Status pelunasan ${selectedPiutangSiswa.nama} berhasil diperbarui!`);
+        loadData();
+      } else {
+        alert('Gagal memperbarui pelunasan siswa: ' + res.error);
+      }
+    }
+  };
+
+  const handleOpenSetorTunai = () => {
+    const def = rekeningList.find((r) => r.aktif && r.is_utama)?.id || rekeningList.find((r) => r.aktif)?.id || '';
+    setSetorNominal(metrics.saldoTunai > 0 ? metrics.saldoTunai : 0);
+    setSetorRekeningId(def);
+    setSetorTanggal(TODAY);
+    setSetorPicNama('Lia (Finance)');
+    setSetorKeterangan('');
+    setShowSetorTunaiModal(true);
+  };
+
+  const handleSaveSetorTunai = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (setorNominal <= 0) {
+      alert('Nominal setor tunai harus lebih besar dari 0');
+      return;
+    }
+    if (setorNominal > metrics.saldoTunai) {
+      alert(
+        `Nominal setor tunai (${formatRupiah(setorNominal)}) melebihi saldo kas fisik tunai saat ini (${formatRupiah(
+          metrics.saldoTunai
+        )})`
+      );
+      return;
+    }
+    if (!setorRekeningId) {
+      alert('Silakan pilih rekening bank tujuan setor');
+      return;
     }
 
-    const res = await addKasTransaksi({
-      tanggal: pelunasanTanggal,
-      tipe: 'pemasukan',
-      kategori: selectedPiutangSiswa.status_pembayaran_kode === 'dp' ? 'pelunasan_siswa' : 'dp_siswa',
-      keterangan: ket,
-      nominal: pelunasanNominal,
-      jenis_pembayaran: pelunasanMetode,
-      rekening_id: pelunasanMetode === 'non_tunai' ? selectedRekeningId || null : null,
-      pic_tipe: 'finance',
-      pic_nama: 'Lia (Finance)',
-      siswa_id: selectedPiutangSiswa.id,
-      sumber_otomatis: false,
+    setSetorLoading(true);
+    const res = await setorTunaiKas({
+      nominal: setorNominal,
+      rekening_id: setorRekeningId,
+      tanggal: setorTanggal,
+      pic_nama: setorPicNama,
+      keterangan: setorKeterangan,
     });
+    setSetorLoading(false);
 
-    setPelunasanLoading(false);
     if (res.success) {
-      setShowPelunasanModal(false);
-      showToast(`Pelunasan atas nama ${selectedPiutangSiswa.nama} berhasil dicatat!`);
+      setShowSetorTunaiModal(false);
+      showToast('Setor tunai kas ke rekening bank berhasil dicatat!');
       loadData();
     } else {
-      alert('Gagal mencatat pelunasan: ' + res.error);
+      alert('Gagal memproses setor tunai: ' + res.error);
     }
   };
 
@@ -953,9 +1025,7 @@ export default function FinancePortalPage() {
 
       {/* Main Content Area Container */}
       <main className="max-w-md mx-auto p-4 space-y-4">
-        {/* ═══════════════════════════════════════════════════ */}
-        {/* ── TAB 1: KAS (OVERVIEW & RIWAYAT KAS) ── */}
-        {/* ═══════════════════════════════════════════════════ */}
+        {/* Tab Kas */}
         {activeTab === 'kas' && (
           <div className="space-y-4 animate-fadeIn">
             {/* Saldo Aktif Hero Card */}
@@ -980,16 +1050,38 @@ export default function FinancePortalPage() {
 
               {/* Sub-balances: Tunai vs Non-Tunai */}
               <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/20 text-xs">
-                <div className="bg-black/10 rounded-2xl p-2.5">
-                  <span className="text-[10px] opacity-80 block font-medium">Kas Fisik (Tunai)</span>
-                  <span className="font-bold tabular-nums">{formatRupiah(metrics.saldoTunai)}</span>
+                <div
+                  onClick={handleOpenSetorTunai}
+                  className="bg-black/10 hover:bg-black/20 rounded-2xl p-2.5 cursor-pointer transition-colors"
+                  title="Klik untuk setor tunai ke bank"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] opacity-80 font-medium">Kas Fisik (Tunai)</span>
+                    <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded-full font-bold">Setor →</span>
+                  </div>
+                  <span className="font-bold tabular-nums block mt-1">{formatRupiah(metrics.saldoTunai)}</span>
                 </div>
                 <div className="bg-black/10 rounded-2xl p-2.5">
                   <span className="text-[10px] opacity-80 block font-medium">Bank (Non-Tunai)</span>
-                  <span className="font-bold tabular-nums">{formatRupiah(metrics.saldoNonTunai)}</span>
+                  <span className="font-bold tabular-nums block mt-1">{formatRupiah(metrics.saldoNonTunai)}</span>
                 </div>
               </div>
             </div>
+
+            {/* Quick Action: Setor Tunai */}
+            <button
+              type="button"
+              onClick={handleOpenSetorTunai}
+              className="w-full py-2.5 px-4 rounded-2xl bg-[var(--bg)] border border-[var(--border)] shadow-xs flex items-center justify-between text-xs font-bold text-[var(--text-primary)] hover:border-emerald-500 transition-colors active:scale-98"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+                  <Landmark className="w-3.5 h-3.5" />
+                </div>
+                <span>Setor Tunai Kas ke Bank</span>
+              </div>
+              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">Pindah Saldo →</span>
+            </button>
 
             {/* Quick Metrics Grid: Piutang & Hutang */}
             <div className="grid grid-cols-2 gap-3">
@@ -1156,9 +1248,7 @@ export default function FinancePortalPage() {
           </div>
         )}
 
-        {/* ═══════════════════════════════════════════════════ */}
-        {/* ── TAB 2: CASHFLOW (ARUS KAS MASUK VS KELUAR) ── */}
-        {/* ═══════════════════════════════════════════════════ */}
+        {/* Tab Cashflow */}
         {activeTab === 'cashflow' && (
           <div className="space-y-4 animate-fadeIn">
             <div className="card-container p-4 space-y-3">
@@ -1229,9 +1319,7 @@ export default function FinancePortalPage() {
           </div>
         )}
 
-        {/* ═══════════════════════════════════════════════════ */}
-        {/* ── TAB 3: PIUTANG (TAGIHAN SISWA & PELUNASAN) ── */}
-        {/* ═══════════════════════════════════════════════════ */}
+        {/* Tab Piutang */}
         {activeTab === 'piutang' && (
           <div className="space-y-4 animate-fadeIn">
             {/* Header Card */}
@@ -1324,9 +1412,7 @@ export default function FinancePortalPage() {
           </div>
         )}
 
-        {/* ═══════════════════════════════════════════════════ */}
-        {/* ── TAB 4: HUTANG (HUTANG USAHA & CICILAN) ── */}
-        {/* ═══════════════════════════════════════════════════ */}
+        {/* Tab Hutang */}
         {activeTab === 'hutang' && (
           <div className="space-y-4 animate-fadeIn">
             {/* Header Card */}
@@ -1447,9 +1533,7 @@ export default function FinancePortalPage() {
         )}
       </main>
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* ── FLOATING BOTTOM NAVIGATION BAR WITH CENTER (+) BUTTON ── */}
-      {/* ═══════════════════════════════════════════════════ */}
+      {/* Navigasi Bawah */}
       <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto z-40">
         <div className="bg-[var(--bg-elevated)]/90 backdrop-blur-lg border border-[var(--border)] rounded-3xl shadow-2xl px-3 py-2 flex items-center justify-between">
           {/* Tab 1: Kas */}
@@ -1514,9 +1598,7 @@ export default function FinancePortalPage() {
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* ── MODAL 1: FORM TAMBAH TRANSAKSI KAS (+) ── */}
-      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* Modal Tambah Transaksi Kas */}
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-xs p-0 sm:p-4 animate-fadeIn">
           <div className="w-full max-w-md bg-[var(--bg)] border-t sm:border border-[var(--border)] rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
@@ -1666,7 +1748,7 @@ export default function FinancePortalPage() {
                       .filter((r) => r.aktif)
                       .map((r) => (
                         <option key={r.id} value={r.id}>
-                          {r.nama_bank} - {r.nomor_rekening} ({r.atas_nama}) {r.is_utama ? '⭐' : ''}
+                          {r.nama_bank} - {r.nomor_rekening} ({r.atas_nama}) {r.is_utama ? '(Utama)' : ''}
                         </option>
                       ))}
                   </select>
@@ -1702,9 +1784,7 @@ export default function FinancePortalPage() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* ── MODAL 2: PELUNASAN PIUTANG SISWA ── */}
-      {/* ═══════════════════════════════════════════════════ */}
+      {/* Modal Pelunasan Piutang Siswa */}
       {showPelunasanModal && selectedPiutangSiswa && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-fadeIn">
           <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl space-y-4">
@@ -1745,52 +1825,72 @@ export default function FinancePortalPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
-                  Metode Bayar
+              {/* Opsi Catat ke Buku Kas */}
+              <div className="p-2.5 rounded-2xl border border-[var(--border)] bg-[var(--bg-subtle)] space-y-1">
+                <label className="flex items-center gap-2 cursor-pointer font-semibold text-xs text-[var(--text-primary)] select-none">
+                  <input
+                    type="checkbox"
+                    checked={pelunasanCatatKeKas}
+                    onChange={(e) => setPelunasanCatatKeKas(e.target.checked)}
+                    className="w-4 h-4 rounded border-[var(--border)] text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  />
+                  <span>Catat ke buku kas dan keuangan</span>
                 </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPelunasanMetode('tunai')}
-                    className={`py-2 rounded-xl font-bold ${
-                      pelunasanMetode === 'tunai'
-                        ? 'border-2 border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
-                        : 'border border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
-                    }`}
-                  >
-                    Tunai
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPelunasanMetode('non_tunai')}
-                    className={`py-2 rounded-xl font-bold ${
-                      pelunasanMetode === 'non_tunai'
-                        ? 'border-2 border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
-                        : 'border border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
-                    }`}
-                  >
-                    Transfer Bank
-                  </button>
-                </div>
-
-                {pelunasanMetode === 'non_tunai' && (
-                  <select
-                    value={selectedRekeningId}
-                    onChange={(e) => setSelectedRekeningId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold mt-2"
-                  >
-                    <option value="">{LABEL_REKENING_DEFAULT}</option>
-                    {rekeningList
-                      .filter((r) => r.aktif)
-                      .map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.nama_bank} - {r.nomor_rekening} ({r.atas_nama}) {r.is_utama ? '⭐' : ''}
-                        </option>
-                      ))}
-                  </select>
-                )}
+                <p className="text-[10px] text-[var(--text-secondary)] pl-6">
+                  {pelunasanCatatKeKas
+                    ? 'Mencatat mutasi masuk ke buku kas dan memperbarui sisa piutang siswa.'
+                    : 'Hanya memperbarui status piutang siswa tanpa menambah catatan di buku kas.'}
+                </p>
               </div>
+
+              {pelunasanCatatKeKas && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Metode Bayar
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPelunasanMetode('tunai')}
+                      className={`py-2 rounded-xl font-bold ${
+                        pelunasanMetode === 'tunai'
+                          ? 'border-2 border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+                          : 'border border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      Tunai
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPelunasanMetode('non_tunai')}
+                      className={`py-2 rounded-xl font-bold ${
+                        pelunasanMetode === 'non_tunai'
+                          ? 'border-2 border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+                          : 'border border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      Transfer Bank
+                    </button>
+                  </div>
+
+                  {pelunasanMetode === 'non_tunai' && (
+                    <select
+                      value={selectedRekeningId}
+                      onChange={(e) => setSelectedRekeningId(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold mt-2"
+                    >
+                      <option value="">{LABEL_REKENING_DEFAULT}</option>
+                      {rekeningList
+                        .filter((r) => r.aktif)
+                        .map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.nama_bank} - {r.nomor_rekening} ({r.atas_nama}) {r.is_utama ? '(Utama)' : ''}
+                          </option>
+                        ))}
+                    </select>
+                  )}
+                </div>
+              )}
 
               <div className="pt-2 border-t border-[var(--border)] flex gap-2">
                 <button
@@ -1805,7 +1905,7 @@ export default function FinancePortalPage() {
                   disabled={pelunasanLoading || pelunasanNominal <= 0}
                   className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs disabled:opacity-50"
                 >
-                  {pelunasanLoading ? 'Menyimpan...' : 'Catat Pelunasan'}
+                  {pelunasanLoading ? 'Menyimpan...' : 'Simpan Pelunasan'}
                 </button>
               </div>
             </form>
@@ -1813,9 +1913,171 @@ export default function FinancePortalPage() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* ── MODAL 3: BAYAR CICILAN HUTANG ── */}
-      {/* ═══════════════════════════════════════════════════ */}
+      {/* Modal Setor Tunai */}
+      {showSetorTunaiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+                  <Landmark className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-[var(--text-primary)]">Setor Tunai ke Bank</h3>
+                  <p className="text-[11px] text-[var(--text-secondary)]">Pindah saldo fisik kantor ke rekening</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSetorTunaiModal(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40">
+                <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 block">
+                  Kas Fisik (Tunai)
+                </span>
+                <span className="text-xs font-bold text-[var(--text-primary)] mt-0.5 block">
+                  {formatRupiah(metrics.saldoTunai)}
+                </span>
+              </div>
+              <div className="p-2.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40">
+                <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-400 block">
+                  Bank (Non-Tunai)
+                </span>
+                <span className="text-xs font-bold text-[var(--text-primary)] mt-0.5 block">
+                  {formatRupiah(metrics.saldoNonTunai)}
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveSetorTunai} className="space-y-3 text-xs">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-semibold text-[var(--text-secondary)]">
+                    Nominal Setor (Rp) *
+                  </label>
+                  {metrics.saldoTunai > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSetorNominal(metrics.saldoTunai)}
+                      className="text-[10px] font-bold text-emerald-600 hover:underline"
+                    >
+                      Setor Semua
+                    </button>
+                  )}
+                </div>
+                <CurrencyInput
+                  value={setorNominal}
+                  onChange={(val) => setSetorNominal(val)}
+                  placeholder="Rp 0"
+                />
+                {setorNominal > metrics.saldoTunai && (
+                  <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 shrink-0" />
+                    Nominal melebihi saldo kas tunai ({formatRupiah(metrics.saldoTunai)})
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                  Rekening Bank Tujuan *
+                </label>
+                <select
+                  value={setorRekeningId}
+                  onChange={(e) => setSetorRekeningId(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                >
+                  <option value="">-- Pilih Rekening Bank --</option>
+                  {rekeningList
+                    .filter((r) => r.aktif)
+                    .map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.nama_bank} - {r.nomor_rekening} ({r.atas_nama}) {r.is_utama ? '(Utama)' : ''}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                  Tanggal Transaksi
+                </label>
+                <input
+                  type="date"
+                  value={setorTanggal}
+                  onChange={(e) => setSetorTanggal(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                  Petugas (PIC)
+                </label>
+                <input
+                  type="text"
+                  value={setorPicNama}
+                  onChange={(e) => setSetorPicNama(e.target.value)}
+                  placeholder="Nama staf"
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                  Keterangan (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={setorKeterangan}
+                  onChange={(e) => setSetorKeterangan(e.target.value)}
+                  placeholder="Keterangan setoran"
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                />
+              </div>
+
+              <div className="pt-2 border-t border-[var(--border)] flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSetorTunaiModal(false)}
+                  disabled={setorLoading}
+                  className="flex-1 py-2 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] font-semibold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={
+                    setorLoading ||
+                    setorNominal <= 0 ||
+                    setorNominal > metrics.saldoTunai ||
+                    !setorRekeningId
+                  }
+                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {setorLoading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    'Setor Tunai'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Bayar Cicilan Hutang */}
       {showCicilanModal && selectedHutang && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-fadeIn">
           <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl space-y-4">
@@ -1907,9 +2169,7 @@ export default function FinancePortalPage() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* ── MODAL 4: TAMBAH HUTANG BARU ── */}
-      {/* ═══════════════════════════════════════════════════ */}
+      {/* Modal Tambah Hutang Baru */}
       {showAddHutangModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-fadeIn">
           <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl space-y-4">
@@ -1993,9 +2253,9 @@ export default function FinancePortalPage() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* ── MODAL 5: EDIT HUTANG ── */}
-      {/* ═══════════════════════════════════════════════════════════ */}
+      
+      {/*  */}
+      
       {editHutang && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-fadeIn">
           <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl space-y-4">
@@ -2166,7 +2426,7 @@ export default function FinancePortalPage() {
                       .filter((r) => r.aktif)
                       .map((r) => (
                         <option key={r.id} value={r.id}>
-                          {r.nama_bank} - {r.nomor_rekening} ({r.atas_nama}) {r.is_utama ? '⭐' : ''}
+                          {r.nama_bank} - {r.nomor_rekening} ({r.atas_nama}) {r.is_utama ? '(Utama)' : ''}
                         </option>
                       ))}
                   </select>

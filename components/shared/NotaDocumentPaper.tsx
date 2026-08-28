@@ -44,7 +44,7 @@ export function NotaDocumentPaper({
       }}
       className="p-7 rounded-lg shadow-2xl border border-slate-300 flex flex-col justify-between select-text shrink-0 text-slate-900 transition-transform"
     >
-      {/* ── 1. KOP SURAT BISNIS RESMI ── */}
+      {/*  */}
       <div>
         <div className="flex items-center justify-between pb-3">
           <div className="w-48 h-12 flex items-center">
@@ -75,7 +75,7 @@ export function NotaDocumentPaper({
         <div className="h-[3px] bg-[#0F7A73] rounded-full" />
         <div className="h-[1px] bg-[#0F7A73]/40 mt-[2px] mb-3" />
 
-        {/* ── 2. TITLE BANNER & NO DOKUMEN ── */}
+        {/*  */}
         <div className="flex items-center justify-between bg-teal-50/80 border border-teal-200 px-3.5 py-2 rounded-lg mb-3">
           <div className="text-xs font-black tracking-wide text-[#0F7A73] uppercase">
             {docInfo.title}
@@ -86,7 +86,7 @@ export function NotaDocumentPaper({
           </div>
         </div>
 
-        {/* ── 3. IDENTITAS SISWA & INFO KURSUS GRID ── */}
+        {/*  */}
         <div className="grid grid-cols-2 gap-3 mb-3 text-[10px]">
           <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
             <div className="text-[8.5px] font-black uppercase tracking-wider text-[#0F7A73] border-b border-slate-200 pb-1 mb-1">
@@ -111,7 +111,7 @@ export function NotaDocumentPaper({
           </div>
         </div>
 
-        {/* ── 4. TABEL DETAIL TRANSAKSI ── */}
+        {/*  */}
         <table className="w-full border-collapse border border-slate-200 text-[10px] mb-3">
           <thead>
             <tr className="bg-[#0F7A73] text-white">
@@ -171,7 +171,7 @@ export function NotaDocumentPaper({
           </tbody>
         </table>
 
-        {/* ── 5. TERBILANG BOX ── */}
+        {/*  */}
         <div className="p-2 rounded-lg bg-slate-50 border border-dashed border-[#0F7A73] flex items-center gap-2 mb-3 text-[9.5px]">
           <span className="px-2 py-0.5 rounded bg-teal-100 text-[#0F7A73] font-black uppercase text-[8px] tracking-wider shrink-0">
             Terbilang
@@ -181,7 +181,7 @@ export function NotaDocumentPaper({
           </span>
         </div>
 
-        {/* ── 6. STATUS & CATATAN ROW ── */}
+        {/*  */}
         <div className="flex items-center justify-between text-[9.5px] mb-2">
           <div className="flex items-center gap-2">
             <span className="text-slate-600 font-semibold">Status:</span>
@@ -197,7 +197,7 @@ export function NotaDocumentPaper({
         </div>
       </div>
 
-      {/* ── 7. SIGNATURES & FOOTER ── */}
+      {/*  */}
       <div className="pt-2">
         <div className="flex items-end justify-between text-[9.5px]">
           {/* Student Signature */}

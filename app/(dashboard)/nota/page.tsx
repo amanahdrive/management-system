@@ -315,7 +315,7 @@ export default function NotaPage() {
   const docInfo = getJenisInfo(jenis);
   const isA4 = docInfo.isA4;
 
-  // ─── 4 Output Export Handlers ───
+  // Handler ekspor dokumen
   const getActiveRef = () => (isModalOpen ? modalPaperRef.current : documentPaperRef.current);
 
   const handleDownloadJpg = async () => {
@@ -440,9 +440,7 @@ export default function NotaPage() {
           </div>
         </div>
 
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* ── TAB 1: ANTREAN SISWA PERLU NOTA (DEFAULT USER WORKFLOW) ── */}
-        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* Tab Antrean Siswa */}
         {viewMode === 'queue' && (
           <div className="space-y-4">
             {/* Filter & Search Bar */}
@@ -593,9 +591,7 @@ export default function NotaPage() {
           </div>
         )}
 
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* ── TAB 2: STUDIO CETAK MANUAL / KUSTOM ── */}
-        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* Tab Studio Cetak */}
         {viewMode === 'studio' && (
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
             {/* Left Column: Form Controls */}
@@ -899,9 +895,7 @@ export default function NotaPage() {
           </div>
         )}
 
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* ── MODAL POP-UP CETAK NOTA (DIRECT 1-CLICK POPUP) ── */}
-        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* Modal Cetak Nota */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-xs animate-fadeIn overflow-y-auto">
             <div className="w-full max-w-4xl bg-[var(--bg)] border border-[var(--border)] rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden my-auto">

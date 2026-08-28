@@ -465,9 +465,9 @@ export default function JadwalDetailPage() {
               const isEditing = editingSesiId === sesi.id;
               const isSelected = selectedSessionIds.includes(sesi.id);
 
-              // --- Conflict detection for this session ---
+              // Deteksi bentrok: hanya berlaku untuk sesi berstatus 'terjadwal' dan bertabrakan dengan sesi 'terjadwal' lain
               const checkConflict = (() => {
-                if (!sesi.staff_id || !sesi.slot_waktu_id || sesi.status_sesi === 'batal') return null;
+                if (!sesi.staff_id || !sesi.slot_waktu_id || sesi.status_sesi !== 'terjadwal') return null;
                 const dayIdx = getDayIndexFromDateStr(sesi.tanggal_sesi);
                 const dayNameEng = DAY_NAMES[dayIdx];
                 const ins = instrukturList.find((i) => i.id === sesi.staff_id);
@@ -479,11 +479,11 @@ export default function JadwalDetailPage() {
                   return { type: 'off', msg: `${ins.nama} libur hari ${DAY_NAMES_INDO[dayIdx]}` };
                 }
 
-                // Check slot conflict (same day, same staff, same slot, different session)
+                // Check slot conflict: hanya jika ada sesi lain yang berstatus 'terjadwal'
                 const conflict = conflictList.find((j) => {
                   if (j.id === sesi.id) return false; // exclude self
                   if (j.tanggal_sesi !== sesi.tanggal_sesi) return false;
-                  if (j.status_sesi === 'batal') return false;
+                  if (j.status_sesi !== 'terjadwal') return false;
                   if (j.staff_id !== sesi.staff_id) return false;
                   const jSlots = getSessionOccupiedSlotIds(j.slot_waktu_id, j.slot_waktu_id_akhir, slotList);
                   const mySlots = getSessionOccupiedSlotIds(sesi.slot_waktu_id, sesi.slot_waktu_id_akhir, slotList);

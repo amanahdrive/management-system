@@ -104,6 +104,51 @@ export async function updateSiswaPayment(
   }
 }
 
+export async function recordPelunasanDirect(
+  siswaId: string,
+  nominal: number,
+  tanggal: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const siswa = await dbQuerySingle<{ id: string; harga_final: number; dp_nominal: number | null }>(
+      'SELECT id, harga_final, dp_nominal FROM siswa WHERE id = $1',
+      [siswaId]
+    );
+    if (!siswa) {
+      return { success: false, error: 'Data siswa tidak ditemukan di database' };
+    }
+
+    const prevPaid = Number(siswa.dp_nominal) || 0;
+    const newPaid = prevPaid + nominal;
+    const hargaFinal = Number(siswa.harga_final) || 0;
+
+    const newStatus = newPaid >= hargaFinal && hargaFinal > 0 ? 'lunas' : 'dp';
+
+    await dbQuery(
+      `UPDATE siswa 
+       SET status_pembayaran_kode = $1, dp_nominal = $2, dp_tanggal = $3, updated_at = NOW() 
+       WHERE id = $4`,
+      [newStatus, newPaid, tanggal, siswaId]
+    );
+
+    cacheInvalidate('siswa*');
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+
+    revalidatePath('/siswa');
+    revalidatePath(`/siswa/${siswaId}`);
+    revalidatePath('/kas');
+    revalidatePath('/kas/piutang');
+    revalidatePath('/finance');
+    revalidatePath('/dashboard');
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error in recordPelunasanDirect:', err);
+    return { success: false, error: err.message || 'Gagal memperbarui status piutang siswa' };
+  }
+}
+
 export async function getSiswaPaymentHistory(siswaId: string) {
   try {
     const rows = await dbQuery(

@@ -76,7 +76,7 @@ const getDayIndexFromDateStr = (dateStr: string) => {
 };
 
 export default function JadwalPage() {
-  // ── Filter State ──────────────────────────────────────────
+  // Filter state
   // filterMode: 'single' | 'range' | 'week' | 'month' | '3month' | '6month' | 'year'
   const [filterMode, setFilterMode] = React.useState<'single' | 'range' | 'week' | 'month' | '3month' | '6month' | 'year'>('single');
   const [selectedTanggal, setSelectedTanggal] = React.useState(getTodayDateString());
@@ -136,7 +136,7 @@ export default function JadwalPage() {
   });
   const [sessionDates, setSessionDates] = React.useState<string[]>([]);
 
-  // ── Compute effective date range from filterMode ───────────────────────
+  // Hitung rentang tanggal efektif dari filterMode
   const getEffectiveDateRange = React.useCallback((): { from: string; to: string } => {
     const today = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -243,7 +243,7 @@ export default function JadwalPage() {
     loadData();
   }, [loadData]);
 
-  // --- FILTER SISWA YANG BELUM MEMILIKI JADWAL SAMA SEKALI DI SELURUH DATABASE ---
+  // Filter siswa tanpa jadwal aktif
   const allScheduledSiswaIds = React.useMemo(() => {
     return Array.from(
       new Set(
@@ -319,7 +319,7 @@ export default function JadwalPage() {
     // Filter bentrok: only show sessions with conflict or off-day
     if (filterBentrok) {
       list = list.filter((sesi) => {
-        if (!sesi.staff_id || !sesi.slot_waktu_id || sesi.status_sesi === 'batal') return false;
+        if (!sesi.staff_id || !sesi.slot_waktu_id || sesi.status_sesi !== 'terjadwal') return false;
         const dayIdx = (() => {
           const parts = sesi.tanggal_sesi.split('-');
           return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)).getDay();
@@ -330,10 +330,10 @@ export default function JadwalPage() {
         if (!ins) return false;
         // Off day
         if (!ins.hari_kerja?.includes(dayNameEng)) return true;
-        // Slot conflict
+        // Slot conflict: hanya terjadi jika ada sesi bertabrakan yang berstatus terjadwal
         const hasConflict = monthlyJadwalList.some((j) => {
           if (j.id === sesi.id || j.tanggal_sesi !== sesi.tanggal_sesi) return false;
-          if (j.status_sesi === 'batal' || j.staff_id !== sesi.staff_id) return false;
+          if (j.status_sesi !== 'terjadwal' || j.staff_id !== sesi.staff_id) return false;
           const jSlots = getSessionOccupiedSlotIds(j.slot_waktu_id, j.slot_waktu_id_akhir, slotList);
           const mySlots = getSessionOccupiedSlotIds(sesi.slot_waktu_id, sesi.slot_waktu_id_akhir, slotList);
           return mySlots.some((s) => jSlots.includes(s));
@@ -349,24 +349,27 @@ export default function JadwalPage() {
     return siswaList.filter((s) => !allScheduledSiswaIds.includes(s.id));
   }, [siswaList, allScheduledSiswaIds]);
 
-  // Generate multi-date array for N sessions
-  const generateDatesForCount = (count: number, startDateStr: string) => {
-    const dates: string[] = [];
-    const parts = startDateStr.split('-');
-    const y = parseInt(parts[0], 10);
-    const m = parseInt(parts[1], 10) - 1;
-    const d = parseInt(parts[2], 10);
-    const baseDate = new Date(y, m, d);
-
-    for (let i = 0; i < count; i++) {
-      const cur = new Date(baseDate);
-      cur.setDate(cur.getDate() + i);
-      const curY = cur.getFullYear();
-      const curM = String(cur.getMonth() + 1).padStart(2, '0');
-      const curD = String(cur.getDate()).padStart(2, '0');
-      dates.push(`${curY}-${curM}-${curD}`);
+  // Helper konversi tanggal rencana mulai siswa ke format YYYY-MM-DD
+  const getSiswaRencanaMulaiDateStr = (dateVal: any): string => {
+    if (!dateVal) return '';
+    if (typeof dateVal === 'string') {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) return dateVal;
+      const d = new Date(dateVal);
+      if (!isNaN(d.getTime())) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+      return dateVal.slice(0, 10);
     }
-    return dates;
+    if (dateVal instanceof Date) {
+      const year = dateVal.getFullYear();
+      const month = String(dateVal.getMonth() + 1).padStart(2, '0');
+      const day = String(dateVal.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    return '';
   };
 
   // Smart Instructor Slot Validation & Collision Detection (Per-Day Flexible Slot Matrix)
@@ -379,16 +382,28 @@ export default function JadwalPage() {
       const selectedIns = instrukturList.find((i) => i.id === staffId);
 
       const checkSingleSlot = (sId: string) => {
-        const daySlots =
-          selectedIns?.jadwal_ketersediaan?.[dayNameEng] ||
-          (selectedIns?.hari_kerja?.includes(dayNameEng)
-            ? selectedIns?.slot_kerja || ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6']
-            : []);
+        if (!selectedIns) return null;
 
-        if (!selectedIns?.hari_kerja?.includes(dayNameEng) || daySlots.length === 0) {
+        const hasCustomKetersediaan =
+          selectedIns.jadwal_ketersediaan &&
+          typeof selectedIns.jadwal_ketersediaan === 'object' &&
+          Object.keys(selectedIns.jadwal_ketersediaan).length > 0;
+
+        let daySlots: string[] = [];
+        let isDayActive = false;
+
+        if (hasCustomKetersediaan && selectedIns.jadwal_ketersediaan) {
+          daySlots = selectedIns.jadwal_ketersediaan[dayNameEng] || [];
+          isDayActive = daySlots.length > 0;
+        } else {
+          isDayActive = selectedIns.hari_kerja ? selectedIns.hari_kerja.includes(dayNameEng) : false;
+          daySlots = isDayActive ? (selectedIns.slot_kerja || ['sl1', 'sl2', 'sl3', 'sl4', 'sl5', 'sl6']) : [];
+        }
+
+        if (!isDayActive || daySlots.length === 0) {
           return {
             status: 'off',
-            message: `${selectedIns?.nama || 'Instruktur'} Libur pada hari ${DAY_NAMES_INDO[dayIdx]}`,
+            message: `${selectedIns.nama} Libur pada hari ${DAY_NAMES_INDO[dayIdx]}`,
           };
         }
 
@@ -415,26 +430,24 @@ export default function JadwalPage() {
         if (!daySlots.includes(mappedSlotCode)) {
           return {
             status: 'off',
-            message: `${selectedIns?.nama} tidak aktif di slot ini pada hari ${DAY_NAMES_INDO[dayIdx]}`,
+            message: `${selectedIns.nama} tidak aktif di slot ini pada hari ${DAY_NAMES_INDO[dayIdx]}`,
           };
         }
         return null;
       };
 
-      // Check start slot
-      const startCheck = checkSingleSlot(slotId);
-      if (startCheck) return startCheck;
-
-      // Check end slot if provided
-      if (slotIdAkhir && slotIdAkhir !== slotId) {
-        const endCheck = checkSingleSlot(slotIdAkhir);
-        if (endCheck) return endCheck;
+      // Check all occupied slots in the session range
+      const occupiedSlots = getSessionOccupiedSlotIds(slotId, slotIdAkhir, slotList);
+      for (const sId of occupiedSlots) {
+        const slotCheck = checkSingleSlot(sId);
+        if (slotCheck) return slotCheck;
       }
 
       // 2. Check Double Booking Slot Collision
       // excludeId: skip the current session itself to prevent self-conflict detection
+      // Hanya terjadi jika ada siswa berstatus 'terjadwal' yang bertabrakan pada tanggal, slot, dan instruktur tersebut
       const conflict = monthlyJadwalList.find((j) => {
-        if (j.tanggal_sesi !== dateStr || j.status_sesi === 'batal' || j.staff_id !== staffId) return false;
+        if (j.tanggal_sesi !== dateStr || j.status_sesi !== 'terjadwal' || j.staff_id !== staffId) return false;
         if (excludeId && j.id === excludeId) return false; // exclude self
 
         const jSlots = getSessionOccupiedSlotIds(j.slot_waktu_id, j.slot_waktu_id_akhir, slotList);
@@ -456,20 +469,71 @@ export default function JadwalPage() {
     [instrukturList, monthlyJadwalList, slotList]
   );
 
-  // Auto Adjust Dates: Find N valid dates without collision / off days
+  // Generate multi-date array for N sessions starting from startDateStr
+  // Mempertimbangkan jadwal kerja aktif dan hari libur instruktur
+  const generateDatesForCount = React.useCallback(
+    (
+      count: number,
+      startDateStr: string,
+      staffId?: string,
+      slotId?: string,
+      slotIdAkhir?: string | null
+    ) => {
+      const dates: string[] = [];
+      const baseStr = startDateStr || getTodayDateString();
+      const parts = baseStr.split('-');
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      const curr = new Date(y, m, d);
+
+      let iterations = 0;
+      while (dates.length < count && iterations < 180) {
+        const curY = curr.getFullYear();
+        const curM = String(curr.getMonth() + 1).padStart(2, '0');
+        const curD = String(curr.getDate()).padStart(2, '0');
+        const dateStr = `${curY}-${curM}-${curD}`;
+
+        if (dates.length === 0) {
+          // Sesi 1 selalu menggunakan tanggal rencana mulai siswa
+          dates.push(dateStr);
+        } else if (staffId && slotId) {
+          // Sesi berikutnya menyesuaikan hari aktif kerja instruktur di database
+          const check = getSlotValidationStatus(dateStr, staffId, slotId, slotIdAkhir);
+          if (check.status !== 'off') {
+            dates.push(dateStr);
+          }
+        } else {
+          dates.push(dateStr);
+        }
+
+        curr.setDate(curr.getDate() + 1);
+        iterations++;
+      }
+
+      return dates;
+    },
+    [getSlotValidationStatus]
+  );
+
+  // Auto Adjust Dates: Cari N tanggal valid bebas bentrok dan hari libur, dimulai dari rencana tanggal mulai siswa
   const handleAutoAdjustDates = () => {
     if (!formData.staff_id || !formData.slot_waktu_id) return;
     const count = sessionDates.length || 10;
     const validDates: string[] = [];
 
-    const parts = selectedTanggal.split('-');
+    const sObj = siswaList.find((s) => s.id === formData.siswa_id);
+    const startRencana = getSiswaRencanaMulaiDateStr(sObj?.tanggal_rencana_mulai);
+    const startStr = startRencana || formData.tanggal_sesi || sessionDates[0] || selectedTanggal || getTodayDateString();
+
+    const parts = startStr.split('-');
     const y = parseInt(parts[0], 10);
     const m = parseInt(parts[1], 10) - 1;
     const d = parseInt(parts[2], 10);
     const currDate = new Date(y, m, d);
 
     let iterations = 0;
-    while (validDates.length < count && iterations < 90) {
+    while (validDates.length < count && iterations < 180) {
       const curY = currDate.getFullYear();
       const curM = String(currDate.getMonth() + 1).padStart(2, '0');
       const curD = String(currDate.getDate()).padStart(2, '0');
@@ -489,19 +553,30 @@ export default function JadwalPage() {
       iterations++;
     }
 
-    setSessionDates(validDates);
+    if (validDates.length > 0) {
+      setSessionDates(validDates);
+    }
   };
 
   // Handle student selection change in Add Modal
   const handleSiswaSelect = (siswaId: string) => {
     const sObj = siswaList.find((s) => s.id === siswaId);
     const totalSesi = sObj?.paket?.jumlah_sesi || 10;
-    const dates = generateDatesForCount(totalSesi, selectedTanggal);
+    const startRencana = getSiswaRencanaMulaiDateStr(sObj?.tanggal_rencana_mulai);
+    const startDate = startRencana || selectedTanggal || getTodayDateString();
+    const dates = generateDatesForCount(
+      totalSesi,
+      startDate,
+      formData.staff_id,
+      formData.slot_waktu_id,
+      formData.slot_waktu_id_akhir
+    );
 
     setFormData((prev) => ({
       ...prev,
       siswa_id: siswaId,
       total_sesi_paket: totalSesi,
+      tanggal_sesi: startDate,
     }));
     setSessionDates(dates);
   };
@@ -511,10 +586,17 @@ export default function JadwalPage() {
     const firstIns = instrukturList[0];
     const firstSlot = slotList[0];
     const totalSesi = firstAvail?.paket?.jumlah_sesi || 10;
-    const dates = generateDatesForCount(totalSesi, selectedTanggal);
+    const startRencana = getSiswaRencanaMulaiDateStr(firstAvail?.tanggal_rencana_mulai);
+    const startDate = startRencana || selectedTanggal || getTodayDateString();
+    const dates = generateDatesForCount(
+      totalSesi,
+      startDate,
+      firstIns?.id,
+      firstSlot?.id
+    );
 
     setFormData({
-      tanggal_sesi: selectedTanggal,
+      tanggal_sesi: startDate,
       siswa_id: firstAvail?.id || '',
       staff_id: firstIns?.id || '',
       slot_waktu_id: firstSlot?.id || '',
@@ -679,7 +761,8 @@ export default function JadwalPage() {
       cell: ({ row }) => {
         const sesi = row.original;
         // Pass sesi.id as excludeId to prevent self-conflict detection
-        const check = sesi.staff_id && sesi.slot_waktu_id
+        // Indikator bentrok hanya aktif jika sesi berstatus 'terjadwal'
+        const check = sesi.staff_id && sesi.slot_waktu_id && sesi.status_sesi === 'terjadwal'
           ? getSlotValidationStatus(
               sesi.tanggal_sesi,
               sesi.staff_id,
@@ -911,7 +994,7 @@ export default function JadwalPage() {
         }
       />
 
-      {/* ── Filter Toolbar ── */}
+      {/* Filter Toolbar */}
       <div className="card-container space-y-3">
         {/* Row 1: Period Quick-Select Pills */}
         <div className="flex flex-wrap items-center gap-2">
@@ -1035,7 +1118,7 @@ export default function JadwalPage() {
             renderMobileCard={(sesi: any) => {
               const isMulti = sesi.isMultiSlotDay;
               const isConflict =
-                sesi.staff_id && sesi.slot_waktu_id
+                sesi.staff_id && sesi.slot_waktu_id && sesi.status_sesi === 'terjadwal'
                   ? getSlotValidationStatus(
                       sesi.tanggal_sesi,
                       sesi.staff_id,
@@ -1133,7 +1216,7 @@ export default function JadwalPage() {
         )}
       </div>
 
-      {/* ── Rekap Penyelesaian Slot Harian ── */}
+      {/* Rekap Penyelesaian Slot Harian */}
       {(() => {
         // Compute recap from monthlyJadwalList (or jadwalList for selected date)
         const recapSessions = monthlyJadwalList.filter((j) => {
@@ -1760,6 +1843,15 @@ export default function JadwalPage() {
                     </span>
                   </div>
 
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--text-secondary)] font-medium">Rencana Mulai:</span>
+                    <span className="font-bold text-[var(--text-primary)]">
+                      {selectedSiswaObj.tanggal_rencana_mulai
+                        ? formatDateIndo(selectedSiswaObj.tanggal_rencana_mulai)
+                        : 'Belum ditentukan'}
+                    </span>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                       Jumlah Sesi Paket
@@ -1771,7 +1863,17 @@ export default function JadwalPage() {
                       value={sessionDates.length}
                       onChange={(e) => {
                         const count = parseInt(e.target.value) || 1;
-                        setSessionDates(generateDatesForCount(count, selectedTanggal));
+                        const startRencana = getSiswaRencanaMulaiDateStr(selectedSiswaObj.tanggal_rencana_mulai);
+                        const startDate = startRencana || sessionDates[0] || selectedTanggal || getTodayDateString();
+                        setSessionDates(
+                          generateDatesForCount(
+                            count,
+                            startDate,
+                            formData.staff_id,
+                            formData.slot_waktu_id,
+                            formData.slot_waktu_id_akhir
+                          )
+                        );
                       }}
                       className={`w-full px-3 py-1.5 text-xs rounded-md border border-[var(--border)] ${
                         isCustomPaket

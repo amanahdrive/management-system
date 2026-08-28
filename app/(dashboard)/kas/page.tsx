@@ -12,6 +12,7 @@ import {
   getKasOverviewMetrics,
   getKasTransaksiList,
   addKasTransaksi,
+  setorTunaiKas,
   getKasKategoriList,
   deleteKasTransaksi,
   updateKasTransaksi,
@@ -46,11 +47,10 @@ import {
   CheckCircle2,
   AlertTriangle,
   RotateCcw,
-  Sparkles,
-  Star,
   CreditCard,
   Landmark,
   RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -71,6 +71,15 @@ export default function KasOverviewPage() {
   const [editForm, setEditForm] = React.useState<Partial<KasTransaksi>>({});
   const [savingEdit, setSavingEdit] = React.useState(false);
 
+  // Setor Tunai Modal State
+  const [isSetorTunaiOpen, setIsSetorTunaiOpen] = React.useState(false);
+  const [setorNominal, setSetorNominal] = React.useState(0);
+  const [setorRekeningId, setSetorRekeningId] = React.useState('');
+  const [setorTanggal, setSetorTanggal] = React.useState(getTodayDateString());
+  const [setorPicNama, setSetorPicNama] = React.useState('Admin Staff');
+  const [setorKeterangan, setSetorKeterangan] = React.useState('');
+  const [isSubmittingSetor, setIsSubmittingSetor] = React.useState(false);
+
   // Form State
   const [formData, setFormData] = React.useState({
     tanggal: getTodayDateString(),
@@ -84,13 +93,13 @@ export default function KasOverviewPage() {
     siswa_id: '',
   });
 
-  // Custom DP States (untuk input DP tanpa data siswa terdaftar)
+  // DP Kustom
   const [customNama, setCustomNama] = React.useState('');
   const [customPaketId, setCustomPaketId] = React.useState('');
   const [customHargaPaket, setCustomHargaPaket] = React.useState(0);
   const [customDpNominal, setCustomDpNominal] = React.useState(0);
 
-  // 1. Instant Cache Restoration on Mount (Stale-While-Revalidate)
+  // Inisialisasi cache lokal
   React.useEffect(() => {
     try {
       const cachedStr = localStorage.getItem('amanah_kas_web_cache_v2');
@@ -273,6 +282,56 @@ export default function KasOverviewPage() {
       loadData();
     } else {
       alert('Gagal menyimpan perubahan: ' + res.error);
+    }
+  };
+
+  const handleOpenSetorTunai = () => {
+    const defaultRek =
+      rekeningList.find((r) => r.aktif && r.is_utama)?.id ||
+      rekeningList.find((r) => r.aktif)?.id ||
+      '';
+    setSetorNominal(metrics.saldoTunai > 0 ? metrics.saldoTunai : 0);
+    setSetorRekeningId(defaultRek);
+    setSetorTanggal(getTodayDateString());
+    setSetorPicNama('Admin Staff');
+    setSetorKeterangan('');
+    setIsSetorTunaiOpen(true);
+  };
+
+  const handleSaveSetorTunai = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (setorNominal <= 0) {
+      alert('Nominal setor tunai harus lebih besar dari Rp 0');
+      return;
+    }
+    if (setorNominal > metrics.saldoTunai) {
+      alert(
+        `Nominal setor tunai (Rp ${setorNominal.toLocaleString(
+          'id-ID'
+        )}) melebihi saldo kas fisik tunai saat ini (Rp ${metrics.saldoTunai.toLocaleString('id-ID')})`
+      );
+      return;
+    }
+    if (!setorRekeningId) {
+      alert('Silakan pilih rekening bank tujuan setor');
+      return;
+    }
+
+    setIsSubmittingSetor(true);
+    const res = await setorTunaiKas({
+      nominal: setorNominal,
+      rekening_id: setorRekeningId,
+      tanggal: setorTanggal,
+      pic_nama: setorPicNama,
+      keterangan: setorKeterangan,
+    });
+    setIsSubmittingSetor(false);
+
+    if (res.success) {
+      setIsSetorTunaiOpen(false);
+      loadData();
+    } else {
+      alert('Gagal memproses setor tunai: ' + res.error);
     }
   };
 
@@ -526,6 +585,15 @@ export default function KasOverviewPage() {
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
                 <span>{loading ? 'Menyinkronkan...' : 'Sinkronkan Kas'}</span>
               </button>
+              <button
+                type="button"
+                onClick={handleOpenSetorTunai}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm active:scale-95"
+                title="Pindahkan saldo tunai ke rekening bank"
+              >
+                <Landmark className="w-3.5 h-3.5" />
+                <span>Setor Tunai</span>
+              </button>
               <Link
                 href="/kas/cashflow"
                 className="px-3 py-1.5 border border-[var(--border)] rounded-md text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
@@ -563,6 +631,8 @@ export default function KasOverviewPage() {
             value={formatRupiah(metrics.saldoTunai)}
             icon={<ArrowDownRight className="w-5 h-5 text-amber-600" />}
             description="Uang tunai di brankas kantor"
+            onClick={handleOpenSetorTunai}
+            className="hover:border-emerald-500/50 cursor-pointer"
           />
           <StatCard
             label="Saldo Bank (Non-Tunai)"
@@ -682,23 +752,23 @@ export default function KasOverviewPage() {
                   >
                     <option value="">-- Pilih Siswa / DP Kustom --</option>
 
-                    {/* DP KUSTOM Option for DP Category */}
+                    {/* DP Kustom */}
                     {isDpCategory && (
                       <option value="custom_dp" className="font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/40">
-                        ✨ [+ Input DP Kustom / Tanpa Data Siswa]
+                        [+ Input DP Kustom]
                       </option>
                     )}
 
-                    {/* PELUNASAN: DP KUSTOM BERADA DI PALING ATAS */}
+                    {/* Pelunasan DP Kustom */}
                     {isPelunasanCategory && unsettledDpKustom.length > 0 && (
-                      <optgroup label="⭐ DAFTAR DP KUSTOM (BELUM LUNAS)">
+                      <optgroup label="Daftar DP Kustom (Belum Lunas)">
                         {unsettledDpKustom.map((dp) => (
                           <option
                             key={`dp_kustom_${dp.id}`}
                             value={`dp_kustom_${dp.id}`}
                             className="font-bold text-amber-800 dark:text-amber-300"
                           >
-                            ⭐ [DP Kustom] {dp.nama} — {dp.namaPaket} (Sisa: {formatRupiah(dp.sisaTagihan)})
+                            [DP Kustom] {dp.nama} — {dp.namaPaket} (Sisa: {formatRupiah(dp.sisaTagihan)})
                           </option>
                         ))}
                       </optgroup>
@@ -746,7 +816,7 @@ export default function KasOverviewPage() {
                   {isCustomDpSelected && (
                     <div className="pt-2 border-t border-[var(--border)] space-y-3 p-3 bg-amber-50/60 dark:bg-amber-950/20 rounded-md border border-amber-200 dark:border-amber-900 text-xs">
                       <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
-                        <Sparkles className="w-4 h-4 text-amber-600" />
+                        <User className="w-4 h-4 text-amber-600" />
                         <span>Form Input DP Kustom (Non-Siswa)</span>
                       </div>
 
@@ -758,7 +828,7 @@ export default function KasOverviewPage() {
                           <input
                             type="text"
                             required
-                            placeholder="Contoh: Budi Santoso"
+                            placeholder="Nama customer"
                             value={customNama}
                             onChange={(e) => handleCustomNamaChange(e.target.value)}
                             className="w-full px-2.5 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)]"
@@ -794,7 +864,7 @@ export default function KasOverviewPage() {
                       <div className="p-2 rounded bg-amber-100/70 dark:bg-amber-900/30 text-[10px] text-amber-800 dark:text-amber-300 flex items-start gap-1.5">
                         <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600" />
                         <span>
-                          💡 <strong>Harga paket dapat disesuaikan manual</strong> (misal harga negosiasi atau promo khusus). Total tagihan paket ini akan tercatat sebesar <strong>{formatRupiah(customHargaPaket)}</strong> dan sisa piutang pelunasan akan otomatis dihitung dari total harga ini.
+                          <strong>Harga paket dapat disesuaikan manual</strong> (misal harga negosiasi atau promo khusus). Total tagihan paket ini akan tercatat sebesar <strong>{formatRupiah(customHargaPaket)}</strong> dan sisa piutang pelunasan akan otomatis dihitung dari total harga ini.
                         </span>
                       </div>
                     </div>
@@ -805,7 +875,7 @@ export default function KasOverviewPage() {
                     <div className="pt-2 border-t border-[var(--border)] space-y-2 text-[11px]">
                       <div className="flex items-center gap-1.5">
                         <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-bold text-[10px] flex items-center gap-1">
-                          <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                          <User className="w-3 h-3 text-amber-600" />
                           Pelunasan DP Kustom (Non-Siswa)
                         </span>
                         <span className="text-[10px] text-[var(--text-muted)]">Ref ID: {selectedDpKustom.id.slice(0, 8)}</span>
@@ -1028,7 +1098,7 @@ export default function KasOverviewPage() {
                         .filter((r) => r.aktif)
                         .map((r) => (
                           <option key={r.id} value={r.id}>
-                            {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama}) {r.is_utama ? '⭐ Utama' : ''}
+                            {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama}) {r.is_utama ? '(Utama)' : ''}
                           </option>
                         ))}
                     </select>
@@ -1259,7 +1329,7 @@ export default function KasOverviewPage() {
                         .filter((r) => r.aktif)
                         .map((r) => (
                           <option key={r.id} value={r.id}>
-                            {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama}) {r.is_utama ? '⭐ Utama' : ''}
+                            {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama}) {r.is_utama ? '(Utama)' : ''}
                           </option>
                         ))}
                     </select>
@@ -1325,6 +1395,173 @@ export default function KasOverviewPage() {
                     className="px-4 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 text-white rounded-md font-medium text-xs"
                   >
                     {savingEdit ? 'Menyimpan...' : 'Simpan Perubahan'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Setor Tunai */}
+        {isSetorTunaiOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="card-container max-w-md w-full bg-[var(--bg)] shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border border-[var(--border)]">
+              <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <Landmark className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Setor Tunai ke Bank</h3>
+                    <p className="text-[11px] text-[var(--text-secondary)]">Pindahkan saldo fisik ke rekening perusahaan</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSetorTunaiOpen(false)}
+                  className="p-1 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Saldo Saat Ini Box */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-lg bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40">
+                  <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 block">
+                    Saldo Tunai Saat Ini
+                  </span>
+                  <span className="text-xs font-bold text-[var(--text-primary)] mt-0.5 block">
+                    {formatRupiah(metrics.saldoTunai)}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40">
+                  <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-400 block">
+                    Saldo Bank Saat Ini
+                  </span>
+                  <span className="text-xs font-bold text-[var(--text-primary)] mt-0.5 block">
+                    {formatRupiah(metrics.saldoNonTunai)}
+                  </span>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveSetorTunai} className="space-y-3.5 text-xs">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-[var(--text-primary)]">
+                      Nominal Setor Tunai *
+                    </label>
+                    {metrics.saldoTunai > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSetorNominal(metrics.saldoTunai)}
+                        className="text-[11px] font-bold text-[var(--brand-primary)] hover:underline"
+                      >
+                        Setor Semua ({formatRupiah(metrics.saldoTunai)})
+                      </button>
+                    )}
+                  </div>
+                  <CurrencyInput
+                    value={setorNominal}
+                    onChange={(val) => setSetorNominal(val)}
+                    placeholder="Rp 0"
+                    className="w-full"
+                  />
+                  {setorNominal > metrics.saldoTunai && (
+                    <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3 shrink-0" />
+                      Nominal melebihi saldo kas fisik tunai ({formatRupiah(metrics.saldoTunai)})
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                    Rekening Bank Tujuan *
+                  </label>
+                  <select
+                    value={setorRekeningId}
+                    onChange={(e) => setSetorRekeningId(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                  >
+                    <option value="">-- Pilih Rekening Bank Tujuan --</option>
+                    {rekeningList
+                      .filter((r) => r.aktif)
+                      .map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama}) {r.is_utama ? '(Utama)' : ''}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <DatePickerWIB
+                      label="Tanggal Setor *"
+                      value={setorTanggal}
+                      onChange={(val) => setSetorTanggal(val)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                      Petugas (PIC) *
+                    </label>
+                    <input
+                      type="text"
+                      value={setorPicNama}
+                      onChange={(e) => setSetorPicNama(e.target.value)}
+                      required
+                      placeholder="Nama staf penyetor"
+                      className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                    Catatan / Keterangan (Opsional)
+                  </label>
+                  <input
+                    type="text"
+                    value={setorKeterangan}
+                    onChange={(e) => setSetorKeterangan(e.target.value)}
+                    placeholder="Contoh: Setoran tunai pendaftaran kursus"
+                    className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border)]">
+                  <button
+                    type="button"
+                    onClick={() => setIsSetorTunaiOpen(false)}
+                    disabled={isSubmittingSetor}
+                    className="px-3 py-2 rounded-md border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 font-semibold text-[var(--text-secondary)]"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={
+                      isSubmittingSetor ||
+                      setorNominal <= 0 ||
+                      setorNominal > metrics.saldoTunai ||
+                      !setorRekeningId
+                    }
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmittingSetor ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Memproses...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Konfirmasi Setor Tunai</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

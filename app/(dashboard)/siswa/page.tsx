@@ -449,7 +449,7 @@ export default function SiswaPage() {
         }
       />
 
-      {/* ── Filter Bar ── */}
+      {/* Filter Bar */}
       <div className="card-container space-y-3">
         {/* Row 1: Search + Sumber */}
         <div className="flex flex-wrap items-center gap-3">

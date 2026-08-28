@@ -70,7 +70,7 @@ export default function InstrukturPortalPage() {
   const [showPwaPopup, setShowPwaPopup] = React.useState(false);
   const [showInstallModal, setShowInstallModal] = React.useState(false);
 
-  // 1. Timer for Live Greeting Clock
+  // Timer jam real-time
   React.useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(timer);
@@ -218,7 +218,7 @@ export default function InstrukturPortalPage() {
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(defaultMsg)}`;
   };
 
-  // --- GATE 1: SELECT INSTRUCTOR LOGIN PROMPT ---
+  // Pilih instruktur
   if (loadingInstruktur) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg-subtle)]">
@@ -270,7 +270,7 @@ export default function InstrukturPortalPage() {
     );
   }
 
-  // --- PORTAL MAIN DASHBOARD VIEW ---
+  // Tampilan utama dashboard
   const daysInMonth = new Date(calCurrentYear, calCurrentMonth + 1, 0).getDate();
   const firstDayIndex = new Date(calCurrentYear, calCurrentMonth, 1).getDay();
 
@@ -530,7 +530,7 @@ export default function InstrukturPortalPage() {
         )}
       </section>
 
-      {/* STUDENT DETAIL MODAL WITH DIRECT WHATSAPP "OTW" BUTTON */}
+      {/* Modal Detail Siswa */}
       {selectedJadwalDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="card-container max-w-md w-full bg-[var(--bg)] shadow-2xl space-y-4 text-xs max-h-[90vh] overflow-y-auto">
@@ -733,7 +733,7 @@ export default function InstrukturPortalPage() {
         </div>
       )}
 
-      {/* PWA INSTALL MODAL (IOS & ANDROID UNIVERSAL) */}
+      {/* Modal Instalasi PWA */}
       <PwaInstallModal
         appName="Portal Instruktur — Amanah Drive"
         appDescription="Jadwal mengemudi dan kontak siswa"
@@ -743,7 +743,7 @@ export default function InstrukturPortalPage() {
         onInstalled={() => showToast('Aplikasi instruktur berhasil dipasang!')}
       />
 
-      {/* MINIMALIST POPUP INSTALL PWA */}
+      {/* Banner Pasang Aplikasi */}
       {showPwaPopup && (
         <div className="fixed bottom-4 left-4 right-4 z-50 max-w-md mx-auto p-3.5 rounded-2xl bg-[var(--bg-subtle)] border border-[var(--brand-primary)] shadow-2xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-4">
           <div className="flex items-center gap-2.5 min-w-0">

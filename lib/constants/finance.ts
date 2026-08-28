@@ -132,6 +132,8 @@ export function formatKategoriLabel(kategori: string): string {
       return 'Cicilan Hutang';
     case 'refund_siswa':
       return 'Refund Pembatalan';
+    case 'setor_tunai':
+      return 'Setor Tunai (Bank)';
     case 'lainnya':
       return 'Lain-lain';
     default:

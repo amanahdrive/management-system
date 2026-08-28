@@ -413,7 +413,7 @@ export default function InsidenPage() {
         }
       />
 
-      {/* ── METRIC STATS CARDS ── */}
+      {/* Statistik Insiden */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Insiden */}
         <div className="card-container flex items-center gap-3.5 p-4 border border-[var(--border)]">
@@ -476,7 +476,7 @@ export default function InsidenPage() {
         </div>
       </div>
 
-      {/* ── FILTER TOOLBAR ── */}
+      {/* Filter Toolbar */}
       <div className="card-container p-4 space-y-3 border border-[var(--border)]">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
           {/* Quick Search */}
@@ -594,7 +594,7 @@ export default function InsidenPage() {
         </div>
       </div>
 
-      {/* ── INCIDENT LIST & CARDS ── */}
+      {/* Daftar Insiden */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((i) => (
@@ -764,7 +764,7 @@ export default function InsidenPage() {
         </div>
       )}
 
-      {/* ── MODAL INPUT INSIDEN LENGKAP ── */}
+      {/* Modal Input Insiden */}
       {isInputModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="card-container max-w-2xl w-full bg-[var(--bg)] shadow-2xl space-y-4 text-xs max-h-[92vh] overflow-y-auto">
@@ -1096,7 +1096,7 @@ export default function InsidenPage() {
         </div>
       )}
 
-      {/* ── MODAL DETAIL DOSSIER INSIDEN ── */}
+      {/* Modal Detail Insiden */}
       {selectedDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="card-container max-w-xl w-full bg-[var(--bg)] shadow-2xl space-y-4 text-xs max-h-[90vh] overflow-y-auto">
@@ -1272,7 +1272,7 @@ export default function InsidenPage() {
         </div>
       )}
 
-      {/* ── MODAL UPDATE STATUS CEPAT ── */}
+      {/* Modal Update Status */}
       {statusModalInsiden && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="card-container max-w-md w-full bg-[var(--bg)] shadow-2xl space-y-4 text-xs">
@@ -1412,7 +1412,7 @@ export default function InsidenPage() {
         </div>
       )}
 
-      {/* ── DELETE CONFIRMATION DIALOG ── */}
+      {/* Konfirmasi Hapus */}
       <ConfirmDialog
         isOpen={Boolean(deletingId)}
         title="Hapus Data Insiden"

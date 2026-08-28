@@ -6,7 +6,7 @@ import { PinGateDialog } from '@/components/shared/PinGateDialog';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Siswa, RekeningBank } from '@/types/database';
-import { getSiswaList } from '@/lib/actions/siswa';
+import { getSiswaList, recordPelunasanDirect } from '@/lib/actions/siswa';
 import { addKasTransaksi } from '@/lib/actions/kas';
 import { getRekeningList } from '@/lib/actions/rekening';
 import { DEFAULT_REKENING_LIST, LABEL_REKENING_DEFAULT } from '@/lib/constants/finance';
@@ -30,6 +30,7 @@ export default function PiutangPage() {
   const [bayarNominal, setBayarNominal] = React.useState<number>(0);
   const [bayarTanggal, setBayarTanggal] = React.useState<string>(getTodayDateString());
   const [bayarMetode, setBayarMetode] = React.useState<'tunai' | 'non_tunai'>('non_tunai');
+  const [catatKeKas, setCatatKeKas] = React.useState<boolean>(true);
 
   const loadData = async () => {
     setLoading(true);
@@ -57,34 +58,40 @@ export default function PiutangPage() {
     setBayarNominal(Math.max(0, sisaTagihan));
     setBayarTanggal(getTodayDateString());
     setBayarMetode('non_tunai');
+    setCatatKeKas(true);
   };
 
   const handleSavePelunasan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSiswa || bayarNominal <= 0) return;
 
-    let baseKeterangan =
-      selectedSiswa.status_pembayaran_kode === 'dp'
-        ? `Pelunasan Kursus - ${selectedSiswa.nama} (${selectedSiswa.kode_siswa})`
-        : `Pembayaran DP Kursus - ${selectedSiswa.nama} (${selectedSiswa.kode_siswa})`;
+    if (catatKeKas) {
+      let baseKeterangan =
+        selectedSiswa.status_pembayaran_kode === 'dp'
+          ? `Pelunasan Kursus - ${selectedSiswa.nama} (${selectedSiswa.kode_siswa})`
+          : `Pembayaran DP Kursus - ${selectedSiswa.nama} (${selectedSiswa.kode_siswa})`;
 
-    const selectedRek = rekeningList.find((r) => r.id === selectedRekeningId);
-    if (bayarMetode === 'non_tunai' && selectedRek) {
-      baseKeterangan = `[${selectedRek.nama_bank} ${selectedRek.nomor_rekening}] ${baseKeterangan}`;
+      const selectedRek = rekeningList.find((r) => r.id === selectedRekeningId);
+      if (bayarMetode === 'non_tunai' && selectedRek) {
+        baseKeterangan = `[${selectedRek.nama_bank} ${selectedRek.nomor_rekening}] ${baseKeterangan}`;
+      }
+
+      await addKasTransaksi({
+        tanggal: bayarTanggal,
+        tipe: 'pemasukan',
+        kategori: selectedSiswa.status_pembayaran_kode === 'dp' ? 'pelunasan_siswa' : 'dp_siswa',
+        keterangan: baseKeterangan,
+        nominal: bayarNominal,
+        jenis_pembayaran: bayarMetode,
+        rekening_id: bayarMetode === 'non_tunai' ? selectedRekeningId : null,
+        pic_tipe: 'admin',
+        pic_nama: 'Admin Staff',
+        siswa_id: selectedSiswa.id,
+        sumber_otomatis: false,
+      });
+    } else {
+      await recordPelunasanDirect(selectedSiswa.id, bayarNominal, bayarTanggal);
     }
-
-    await addKasTransaksi({
-      tanggal: bayarTanggal,
-      tipe: 'pemasukan',
-      kategori: selectedSiswa.status_pembayaran_kode === 'dp' ? 'pelunasan_siswa' : 'dp_siswa',
-      keterangan: baseKeterangan,
-      nominal: bayarNominal,
-      jenis_pembayaran: bayarMetode,
-      pic_tipe: 'admin',
-      pic_nama: 'Admin Staff',
-      siswa_id: selectedSiswa.id,
-      sumber_otomatis: false,
-    });
 
     setSelectedSiswa(null);
     loadData();
@@ -304,86 +311,102 @@ export default function PiutangPage() {
                   onChange={(val) => setBayarTanggal(val)}
                 />
 
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                    Metode Pembayaran *
+                {/* Opsi Catat ke Buku Kas */}
+                <div className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)] space-y-1">
+                  <label className="flex items-center gap-2 cursor-pointer font-semibold text-xs text-[var(--text-primary)] select-none">
+                    <input
+                      type="checkbox"
+                      checked={catatKeKas}
+                      onChange={(e) => setCatatKeKas(e.target.checked)}
+                      className="w-4 h-4 rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
+                    />
+                    <span>Catat ke buku kas dan keuangan</span>
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <label
-                      className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
-                        bayarMetode === 'non_tunai'
-                          ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
-                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="bayarMetode"
-                        value="non_tunai"
-                        checked={bayarMetode === 'non_tunai'}
-                        onChange={() => setBayarMetode('non_tunai')}
-                        className="sr-only"
-                      />
-                      <span>Transfer Bank</span>
-                    </label>
-
-                    <label
-                      className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
-                        bayarMetode === 'tunai'
-                          ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'
-                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="bayarMetode"
-                        value="tunai"
-                        checked={bayarMetode === 'tunai'}
-                        onChange={() => setBayarMetode('tunai')}
-                        className="sr-only"
-                      />
-                      <span>Tunai (Kas Fisik)</span>
-                    </label>
-                  </div>
-
-                  {/* Dropdown Rekening Bank Perusahaan (Jika Non-Tunai) */}
-                  {bayarMetode === 'non_tunai' && (
-                    <div className="mt-2.5 p-2.5 rounded-md bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 space-y-1.5 animate-fadeIn">
-                      <div className="flex items-center justify-between">
-                        <label className="block text-[11px] font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1">
-                          <Landmark className="w-3.5 h-3.5 text-blue-600" />
-                          <span>Pilih Rekening Tujuan / Penerima *</span>
-                        </label>
-                        <Link
-                          href="/settings"
-                          target="_blank"
-                          className="text-[10px] text-blue-600 hover:text-blue-700 font-semibold underline"
-                        >
-                          Kelola Rekening
-                        </Link>
-                      </div>
-
-                      <select
-                        value={selectedRekeningId}
-                        onChange={(e) => setSelectedRekeningId(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs rounded border border-blue-300 dark:border-blue-800 bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
-                      >
-                        <option value="">{LABEL_REKENING_DEFAULT}</option>
-                        {rekeningList
-                          .filter((r) => r.aktif)
-                          .map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama}) {r.is_utama ? '⭐ Utama' : ''}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                  )}
+                  <p className="text-[10px] text-[var(--text-secondary)] pl-6">
+                    {catatKeKas
+                      ? 'Pembayaran akan dicatat sebagai mutasi kas masuk dan memperbarui status piutang siswa.'
+                      : 'Hanya memperbarui status piutang siswa tanpa menambah catatan transaksi pada buku kas.'}
+                  </p>
                 </div>
 
-                <p className="text-[10px] text-emerald-800 dark:text-emerald-300 italic">
-                  * Pembayaran ini akan dicatat ke Buku Kas & Keuangan dan langsung memperbarui status serta sisa piutang siswa.
-                </p>
+                {catatKeKas && (
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                      Metode Pembayaran *
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label
+                        className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                          bayarMetode === 'non_tunai'
+                            ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
+                            : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="bayarMetode"
+                          value="non_tunai"
+                          checked={bayarMetode === 'non_tunai'}
+                          onChange={() => setBayarMetode('non_tunai')}
+                          className="sr-only"
+                        />
+                        <span>Transfer Bank</span>
+                      </label>
+
+                      <label
+                        className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                          bayarMetode === 'tunai'
+                            ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'
+                            : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="bayarMetode"
+                          value="tunai"
+                          checked={bayarMetode === 'tunai'}
+                          onChange={() => setBayarMetode('tunai')}
+                          className="sr-only"
+                        />
+                        <span>Tunai (Kas Fisik)</span>
+                      </label>
+                    </div>
+
+                    {/* Dropdown Rekening Bank Perusahaan (Jika Non-Tunai) */}
+                    {bayarMetode === 'non_tunai' && (
+                      <div className="mt-2.5 p-2.5 rounded-md bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 space-y-1.5 animate-fadeIn">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-[11px] font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1">
+                            <Landmark className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Pilih Rekening Tujuan / Penerima *</span>
+                          </label>
+                          <Link
+                            href="/settings"
+                            target="_blank"
+                            className="text-[10px] text-blue-600 hover:text-blue-700 font-semibold underline"
+                          >
+                            Kelola Rekening
+                          </Link>
+                        </div>
+
+                        <select
+                          value={selectedRekeningId}
+                          onChange={(e) => setSelectedRekeningId(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded border border-blue-300 dark:border-blue-800 bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                        >
+                          <option value="">{LABEL_REKENING_DEFAULT}</option>
+                          {rekeningList
+                            .filter((r) => r.aktif)
+                            .map((r) => (
+                              <option key={r.id} value={r.id}>
+                                {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama}) {r.is_utama ? '(Utama)' : ''}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border)]">
                   <button

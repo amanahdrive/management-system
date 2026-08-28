@@ -6,7 +6,7 @@
    ===================================================== */
 
 @layer base {
-  /* ── Light Theme (Default) ───────────────────────── */
+  /*  */
   :root {
     /* Brand Chroma (Amanah Drive Teal) */
     --brand-primary:       #0F7A73;
@@ -77,7 +77,7 @@
     --transition-bento:    250ms ease;
   }
 
-  /* ── Dark Theme (Cool Graphite Data Console) ──────── */
+  /*  */
   [data-theme="dark"],
   .dark {
     /* Brand Chroma (Vibrant Teal in Dark Console) */
@@ -133,7 +133,7 @@
     --shadow-lg:           0 12px 30px -8px rgba(0, 0, 0, 0.7);
   }
 
-  /* ── Base Reset & Typography (Inter Exclusively) ─── */
+  /*  */
   * {
     box-sizing: border-box;
     margin: 0;

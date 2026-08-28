@@ -274,7 +274,72 @@ export async function addKasTransaksi(
   }
 }
 
-// --- HUTANG ACTIONS ---
+export async function setorTunaiKas(data: {
+  nominal: number;
+  rekening_id: string;
+  tanggal: string;
+  pic_nama?: string;
+  keterangan?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const nominal = Math.round(Number(data.nominal));
+    if (!nominal || nominal <= 0) {
+      return { success: false, error: 'Nominal setor tunai harus lebih dari Rp 0' };
+    }
+    if (!data.rekening_id) {
+      return { success: false, error: 'Silakan pilih rekening bank tujuan setor' };
+    }
+
+    const currentMetrics = await getKasOverviewMetrics();
+    if (nominal > currentMetrics.saldoTunai) {
+      return {
+        success: false,
+        error: `Nominal setor tunai melebihi saldo kas tunai saat ini (Maksimal: Rp ${currentMetrics.saldoTunai.toLocaleString('id-ID')})`,
+      };
+    }
+
+    const rek = await dbQuerySingle<{ nama_bank: string; nomor_rekening: string; atas_nama: string }>(
+      'SELECT nama_bank, nomor_rekening, atas_nama FROM rekening_bank WHERE id = $1',
+      [data.rekening_id]
+    );
+    const bankLabel = rek ? `${rek.nama_bank} ${rek.nomor_rekening} (${rek.atas_nama})` : 'Rekening Bank';
+    const pic = data.pic_nama?.trim() || 'Admin Staff';
+    const tanggal = data.tanggal || new Date().toISOString().slice(0, 10);
+    const extraKet = data.keterangan?.trim() ? ` - ${data.keterangan.trim()}` : '';
+
+    const ketKeluar = `Setor Tunai ke ${bankLabel}${extraKet}`;
+    const ketMasuk = `Penerimaan Setor Tunai dari Kas Fisik${extraKet}`;
+
+    await dbQuery(
+      `INSERT INTO kas_transaksi (
+         tanggal, tipe, kategori, keterangan, nominal, jenis_pembayaran, pic_tipe, pic_nama, sumber_otomatis
+       ) VALUES ($1, 'pengeluaran', 'setor_tunai', $2, $3, 'tunai', 'admin', $4, false)`,
+      [tanggal, ketKeluar, nominal, pic]
+    );
+
+    await dbQuery(
+      `INSERT INTO kas_transaksi (
+         tanggal, tipe, kategori, keterangan, nominal, jenis_pembayaran, rekening_id, pic_tipe, pic_nama, sumber_otomatis
+       ) VALUES ($1, 'pemasukan', 'setor_tunai', $2, $3, 'non_tunai', $4, 'admin', $5, false)`,
+      [tanggal, ketMasuk, nominal, data.rekening_id, pic]
+    );
+
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+
+    revalidatePath('/kas');
+    revalidatePath('/kas/cashflow');
+    revalidatePath('/kas/piutang');
+    revalidatePath('/finance');
+    revalidatePath('/dashboard');
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error in setorTunaiKas:', err);
+    return { success: false, error: err.message || 'Gagal memproses transaksi setor tunai' };
+  }
+}
+
 export async function getHutangList(): Promise<Hutang[]> {
   const cached = cacheGet<Hutang[]>('hutang_list');
   if (cached) return cached;

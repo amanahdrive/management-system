@@ -99,7 +99,7 @@ export default function CashflowPage() {
     loadData();
   }, []);
 
-  // 1. Compute Available Years (Only years containing cashflow transactions)
+  // Daftar tahun transaksi kas
   const availableYears = React.useMemo(() => {
     const yearsSet = new Set<number>();
     transaksiList.forEach((tx) => {
@@ -623,7 +623,7 @@ export default function CashflowPage() {
           }
         />
 
-        {/* ── BAR NAVIGASI TAHUN & BULAN (JANUARI - DESEMBER) ── */}
+        {/* Navigasi Periode */}
         <div className="card-container p-3 border border-[var(--border)] shadow-sm space-y-3">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             {/* Left: Dropdown Tahun (Hanya tahun yang berisi cashflow) */}
@@ -691,7 +691,7 @@ export default function CashflowPage() {
           </div>
         </div>
 
-        {/* ── FINANCIAL SUMMARY CARDS (PERIODE BULAN AKTIF) ── */}
+        {/* Ringkasan Finansial Bulanan */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           {/* Saldo Awal */}
           <div className="card-container p-3.5 border border-[var(--border)]">
@@ -746,7 +746,7 @@ export default function CashflowPage() {
           </div>
         </div>
 
-        {/* ── TOOLBAR FILTER & SEARCH ── */}
+        {/* Filter & Pencarian */}
         <div className="card-container p-3 border border-[var(--border)] space-y-3 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
             {/* Search Box */}
@@ -814,7 +814,7 @@ export default function CashflowPage() {
           </div>
         </div>
 
-        {/* ── TABLE MUTASI CASHFLOW (KRONOLOGIS TANGGAL 1..N) ── */}
+        {/* Tabel Mutasi Arus Kas */}
         <div className="card-container p-0 overflow-hidden border border-[var(--border)] shadow-sm">
           {loading ? (
             <div className="h-64 animate-pulse bg-black/5 dark:bg-white/5 rounded-md p-6" />
@@ -1134,7 +1134,7 @@ export default function CashflowPage() {
                         .filter((r) => r.aktif)
                         .map((r) => (
                           <option key={r.id} value={r.id}>
-                            {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama}) {r.is_utama ? '⭐ Utama' : ''}
+                            {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama}) {r.is_utama ? '(Utama)' : ''}
                           </option>
                         ))}
                     </select>

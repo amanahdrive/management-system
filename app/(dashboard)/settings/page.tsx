@@ -936,7 +936,7 @@ export default function SettingsPage() {
           </form>
         </div>
 
-        {/* ── SECTION: KELOLA REKENING BANK PERUSAHAAN ── */}
+        {/* Kelola Rekening Bank Perusahaan */}
         <div className="card-container space-y-4 md:col-span-2 border-l-4 border-l-emerald-600 bg-emerald-50/20 dark:bg-emerald-950/10">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-2">
             <div>
@@ -1317,7 +1317,7 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* ── SECTION 6: MODULAR DATA RESET / KOSONGKAN DATA DATABASE ── */}
+        {/* Pembersihan & Reset Data Modular */}
         <div className="card-container space-y-4 md:col-span-2 border-l-4 border-l-amber-500 bg-amber-50/20 dark:bg-amber-950/10">
           <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
             <h3 className="font-bold text-sm text-amber-800 dark:text-amber-400 flex items-center gap-2">
@@ -1371,7 +1371,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* ── SECTION 7: ZONA BAHAYA - RESET SISTEM TOTAL ── */}
+        {/* Reset Sistem Total */}
         <div className="card-container space-y-4 md:col-span-2 border-l-4 border-l-[var(--danger)] bg-rose-50/50 dark:bg-rose-950/10">
           <h3 className="font-bold text-sm text-[var(--danger)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
             <ShieldAlert className="w-4 h-4 text-[var(--danger)]" />
