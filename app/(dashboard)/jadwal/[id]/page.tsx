@@ -10,6 +10,7 @@ import {
   upsertJadwalSesi,
   deleteJadwalSesi,
   getJadwalConflictCheckList,
+  bulkUpdateJadwalSesi,
 } from '@/lib/actions/jadwal';
 import { getInstrukturList, getSlotWaktuList } from '@/lib/actions/master-data';
 import { formatDateIndo } from '@/lib/utils/date';
@@ -31,6 +32,9 @@ import {
   User,
   Info,
   AlertTriangle,
+  SlidersHorizontal,
+  Loader2,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -60,6 +64,27 @@ export default function JadwalDetailPage() {
   // Edit State per Sesi ID
   const [editingSesiId, setEditingSesiId] = React.useState<string | null>(null);
   const [editFormData, setEditFormData] = React.useState<Partial<JadwalSesi>>({});
+
+  // Bulk Edit State
+  const [selectedSessionIds, setSelectedSessionIds] = React.useState<string[]>([]);
+  const [isBulkModalOpen, setIsBulkModalOpen] = React.useState(false);
+  const [bulkScope, setBulkScope] = React.useState<'selected' | 'all'>('selected');
+  const [isBulkSaving, setIsBulkSaving] = React.useState(false);
+  const [bulkFieldFlags, setBulkFieldFlags] = React.useState({
+    staff_id: false,
+    status_sesi: false,
+    slot_waktu: false,
+    tanggal_sesi: false,
+    catatan_sesi: false,
+  });
+  const [bulkFormData, setBulkFormData] = React.useState({
+    staff_id: '',
+    status_sesi: 'terjadwal' as 'terjadwal' | 'selesai' | 'batal',
+    slot_waktu_id: '',
+    slot_waktu_id_akhir: null as string | null,
+    tanggal_sesi: '',
+    catatan_sesi: '',
+  });
 
   const loadData = React.useCallback(async () => {
     if (!id) return;
@@ -165,6 +190,103 @@ export default function JadwalDetailPage() {
       loadData();
     } else {
       alert('Gagal menambah sesi: ' + res.error);
+    }
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedSessionIds.length === allSesi.length) {
+      setSelectedSessionIds([]);
+    } else {
+      setSelectedSessionIds(allSesi.map((s) => s.id));
+    }
+  };
+
+  const handleToggleSelectSesi = (sesiId: string) => {
+    setSelectedSessionIds((prev) =>
+      prev.includes(sesiId) ? prev.filter((sId) => sId !== sesiId) : [...prev, sesiId]
+    );
+  };
+
+  const handleOpenBulkModal = () => {
+    if (selectedSessionIds.length > 0) {
+      setBulkScope('selected');
+    } else {
+      setBulkScope('all');
+    }
+
+    const defaultStaff = mainSesi?.staff_id || instrukturList[0]?.id || '';
+    const defaultSlot = mainSesi?.slot_waktu_id || slotList[0]?.id || '';
+    const defaultDate = mainSesi?.tanggal_sesi || new Date().toISOString().split('T')[0];
+
+    setBulkFormData({
+      staff_id: defaultStaff,
+      status_sesi: 'terjadwal',
+      slot_waktu_id: defaultSlot,
+      slot_waktu_id_akhir: null,
+      tanggal_sesi: defaultDate,
+      catatan_sesi: '',
+    });
+
+    setBulkFieldFlags({
+      staff_id: false,
+      status_sesi: false,
+      slot_waktu: false,
+      tanggal_sesi: false,
+      catatan_sesi: false,
+    });
+
+    setIsBulkModalOpen(true);
+  };
+
+  const handleSaveBulk = async () => {
+    const targetIds = bulkScope === 'all' ? allSesi.map((s) => s.id) : selectedSessionIds;
+
+    if (targetIds.length === 0) {
+      alert('Pilih setidaknya satu sesi untuk diubah.');
+      return;
+    }
+
+    const hasAnyField = Object.values(bulkFieldFlags).some(Boolean);
+    if (!hasAnyField) {
+      alert('Pilih setidaknya satu variabel/bidang yang ingin diubah.');
+      return;
+    }
+
+    const updates: Parameters<typeof bulkUpdateJadwalSesi>[1] = {};
+    if (bulkFieldFlags.staff_id) {
+      updates.staff_id = bulkFormData.staff_id;
+    }
+    if (bulkFieldFlags.status_sesi) {
+      updates.status_sesi = bulkFormData.status_sesi;
+    }
+    if (bulkFieldFlags.slot_waktu) {
+      updates.slot_waktu_id = bulkFormData.slot_waktu_id;
+      const validAkhir = isSlotRangeValid(
+        bulkFormData.slot_waktu_id,
+        bulkFormData.slot_waktu_id_akhir,
+        slotList
+      )
+        ? bulkFormData.slot_waktu_id_akhir
+        : null;
+      updates.slot_waktu_id_akhir = validAkhir;
+    }
+    if (bulkFieldFlags.tanggal_sesi) {
+      updates.tanggal_sesi = bulkFormData.tanggal_sesi;
+    }
+    if (bulkFieldFlags.catatan_sesi) {
+      updates.catatan_sesi = bulkFormData.catatan_sesi;
+    }
+
+    setIsBulkSaving(true);
+    const res = await bulkUpdateJadwalSesi(targetIds, updates, mainSesi?.siswa_id);
+    setIsBulkSaving(false);
+
+    if (res.success) {
+      setIsBulkModalOpen(false);
+      setSelectedSessionIds([]);
+      loadData();
+    } else {
+      alert('Gagal memperbarui jadwal secara masal: ' + res.error);
     }
   };
 
@@ -289,9 +411,59 @@ export default function JadwalDetailPage() {
             </span>
           </div>
 
+          {/* Bulk Action Bar di atas Sesi Paling Awal / Sesi 1 */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-lg">
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={allSesi.length > 0 && selectedSessionIds.length === allSesi.length}
+                  ref={(el) => {
+                    if (el) {
+                      el.indeterminate = selectedSessionIds.length > 0 && selectedSessionIds.length < allSesi.length;
+                    }
+                  }}
+                  onChange={handleToggleSelectAll}
+                  className="w-4 h-4 rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
+                />
+                <span>Pilih Semua Sesi ({allSesi.length})</span>
+              </label>
+
+              {selectedSessionIds.length > 0 && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-bold">
+                  {selectedSessionIds.length} sesi dicentang
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {selectedSessionIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedSessionIds([])}
+                  className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium underline px-1"
+                >
+                  Batal Pilih
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleOpenBulkModal}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-md shadow-sm transition-colors"
+                title="Bulk Edit Sesi"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>
+                  Bulk Edit {selectedSessionIds.length > 0 ? `(${selectedSessionIds.length} Sesi)` : 'Sesi'}
+                </span>
+              </button>
+            </div>
+          </div>
+
           <div className="space-y-4">
             {allSesi.map((sesi, index) => {
               const isEditing = editingSesiId === sesi.id;
+              const isSelected = selectedSessionIds.includes(sesi.id);
 
               // --- Conflict detection for this session ---
               const checkConflict = (() => {
@@ -328,6 +500,8 @@ export default function JadwalDetailPage() {
                 <div
                   key={sesi.id}
                   className={`p-4 border rounded-lg transition-all space-y-3 ${
+                    isSelected ? 'ring-2 ring-[var(--brand-primary)] shadow-sm ' : ''
+                  }${
                     isEditing
                       ? 'border-2 border-[var(--brand-primary)] bg-[var(--brand-primary-light)]/20'
                       : checkConflict?.type === 'conflict'
@@ -338,11 +512,21 @@ export default function JadwalDetailPage() {
                       ? 'border-emerald-200 dark:border-emerald-950/60 bg-emerald-50/10'
                       : sesi.status_sesi === 'batal'
                       ? 'border-rose-200 dark:border-rose-950/60 bg-rose-50/10'
+                      : isSelected
+                      ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]/10'
                       : 'border-[var(--border)] bg-[var(--bg)]'
                   }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                     <div className="flex items-center gap-2 flex-wrap">
+                      <label className="flex items-center cursor-pointer" title={`Pilih Sesi ${sesi.nomor_sesi_ke}`}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelectSesi(sesi.id)}
+                          className="w-4 h-4 rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
+                        />
+                      </label>
                       <span className="font-extrabold text-sm text-[var(--brand-primary)] bg-[var(--brand-primary-light)] px-2 py-0.5 rounded">
                         Sesi {sesi.nomor_sesi_ke}
                       </span>
@@ -539,6 +723,360 @@ export default function JadwalDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* BULK EDIT MODAL DIALOG */}
+      {isBulkModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="card-container max-w-xl w-full bg-[var(--bg)] shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border border-[var(--border)]">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="w-5 h-5 text-[var(--brand-primary)]" />
+                <div>
+                  <h3 className="text-base font-bold text-[var(--text-primary)]">
+                    Bulk Edit Sesi Siswa
+                  </h3>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Ubah variabel sesi mengemudi untuk siswa {mainSesi.siswa?.nama}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBulkModalOpen(false)}
+                className="p-1 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scope Selection: Sesi Dicentang vs Semua Sesi */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-[var(--text-primary)]">
+                Terapkan Perubahan Ke:
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBulkScope('selected')}
+                  disabled={selectedSessionIds.length === 0}
+                  className={`px-3 py-2 text-xs font-semibold rounded-lg border text-left transition-all ${
+                    bulkScope === 'selected'
+                      ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]/20 text-[var(--brand-primary)] ring-1 ring-[var(--brand-primary)]'
+                      : selectedSessionIds.length === 0
+                      ? 'opacity-50 cursor-not-allowed border-[var(--border)] text-[var(--text-secondary)]'
+                      : 'border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-primary)]'
+                  }`}
+                >
+                  <div className="font-bold">Sesi yang Dicentang</div>
+                  <div className="text-[11px] opacity-80 mt-0.5">
+                    {selectedSessionIds.length > 0
+                      ? `${selectedSessionIds.length} Sesi Terpilih`
+                      : 'Belum ada sesi dicentang'}
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBulkScope('all')}
+                  className={`px-3 py-2 text-xs font-semibold rounded-lg border text-left transition-all ${
+                    bulkScope === 'all'
+                      ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]/20 text-[var(--brand-primary)] ring-1 ring-[var(--brand-primary)]'
+                      : 'border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-primary)]'
+                  }`}
+                >
+                  <div className="font-bold">Seluruh Sesi</div>
+                  <div className="text-[11px] opacity-80 mt-0.5">
+                    Semua {allSesi.length} Sesi Terdaftar
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Hint message */}
+            <div className="flex items-start gap-2 p-2.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 rounded-md text-[11px] text-blue-700 dark:text-blue-300">
+              <Info className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                Centang variabel yang ingin Anda ubah. Variabel yang tidak dicentang tidak akan mengubah nilai yang tersimpan pada masing-masing sesi.
+              </span>
+            </div>
+
+            {/* Variable Overwrites Form */}
+            <div className="space-y-3">
+              {/* 1. Instruktur Bertugas */}
+              <div
+                className={`p-3 rounded-lg border transition-all ${
+                  bulkFieldFlags.staff_id
+                    ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]/10'
+                    : 'border-[var(--border)]'
+                }`}
+              >
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-[var(--text-primary)] select-none">
+                  <input
+                    type="checkbox"
+                    checked={bulkFieldFlags.staff_id}
+                    onChange={(e) =>
+                      setBulkFieldFlags((prev) => ({ ...prev, staff_id: e.target.checked }))
+                    }
+                    className="w-4 h-4 rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
+                  />
+                  <span>Instruktur Bertugas</span>
+                </label>
+                {bulkFieldFlags.staff_id && (
+                  <div className="mt-2 pl-6">
+                    <select
+                      value={bulkFormData.staff_id}
+                      onChange={(e) =>
+                        setBulkFormData((prev) => ({ ...prev, staff_id: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                    >
+                      {instrukturList.map((ins) => (
+                        <option key={ins.id} value={ins.id}>
+                          {ins.nama}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Status Sesi */}
+              <div
+                className={`p-3 rounded-lg border transition-all ${
+                  bulkFieldFlags.status_sesi
+                    ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]/10'
+                    : 'border-[var(--border)]'
+                }`}
+              >
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-[var(--text-primary)] select-none">
+                  <input
+                    type="checkbox"
+                    checked={bulkFieldFlags.status_sesi}
+                    onChange={(e) =>
+                      setBulkFieldFlags((prev) => ({ ...prev, status_sesi: e.target.checked }))
+                    }
+                    className="w-4 h-4 rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
+                  />
+                  <span>Status Sesi</span>
+                </label>
+                {bulkFieldFlags.status_sesi && (
+                  <div className="mt-2 pl-6">
+                    <select
+                      value={bulkFormData.status_sesi}
+                      onChange={(e) =>
+                        setBulkFormData((prev) => ({
+                          ...prev,
+                          status_sesi: e.target.value as any,
+                        }))
+                      }
+                      className="w-full px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-[var(--text-primary)]"
+                    >
+                      <option value="terjadwal">TERJADWAL</option>
+                      <option value="selesai">SELESAI</option>
+                      <option value="batal">BATAL</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Slot Waktu Pembelajaran */}
+              <div
+                className={`p-3 rounded-lg border transition-all ${
+                  bulkFieldFlags.slot_waktu
+                    ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]/10'
+                    : 'border-[var(--border)]'
+                }`}
+              >
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-[var(--text-primary)] select-none">
+                  <input
+                    type="checkbox"
+                    checked={bulkFieldFlags.slot_waktu}
+                    onChange={(e) =>
+                      setBulkFieldFlags((prev) => ({ ...prev, slot_waktu: e.target.checked }))
+                    }
+                    className="w-4 h-4 rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
+                  />
+                  <span>Slot Waktu (Jam Pelajaran)</span>
+                </label>
+                {bulkFieldFlags.slot_waktu && (
+                  <div className="mt-2 pl-6 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] text-[var(--text-secondary)] font-semibold mb-1">
+                        Slot Mulai
+                      </label>
+                      <select
+                        value={bulkFormData.slot_waktu_id}
+                        onChange={(e) =>
+                          setBulkFormData((prev) => ({ ...prev, slot_waktu_id: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                      >
+                        {slotList.map((sw) => (
+                          <option key={sw.id} value={sw.id}>
+                            {sw.nama_slot} ({sw.jam_mulai.substring(0, 5)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] text-[var(--text-secondary)] font-semibold mb-1">
+                        Slot Akhir (Opsional)
+                      </label>
+                      <select
+                        value={bulkFormData.slot_waktu_id_akhir || ''}
+                        onChange={(e) =>
+                          setBulkFormData((prev) => ({
+                            ...prev,
+                            slot_waktu_id_akhir: e.target.value || null,
+                          }))
+                        }
+                        className="w-full px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                      >
+                        <option value="">-- Hanya 1 Slot (Standar) --</option>
+                        {slotList
+                          .filter((sw) => {
+                            const startSlot = slotList.find((s) => s.id === bulkFormData.slot_waktu_id);
+                            return startSlot ? (sw.urutan ?? 0) > (startSlot.urutan ?? 0) : false;
+                          })
+                          .map((sw) => (
+                            <option key={sw.id} value={sw.id}>
+                              s/d {sw.nama_slot} ({sw.jam_selesai.substring(0, 5)} WIB)
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Tanggal Sesi */}
+              <div
+                className={`p-3 rounded-lg border transition-all ${
+                  bulkFieldFlags.tanggal_sesi
+                    ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]/10'
+                    : 'border-[var(--border)]'
+                }`}
+              >
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-[var(--text-primary)] select-none">
+                  <input
+                    type="checkbox"
+                    checked={bulkFieldFlags.tanggal_sesi}
+                    onChange={(e) =>
+                      setBulkFieldFlags((prev) => ({ ...prev, tanggal_sesi: e.target.checked }))
+                    }
+                    className="w-4 h-4 rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
+                  />
+                  <span>Tanggal Sesi (Set Semua ke Tanggal Sama)</span>
+                </label>
+                {bulkFieldFlags.tanggal_sesi && (
+                  <div className="mt-2 pl-6">
+                    <DatePickerWIB
+                      label="Pilih Tanggal Baru"
+                      value={bulkFormData.tanggal_sesi}
+                      onChange={(val) =>
+                        setBulkFormData((prev) => ({ ...prev, tanggal_sesi: val }))
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 5. Catatan Sesi */}
+              <div
+                className={`p-3 rounded-lg border transition-all ${
+                  bulkFieldFlags.catatan_sesi
+                    ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]/10'
+                    : 'border-[var(--border)]'
+                }`}
+              >
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-[var(--text-primary)] select-none">
+                  <input
+                    type="checkbox"
+                    checked={bulkFieldFlags.catatan_sesi}
+                    onChange={(e) =>
+                      setBulkFieldFlags((prev) => ({ ...prev, catatan_sesi: e.target.checked }))
+                    }
+                    className="w-4 h-4 rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
+                  />
+                  <span>Catatan Sesi</span>
+                </label>
+                {bulkFieldFlags.catatan_sesi && (
+                  <div className="mt-2 pl-6">
+                    <input
+                      type="text"
+                      value={bulkFormData.catatan_sesi}
+                      onChange={(e) =>
+                        setBulkFormData((prev) => ({ ...prev, catatan_sesi: e.target.value }))
+                      }
+                      placeholder="Materi pelajaran atau catatan sesi masal..."
+                      className="w-full px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Target Sessions Summary Preview */}
+            <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-lg space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)]">
+                <span>Sesi yang akan diperbarui:</span>
+                <span className="font-bold text-[var(--text-primary)]">
+                  {bulkScope === 'all'
+                    ? `${allSesi.length} Sesi`
+                    : `${selectedSessionIds.length} Sesi`}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pt-1">
+                {(bulkScope === 'all'
+                  ? allSesi
+                  : allSesi.filter((s) => selectedSessionIds.includes(s.id))
+                ).map((s) => (
+                  <span
+                    key={s.id}
+                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--brand-primary-light)] text-[var(--brand-primary)] border border-[var(--brand-primary)]/20"
+                  >
+                    Sesi {s.nomor_sesi_ke}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 border-t border-[var(--border)] pt-3">
+              <button
+                type="button"
+                onClick={() => setIsBulkModalOpen(false)}
+                disabled={isBulkSaving}
+                className="px-3 py-2 text-xs font-semibold rounded-md border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-primary)] transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveBulk}
+                disabled={isBulkSaving || !Object.values(bulkFieldFlags).some(Boolean)}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-md bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isBulkSaving ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>
+                      Terapkan ke{' '}
+                      {bulkScope === 'all' ? allSesi.length : selectedSessionIds.length} Sesi
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

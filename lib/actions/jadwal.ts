@@ -261,6 +261,82 @@ export async function upsertJadwalBatch(
   }
 }
 
+export async function bulkUpdateJadwalSesi(
+  sessionIds: string[],
+  updates: {
+    staff_id?: string;
+    status_sesi?: 'terjadwal' | 'selesai' | 'batal';
+    slot_waktu_id?: string;
+    slot_waktu_id_akhir?: string | null;
+    tanggal_sesi?: string;
+    catatan_sesi?: string;
+  },
+  siswaId?: string
+): Promise<{ success: boolean; error?: string; count?: number }> {
+  try {
+    if (!sessionIds || sessionIds.length === 0) {
+      return { success: false, error: 'Tidak ada sesi yang dipilih untuk diperbarui' };
+    }
+
+    const setClauses: string[] = [];
+    const values: any[] = [];
+
+    if (updates.staff_id !== undefined) {
+      values.push(updates.staff_id);
+      setClauses.push(`staff_id = $${values.length}`);
+    }
+    if (updates.status_sesi !== undefined) {
+      values.push(updates.status_sesi);
+      setClauses.push(`status_sesi = $${values.length}`);
+    }
+    if (updates.slot_waktu_id !== undefined) {
+      values.push(updates.slot_waktu_id);
+      setClauses.push(`slot_waktu_id = $${values.length}`);
+    }
+    if (updates.slot_waktu_id_akhir !== undefined) {
+      values.push(updates.slot_waktu_id_akhir);
+      setClauses.push(`slot_waktu_id_akhir = $${values.length}`);
+    }
+    if (updates.tanggal_sesi !== undefined) {
+      values.push(updates.tanggal_sesi);
+      setClauses.push(`tanggal_sesi = $${values.length}`);
+    }
+    if (updates.catatan_sesi !== undefined) {
+      values.push(updates.catatan_sesi);
+      setClauses.push(`catatan_sesi = $${values.length}`);
+    }
+
+    if (setClauses.length === 0) {
+      return { success: false, error: 'Pilih setidaknya satu variabel untuk diperbarui' };
+    }
+
+    setClauses.push('updated_at = NOW()');
+
+    values.push(sessionIds);
+    const inClauseIndex = values.length;
+
+    await dbQuery(
+      `UPDATE jadwal_sesi 
+       SET ${setClauses.join(', ')} 
+       WHERE id = ANY($${inClauseIndex}::uuid[])`,
+      values
+    );
+
+    revalidatePath('/jadwal');
+    if (siswaId) {
+      revalidatePath(`/jadwal/${siswaId}`);
+    }
+    revalidatePath('/instruktur');
+    revalidatePath('/dashboard');
+    revalidatePath('/siswa');
+
+    return { success: true, count: sessionIds.length };
+  } catch (err: any) {
+    console.error('Error bulk updating jadwal sesi:', err);
+    return { success: false, error: err.message || 'Gagal memperbarui jadwal sesi secara masal' };
+  }
+}
+
 export async function updateSesiProgress(
   siswaId: string,
   nomorSesiKe: number,
