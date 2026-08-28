@@ -71,10 +71,7 @@ export default function PiutangPage() {
           ? `Pelunasan Kursus - ${selectedSiswa.nama} (${selectedSiswa.kode_siswa})`
           : `Pembayaran DP Kursus - ${selectedSiswa.nama} (${selectedSiswa.kode_siswa})`;
 
-      const selectedRek = rekeningList.find((r) => r.id === selectedRekeningId);
-      if (bayarMetode === 'non_tunai' && selectedRek) {
-        baseKeterangan = `[${selectedRek.nama_bank} ${selectedRek.nomor_rekening}] ${baseKeterangan}`;
-      }
+
 
       await addKasTransaksi({
         tanggal: bayarTanggal,

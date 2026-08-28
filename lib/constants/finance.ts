@@ -191,3 +191,50 @@ export function calculateLocalKasMetrics(
     totalHutang: hutang,
   };
 }
+
+/**
+ * Memisahkan teks keterangan murni dan informasi rekening bank
+ * (Menghapus prefix [Bank ...] dari keterangan jika ada, dan mencari detail bank dari rekening_id)
+ */
+export function parseKeteranganDanRekening(
+  keterangan: string,
+  rekeningId?: string | null,
+  rekeningList?: RekeningBank[]
+): {
+  cleanKeterangan: string;
+  bankInfo: string | null;
+} {
+  if (!keterangan) {
+    return { cleanKeterangan: '', bankInfo: null };
+  }
+
+  let cleanKeterangan = keterangan.trim();
+  let extractedBank: string | null = null;
+
+  // Cek apakah ada prefix bracket seperti "[BRI 110401019850504] Servis Mobil Xenia"
+  const prefixMatch = cleanKeterangan.match(/^\[([A-Za-z0-9\s/.-]+)\]\s*(.*)$/);
+  if (prefixMatch) {
+    extractedBank = prefixMatch[1].trim();
+    cleanKeterangan = prefixMatch[2].trim();
+  }
+
+  // Jika rekeningId tersedia dan ada di rekeningList, gunakan data rekening bank resmi
+  let bankInfo = extractedBank;
+  if (rekeningId && rekeningList && rekeningList.length > 0) {
+    const rek = rekeningList.find((r) => r.id === rekeningId);
+    if (rek) {
+      bankInfo = `${rek.nama_bank} ${rek.nomor_rekening}`;
+    }
+  } else if (!bankInfo && rekeningId) {
+    // Default fallback jika rekening_id ada tapi list belum termuat
+    const defRek = DEFAULT_REKENING_LIST.find((r) => r.id === rekeningId);
+    if (defRek) {
+      bankInfo = `${defRek.nama_bank} ${defRek.nomor_rekening}`;
+    }
+  }
+
+  return {
+    cleanKeterangan: cleanKeterangan || keterangan,
+    bankInfo,
+  };
+}

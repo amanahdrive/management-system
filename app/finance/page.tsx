@@ -28,6 +28,7 @@ import {
   LABEL_REKENING_DEFAULT,
   calculateLocalKasMetrics,
   formatKategoriLabel,
+  parseKeteranganDanRekening,
 } from '@/lib/constants/finance';
 import { formatRupiah } from '@/lib/utils/currency';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
@@ -593,11 +594,7 @@ export default function FinancePortalPage() {
     const isCustom = formData.siswa_id === 'custom_dp';
     const finalSiswaId = isCustom ? null : (formData.siswa_id || null);
 
-    let finalKeterangan = formData.keterangan;
-    const selectedRek = rekeningList.find((r) => r.id === selectedRekeningId);
-    if (formData.jenis_pembayaran === 'non_tunai' && selectedRek && !finalKeterangan.includes(selectedRek.nama_bank)) {
-      finalKeterangan = `[${selectedRek.nama_bank} ${selectedRek.nomor_rekening}] ${finalKeterangan}`;
-    }
+    const finalKeterangan = formData.keterangan.trim();
 
     const res = await addKasTransaksi({
       tanggal: formData.tanggal,
@@ -683,14 +680,9 @@ export default function FinancePortalPage() {
     setPelunasanLoading(true);
 
     if (pelunasanCatatKeKas) {
-      let ket = selectedPiutangSiswa.status_pembayaran_kode === 'dp'
+      const ket = selectedPiutangSiswa.status_pembayaran_kode === 'dp'
         ? `Pelunasan Kursus - ${selectedPiutangSiswa.nama} (${selectedPiutangSiswa.kode_siswa})`
         : `Pembayaran Kursus - ${selectedPiutangSiswa.nama} (${selectedPiutangSiswa.kode_siswa})`;
-
-      const selectedRek = rekeningList.find((r) => r.id === selectedRekeningId);
-      if (pelunasanMetode === 'non_tunai' && selectedRek) {
-        ket = `[${selectedRek.nama_bank} ${selectedRek.nomor_rekening}] ${ket}`;
-      }
 
       const res = await addKasTransaksi({
         tanggal: pelunasanTanggal,
@@ -1186,6 +1178,13 @@ export default function FinancePortalPage() {
                 ) : (
                   filteredRecentTx.map((tx) => {
                     const isIncome = tx.tipe === 'pemasukan';
+                    const isTunai = (tx.jenis_pembayaran || 'tunai') === 'tunai';
+                    const { cleanKeterangan, bankInfo } = parseKeteranganDanRekening(
+                      tx.keterangan,
+                      tx.rekening_id,
+                      rekeningList
+                    );
+
                     return (
                       <div
                         key={tx.id}
@@ -1203,14 +1202,28 @@ export default function FinancePortalPage() {
                           </div>
                           <div>
                             <div className="text-xs font-bold text-[var(--text-primary)] leading-snug">
-                              {tx.keterangan}
+                              {cleanKeterangan}
                             </div>
-                            <div className="text-[10px] text-[var(--text-secondary)] mt-0.5 flex items-center gap-1.5 flex-wrap">
+                            <div className="text-[10px] text-[var(--text-secondary)] mt-1 flex items-center gap-1.5 flex-wrap">
                               <span>{formatDateIndo(tx.tanggal)}</span>
                               <span>•</span>
-                              <span className="capitalize">{tx.kategori.replace('_', ' ')}</span>
+                              <span
+                                className={`px-1.5 py-0.2 rounded-full font-semibold text-[9px] inline-flex items-center gap-0.5 ${
+                                  isTunai
+                                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                                    : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                                }`}
+                              >
+                                {isTunai ? 'Tunai' : 'Non-Tunai'}
+                              </span>
+                              {!isTunai && (bankInfo || tx.rekening_id) && (
+                                <span className="px-1.5 py-0.2 rounded-full font-semibold text-[9px] inline-flex items-center gap-1 bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 font-mono">
+                                  <Landmark className="w-2.5 h-2.5" />
+                                  <span>{bankInfo || 'Rekening Bank'}</span>
+                                </span>
+                              )}
                               <span>•</span>
-                              <span className="font-semibold text-sky-600">{tx.jenis_pembayaran || 'tunai'}</span>
+                              <span className="capitalize">{tx.kategori.replace('_', ' ')}</span>
                               {tx.pic_nama && (
                                 <>
                                   <span>•</span>

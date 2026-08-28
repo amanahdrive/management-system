@@ -30,6 +30,7 @@ import {
   LABEL_REKENING_DEFAULT,
   calculateLocalKasMetrics,
   formatKategoriLabel,
+  parseKeteranganDanRekening,
 } from '@/lib/constants/finance';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 import { Siswa, Paket, RekeningBank, KasTransaksi } from '@/types/database';
@@ -528,11 +529,7 @@ export default function KasOverviewPage() {
     const isCustom = formData.siswa_id === 'custom_dp' || formData.siswa_id.startsWith('dp_kustom_');
     const finalSiswaId = isCustom ? null : (formData.siswa_id || null);
 
-    let finalKeterangan = formData.keterangan;
-    const selectedRek = rekeningList.find((r) => r.id === selectedRekeningId);
-    if (formData.jenis_pembayaran === 'non_tunai' && selectedRek && !finalKeterangan.includes(selectedRek.nama_bank)) {
-      finalKeterangan = `[${selectedRek.nama_bank} ${selectedRek.nomor_rekening}] ${finalKeterangan}`;
-    }
+    const finalKeterangan = formData.keterangan.trim();
 
     await addKasTransaksi({
       tanggal: formData.tanggal,
@@ -1175,37 +1172,66 @@ export default function KasOverviewPage() {
             </div>
 
             <div className="space-y-3">
-              {transaksiList.slice(0, 8).map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex items-center justify-between p-3 rounded-md bg-[var(--bg-subtle)] border border-[var(--border)]"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        tx.tipe === 'pemasukan'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-rose-100 text-rose-700'
-                      }`}
-                    >
-                      {tx.tipe === 'pemasukan' ? (
-                        <ArrowUpRight className="w-4 h-4" />
-                      ) : (
-                        <ArrowDownRight className="w-4 h-4" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="font-semibold text-xs text-[var(--text-primary)]">{tx.keterangan}</div>
-                      <div className="text-[10px] text-[var(--text-secondary)]">
-                        {formatDateIndo(tx.tanggal)} | PIC: {tx.pic_nama}
-                        {tx.sumber_otomatis && (
-                          <span className="ml-2 px-1.5 py-0.2 text-[9px] bg-blue-100 text-blue-800 rounded font-semibold">
-                            Otomatis
-                          </span>
+              {transaksiList.slice(0, 8).map((tx) => {
+                const isTunai = (tx.jenis_pembayaran || 'tunai') === 'tunai';
+                const { cleanKeterangan, bankInfo } = parseKeteranganDanRekening(
+                  tx.keterangan,
+                  tx.rekening_id,
+                  rekeningList
+                );
+
+                return (
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-[var(--bg-subtle)] border border-[var(--border)] transition-all hover:border-[var(--brand-primary)]/20"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                          tx.tipe === 'pemasukan'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                        }`}
+                      >
+                        {tx.tipe === 'pemasukan' ? (
+                          <ArrowUpRight className="w-4 h-4" />
+                        ) : (
+                          <ArrowDownRight className="w-4 h-4" />
                         )}
                       </div>
+                      <div>
+                        <div className="font-semibold text-xs text-[var(--text-primary)]">{cleanKeterangan}</div>
+                        <div className="text-[10px] text-[var(--text-secondary)] flex items-center gap-1.5 flex-wrap mt-0.5">
+                          <span>{formatDateIndo(tx.tanggal)}</span>
+                          <span>•</span>
+                          <span
+                            className={`px-1.5 py-0.2 rounded-full font-semibold text-[9.5px] inline-flex items-center gap-1 ${
+                              isTunai
+                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                                : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                            }`}
+                          >
+                            {isTunai ? 'Tunai' : 'Non-Tunai'}
+                          </span>
+                          {!isTunai && (bankInfo || tx.rekening_id) && (
+                            <span className="px-1.5 py-0.2 rounded-full font-semibold text-[9.5px] inline-flex items-center gap-1 bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 font-mono">
+                              <Landmark className="w-2.5 h-2.5" />
+                              <span>{bankInfo || 'Rekening Bank'}</span>
+                            </span>
+                          )}
+                          <span>•</span>
+                          <span>PIC: {tx.pic_nama}</span>
+                          {tx.sumber_otomatis && (
+                            <>
+                              <span>•</span>
+                              <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold">
+                                Otomatis
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
                   <div className="flex items-center gap-3">
                     <div
@@ -1231,7 +1257,8 @@ export default function KasOverviewPage() {
                     </button>
                   </div>
                 </div>
-              ))}
+              );
+            })}
             </div>
           </div>
         </div>

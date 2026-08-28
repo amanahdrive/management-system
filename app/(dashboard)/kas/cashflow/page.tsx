@@ -8,7 +8,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { KasTransaksi, RekeningBank } from '@/types/database';
 import { getKasTransaksiList, getKasKategoriList, deleteKasTransaksi, updateKasTransaksi } from '@/lib/actions/kas';
 import { getRekeningList } from '@/lib/actions/rekening';
-import { DEFAULT_REKENING_LIST, LABEL_REKENING_DEFAULT } from '@/lib/constants/finance';
+import { DEFAULT_REKENING_LIST, LABEL_REKENING_DEFAULT, parseKeteranganDanRekening } from '@/lib/constants/finance';
 import { formatRupiah } from '@/lib/utils/currency';
 import { formatDateIndo, getTodayDateString, formatTime24 } from '@/lib/utils/date';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
@@ -28,6 +28,7 @@ import {
   Edit2,
   Banknote,
   CreditCard,
+  Landmark,
   FileSpreadsheet,
   Printer,
   FileText,
@@ -493,26 +494,45 @@ export default function CashflowPage() {
       sortingFn: 'text',
       cell: ({ row }) => {
         const isTunai = (row.original.jenis_pembayaran || 'tunai') === 'tunai';
+        const { cleanKeterangan, bankInfo } = parseKeteranganDanRekening(
+          row.original.keterangan,
+          row.original.rekening_id,
+          rekeningList
+        );
         return (
-          <div className="space-y-0.5">
-            <div className="font-semibold text-xs text-[var(--text-primary)]">{row.original.keterangan}</div>
-            <div className="flex flex-wrap items-center gap-1 text-[10px]">
+          <div className="space-y-1">
+            <div className="font-semibold text-xs text-[var(--text-primary)]">{cleanKeterangan}</div>
+            <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
               <span
-                className={`px-1.5 py-0.2 rounded font-semibold inline-flex items-center gap-1 ${
+                className={`px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 ${
                   isTunai
-                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                    : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                    : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
                 }`}
               >
                 {isTunai ? <Banknote className="w-2.5 h-2.5" /> : <CreditCard className="w-2.5 h-2.5" />}
-                {isTunai ? 'Tunai' : 'Non-Tunai'}
+                <span>{isTunai ? 'Tunai' : 'Non-Tunai'}</span>
               </span>
-              <span className="text-[var(--text-secondary)]">•</span>
+              {!isTunai && (bankInfo || row.original.rekening_id) && (
+                <span className="px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 font-mono text-[9.5px]">
+                  <Landmark className="w-2.5 h-2.5" />
+                  <span>{bankInfo || 'Rekening Bank'}</span>
+                </span>
+              )}
+              <span className="text-[var(--text-muted)]">•</span>
               <span className="text-[var(--text-secondary)] capitalize font-medium">
                 {row.original.kategori.replace(/_/g, ' ')}
               </span>
-              <span className="text-[var(--text-secondary)]">•</span>
+              <span className="text-[var(--text-muted)]">•</span>
               <span className="text-[var(--text-secondary)]">PIC: {row.original.pic_nama}</span>
+              {row.original.sumber_otomatis && (
+                <>
+                  <span className="text-[var(--text-muted)]">•</span>
+                  <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold">
+                    Otomatis
+                  </span>
+                </>
+              )}
             </div>
           </div>
         );
@@ -964,6 +984,11 @@ export default function CashflowPage() {
                   {displayedData.map((tx) => {
                     const isMasuk = tx.tipe === 'pemasukan';
                     const isTunai = (tx.jenis_pembayaran || 'tunai') === 'tunai';
+                    const { cleanKeterangan, bankInfo } = parseKeteranganDanRekening(
+                      tx.keterangan,
+                      tx.rekening_id,
+                      rekeningList
+                    );
 
                     return (
                       <tr key={tx.id} className="hover:bg-[var(--bg-subtle)] transition-colors">
@@ -974,26 +999,34 @@ export default function CashflowPage() {
                           {formatDateIndo(tx.tanggal)}
                         </td>
                         <td className="py-2.5 px-3">
-                          <div className="font-semibold text-[var(--text-primary)]">{tx.keterangan}</div>
+                          <div className="font-semibold text-[var(--text-primary)]">{cleanKeterangan}</div>
                           <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-[var(--text-secondary)] mt-0.5">
                             <span
-                              className={`px-1.5 py-0.2 rounded font-semibold inline-flex items-center gap-1 ${
+                              className={`px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 ${
                                 isTunai
-                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                                  : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                                  : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
                               }`}
                             >
                               {isTunai ? <Banknote className="w-2.5 h-2.5" /> : <CreditCard className="w-2.5 h-2.5" />}
-                              {isTunai ? 'Tunai' : 'Non-Tunai'}
+                              <span>{isTunai ? 'Tunai' : 'Non-Tunai'}</span>
                             </span>
-                            <span>•</span>
+                            {!isTunai && (bankInfo || tx.rekening_id) && (
+                              <span className="px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 font-mono text-[9.5px]">
+                                <Landmark className="w-2.5 h-2.5" />
+                                <span>{bankInfo || 'Rekening Bank'}</span>
+                              </span>
+                            )}
+                            <span className="text-[var(--text-muted)]">•</span>
                             <span className="capitalize">{tx.kategori.replace(/_/g, ' ')}</span>
-                            <span>•</span>
+                            <span className="text-[var(--text-muted)]">•</span>
                             <span>PIC: {tx.pic_nama}</span>
                             {tx.sumber_otomatis && (
                               <>
-                                <span>•</span>
-                                <span className="text-blue-600 dark:text-blue-400 font-semibold">[Otomatis]</span>
+                                <span className="text-[var(--text-muted)]">•</span>
+                                <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold">
+                                  Otomatis
+                                </span>
                               </>
                             )}
                           </div>
