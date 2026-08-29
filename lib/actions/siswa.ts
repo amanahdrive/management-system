@@ -2,6 +2,7 @@
 
 import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
+import { getTodayDateString } from '@/lib/utils/date';
 import { Siswa } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 
@@ -77,7 +78,7 @@ export async function updateSiswaPayment(
 
     if (statusKode === 'dp') {
       dpNominal = nominalDibayar;
-      dpTanggal = tanggalBayar || new Date().toISOString().slice(0, 10);
+      dpTanggal = tanggalBayar || getTodayDateString();
     }
 
     await dbQuery(

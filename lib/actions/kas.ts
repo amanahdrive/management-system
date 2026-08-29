@@ -4,6 +4,7 @@ import { dbQuery, dbQuerySingle, dbExecute } from '@/lib/db';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { KasTransaksi, Hutang, KasKategori, HutangPembayaran } from '@/types/database';
 import { DEFAULT_KAS_KATEGORI } from '@/lib/constants/finance';
+import { getTodayDateString } from '@/lib/utils/date';
 import { revalidatePath } from 'next/cache';
 
 const METRICS_CACHE_KEY = 'kas_overview_metrics';
@@ -304,7 +305,7 @@ export async function setorTunaiKas(data: {
     );
     const bankLabel = rek ? `${rek.nama_bank} ${rek.nomor_rekening} (${rek.atas_nama})` : 'Rekening Bank';
     const pic = data.pic_nama?.trim() || 'Admin Staff';
-    const tanggal = data.tanggal || new Date().toISOString().slice(0, 10);
+    const tanggal = data.tanggal || getTodayDateString();
     const extraKet = data.keterangan?.trim() ? ` - ${data.keterangan.trim()}` : '';
 
     const ketKeluar = `Setor Tunai ke ${bankLabel}${extraKet}`;
@@ -368,7 +369,7 @@ export async function addHutang(hutangData: Partial<Hutang>): Promise<{ success:
         hutangData.jenis || 'lainnya',
         total,
         total,
-        hutangData.tanggal_mulai || new Date().toISOString().slice(0, 10),
+        hutangData.tanggal_mulai || getTodayDateString(),
         tempo,
         cicilan,
         'berjalan',

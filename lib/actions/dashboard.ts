@@ -2,6 +2,7 @@
 
 import { dbQuery } from '@/lib/db';
 import { cacheGet, cacheSet } from '@/lib/utils/cache';
+import { getTodayDateString, getJakartaDateParts } from '@/lib/utils/date';
 
 export interface DashboardMetrics {
   siswaBelumDijadwalkan: number;
@@ -23,13 +24,14 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const cached = cacheGet<DashboardMetrics>(DASHBOARD_CACHE_KEY);
   if (cached) return cached;
 
-  const now = new Date();
-  const todayStr = now.toISOString().slice(0, 10);
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
+  const todayStr = getTodayDateString();
+  const jakartaParts = getJakartaDateParts(todayStr);
+  const currentYear = jakartaParts?.year ?? new Date().getFullYear();
+  const currentMonth = (jakartaParts?.month ?? 1) - 1;
 
-  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-  const sixMonthsAgoStr = sixMonthsAgo.toISOString().slice(0, 10);
+  const sixMonthsAgoYear = currentMonth < 5 ? currentYear - 1 : currentYear;
+  const sixMonthsAgoMonth = currentMonth < 5 ? currentMonth + 7 : currentMonth - 5;
+  const sixMonthsAgoStr = `${sixMonthsAgoYear}-${String(sixMonthsAgoMonth + 1).padStart(2, '0')}-01`;
   const firstDayThisMonth = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
 
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -131,7 +133,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 
     const monthlySiswaMap: Record<string, number> = {};
     for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const d = new Date(currentYear, currentMonth - i, 1);
       const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       monthlySiswaMap[k] = 0;
     }
@@ -149,7 +151,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 
     const monthlyKasMap: Record<string, { pemasukan: number; pengeluaran: number }> = {};
     for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const d = new Date(currentYear, currentMonth - i, 1);
       const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       monthlyKasMap[k] = { pemasukan: 0, pengeluaran: 0 };
     }

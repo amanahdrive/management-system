@@ -2,6 +2,7 @@
 
 import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheInvalidate } from '@/lib/utils/cache';
+import { getTodayDateString, addDaysToDateStr } from '@/lib/utils/date';
 import { KendaraanBan, HargaBBM } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 
@@ -184,7 +185,7 @@ export async function getKendaraanPerformanceStats(
 }> {
   try {
     const days = periode === 'weekly' ? 7 : 30;
-    const fromDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const fromDate = addDaysToDateStr(getTodayDateString(), -days);
 
     const logs = await dbQuery<{ jarak_tempuh: number }>(
       'SELECT jarak_tempuh FROM kendaraan_log_harian WHERE kendaraan_id = $1 AND tanggal >= $2',

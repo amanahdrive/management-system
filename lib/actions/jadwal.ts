@@ -11,7 +11,7 @@ import {
   InstrukturJadwalGroup,
   sortSesiBySlotUrutan,
 } from '../utils/whatsapp-markdown';
-import { addDaysToDateStr } from '../utils/date';
+import { addDaysToDateStr, getTodayDateString } from '../utils/date';
 
 export async function getJadwalByTanggal(
   tanggal: string,
@@ -136,11 +136,9 @@ export async function getJadwalBySiswa(siswaId: string): Promise<JadwalSesi[]> {
 
 export async function getJadwalConflictCheckList(): Promise<JadwalSesi[]> {
   try {
-    const today = new Date();
-    const past = new Date(today); past.setDate(today.getDate() - 30);
-    const future = new Date(today); future.setDate(today.getDate() + 90);
-    const pastStr = past.toISOString().slice(0, 10);
-    const futureStr = future.toISOString().slice(0, 10);
+    const todayStr = getTodayDateString();
+    const pastStr = addDaysToDateStr(todayStr, -30);
+    const futureStr = addDaysToDateStr(todayStr, 90);
 
     const rows = await dbQuery<JadwalSesi>(`
       SELECT 

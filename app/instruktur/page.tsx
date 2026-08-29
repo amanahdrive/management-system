@@ -4,7 +4,7 @@ import React from 'react';
 import { Staff, JadwalSesi } from '@/types/database';
 import { getInstrukturList } from '@/lib/actions/master-data';
 import { getJadwalByTanggal, getJadwalByBulan, getJadwalConflictCheckList, getJadwalBySiswa, updateJadwalStatus, upsertJadwalSesi, rescheduleSesiShiftCascade } from '@/lib/actions/jadwal';
-import { getTodayDateString, formatDateIndo, formatHariTanggalIndo, addDaysToDateStr } from '@/lib/utils/date';
+import { getTodayDateString, formatDateIndo, formatHariTanggalIndo, formatTime24, getJakartaDateParts, addDaysToDateStr } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { PwaInstallModal } from '@/components/shared/PwaInstallModal';
@@ -188,7 +188,8 @@ export default function InstrukturPortalPage() {
 
   // Greeting Text Helper
   const getGreetingText = () => {
-    const hours = now.getHours();
+    const parts = getJakartaDateParts(now);
+    const hours = parts?.hours ?? now.getHours();
     if (hours >= 0 && hours < 11) return 'Selamat pagi';
     if (hours >= 11 && hours < 15) return 'Selamat siang';
     if (hours >= 15 && hours < 18) return 'Selamat sore';
@@ -197,11 +198,7 @@ export default function InstrukturPortalPage() {
 
   // Format Date Time Subtitle: "Jumat, 07/08/2026 11:37 WIB"
   const getFormattedDateTime = () => {
-    const dayName = DAY_NAMES_INDO[now.getDay()];
-    const dateFormatted = formatDateIndo(now.toISOString().slice(0, 10));
-    const hoursStr = String(now.getHours()).padStart(2, '0');
-    const minsStr = String(now.getMinutes()).padStart(2, '0');
-    return `${dayName}, ${dateFormatted} ${hoursStr}:${minsStr} WIB`;
+    return `${formatHariTanggalIndo(now)} ${formatTime24(now)} WIB`;
   };
 
   // WhatsApp Link Builder

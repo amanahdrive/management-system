@@ -3,7 +3,7 @@
 import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { Insiden, StatusPenangananEnum } from '@/types/database';
 import { revalidatePath } from 'next/cache';
-import { formatHariTanggalIndo } from '../utils/date';
+import { formatHariTanggalIndo, getTodayDateString } from '../utils/date';
 import { formatRupiah } from '../utils/currency';
 
 export interface InsidenFilter {
@@ -231,7 +231,7 @@ export async function updateInsidenStatus(
         `INSERT INTO kas_transaksi (tanggal, tipe, kategori, keterangan, nominal, jenis_pembayaran, pic_tipe, pic_nama, sumber_otomatis)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
-          new Date().toISOString().slice(0, 10),
+          getTodayDateString(),
           'pengeluaran',
           'perbaikan_kendaraan',
           `Biaya Perbaikan Insiden ${updatedInc.kode_insiden}${vPlat} - ${updatedInc.lokasi_kejadian}`,
