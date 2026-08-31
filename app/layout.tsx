@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/shared/ThemeProvider';
+import { ButtonFeedback } from '@/components/shared/ButtonFeedback';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -116,7 +117,10 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} antialiased bg-[var(--bg-subtle)] text-[var(--text-primary)] font-sans selection:bg-[var(--brand-primary-muted)] selection:text-[var(--brand-primary-dark)]`}>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <ButtonFeedback />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
