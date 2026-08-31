@@ -6,19 +6,18 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { Kendaraan, HargaBBM } from '@/types/database';
 import { getKendaraanMasterList } from '@/lib/actions/master-data';
 import {
-  updateOdometerBasecampLog,
   updateOliKendaraan,
   addBanHistory,
   updateCuciMobil,
   recordPengisianBBM,
   getHargaBBMList,
-  getKendaraanPerformanceStats,
 } from '@/lib/actions/kendaraan';
 import { formatRupiah } from '@/lib/utils/currency';
-import { getTodayDateString } from '@/lib/utils/date';
+import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
-import { Gauge, Wrench, Fuel, Sparkles, Disc, ArrowLeft, Plus, AlertOctagon } from 'lucide-react';
+import { KendaraanLogManager } from '@/components/kendaraan/KendaraanLogManager';
+import { Gauge, Wrench, Fuel, Sparkles, Disc, ArrowLeft, AlertOctagon } from 'lucide-react';
 import Link from 'next/link';
 
 export default function KendaraanDetailPage() {
@@ -30,23 +29,11 @@ export default function KendaraanDetailPage() {
   const [hargaBbmList, setHargaBbmList] = React.useState<HargaBBM[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  // Active Tab for Rekap & Stats
-  const [rekapTab, setRekapTab] = React.useState<'weekly' | 'monthly'>('weekly');
-  const [perfStats, setPerfStats] = React.useState({
-    totalJarakKm: 0,
-    totalSesi: 0,
-    totalBiayaBBM: 0,
-    totalLiterBBM: 0,
-    rasioEfisiensi: 0,
-  });
-
-  // Modal States
-  const [modalType, setModalType] = React.useState<'odometer' | 'oli' | 'ban' | 'cuci' | 'bbm' | null>(null);
+  // Modal States for Maintenance
+  const [modalType, setModalType] = React.useState<'oli' | 'ban' | 'cuci' | 'bbm' | null>(null);
 
   // Form Inputs
   const [tanggal, setTanggal] = React.useState(getTodayDateString());
-  const [outKm, setOutKm] = React.useState<number | undefined>(undefined);
-  const [inKm, setInKm] = React.useState<number | undefined>(undefined);
   const [oliKm, setOliKm] = React.useState<number>(35000);
   const [posisiBan, setPosisiBan] = React.useState<'depan_kiri' | 'depan_kanan' | 'belakang_kiri' | 'belakang_kanan' | 'serep'>('depan_kiri');
   const [banKm, setBanKm] = React.useState<number>(35000);
@@ -54,36 +41,32 @@ export default function KendaraanDetailPage() {
   const [bbmNominal, setBbmNominal] = React.useState<number>(150000);
   const [bbmMetode, setBbmMetode] = React.useState<'tunai' | 'non_tunai'>('tunai');
 
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     setLoading(true);
-    const [kList, bbmList, stats] = await Promise.all([
+    const [kList, bbmList] = await Promise.all([
       getKendaraanMasterList(),
       getHargaBBMList(),
-      getKendaraanPerformanceStats(id, rekapTab),
     ]);
     const found = kList.find((k) => k.id === id) || null;
     setKendaraan(found);
     setHargaBbmList(bbmList);
-    setPerfStats(stats);
+    if (found?.status?.odometer_terkini) {
+      setOliKm(found.status.odometer_terkini);
+      setBanKm(found.status.odometer_terkini);
+    }
     setLoading(false);
-  };
+  }, [id]);
 
   React.useEffect(() => {
     loadData();
-  }, [id, rekapTab]);
+  }, [loadData]);
 
   if (loading || !kendaraan) {
-    return <div className="h-64 card-container animate-pulse bg-black/5 dark:bg-white/5" />;
+    return <div className="h-64 card-container animate-pulse bg-black/5 dark:bg-white/5 rounded-2xl" />;
   }
 
   const selectedHargaBbm = hargaBbmList.find((b) => b.jenis === bbmJenis)?.harga_per_liter || 10000;
   const estimatedLiter = (bbmNominal / selectedHargaBbm).toFixed(2);
-
-  const handleSaveOdometer = async () => {
-    await updateOdometerBasecampLog(kendaraan.id, tanggal, outKm, inKm);
-    setModalType(null);
-    loadData();
-  };
 
   const handleSaveOli = async () => {
     await updateOliKendaraan(kendaraan.id, tanggal, oliKm);
@@ -119,48 +102,40 @@ export default function KendaraanDetailPage() {
     <div className="space-y-6">
       <PageHeader
         title={`Status & Log Kendaraan — ${kendaraan.nama_kendaraan}`}
-        description={`Plat: ${kendaraan.plat_nomor} | Transmisi: ${kendaraan.tipe_transmisi.toUpperCase()}`}
+        description={`Plat: ${kendaraan.plat_nomor} | Transmisi: ${kendaraan.tipe_transmisi.toUpperCase()} | Warna: ${kendaraan.warna || '-'}`}
         breadcrumbs={[{ label: 'Kendaraan', href: '/kendaraan' }, { label: kendaraan.plat_nomor }]}
         actions={
           <button
             onClick={() => router.push('/kendaraan')}
-            className="flex items-center gap-2 px-3 py-1.5 border border-[var(--border)] rounded-md text-xs font-medium"
+            className="flex items-center gap-2 px-3 py-1.5 border border-[var(--border)] rounded-xl text-xs font-semibold hover:bg-[var(--bg-subtle)] transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Kembali</span>
+            <span>Kembali ke Armada</span>
           </button>
         }
       />
 
       {/* Action Quick Buttons */}
-      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
-        <button
-          onClick={() => setModalType('odometer')}
-          className="p-3 card-container hover:border-[var(--brand-primary)] flex flex-col items-center gap-1.5 text-center text-xs font-semibold text-[var(--brand-primary)]"
-        >
-          <Gauge className="w-5 h-5" />
-          <span>Basecamp Out/In</span>
-        </button>
-
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <button
           onClick={() => setModalType('oli')}
-          className="p-3 card-container hover:border-[var(--brand-primary)] flex flex-col items-center gap-1.5 text-center text-xs font-semibold text-amber-700 dark:text-amber-400"
+          className="p-3 card-container hover:border-amber-500 flex flex-col items-center gap-1.5 text-center text-xs font-bold text-amber-700 dark:text-amber-400 transition-all active:scale-95"
         >
           <Wrench className="w-5 h-5" />
-          <span>Update Oli</span>
+          <span>Update Servis Oli</span>
         </button>
 
         <button
           onClick={() => setModalType('ban')}
-          className="p-3 card-container hover:border-[var(--brand-primary)] flex flex-col items-center gap-1.5 text-center text-xs font-semibold text-blue-700 dark:text-blue-400"
+          className="p-3 card-container hover:border-blue-500 flex flex-col items-center gap-1.5 text-center text-xs font-bold text-blue-700 dark:text-blue-400 transition-all active:scale-95"
         >
           <Disc className="w-5 h-5" />
-          <span>Update Ban</span>
+          <span>Ganti Ban</span>
         </button>
 
         <button
           onClick={() => setModalType('cuci')}
-          className="p-3 card-container hover:border-[var(--brand-primary)] flex flex-col items-center gap-1.5 text-center text-xs font-semibold text-cyan-700 dark:text-cyan-400"
+          className="p-3 card-container hover:border-cyan-500 flex flex-col items-center gap-1.5 text-center text-xs font-bold text-cyan-700 dark:text-cyan-400 transition-all active:scale-95"
         >
           <Sparkles className="w-5 h-5" />
           <span>Update Cuci</span>
@@ -168,15 +143,15 @@ export default function KendaraanDetailPage() {
 
         <button
           onClick={() => setModalType('bbm')}
-          className="p-3 card-container hover:border-[var(--brand-primary)] flex flex-col items-center gap-1.5 text-center text-xs font-semibold text-emerald-700 dark:text-emerald-400"
+          className="p-3 card-container hover:border-emerald-500 flex flex-col items-center gap-1.5 text-center text-xs font-bold text-emerald-700 dark:text-emerald-400 transition-all active:scale-95"
         >
           <Fuel className="w-5 h-5" />
-          <span>Isi BBM</span>
+          <span>Isi BBM Mobil</span>
         </button>
 
         <Link
           href="/insiden"
-          className="p-3 card-container hover:border-rose-500 flex flex-col items-center gap-1.5 text-center text-xs font-semibold text-rose-700 dark:text-rose-400"
+          className="p-3 card-container hover:border-rose-500 flex flex-col items-center gap-1.5 text-center text-xs font-bold text-rose-700 dark:text-rose-400 transition-all active:scale-95"
         >
           <AlertOctagon className="w-5 h-5" />
           <span>Log Insiden</span>
@@ -185,7 +160,7 @@ export default function KendaraanDetailPage() {
 
       {/* Vehicle Current Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="card-container space-y-3">
+        <div className="card-container space-y-3 p-5">
           <h3 className="font-bold text-sm text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
             <Gauge className="w-4 h-4 text-[var(--brand-primary)]" />
             Odometer & Servis Terkini
@@ -193,28 +168,28 @@ export default function KendaraanDetailPage() {
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div>
               <span className="text-[var(--text-secondary)] block">Odometer Terkini:</span>
-              <span className="font-bold text-base text-[var(--text-primary)]">
-                {kendaraan.status?.odometer_terkini || 0} km
+              <span className="font-bold text-lg font-mono text-[var(--text-primary)]">
+                {(kendaraan.status?.odometer_terkini || 0).toLocaleString('id-ID')} km
               </span>
             </div>
             <div>
               <span className="text-[var(--text-secondary)] block">Servis Oli Terakhir:</span>
-              <span className="font-bold text-base text-[var(--text-primary)]">
-                {kendaraan.status?.oli_km_terakhir || 0} km
+              <span className="font-bold text-lg font-mono text-[var(--text-primary)]">
+                {(kendaraan.status?.oli_km_terakhir || 0).toLocaleString('id-ID')} km
               </span>
             </div>
             <div>
               <span className="text-[var(--text-secondary)] block">Tgl Servis Oli:</span>
-              <span className="font-semibold">{kendaraan.status?.oli_tanggal_terakhir || '-'}</span>
+              <span className="font-semibold">{formatDateIndo(kendaraan.status?.oli_tanggal_terakhir)}</span>
             </div>
             <div>
               <span className="text-[var(--text-secondary)] block">Tgl Cuci Terakhir:</span>
-              <span className="font-semibold">{kendaraan.status?.cuci_tanggal_terakhir || '-'}</span>
+              <span className="font-semibold">{formatDateIndo(kendaraan.status?.cuci_tanggal_terakhir)}</span>
             </div>
           </div>
         </div>
 
-        <div className="card-container space-y-3">
+        <div className="card-container space-y-3 p-5">
           <h3 className="font-bold text-sm text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
             <Fuel className="w-4 h-4 text-emerald-600" />
             Pengisian BBM Terakhir
@@ -228,127 +203,51 @@ export default function KendaraanDetailPage() {
             </div>
             <div>
               <span className="text-[var(--text-secondary)] block">Volume Terakhir:</span>
-              <span className="font-bold text-[var(--brand-primary)]">
+              <span className="font-bold text-base font-mono text-[var(--brand-primary)]">
                 {kendaraan.status?.bensin_liter_terakhir || 0} Liter
               </span>
             </div>
             <div>
               <span className="text-[var(--text-secondary)] block">Nominal Rupiah:</span>
-              <span className="font-bold text-emerald-600">
+              <span className="font-bold text-base text-emerald-600">
                 {formatRupiah(kendaraan.status?.bensin_nominal_terakhir)}
               </span>
             </div>
             <div>
               <span className="text-[var(--text-secondary)] block">Tanggal Pengisian:</span>
-              <span className="font-semibold">{kendaraan.status?.bensin_tanggal_terakhir || '-'}</span>
+              <span className="font-semibold">{formatDateIndo(kendaraan.status?.bensin_tanggal_terakhir)}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Aggregate Rekap Section (Weekly vs Monthly) */}
-      <div className="card-container space-y-4">
-        <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
-          <h3 className="font-bold text-sm text-[var(--text-primary)]">Rekap Performa & Efisiensi BBM</h3>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setRekapTab('weekly')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md ${
-                rekapTab === 'weekly'
-                  ? 'bg-[var(--brand-primary)] text-white'
-                  : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
-              }`}
-            >
-              Mingguan
-            </button>
-            <button
-              onClick={() => setRekapTab('monthly')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md ${
-                rekapTab === 'monthly'
-                  ? 'bg-[var(--brand-primary)] text-white'
-                  : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
-              }`}
-            >
-              Bulanan
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-          <div className="p-3 bg-[var(--bg-subtle)] rounded-md border border-[var(--border)]">
-            <span className="text-[var(--text-secondary)] block">Total Jarak Tempuh</span>
-            <span className="font-bold text-base text-[var(--text-primary)]">
-              {perfStats.totalJarakKm.toLocaleString('id-ID')} km
-            </span>
-          </div>
-          <div className="p-3 bg-[var(--bg-subtle)] rounded-md border border-[var(--border)]">
-            <span className="text-[var(--text-secondary)] block">Total Sesi Selesai</span>
-            <span className="font-bold text-base text-[var(--text-primary)]">
-              {perfStats.totalSesi} Sesi
-            </span>
-          </div>
-          <div className="p-3 bg-[var(--bg-subtle)] rounded-md border border-[var(--border)]">
-            <span className="text-[var(--text-secondary)] block">Total Biaya BBM</span>
-            <span className="font-bold text-base text-emerald-600">
-              {formatRupiah(perfStats.totalBiayaBBM)}
-            </span>
-          </div>
-          <div className="p-3 bg-[var(--bg-subtle)] rounded-md border border-[var(--border)]">
-            <span className="text-[var(--text-secondary)] block">Rasio Efisiensi</span>
-            <span className="font-bold text-base text-[var(--brand-primary)]">
-              {perfStats.rasioEfisiensi} km/L
-            </span>
-          </div>
-        </div>
-      </div>
+      {/* Embedded Real Log Manager specifically for this vehicle */}
+      <KendaraanLogManager
+        kendaraanList={[kendaraan]}
+        lockedKendaraanId={kendaraan.id}
+        onDataChange={loadData}
+      />
 
       {/* Modal Dialogs */}
       {modalType && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card-container max-w-sm w-full bg-[var(--bg)] shadow-lg space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="card-container max-w-sm w-full bg-[var(--bg)] shadow-2xl space-y-4 p-5">
             <h3 className="text-base font-bold text-[var(--text-primary)] capitalize">
               Input {modalType} — {kendaraan.plat_nomor}
             </h3>
 
             <DatePickerWIB label="Tanggal" value={tanggal} onChange={setTanggal} />
 
-            {modalType === 'odometer' && (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Odometer Basecamp Out (km)
-                  </label>
-                  <input
-                    type="number"
-                    value={outKm || ''}
-                    onChange={(e) => setOutKm(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Odometer Basecamp In (km)
-                  </label>
-                  <input
-                    type="number"
-                    value={inKm || ''}
-                    onChange={(e) => setInKm(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
-                  />
-                </div>
-              </div>
-            )}
-
             {modalType === 'oli' && (
               <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Odometer Saat Ganti Oli (km)
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                  Odometer Saat Ganti Oli (km) *
                 </label>
                 <input
                   type="number"
                   value={oliKm}
-                  onChange={(e) => setOliKm(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                  onChange={(e) => setOliKm(parseInt(e.target.value, 10))}
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-[var(--border)] bg-[var(--bg)] font-mono font-bold text-[var(--text-primary)]"
                 />
               </div>
             )}
@@ -356,13 +255,13 @@ export default function KendaraanDetailPage() {
             {modalType === 'ban' && (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Posisi Ban
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                    Posisi Ban *
                   </label>
                   <select
                     value={posisiBan}
                     onChange={(e) => setPosisiBan(e.target.value as any)}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold"
                   >
                     <option value="depan_kiri">Depan Kiri</option>
                     <option value="depan_kanan">Depan Kanan</option>
@@ -372,32 +271,39 @@ export default function KendaraanDetailPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Odometer Saat Ganti (km)
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                    Odometer Saat Ganti (km) *
                   </label>
                   <input
                     type="number"
                     value={banKm}
-                    onChange={(e) => setBanKm(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                    onChange={(e) => setBanKm(parseInt(e.target.value, 10))}
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-[var(--border)] bg-[var(--bg)] font-mono font-bold text-[var(--text-primary)]"
                   />
                 </div>
+              </div>
+            )}
+
+            {modalType === 'cuci' && (
+              <div className="p-3 bg-cyan-50 dark:bg-cyan-950/30 rounded-xl border border-cyan-200 text-xs text-cyan-900 dark:text-cyan-200">
+                Pencatatan tanggal cuci mobil operasional terkini: <strong>{formatDateIndo(tanggal)}</strong>
               </div>
             )}
 
             {modalType === 'bbm' && (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
                     Jenis BBM
                   </label>
                   <select
                     value={bbmJenis}
                     onChange={(e) => setBbmJenis(e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold"
                   >
                     <option value="pertalite">Pertalite (Rp 10.000 / L)</option>
                     <option value="pertamax">Pertamax (Rp 16.300 / L)</option>
+                    <option value="solar">Solar / Dexlite</option>
                   </select>
                 </div>
 
@@ -407,17 +313,17 @@ export default function KendaraanDetailPage() {
                   onChange={setBbmNominal}
                 />
 
-                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 rounded-md text-xs font-medium text-emerald-800 dark:text-emerald-400">
+                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 rounded-xl text-xs font-medium text-emerald-800 dark:text-emerald-400">
                   Estimasi Liter: <span className="font-bold">{estimatedLiter} Liter</span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
                     Metode Pembayaran Kas *
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <label
-                      className={`flex items-center justify-center gap-1.5 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                      className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
                         bbmMetode === 'tunai'
                           ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
                           : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
@@ -435,7 +341,7 @@ export default function KendaraanDetailPage() {
                     </label>
 
                     <label
-                      className={`flex items-center justify-center gap-1.5 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                      className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
                         bbmMetode === 'non_tunai'
                           ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                           : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
@@ -456,20 +362,18 @@ export default function KendaraanDetailPage() {
               </div>
             )}
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border)]">
+            <div className="flex justify-end gap-2 pt-4 border-t border-[var(--border)]">
               <button
                 type="button"
                 onClick={() => setModalType(null)}
-                className="px-4 py-2 text-xs font-medium border border-[var(--border)] rounded-md"
+                className="px-4 py-2 text-xs font-semibold border border-[var(--border)] rounded-xl hover:bg-[var(--bg-subtle)] transition-colors"
               >
                 Batal
               </button>
               <button
                 type="button"
                 onClick={
-                  modalType === 'odometer'
-                    ? handleSaveOdometer
-                    : modalType === 'oli'
+                  modalType === 'oli'
                     ? handleSaveOli
                     : modalType === 'ban'
                     ? handleSaveBan
@@ -477,7 +381,7 @@ export default function KendaraanDetailPage() {
                     ? handleSaveCuci
                     : handleSaveBBM
                 }
-                className="px-4 py-2 text-xs font-semibold bg-[var(--brand-primary)] text-white rounded-md"
+                className="px-5 py-2 text-xs font-bold bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white rounded-xl shadow-xs transition-all"
               >
                 Simpan
               </button>

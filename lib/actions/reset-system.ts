@@ -1,7 +1,16 @@
 'use server';
 
 import { dbQuery } from '@/lib/db';
+import { cacheInvalidateAll } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
+
+function safeRevalidatePath(path: string) {
+  try {
+    revalidatePath(path);
+  } catch {
+    // Suppressed when called outside Next.js request context
+  }
+}
 
 export type ResetModuleKey =
   | 'keuangan'
@@ -23,12 +32,14 @@ export async function resetDataKeuangan(): Promise<{ success: boolean; error?: s
     await dbQuery("DELETE FROM kas_transaksi WHERE id != '00000000-0000-0000-0000-000000000000'");
     await dbQuery("DELETE FROM hutang WHERE id != '00000000-0000-0000-0000-000000000000'");
 
-    revalidatePath('/kas');
-    revalidatePath('/kas/cashflow');
-    revalidatePath('/kas/hutang');
-    revalidatePath('/kas/piutang');
-    revalidatePath('/dashboard');
-    revalidatePath('/finance');
+    cacheInvalidateAll();
+
+    safeRevalidatePath('/kas');
+    safeRevalidatePath('/kas/cashflow');
+    safeRevalidatePath('/kas/hutang');
+    safeRevalidatePath('/kas/piutang');
+    safeRevalidatePath('/dashboard');
+    safeRevalidatePath('/finance');
 
     return { success: true };
   } catch (err: any) {
@@ -47,10 +58,12 @@ export async function resetDataSiswa(): Promise<{ success: boolean; error?: stri
     await dbQuery("UPDATE kas_transaksi SET siswa_id = NULL WHERE id != '00000000-0000-0000-0000-000000000000'");
     await dbQuery("DELETE FROM siswa WHERE id != '00000000-0000-0000-0000-000000000000'");
 
-    revalidatePath('/siswa');
-    revalidatePath('/jadwal');
-    revalidatePath('/dashboard');
-    revalidatePath('/instruktur');
+    cacheInvalidateAll();
+
+    safeRevalidatePath('/siswa');
+    safeRevalidatePath('/jadwal');
+    safeRevalidatePath('/dashboard');
+    safeRevalidatePath('/instruktur');
 
     return { success: true };
   } catch (err: any) {
@@ -66,9 +79,11 @@ export async function resetDataJadwal(): Promise<{ success: boolean; error?: str
   try {
     await dbQuery("DELETE FROM jadwal_sesi WHERE id != '00000000-0000-0000-0000-000000000000'");
 
-    revalidatePath('/jadwal');
-    revalidatePath('/dashboard');
-    revalidatePath('/instruktur');
+    cacheInvalidateAll();
+
+    safeRevalidatePath('/jadwal');
+    safeRevalidatePath('/dashboard');
+    safeRevalidatePath('/instruktur');
 
     return { success: true };
   } catch (err: any) {
@@ -84,10 +99,36 @@ export async function resetDataKendaraanLog(): Promise<{ success: boolean; error
   try {
     await dbQuery("DELETE FROM kendaraan_log_harian WHERE id != '00000000-0000-0000-0000-000000000000'");
     await dbQuery("DELETE FROM kendaraan_ban WHERE id != '00000000-0000-0000-0000-000000000000'");
-    await dbQuery("DELETE FROM kendaraan_status WHERE id != '00000000-0000-0000-0000-000000000000'");
+    
+    // Reset vehicle status cleanly to 0 km and null dates
+    await dbQuery(`
+      UPDATE kendaraan_status 
+      SET 
+        odometer_terkini = 0,
+        oli_tanggal_terakhir = NULL,
+        oli_km_terakhir = NULL,
+        cuci_tanggal_terakhir = NULL,
+        bensin_tanggal_terakhir = NULL,
+        bensin_jenis_terakhir = NULL,
+        bensin_nominal_terakhir = NULL,
+        bensin_liter_terakhir = NULL,
+        updated_at = NOW()
+      WHERE id != '00000000-0000-0000-0000-000000000000'
+    `);
 
-    revalidatePath('/kendaraan');
-    revalidatePath('/dashboard');
+    // Ensure status row exists for every active vehicle
+    await dbQuery(`
+      INSERT INTO kendaraan_status (kendaraan_id, odometer_terkini)
+      SELECT id, 0 FROM kendaraan
+      ON CONFLICT (kendaraan_id) DO NOTHING
+    `);
+
+    cacheInvalidateAll();
+
+    safeRevalidatePath('/kendaraan');
+    safeRevalidatePath('/master-data/kendaraan');
+    safeRevalidatePath('/dashboard');
+    safeRevalidatePath('/settings');
 
     return { success: true };
   } catch (err: any) {
@@ -103,9 +144,11 @@ export async function resetDataInsiden(): Promise<{ success: boolean; error?: st
   try {
     await dbQuery("DELETE FROM insiden WHERE id != '00000000-0000-0000-0000-000000000000'");
 
-    revalidatePath('/insiden');
-    revalidatePath('/kendaraan');
-    revalidatePath('/dashboard');
+    cacheInvalidateAll();
+
+    safeRevalidatePath('/insiden');
+    safeRevalidatePath('/kendaraan');
+    safeRevalidatePath('/dashboard');
 
     return { success: true };
   } catch (err: any) {
@@ -121,7 +164,9 @@ export async function resetDataNotifikasiLog(): Promise<{ success: boolean; erro
   try {
     await dbQuery("DELETE FROM notifikasi_log WHERE id != '00000000-0000-0000-0000-000000000000'");
 
-    revalidatePath('/settings');
+    cacheInvalidateAll();
+
+    safeRevalidatePath('/settings');
 
     return { success: true };
   } catch (err: any) {
@@ -140,9 +185,11 @@ export async function resetDataMasterStaff(): Promise<{ success: boolean; error?
     await dbQuery("DELETE FROM staff_jabatan WHERE id != '00000000-0000-0000-0000-000000000000'");
     await dbQuery("DELETE FROM staff WHERE id != '00000000-0000-0000-0000-000000000000'");
 
-    revalidatePath('/master-data/staff');
-    revalidatePath('/master-data/jabatan');
-    revalidatePath('/dashboard');
+    cacheInvalidateAll();
+
+    safeRevalidatePath('/master-data/staff');
+    safeRevalidatePath('/master-data/jabatan');
+    safeRevalidatePath('/dashboard');
 
     return { success: true };
   } catch (err: any) {
@@ -160,9 +207,11 @@ export async function resetDataMasterPaket(): Promise<{ success: boolean; error?
     await dbQuery("DELETE FROM promosi WHERE id != '00000000-0000-0000-0000-000000000000'");
     await dbQuery("DELETE FROM paket WHERE id != '00000000-0000-0000-0000-000000000000'");
 
-    revalidatePath('/master-data/paket');
-    revalidatePath('/master-data/promosi');
-    revalidatePath('/dashboard');
+    cacheInvalidateAll();
+
+    safeRevalidatePath('/master-data/paket');
+    safeRevalidatePath('/master-data/promosi');
+    safeRevalidatePath('/dashboard');
 
     return { success: true };
   } catch (err: any) {
@@ -200,17 +249,19 @@ export async function resetSystemAllData(): Promise<{ success: boolean; error?: 
       ('kota_operasional', 'Palembang', 'Kota Operasional')
     `);
 
-    revalidatePath('/dashboard');
-    revalidatePath('/siswa');
-    revalidatePath('/jadwal');
-    revalidatePath('/kendaraan');
-    revalidatePath('/kas');
-    revalidatePath('/insiden');
-    revalidatePath('/master-data/staff');
-    revalidatePath('/master-data/jabatan');
-    revalidatePath('/master-data/paket');
-    revalidatePath('/master-data/kendaraan');
-    revalidatePath('/settings');
+    cacheInvalidateAll();
+
+    safeRevalidatePath('/dashboard');
+    safeRevalidatePath('/siswa');
+    safeRevalidatePath('/jadwal');
+    safeRevalidatePath('/kendaraan');
+    safeRevalidatePath('/kas');
+    safeRevalidatePath('/insiden');
+    safeRevalidatePath('/master-data/staff');
+    safeRevalidatePath('/master-data/jabatan');
+    safeRevalidatePath('/master-data/paket');
+    safeRevalidatePath('/master-data/kendaraan');
+    safeRevalidatePath('/settings');
 
     return { success: true };
   } catch (err: any) {

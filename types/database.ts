@@ -186,12 +186,19 @@ export interface KendaraanLogHarian {
   id: string;
   kendaraan_id: string;
   tanggal: string;
+  tanggal_akhir?: string | null;
   odometer_basecamp_out: number | null;
   odometer_basecamp_in: number | null;
   jarak_tempuh: number | null;
+  bbm_liter?: number | null;
+  bbm_nominal?: number | null;
+  bbm_jenis?: string | null;
   total_slot_selesai: number | null;
+  catatan?: string | null;
   created_at: string;
   updated_at: string;
+  // Joined relation
+  kendaraan?: Kendaraan;
 }
 
 export interface JadwalSesi {
