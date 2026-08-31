@@ -549,16 +549,53 @@ button[data-loading="true"]::after,
   }
 }
 
+/* Centered Ambience Light Soft Glow Animations */
+@keyframes ambienceGlowSweep {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.animate-ambience-sweep {
+  animation: ambienceGlowSweep 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes ambienceHaloPulse {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scaleX(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1.04);
+  }
+}
+
+.animate-ambience-halo {
+  animation: ambienceHaloPulse 2.2s ease-in-out infinite;
+}
+
 /* Accessibility: Respect Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
   button,
   [role="button"],
   .btn,
   .btn-buffering,
-  .btn-ripple-wave {
+  .btn-ripple-wave,
+  .animate-ambience-sweep,
+  .animate-ambience-halo {
     transition: opacity 0.1s ease !important;
     animation: none !important;
     transform: none !important;
   }
 }
+
 

@@ -3,63 +3,180 @@
 import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
+function isPrefetchRequest(input: RequestInfo | URL, init?: RequestInit): boolean {
+  try {
+    if (init?.priority === 'low') return true;
+
+    // Check Request object if input is Request
+    if (typeof input === 'object' && input !== null && 'headers' in input && (input as Request).headers) {
+      const h = (input as Request).headers;
+      if (
+        h.get('next-router-prefetch') ||
+        h.get('next-router-segment-prefetch') ||
+        h.get('rsc-prefetch')
+      ) {
+        return true;
+      }
+    }
+
+    // Check init headers
+    if (init?.headers) {
+      if (init.headers instanceof Headers) {
+        if (
+          init.headers.get('next-router-prefetch') ||
+          init.headers.get('next-router-segment-prefetch') ||
+          init.headers.get('rsc-prefetch')
+        ) {
+          return true;
+        }
+      } else if (Array.isArray(init.headers)) {
+        for (const [k] of init.headers) {
+          const lk = k.toLowerCase();
+          if (
+            lk === 'next-router-prefetch' ||
+            lk === 'next-router-segment-prefetch' ||
+            lk === 'rsc-prefetch'
+          ) {
+            return true;
+          }
+        }
+      } else if (typeof init.headers === 'object') {
+        const headers = init.headers as Record<string, string>;
+        if (
+          headers['next-router-prefetch'] ||
+          headers['Next-Router-Prefetch'] ||
+          headers['next-router-segment-prefetch'] ||
+          headers['Next-Router-Segment-Prefetch'] ||
+          headers['rsc-prefetch']
+        ) {
+          return true;
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
 function ButtonFeedbackInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isBuffering, setIsBuffering] = useState(false);
-  const [bufferProgress, setBufferProgress] = useState(0);
-  const bufferTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [glowIntensity, setGlowIntensity] = useState(0); // 0 to 100%
+  const activeRequestsRef = useRef(0);
+  const finishTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pulseIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Start top buffer loading bar
-  const startBuffer = () => {
-    setIsBuffering(true);
-    setBufferProgress(18);
-
-    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-    if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
-
-    progressIntervalRef.current = setInterval(() => {
-      setBufferProgress((prev) => {
-        if (prev >= 88) {
-          if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-          return 88;
-        }
-        // Smooth logarithmic step increment
-        const step = Math.max(1, Math.floor((90 - prev) / 5));
-        return Math.min(88, prev + step);
-      });
-    }, 100);
-  };
-
-  // Finish top buffer loading bar
-  const finishBuffer = () => {
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-      progressIntervalRef.current = null;
+  // Start centered ambient light glow
+  const startGlow = () => {
+    if (finishTimeoutRef.current) {
+      clearTimeout(finishTimeoutRef.current);
+      finishTimeoutRef.current = null;
     }
-    setBufferProgress(100);
-    if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
 
-    bufferTimerRef.current = setTimeout(() => {
-      setIsBuffering(false);
-      setBufferProgress(0);
-    }, 320);
+    setIsBuffering(true);
+    setGlowIntensity(55);
+
+    if (!pulseIntervalRef.current) {
+      pulseIntervalRef.current = setInterval(() => {
+        setGlowIntensity((prev) => {
+          if (prev >= 88) return 88;
+          return Math.min(88, prev + 8);
+        });
+      }, 120);
+    }
   };
 
-  // Whenever route or search params change, complete the buffer loading bar
+  // Finish centered ambient light glow
+  const finishGlow = (delay = 180) => {
+    if (pulseIntervalRef.current) {
+      clearInterval(pulseIntervalRef.current);
+      pulseIntervalRef.current = null;
+    }
+
+    setGlowIntensity(100);
+
+    if (finishTimeoutRef.current) clearTimeout(finishTimeoutRef.current);
+    finishTimeoutRef.current = setTimeout(() => {
+      setIsBuffering(false);
+      setGlowIntensity(0);
+    }, delay);
+  };
+
+  // Safety Watchdog: never let glow get permanently stuck on screen
   useEffect(() => {
-    finishBuffer();
-    return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-      if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
-    };
+    if (isBuffering) {
+      const watchdog = setTimeout(() => {
+        activeRequestsRef.current = 0;
+        finishGlow(120);
+      }, 7000);
+      return () => clearTimeout(watchdog);
+    }
+  }, [isBuffering]);
+
+  // Route & search params listener
+  useEffect(() => {
+    // When route finishes updating, complete any pending buffer
+    activeRequestsRef.current = 0;
+    const timer = setTimeout(() => {
+      finishGlow(140);
+    }, 10);
+    return () => clearTimeout(timer);
   }, [pathname, searchParams]);
 
-  // Global click & ripple & button buffer handler
+  // Global fetch interception for REAL-TIME data load synchronization
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      const isPrefetch = isPrefetchRequest(args[0], args[1]);
+
+      if (!isPrefetch) {
+        activeRequestsRef.current += 1;
+        startGlow();
+      }
+
+      try {
+        const response = await originalFetch(...args);
+        return response;
+      } finally {
+        if (!isPrefetch) {
+          activeRequestsRef.current = Math.max(0, activeRequestsRef.current - 1);
+          if (activeRequestsRef.current === 0) {
+            finishGlow(180);
+          }
+        }
+      }
+    };
+
+    // Custom event listeners for explicit loading triggers
+    const handleCustomStart = () => {
+      activeRequestsRef.current += 1;
+      startGlow();
+    };
+
+    const handleCustomEnd = () => {
+      activeRequestsRef.current = Math.max(0, activeRequestsRef.current - 1);
+      if (activeRequestsRef.current === 0) {
+        finishGlow(160);
+      }
+    };
+
+    window.addEventListener('app:load:start', handleCustomStart);
+    window.addEventListener('app:load:end', handleCustomEnd);
+
+    return () => {
+      window.fetch = originalFetch;
+      window.removeEventListener('app:load:start', handleCustomStart);
+      window.removeEventListener('app:load:end', handleCustomEnd);
+    };
+  }, []);
+
+  // Global click & tactile ripple handler
   useEffect(() => {
     const handlePointerDown = (e: PointerEvent) => {
-      // Find nearest button or role="button" or .btn
       const target = (e.target as HTMLElement)?.closest(
         'button, [role="button"], .btn, input[type="submit"], input[type="button"], a.btn, a[role="button"]'
       ) as HTMLElement | null;
@@ -69,7 +186,7 @@ function ButtonFeedbackInner() {
         return;
       }
 
-      // 1. Create Ripple Wave
+      // Tactile Ripple Wave
       const rect = target.getBoundingClientRect();
       const diameter = Math.max(rect.width, rect.height) * 2;
       const radius = diameter / 2;
@@ -79,13 +196,11 @@ function ButtonFeedbackInner() {
       ripple.style.width = `${diameter}px`;
       ripple.style.height = `${diameter}px`;
 
-      // Calculate position relative to clicked button
       const clientX = e.clientX || rect.left + rect.width / 2;
       const clientY = e.clientY || rect.top + rect.height / 2;
       ripple.style.left = `${clientX - rect.left - radius}px`;
       ripple.style.top = `${clientY - rect.top - radius}px`;
 
-      // Set ripple color based on button theme/background brightness
       const style = window.getComputedStyle(target);
       const isPrimary =
         target.classList.contains('btn-primary') ||
@@ -100,12 +215,11 @@ function ButtonFeedbackInner() {
         target.className.includes('bg-amber');
 
       if (isPrimary) {
-        ripple.style.background = 'rgba(255, 255, 255, 0.4)';
+        ripple.style.background = 'rgba(255, 255, 255, 0.35)';
       } else {
-        ripple.style.background = 'var(--brand-glow, rgba(16, 185, 129, 0.35))';
+        ripple.style.background = 'var(--brand-glow, rgba(16, 185, 129, 0.3))';
       }
 
-      // Ensure button has position relative/overflow hidden container
       const currentPos = style.position;
       if (currentPos === 'static' || !currentPos) {
         target.style.position = 'relative';
@@ -115,7 +229,7 @@ function ButtonFeedbackInner() {
       target.appendChild(ripple);
       setTimeout(() => {
         ripple.remove();
-      }, 600);
+      }, 550);
     };
 
     const handleClick = (e: MouseEvent) => {
@@ -132,28 +246,23 @@ function ButtonFeedbackInner() {
       target.setAttribute('data-loading', 'true');
       target.classList.add('btn-buffering');
 
-      // Start the top buffer loading bar if it looks like an action/submit/link
       const isSubmit = (target as HTMLButtonElement).type === 'submit';
       const isLink = target.tagName.toLowerCase() === 'a' || target.getAttribute('href');
-      const hasAction =
-        isSubmit ||
-        isLink ||
-        target.getAttribute('type') === 'submit' ||
-        target.onclick ||
-        target.hasAttribute('data-action');
 
-      if (hasAction) {
-        startBuffer();
+      // For links and form submissions, give immediate subtle glow feedback
+      if (isLink || isSubmit) {
+        startGlow();
+        setTimeout(() => {
+          if (activeRequestsRef.current === 0) {
+            finishGlow(120);
+          }
+        }, 450);
       }
 
-      // Automatically reset button loading state after brief period (or when action finishes)
-      const clearDuration = isSubmit || isLink ? 2000 : 700;
+      const clearDuration = isSubmit || isLink ? 800 : 350;
       setTimeout(() => {
         target.removeAttribute('data-loading');
         target.classList.remove('btn-buffering');
-        if (!isLink && !isSubmit) {
-          finishBuffer();
-        }
       }, clearDuration);
     };
 
@@ -168,19 +277,41 @@ function ButtonFeedbackInner() {
 
   return (
     <>
-      {/* Top Buffer Loading Bar (Visual indicator for buffer / slow processes) */}
+      {/* Centered Ambience Light Soft Glow (Positioned in Center Top) */}
       <div
         aria-hidden="true"
-        className={`fixed top-0 left-0 right-0 z-[999999] pointer-events-none transition-opacity duration-300 ${
-          isBuffering ? 'opacity-100' : 'opacity-0'
+        className={`fixed top-0 left-1/2 -translate-x-1/2 z-[999999] pointer-events-none transition-all duration-300 ease-out flex flex-col items-center justify-start ${
+          isBuffering ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
         }`}
+        style={{
+          width: 'min(440px, 82vw)',
+        }}
       >
+        {/* Layer 1: Ambient Soft Glow Atmospheric Halo (Downward diffuse aura) */}
         <div
-          className="h-[3px] bg-gradient-to-r from-[var(--brand-primary)] via-emerald-400 to-teal-300 shadow-[0_0_12px_var(--brand-primary)] transition-all duration-200 ease-out relative"
-          style={{ width: `${bufferProgress}%` }}
+          className="absolute -top-3 w-full h-9 bg-gradient-to-b from-emerald-400/35 via-teal-400/25 to-transparent dark:from-emerald-400/45 dark:via-teal-300/30 blur-xl transition-opacity duration-300 animate-ambience-halo"
+          style={{
+            opacity: glowIntensity > 0 ? (glowIntensity / 100) * 0.95 : 0,
+          }}
+        />
+
+        {/* Layer 2: Secondary Mid Glow Diffuse Beam */}
+        <div
+          className="absolute top-0 w-4/5 h-2.5 bg-gradient-to-r from-transparent via-emerald-400/60 dark:via-emerald-300/70 to-transparent blur-sm transition-all duration-200"
+          style={{
+            transform: `scaleX(${0.5 + (glowIntensity / 100) * 0.5})`,
+          }}
+        />
+
+        {/* Layer 3: Sharp Center Core Light Filament */}
+        <div
+          className="h-[2.5px] w-full rounded-full bg-gradient-to-r from-transparent via-emerald-300 dark:via-emerald-200 to-transparent shadow-[0_0_14px_rgba(52,211,153,0.9)] relative overflow-hidden transition-all duration-200"
+          style={{
+            transform: `scaleX(${0.35 + (glowIntensity / 100) * 0.65})`,
+          }}
         >
-          {/* Glowing trailing pulse head */}
-          <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-r from-transparent to-white/90 shadow-[0_0_8px_#ffffff]" />
+          {/* Animated Light Shimmer Core Sweep */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/95 to-transparent animate-ambience-sweep" />
         </div>
       </div>
     </>
