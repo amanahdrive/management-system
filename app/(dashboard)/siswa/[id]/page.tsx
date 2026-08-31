@@ -24,7 +24,8 @@ import {
   ExternalLink,
   PlusCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  IdCard
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -150,10 +151,55 @@ export default function SiswaDetailPage() {
           <div className="space-y-3 text-xs">
             <div>
               <span className="text-[var(--text-secondary)] block">Paket Kursus</span>
-              <span className="font-bold text-sm text-[var(--text-primary)]">
-                {siswa.paket?.nama_paket || 'Khusus'} ({siswa.paket?.jumlah_sesi || 0} Sesi)
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-[var(--text-primary)]">
+                  {siswa.paket?.nama_paket || 'Khusus'} ({siswa.paket?.jumlah_sesi || 0} Sesi)
+                </span>
+                {siswa.paket?.termasuk_sim && (
+                  <Link
+                    href="/sim"
+                    className="px-2 py-0.5 rounded-md bg-[var(--brand-primary-light)] text-[var(--brand-primary)] hover:underline font-bold text-[10px] inline-flex items-center gap-1"
+                    title="Buka Manajemen SIM"
+                  >
+                    <IdCard className="w-3 h-3" />
+                    <span>Paket + SIM</span>
+                  </Link>
+                )}
+              </div>
             </div>
+
+            {siswa.paket?.termasuk_sim && (
+              <div className="p-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-[var(--text-secondary)] flex items-center gap-1">
+                    <IdCard className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                    <span>Status Penerbitan SIM:</span>
+                  </span>
+                  <Link
+                    href="/sim"
+                    className="text-[10px] font-bold text-[var(--brand-primary)] hover:underline flex items-center gap-0.5"
+                  >
+                    <span>Kelola di Menu SIM</span>
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </Link>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <div>
+                    {siswa.status_sim === 'selesai' ? (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-[11px] inline-flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>Selesai (Terbit: {siswa.tanggal_selesai_sim ? formatDateIndo(siswa.tanggal_selesai_sim) : '-'})</span>
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold text-[11px] inline-flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-amber-600" />
+                        <span>Proses (Belum Selesai)</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div>
               <span className="text-[var(--text-secondary)] block">Harga Final Tagihan</span>

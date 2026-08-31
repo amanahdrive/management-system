@@ -7,6 +7,7 @@ import Image from 'next/image';
 import {
   LayoutDashboard,
   Users,
+  IdCard,
   Calendar,
   Car,
   Wallet,
@@ -138,6 +139,15 @@ export function Sidebar() {
         >
           <Users className="w-4 h-4 min-w-[16px]" />
           {sidebarOpen && <span className="whitespace-nowrap">Data Siswa</span>}
+        </Link>
+
+        <Link
+          href="/sim"
+          className={navItemClass(pathname.startsWith('/sim'))}
+          title={!sidebarOpen ? 'Manajemen SIM' : undefined}
+        >
+          <IdCard className="w-4 h-4 min-w-[16px]" />
+          {sidebarOpen && <span className="whitespace-nowrap">Manajemen SIM</span>}
         </Link>
 
         <Link

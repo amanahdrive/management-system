@@ -60,6 +60,8 @@ export interface StatusPembayaranMaster {
   updated_at: string;
 }
 
+export type StatusSimEnum = 'belum' | 'selesai';
+
 export interface Siswa {
   id: string;
   kode_siswa: string; // e.g. SS001
@@ -78,6 +80,10 @@ export interface Siswa {
   sumber: SumberLeadsEnum;
   sumber_kustom_text: string | null;
   catatan: string | null;
+  status_sim?: StatusSimEnum;
+  tanggal_selesai_sim?: string | null;
+  catatan_sim?: string | null;
+  is_archived?: boolean;
   created_at: string;
   updated_at: string;
   // Joined fields
