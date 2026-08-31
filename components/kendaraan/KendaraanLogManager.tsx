@@ -305,9 +305,87 @@ export function KendaraanLogManager({
     }
   };
 
+  // Compute Enriched Logs with Effective Distance across Checkpoint / Periodic Snapshots
+  const enrichedLogs = React.useMemo(() => {
+    // Group all logs by vehicle
+    const vehicleGroups = new Map<string, KendaraanLogHarian[]>();
+    for (const log of logs) {
+      if (!vehicleGroups.has(log.kendaraan_id)) {
+        vehicleGroups.set(log.kendaraan_id, []);
+      }
+      vehicleGroups.get(log.kendaraan_id)!.push(log);
+    }
+
+    const result: (KendaraanLogHarian & {
+      effectiveJarak: number;
+      isPeriodicDelta: boolean;
+      isInitialBaseline: boolean;
+      deltaFromDate?: string;
+      calculatedEfisiensi?: number | null;
+    })[] = [];
+
+    for (const [, vLogs] of vehicleGroups.entries()) {
+      // Sort chronologically ascending
+      vLogs.sort(
+        (a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime()
+      );
+
+      let lastKnownOdo: number | null = null;
+      let lastKnownDate: string | null = null;
+
+      for (const log of vLogs) {
+        const outKm = log.odometer_basecamp_out;
+        const inKm = log.odometer_basecamp_in;
+        const currOdo = inKm !== null ? inKm : outKm;
+
+        let effectiveJarak = 0;
+        let isPeriodicDelta = false;
+        let isInitialBaseline = false;
+        let deltaFromDate: string | undefined = undefined;
+
+        if (outKm !== null && inKm !== null && inKm > outKm) {
+          effectiveJarak = inKm - outKm;
+          lastKnownOdo = inKm;
+          lastKnownDate = log.tanggal;
+        } else if (currOdo !== null) {
+          if (lastKnownOdo !== null && currOdo > lastKnownOdo) {
+            effectiveJarak = currOdo - lastKnownOdo;
+            isPeriodicDelta = true;
+            deltaFromDate = lastKnownDate || undefined;
+            lastKnownOdo = currOdo;
+            lastKnownDate = log.tanggal;
+          } else if (lastKnownOdo === null) {
+            effectiveJarak = 0;
+            isInitialBaseline = true;
+            lastKnownOdo = currOdo;
+            lastKnownDate = log.tanggal;
+          } else {
+            effectiveJarak = 0;
+          }
+        }
+
+        const calculatedEfisiensi =
+          log.bbm_liter && log.bbm_liter > 0 && effectiveJarak > 0
+            ? parseFloat((effectiveJarak / log.bbm_liter).toFixed(1))
+            : null;
+
+        result.push({
+          ...log,
+          effectiveJarak,
+          isPeriodicDelta,
+          isInitialBaseline,
+          deltaFromDate,
+          calculatedEfisiensi,
+        });
+      }
+    }
+
+    return result;
+  }, [logs]);
+
   // Filtered & Sorted Logs (Client-side)
   const filteredLogs = React.useMemo(() => {
-    return logs.filter((log) => {
+    return enrichedLogs.filter((log) => {
       // Vehicle Filter
       if (
         !lockedKendaraanId &&
@@ -319,9 +397,22 @@ export function KendaraanLogManager({
 
       // Status Filter
       if (selectedStatus === 'selesai') {
-        if (log.odometer_basecamp_in === null || log.odometer_basecamp_out === null) return false;
+        if (
+          !log.isPeriodicDelta &&
+          !log.isInitialBaseline &&
+          (log.odometer_basecamp_in === null || log.odometer_basecamp_out === null)
+        ) {
+          return false;
+        }
       } else if (selectedStatus === 'berjalan') {
-        if (log.odometer_basecamp_out === null || log.odometer_basecamp_in !== null) return false;
+        if (
+          log.odometer_basecamp_out === null ||
+          log.odometer_basecamp_in !== null ||
+          log.isPeriodicDelta ||
+          log.isInitialBaseline
+        ) {
+          return false;
+        }
       }
 
       // Search Query
@@ -337,7 +428,7 @@ export function KendaraanLogManager({
 
       return true;
     });
-  }, [logs, lockedKendaraanId, selectedKendaraanId, selectedStatus, searchQuery]);
+  }, [enrichedLogs, lockedKendaraanId, selectedKendaraanId, selectedStatus, searchQuery]);
 
   const sortedLogs = React.useMemo(() => {
     const arr = [...filteredLogs];
@@ -349,8 +440,8 @@ export function KendaraanLogManager({
         valA = new Date(a.tanggal).getTime();
         valB = new Date(b.tanggal).getTime();
       } else if (sortField === 'jarak') {
-        valA = a.jarak_tempuh || 0;
-        valB = b.jarak_tempuh || 0;
+        valA = a.effectiveJarak || 0;
+        valB = b.effectiveJarak || 0;
       } else if (sortField === 'out') {
         valA = a.odometer_basecamp_out || 0;
         valB = b.odometer_basecamp_out || 0;
@@ -361,8 +452,8 @@ export function KendaraanLogManager({
         valA = a.bbm_liter || 0;
         valB = b.bbm_liter || 0;
       } else if (sortField === 'efisiensi') {
-        valA = a.jarak_tempuh && a.bbm_liter ? a.jarak_tempuh / a.bbm_liter : 0;
-        valB = b.jarak_tempuh && b.bbm_liter ? b.jarak_tempuh / b.bbm_liter : 0;
+        valA = a.calculatedEfisiensi || 0;
+        valB = b.calculatedEfisiensi || 0;
       }
 
       if (sortOrder === 'asc') {
@@ -383,8 +474,12 @@ export function KendaraanLogManager({
     let tripBerjalan = 0;
 
     for (const log of filteredLogs) {
-      if (log.jarak_tempuh !== null && Number(log.jarak_tempuh) > 0) {
-        totalJarakKm += Number(log.jarak_tempuh);
+      totalJarakKm += log.effectiveJarak;
+      if (
+        log.effectiveJarak > 0 ||
+        log.isInitialBaseline ||
+        (log.odometer_basecamp_in !== null && log.odometer_basecamp_out !== null)
+      ) {
         tripSelesai += 1;
       } else if (log.odometer_basecamp_out !== null && log.odometer_basecamp_in === null) {
         tripBerjalan += 1;
@@ -398,10 +493,20 @@ export function KendaraanLogManager({
       }
     }
 
-    const rasioEfisiensi = totalLiterBbm > 0 ? parseFloat((totalJarakKm / totalLiterBbm).toFixed(2)) : 0;
-    const literPerKm = totalJarakKm > 0 ? parseFloat((totalLiterBbm / totalJarakKm).toFixed(4)) : 0;
-    const literPer100Km = totalJarakKm > 0 ? parseFloat(((totalLiterBbm / totalJarakKm) * 100).toFixed(2)) : 0;
-    const biayaPerKm = totalJarakKm > 0 ? Math.round(totalBiayaBbm / totalJarakKm) : 0;
+    const rasioEfisiensi =
+      totalLiterBbm > 0 && totalJarakKm > 0
+        ? parseFloat((totalJarakKm / totalLiterBbm).toFixed(2))
+        : 0;
+    const literPerKm =
+      totalJarakKm > 0 && totalLiterBbm > 0
+        ? parseFloat((totalLiterBbm / totalJarakKm).toFixed(4))
+        : 0;
+    const literPer100Km =
+      totalJarakKm > 0 && totalLiterBbm > 0
+        ? parseFloat(((totalLiterBbm / totalJarakKm) * 100).toFixed(2))
+        : 0;
+    const biayaPerKm =
+      totalJarakKm > 0 && totalBiayaBbm > 0 ? Math.round(totalBiayaBbm / totalJarakKm) : 0;
 
     return {
       totalJarakKm,
@@ -419,7 +524,10 @@ export function KendaraanLogManager({
 
   // Chart Data Generation (Chronological)
   const chartData = React.useMemo(() => {
-    const map = new Map<string, { tanggal: string; jarak: number; liter: number; nominal: number; trips: number }>();
+    const map = new Map<
+      string,
+      { tanggal: string; jarak: number; liter: number; nominal: number; trips: number }
+    >();
 
     const sortedAsc = [...filteredLogs].sort(
       (a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime()
@@ -428,9 +536,7 @@ export function KendaraanLogManager({
     for (const log of sortedAsc) {
       const key = log.tanggal;
       const cur = map.get(key) || { tanggal: key, jarak: 0, liter: 0, nominal: 0, trips: 0 };
-      if (log.jarak_tempuh) {
-        cur.jarak += Number(log.jarak_tempuh);
-      }
+      cur.jarak += log.effectiveJarak;
       if (log.bbm_liter) {
         cur.liter += Number(log.bbm_liter);
       }
@@ -458,14 +564,56 @@ export function KendaraanLogManager({
   };
 
   // Live calculation for the modal form
-  const modalPreviewJarak = React.useMemo(() => {
+  const modalPreviewJarak = React.useMemo<{
+    jarak: number;
+    type: 'single' | 'periodic' | 'initial' | 'same';
+    prevOdo?: number;
+    prevDate?: string;
+    currOdo?: number;
+  } | null>(() => {
     const outN = formOutKm ? parseInt(formOutKm, 10) : null;
     const inN = formInKm ? parseInt(formInKm, 10) : null;
-    if (outN !== null && inN !== null && inN >= outN) {
-      return inN - outN;
+
+    if (outN !== null && inN !== null && inN > outN) {
+      return { jarak: inN - outN, type: 'single' };
+    }
+
+    const currN = inN !== null ? inN : outN;
+    if (currN !== null && !isNaN(Number(currN))) {
+      const numVal = Number(currN);
+      // Find prior log for this vehicle
+      const priorLogs = logs
+        .filter(
+          (l) =>
+            l.kendaraan_id === formKendaraanId &&
+            (!editingLog || l.id !== editingLog.id) &&
+            new Date(l.tanggal).getTime() <= new Date(formTanggalAwal).getTime()
+        )
+        .sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
+
+      const prevLog = priorLogs[0];
+      const prevOdo =
+        prevLog?.odometer_basecamp_in !== null && prevLog?.odometer_basecamp_in !== undefined
+          ? prevLog.odometer_basecamp_in
+          : prevLog?.odometer_basecamp_out !== null && prevLog?.odometer_basecamp_out !== undefined
+          ? prevLog.odometer_basecamp_out
+          : null;
+
+      if (prevOdo !== null && numVal > prevOdo) {
+        return {
+          jarak: numVal - prevOdo,
+          type: 'periodic',
+          prevOdo,
+          prevDate: prevLog.tanggal,
+        };
+      } else if (prevOdo !== null && numVal === prevOdo) {
+        return { jarak: 0, type: 'same' };
+      } else if (prevOdo === null) {
+        return { jarak: 0, type: 'initial', currOdo: numVal };
+      }
     }
     return null;
-  }, [formOutKm, formInKm]);
+  }, [formOutKm, formInKm, formKendaraanId, formTanggalAwal, editingLog, logs]);
 
   return (
     <div className="space-y-6">
@@ -907,12 +1055,16 @@ export function KendaraanLogManager({
                 </tr>
               ) : (
                 sortedLogs.map((log) => {
-                  const isCompleted = log.odometer_basecamp_in !== null && log.odometer_basecamp_out !== null;
-                  const isPendingIn = log.odometer_basecamp_out !== null && log.odometer_basecamp_in === null;
-                  const efisiensi =
-                    log.jarak_tempuh && log.bbm_liter
-                      ? (log.jarak_tempuh / log.bbm_liter).toFixed(1)
-                      : null;
+                  const isCompleted =
+                    log.isPeriodicDelta ||
+                    log.isInitialBaseline ||
+                    (log.odometer_basecamp_in !== null && log.odometer_basecamp_out !== null);
+                  const isPendingIn =
+                    log.odometer_basecamp_out !== null &&
+                    log.odometer_basecamp_in === null &&
+                    !log.isPeriodicDelta &&
+                    !log.isInitialBaseline;
+                  const efisiensi = log.calculatedEfisiensi ? `${log.calculatedEfisiensi}` : null;
 
                   return (
                     <tr
@@ -972,12 +1124,25 @@ export function KendaraanLogManager({
 
                       {/* Jarak Tempuh */}
                       <td className="p-3 whitespace-nowrap font-mono tabular-nums">
-                        {log.jarak_tempuh !== null ? (
-                          <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-900">
-                            {log.jarak_tempuh.toLocaleString('id-ID')} km
+                        {log.effectiveJarak > 0 ? (
+                          <div>
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-900">
+                              {log.effectiveJarak.toLocaleString('id-ID')} km
+                            </span>
+                            {log.isPeriodicDelta && log.deltaFromDate && (
+                              <div className="text-[10px] text-[var(--text-secondary)] font-sans font-medium mt-0.5">
+                                dari {formatDateIndo(log.deltaFromDate)}
+                              </div>
+                            )}
+                          </div>
+                        ) : log.isInitialBaseline ? (
+                          <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold border border-blue-200 text-[10px]">
+                            Titik Awal ({((log.odometer_basecamp_in ?? log.odometer_basecamp_out) ?? 0).toLocaleString('id-ID')} km)
                           </span>
+                        ) : isPendingIn ? (
+                          <span className="text-amber-600 font-semibold italic text-[11px]">Sedang jalan</span>
                         ) : (
-                          <span className="text-[var(--text-muted)] italic text-[11px]">Sedang jalan</span>
+                          <span className="text-[var(--text-muted)]">0 km</span>
                         )}
                       </td>
 
@@ -1161,10 +1326,20 @@ export function KendaraanLogManager({
                 </div>
 
                 {modalPreviewJarak !== null && (
-                  <div className="col-span-1 sm:col-span-2 pt-2 border-t border-[var(--border)] flex items-center justify-between text-xs">
-                    <span className="font-semibold text-[var(--text-secondary)]">Kalkulasi Jarak Tempuh:</span>
+                  <div className="col-span-1 sm:col-span-2 pt-2 border-t border-[var(--border)] flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-1">
+                    <span className="font-semibold text-[var(--text-secondary)]">
+                      {modalPreviewJarak.type === 'single'
+                        ? 'Kalkulasi Trip Selesai:'
+                        : modalPreviewJarak.type === 'periodic'
+                        ? `Akumulasi Berkala (sejak ${formatDateIndo(modalPreviewJarak.prevDate || '')}):`
+                        : modalPreviewJarak.type === 'initial'
+                        ? 'Status Odometer:'
+                        : 'Kalkulasi Jarak:'}
+                    </span>
                     <span className="font-extrabold text-sm text-emerald-600 font-mono">
-                      {modalPreviewJarak.toLocaleString('id-ID')} km
+                      {modalPreviewJarak.type === 'initial'
+                        ? `Titik Awal (${(modalPreviewJarak.currOdo || 0).toLocaleString('id-ID')} km)`
+                        : `+${modalPreviewJarak.jarak.toLocaleString('id-ID')} km`}
                     </span>
                   </div>
                 )}

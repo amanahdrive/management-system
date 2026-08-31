@@ -89,8 +89,29 @@ export async function upsertKendaraanLog(
       : null;
 
     let jarakTempuh: number | null = null;
-    if (outKm !== null && inKm !== null && inKm >= outKm) {
+    if (outKm !== null && inKm !== null && inKm > outKm) {
       jarakTempuh = inKm - outKm;
+    } else {
+      const currKm = inKm !== null ? inKm : outKm;
+      if (currKm !== null) {
+        // Look up previous latest log for this vehicle before or on this date
+        const prevLog = await dbQuerySingle<{ odo: number }>(`
+          SELECT COALESCE(odometer_basecamp_in, odometer_basecamp_out) AS odo
+          FROM kendaraan_log_harian
+          WHERE kendaraan_id = $1 
+            AND (tanggal < $2 OR (tanggal = $2 AND id != $3))
+            AND COALESCE(odometer_basecamp_in, odometer_basecamp_out) IS NOT NULL
+            AND COALESCE(odometer_basecamp_in, odometer_basecamp_out) <= $4
+          ORDER BY tanggal DESC, created_at DESC
+          LIMIT 1
+        `, [log.kendaraan_id, log.tanggal, log.id || '00000000-0000-0000-0000-000000000000', currKm]);
+
+        if (prevLog && prevLog.odo !== null && currKm > prevLog.odo) {
+          jarakTempuh = currKm - prevLog.odo;
+        } else {
+          jarakTempuh = 0;
+        }
+      }
     }
 
     const bbmLiter = log.bbm_liter !== undefined && log.bbm_liter !== null && !isNaN(Number(log.bbm_liter))
@@ -343,19 +364,42 @@ export async function getKendaraanPerformanceStats(
 
     const logs = await dbQuery<KendaraanLogHarian>(logQuery, logParams);
 
+    // Sort chronologically ascending to accurately measure distance across periodic checkpoints & trips
+    logs.sort((a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime());
+
     let totalJarakKm = 0;
     let totalTripSelesai = 0;
     let totalTripBerjalan = 0;
     let totalLiterFromLogs = 0;
     let totalBiayaFromLogs = 0;
+    let lastKnownOdo: number | null = null;
 
     for (const l of logs) {
-      if (l.jarak_tempuh !== null && Number(l.jarak_tempuh) > 0) {
-        totalJarakKm += Number(l.jarak_tempuh);
+      const outKm = l.odometer_basecamp_out;
+      const inKm = l.odometer_basecamp_in;
+      const currOdo = inKm !== null ? inKm : outKm;
+      let effectiveJarak = 0;
+
+      if (outKm !== null && inKm !== null && inKm > outKm) {
+        effectiveJarak = inKm - outKm;
         totalTripSelesai += 1;
-      } else if (l.odometer_basecamp_out !== null && l.odometer_basecamp_in === null) {
+        lastKnownOdo = inKm;
+      } else if (currOdo !== null) {
+        if (lastKnownOdo !== null && currOdo > lastKnownOdo) {
+          effectiveJarak = currOdo - lastKnownOdo;
+          totalTripSelesai += 1;
+          lastKnownOdo = currOdo;
+        } else if (lastKnownOdo === null) {
+          lastKnownOdo = currOdo;
+          totalTripSelesai += 1; // Baseline reading
+        } else {
+          totalTripSelesai += 1;
+        }
+      } else if (outKm !== null && inKm === null) {
         totalTripBerjalan += 1;
       }
+
+      totalJarakKm += effectiveJarak;
 
       if (l.bbm_liter && Number(l.bbm_liter) > 0) {
         totalLiterFromLogs += Number(l.bbm_liter);
