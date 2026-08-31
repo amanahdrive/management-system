@@ -5,6 +5,14 @@ import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { Paket, Promosi, Jabatan, Staff, StatusPembayaranMaster, SlotWaktu, Kendaraan } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 
+function safeRevalidatePath(path: string) {
+  try {
+    revalidatePath(path);
+  } catch {
+    // Ignored in non-request contexts
+  }
+}
+
 // --- PAKET ACTIONS ---
 export async function getPaketList(): Promise<Paket[]> {
   const cached = cacheGet<Paket[]>('master_paket_list');
@@ -24,13 +32,17 @@ export async function upsertPaket(paket: Partial<Paket>): Promise<{ success: boo
   try {
     const isNew = !paket.id;
     if (!isNew) {
-      const keys = Object.keys(paket).filter((k) => k !== 'id' && (paket as any)[k] !== undefined);
+      const keys = Object.keys(paket).filter(
+        (k) => k !== 'id' && k !== 'created_at' && k !== 'updated_at' && (paket as any)[k] !== undefined
+      );
       const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
       const values = keys.map((k) => (paket as any)[k]);
       values.push(paket.id);
       await dbQuery(`UPDATE paket SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length}`, values);
     } else {
-      const keys = Object.keys(paket).filter((k) => (paket as any)[k] !== undefined);
+      const keys = Object.keys(paket).filter(
+        (k) => k !== 'created_at' && k !== 'updated_at' && (paket as any)[k] !== undefined
+      );
       const cols = keys.map((k) => `"${k}"`).join(', ');
       const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
       const values = keys.map((k) => (paket as any)[k]);
@@ -40,7 +52,7 @@ export async function upsertPaket(paket: Partial<Paket>): Promise<{ success: boo
     cacheInvalidate('master_paket*');
     cacheInvalidate('dashboard*');
 
-    revalidatePath('/master-data/paket');
+    safeRevalidatePath('/master-data/paket');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -66,13 +78,17 @@ export async function upsertPromosi(promosi: Partial<Promosi>): Promise<{ succes
   try {
     const isNew = !promosi.id;
     if (!isNew) {
-      const keys = Object.keys(promosi).filter((k) => k !== 'id' && (promosi as any)[k] !== undefined);
+      const keys = Object.keys(promosi).filter(
+        (k) => k !== 'id' && k !== 'created_at' && k !== 'updated_at' && (promosi as any)[k] !== undefined
+      );
       const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
       const values = keys.map((k) => (promosi as any)[k]);
       values.push(promosi.id);
       await dbQuery(`UPDATE promosi SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length}`, values);
     } else {
-      const keys = Object.keys(promosi).filter((k) => (promosi as any)[k] !== undefined);
+      const keys = Object.keys(promosi).filter(
+        (k) => k !== 'created_at' && k !== 'updated_at' && (promosi as any)[k] !== undefined
+      );
       const cols = keys.map((k) => `"${k}"`).join(', ');
       const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
       const values = keys.map((k) => (promosi as any)[k]);
@@ -81,7 +97,7 @@ export async function upsertPromosi(promosi: Partial<Promosi>): Promise<{ succes
 
     cacheInvalidate('master_promosi*');
 
-    revalidatePath('/master-data/promosi');
+    safeRevalidatePath('/master-data/promosi');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -93,7 +109,7 @@ export async function deletePromosi(id: string): Promise<{ success: boolean; err
     await dbQuery('DELETE FROM promosi WHERE id = $1', [id]);
     cacheInvalidate('master_promosi*');
 
-    revalidatePath('/master-data/promosi');
+    safeRevalidatePath('/master-data/promosi');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -121,13 +137,17 @@ export async function upsertJabatan(jabatan: Partial<Jabatan>): Promise<{ succes
   try {
     const isNew = !jabatan.id;
     if (!isNew) {
-      const keys = Object.keys(jabatan).filter((k) => k !== 'id' && (jabatan as any)[k] !== undefined);
+      const keys = Object.keys(jabatan).filter(
+        (k) => k !== 'id' && k !== 'created_at' && k !== 'updated_at' && (jabatan as any)[k] !== undefined
+      );
       const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
       const values = keys.map((k) => (jabatan as any)[k]);
       values.push(jabatan.id);
       await dbQuery(`UPDATE jabatan SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length}`, values);
     } else {
-      const keys = Object.keys(jabatan).filter((k) => (jabatan as any)[k] !== undefined);
+      const keys = Object.keys(jabatan).filter(
+        (k) => k !== 'created_at' && k !== 'updated_at' && (jabatan as any)[k] !== undefined
+      );
       const cols = keys.map((k) => `"${k}"`).join(', ');
       const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
       const values = keys.map((k) => (jabatan as any)[k]);
@@ -136,7 +156,7 @@ export async function upsertJabatan(jabatan: Partial<Jabatan>): Promise<{ succes
 
     cacheInvalidate('master_jabatan*');
 
-    revalidatePath('/master-data/jabatan');
+    safeRevalidatePath('/master-data/jabatan');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -200,15 +220,24 @@ export async function upsertStaff(
     const {
       jabatan_list,
       staff_jabatan,
+      created_at,
+      updated_at,
       ...cleanStaff
     } = staff as any;
 
     let savedStaff: any = null;
 
     if (cleanStaff.id) {
-      const keys = Object.keys(cleanStaff).filter((k) => k !== 'id' && cleanStaff[k] !== undefined);
+      const keys = Object.keys(cleanStaff).filter(
+        (k) => k !== 'id' && k !== 'created_at' && k !== 'updated_at' && cleanStaff[k] !== undefined
+      );
       const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
-      const values = keys.map((k) => cleanStaff[k]);
+      const values = keys.map((k) => {
+        if (k === 'jadwal_ketersediaan' && typeof cleanStaff[k] === 'object' && cleanStaff[k] !== null) {
+          return JSON.stringify(cleanStaff[k]);
+        }
+        return cleanStaff[k];
+      });
       values.push(cleanStaff.id);
 
       savedStaff = await dbQuerySingle(
@@ -216,10 +245,17 @@ export async function upsertStaff(
         values
       );
     } else {
-      const keys = Object.keys(cleanStaff).filter((k) => cleanStaff[k] !== undefined);
+      const keys = Object.keys(cleanStaff).filter(
+        (k) => k !== 'created_at' && k !== 'updated_at' && cleanStaff[k] !== undefined
+      );
       const cols = keys.map((k) => `"${k}"`).join(', ');
       const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-      const values = keys.map((k) => cleanStaff[k]);
+      const values = keys.map((k) => {
+        if (k === 'jadwal_ketersediaan' && typeof cleanStaff[k] === 'object' && cleanStaff[k] !== null) {
+          return JSON.stringify(cleanStaff[k]);
+        }
+        return cleanStaff[k];
+      });
 
       savedStaff = await dbQuerySingle(
         `INSERT INTO staff (${cols}) VALUES (${placeholders}) RETURNING *`,
@@ -237,12 +273,14 @@ export async function upsertStaff(
     }
 
     cacheInvalidate('master_staff*');
+    cacheInvalidate('instruktur*');
+    cacheInvalidate('jadwal*');
     cacheInvalidate('dashboard*');
 
-    revalidatePath('/master-data/staff');
-    revalidatePath('/jadwal');
-    revalidatePath('/instruktur');
-    revalidatePath('/dashboard');
+    safeRevalidatePath('/master-data/staff');
+    safeRevalidatePath('/jadwal');
+    safeRevalidatePath('/instruktur');
+    safeRevalidatePath('/dashboard');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -268,13 +306,17 @@ export async function upsertSlotWaktu(slot: Partial<SlotWaktu>): Promise<{ succe
   try {
     const isNew = !slot.id;
     if (!isNew) {
-      const keys = Object.keys(slot).filter((k) => k !== 'id' && (slot as any)[k] !== undefined);
+      const keys = Object.keys(slot).filter(
+        (k) => k !== 'id' && k !== 'created_at' && k !== 'updated_at' && (slot as any)[k] !== undefined
+      );
       const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
       const values = keys.map((k) => (slot as any)[k]);
       values.push(slot.id);
       await dbQuery(`UPDATE slot_waktu SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length}`, values);
     } else {
-      const keys = Object.keys(slot).filter((k) => (slot as any)[k] !== undefined);
+      const keys = Object.keys(slot).filter(
+        (k) => k !== 'created_at' && k !== 'updated_at' && (slot as any)[k] !== undefined
+      );
       const cols = keys.map((k) => `"${k}"`).join(', ');
       const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
       const values = keys.map((k) => (slot as any)[k]);
@@ -283,7 +325,7 @@ export async function upsertSlotWaktu(slot: Partial<SlotWaktu>): Promise<{ succe
 
     cacheInvalidate('master_slot_waktu*');
 
-    revalidatePath('/master-data/slot-waktu');
+    safeRevalidatePath('/master-data/slot-waktu');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -334,7 +376,9 @@ export async function upsertKendaraanMaster(kendaraan: Partial<Kendaraan>): Prom
     let saved: any = null;
 
     if (cleanData.id) {
-      const keys = Object.keys(cleanData).filter((k) => k !== 'id' && cleanData[k] !== undefined);
+      const keys = Object.keys(cleanData).filter(
+        (k) => k !== 'id' && k !== 'created_at' && k !== 'updated_at' && cleanData[k] !== undefined
+      );
       const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
       const values = keys.map((k) => cleanData[k]);
       values.push(cleanData.id);
@@ -344,7 +388,9 @@ export async function upsertKendaraanMaster(kendaraan: Partial<Kendaraan>): Prom
         values
       );
     } else {
-      const keys = Object.keys(cleanData).filter((k) => cleanData[k] !== undefined);
+      const keys = Object.keys(cleanData).filter(
+        (k) => k !== 'created_at' && k !== 'updated_at' && cleanData[k] !== undefined
+      );
       const cols = keys.map((k) => `"${k}"`).join(', ');
       const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
       const values = keys.map((k) => cleanData[k]);
@@ -367,8 +413,8 @@ export async function upsertKendaraanMaster(kendaraan: Partial<Kendaraan>): Prom
     cacheInvalidate('kendaraan*');
     cacheInvalidate('dashboard*');
 
-    revalidatePath('/master-data/kendaraan');
-    revalidatePath('/kendaraan');
+    safeRevalidatePath('/master-data/kendaraan');
+    safeRevalidatePath('/kendaraan');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -383,8 +429,8 @@ export async function deleteKendaraan(id: string): Promise<{ success: boolean; e
     cacheInvalidate('kendaraan*');
     cacheInvalidate('dashboard*');
 
-    revalidatePath('/master-data/kendaraan');
-    revalidatePath('/kendaraan');
+    safeRevalidatePath('/master-data/kendaraan');
+    safeRevalidatePath('/kendaraan');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
