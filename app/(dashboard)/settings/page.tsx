@@ -7,6 +7,7 @@ import {
   saveCompanyProfile,
   saveSopTemplate,
   saveBbmPrices,
+  saveInstructorSalarySettings,
 } from '@/lib/actions/settings';
 import {
   sendTelegramMessageAction,
@@ -28,6 +29,7 @@ import { usePinStore } from '@/lib/store/pin-store';
 import { resetModularData, ResetModuleKey } from '@/lib/actions/reset-system';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { TimePicker24H } from '@/components/shared/TimePicker24H';
+import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import {
   Send,
   KeyRound,
@@ -160,6 +162,13 @@ export default function SettingsPage() {
   const [pertalitePrice, setPertalitePrice] = React.useState(10000);
   const [pertamaxPrice, setPertamaxPrice] = React.useState(16300);
 
+  // Instructor Fee & Meal Allowance Settings
+  const [gajiOperasional, setGajiOperasional] = React.useState(50000);
+  const [gajiPribadi, setGajiPribadi] = React.useState(70000);
+  const [uangMakanHarian, setUangMakanHarian] = React.useState(15000);
+  const [savingHonor, setSavingHonor] = React.useState(false);
+  const [honorSuccess, setHonorSuccess] = React.useState(false);
+
   // Saving states for individual sections
   const [savingProfile, setSavingProfile] = React.useState(false);
   const [profileSuccess, setProfileSuccess] = React.useState(false);
@@ -251,6 +260,9 @@ export default function SettingsPage() {
         setWaTemplate(genCfg.waTemplate);
         setPertalitePrice(genCfg.pertalitePrice);
         setPertamaxPrice(genCfg.pertamaxPrice);
+        setGajiOperasional(genCfg.gajiInstrukturOperasional);
+        setGajiPribadi(genCfg.gajiInstrukturPribadi);
+        setUangMakanHarian(genCfg.uangMakanInstrukturHarian);
         setTelegramConfig(tgCfg);
         setTelegramStatus(tgStatus);
         setRekeningList(rekList);
@@ -402,6 +414,20 @@ export default function SettingsPage() {
       setTimeout(() => setBbmSuccess(false), 3000);
     } else {
       alert('Gagal menyimpan harga BBM: ' + res.error);
+    }
+  };
+
+  const handleSaveHonor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingHonor(true);
+    setHonorSuccess(false);
+    const res = await saveInstructorSalarySettings(gajiOperasional, gajiPribadi, uangMakanHarian);
+    setSavingHonor(false);
+    if (res.success) {
+      setHonorSuccess(true);
+      setTimeout(() => setHonorSuccess(false), 3000);
+    } else {
+      alert('Gagal menyimpan tarif honor instruktur: ' + res.error);
     }
   };
 
@@ -901,7 +927,69 @@ export default function SettingsPage() {
           </form>
         </div>
 
-        {/* Section 4: WhatsApp Template */}
+        {/* Section 4: Tarif Honor & Uang Makan Instruktur */}
+        <div className="card-container space-y-4">
+          <h3 className="font-bold text-sm text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
+            <Banknote className="w-4 h-4 text-[var(--brand-primary)]" />
+            Tarif Honor & Uang Makan Instruktur
+          </h3>
+
+          <form onSubmit={handleSaveHonor} className="space-y-3 text-xs">
+            <div className="space-y-3">
+              <div>
+                <CurrencyInput
+                  label="Honor Sesi (Mobil Operasional)"
+                  value={gajiOperasional}
+                  onChange={setGajiOperasional}
+                />
+                <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
+                  Fee mengajar per sesi saat instruktur menggunakan mobil armada operasional
+                </span>
+              </div>
+
+              <div>
+                <CurrencyInput
+                  label="Honor Sesi (Mobil Pribadi / Siswa)"
+                  value={gajiPribadi}
+                  onChange={setGajiPribadi}
+                />
+                <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
+                  Fee mengajar per sesi saat menggunakan mobil pribadi/sendiri
+                </span>
+              </div>
+
+              <div>
+                <CurrencyInput
+                  label="Uang Makan Harian Instruktur"
+                  value={uangMakanHarian}
+                  onChange={setUangMakanHarian}
+                />
+                <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
+                  Uang makan per hari aktif instruktur bertugas
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={savingHonor}
+              className="w-full py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] disabled:opacity-50 text-white font-bold rounded-md flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+            >
+              {savingHonor ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : honorSuccess ? (
+                <Check className="w-3.5 h-3.5" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              <span>
+                {savingHonor ? 'Menyimpan...' : honorSuccess ? 'Tersimpan!' : 'Simpan Pengaturan Honor & Uang Makan'}
+              </span>
+            </button>
+          </form>
+        </div>
+
+        {/* Section 5: WhatsApp Template */}
         <div className="card-container space-y-4">
           <h3 className="font-bold text-sm text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
             <Send className="w-4 h-4 text-emerald-600" />

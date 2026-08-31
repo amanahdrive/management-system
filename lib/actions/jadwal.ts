@@ -4,6 +4,7 @@ import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheInvalidate } from '@/lib/utils/cache';
 import { JadwalSesi } from '@/types/database';
 import { revalidatePath } from 'next/cache';
+import { getGeneralSettings } from '@/lib/actions/settings';
 import {
   generateWhatsAppJadwalMarkdown,
   generateWhatsAppRangeScheduleMarkdown,
@@ -12,6 +13,14 @@ import {
   sortSesiBySlotUrutan,
 } from '../utils/whatsapp-markdown';
 import { addDaysToDateStr, getTodayDateString } from '../utils/date';
+
+function safeRevalidatePath(path: string) {
+  try {
+    revalidatePath(path);
+  } catch {
+    // Suppressed in non-request contexts
+  }
+}
 
 export async function getJadwalByTanggal(
   tanggal: string,
@@ -266,6 +275,8 @@ export async function bulkUpdateJadwalSesi(
     status_sesi?: 'terjadwal' | 'selesai' | 'batal';
     slot_waktu_id?: string;
     slot_waktu_id_akhir?: string | null;
+    tipe_kendaraan?: 'operasional' | 'pribadi';
+    kendaraan_id?: string | null;
     tanggal_sesi?: string;
     catatan_sesi?: string;
   },
@@ -294,6 +305,14 @@ export async function bulkUpdateJadwalSesi(
     if (updates.slot_waktu_id_akhir !== undefined) {
       values.push(updates.slot_waktu_id_akhir);
       setClauses.push(`slot_waktu_id_akhir = $${values.length}`);
+    }
+    if (updates.tipe_kendaraan !== undefined) {
+      values.push(updates.tipe_kendaraan);
+      setClauses.push(`tipe_kendaraan = $${values.length}`);
+    }
+    if (updates.kendaraan_id !== undefined) {
+      values.push(updates.kendaraan_id);
+      setClauses.push(`kendaraan_id = $${values.length}`);
     }
     if (updates.tanggal_sesi !== undefined) {
       values.push(updates.tanggal_sesi);
@@ -655,32 +674,82 @@ export async function generateWhatsAppCustomRangeText(
 }
 
 export async function generateWhatsAppRecapText(
-  tanggalStr: string,
+  startDateStr: string,
+  endDateStr?: string,
   staffId?: string
 ): Promise<string> {
-  let staffFilterNama: string | undefined;
-  if (staffId && staffId !== 'semua') {
-    const staffData = await dbQuerySingle<{ nama: string }>('SELECT nama FROM staff WHERE id = $1', [staffId]);
-    if (staffData?.nama) staffFilterNama = staffData.nama;
-  }
-
-  const jadwalList = await getJadwalByTanggal(tanggalStr, staffId);
-
-  const groupMap = new Map<string, { nama: string; list: JadwalSesi[] }>();
-  jadwalList.forEach((sesi) => {
-    const instNama = sesi.instruktur?.nama || 'Instruktur';
-    const instId = sesi.staff_id;
-
-    if (!groupMap.has(instId)) {
-      groupMap.set(instId, { nama: instNama, list: [] });
+  try {
+    const end = endDateStr || startDateStr;
+    let staffFilterNama: string | undefined;
+    if (staffId && staffId !== 'semua') {
+      const staffData = await dbQuerySingle<{ nama: string }>('SELECT nama FROM staff WHERE id = $1', [staffId]);
+      if (staffData?.nama) staffFilterNama = staffData.nama;
     }
-    groupMap.get(instId)!.list.push(sesi);
-  });
 
-  const groupedData: InstrukturJadwalGroup[] = Array.from(groupMap.values()).map((g) => ({
-    instrukturNama: g.nama,
-    sesiList: sortSesiBySlotUrutan(g.list),
-  }));
+    const params: any[] = [startDateStr, end];
+    let staffFilter = '';
+    if (staffId && staffId !== 'semua') {
+      params.push(staffId);
+      staffFilter = `AND js.staff_id = $${params.length}`;
+    }
 
-  return generateWhatsAppRecapMarkdown(tanggalStr, groupedData, staffFilterNama);
+    const jadwalList = await dbQuery<JadwalSesi>(`
+      SELECT 
+        js.*,
+        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS instruktur,
+        CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
+        CASE WHEN sw1.id IS NOT NULL THEN to_jsonb(sw1) ELSE NULL END AS slot_waktu,
+        CASE WHEN sw2.id IS NOT NULL THEN to_jsonb(sw2) ELSE NULL END AS slot_waktu_akhir
+      FROM jadwal_sesi js
+      LEFT JOIN siswa s ON js.siswa_id = s.id
+      LEFT JOIN staff st ON js.staff_id = st.id
+      LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
+      LEFT JOIN slot_waktu sw1 ON js.slot_waktu_id = sw1.id
+      LEFT JOIN slot_waktu sw2 ON js.slot_waktu_id_akhir = sw2.id
+      WHERE js.tanggal_sesi >= $1 AND js.tanggal_sesi <= $2 ${staffFilter}
+      ORDER BY js.tanggal_sesi ASC, js.slot_waktu_id ASC;
+    `, params);
+
+    // Fetch instructor fee & meal allowance settings
+    const settings = await getGeneralSettings();
+    const rates = {
+      feeOperasional: settings.gajiInstrukturOperasional || 50000,
+      feePribadi: settings.gajiInstrukturPribadi || 70000,
+      uangMakanHarian: settings.uangMakanInstrukturHarian || 15000,
+    };
+
+    const groupMap = new Map<string, { nama: string; list: JadwalSesi[] }>();
+    jadwalList.forEach((sesi) => {
+      const instNama = sesi.instruktur?.nama || 'Instruktur';
+      const instId = sesi.staff_id;
+
+      if (!groupMap.has(instId)) {
+        groupMap.set(instId, { nama: instNama, list: [] });
+      }
+      groupMap.get(instId)!.list.push(sesi);
+    });
+
+    // If no specific staff filter, include all active instructors
+    if (!staffId || staffId === 'semua') {
+      const allActiveStaff = await dbQuery<{ id: string; nama: string }>(
+        'SELECT id, nama FROM staff WHERE aktif = true ORDER BY nama ASC'
+      );
+      allActiveStaff.forEach((st) => {
+        if (!groupMap.has(st.id)) {
+          groupMap.set(st.id, { nama: st.nama, list: [] });
+        }
+      });
+    }
+
+    const groupedData: InstrukturJadwalGroup[] = Array.from(groupMap.values()).map((g) => ({
+      instrukturNama: g.nama,
+      sesiList: sortSesiBySlotUrutan(g.list),
+    }));
+
+    return generateWhatsAppRecapMarkdown(startDateStr, end, groupedData, rates, staffFilterNama);
+  } catch (err: any) {
+    console.error('Error generating WhatsApp recap text:', err);
+    return 'Terjadi kesalahan saat membuat format rekap WhatsApp';
+  }
 }

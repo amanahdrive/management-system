@@ -1,8 +1,16 @@
 'use server';
 
-import { dbQuery, dbQuerySingle } from '@/lib/db';
+import { dbQuery } from '@/lib/db';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { revalidatePath } from 'next/cache';
+
+function safeRevalidatePath(path: string) {
+  try {
+    revalidatePath(path);
+  } catch {
+    // Suppressed in non-request contexts
+  }
+}
 
 export interface GeneralSettings {
   namaPerusahaan: string;
@@ -10,6 +18,9 @@ export interface GeneralSettings {
   waTemplate: string;
   pertalitePrice: number;
   pertamaxPrice: number;
+  gajiInstrukturOperasional: number;
+  gajiInstrukturPribadi: number;
+  uangMakanInstrukturHarian: number;
 }
 
 const DEFAULT_WA_TEMPLATE =
@@ -44,6 +55,15 @@ export async function getGeneralSettings(): Promise<GeneralSettings> {
       waTemplate: map['wa_footer_template'] || DEFAULT_WA_TEMPLATE,
       pertalitePrice: map['harga_bbm_pertalite'] ? Number(map['harga_bbm_pertalite']) : 10000,
       pertamaxPrice: map['harga_bbm_pertamax'] ? Number(map['harga_bbm_pertamax']) : 16300,
+      gajiInstrukturOperasional: map['gaji_instruktur_operasional']
+        ? Number(map['gaji_instruktur_operasional'])
+        : 50000,
+      gajiInstrukturPribadi: map['gaji_instruktur_pribadi']
+        ? Number(map['gaji_instruktur_pribadi'])
+        : 70000,
+      uangMakanInstrukturHarian: map['uang_makan_instruktur_harian']
+        ? Number(map['uang_makan_instruktur_harian'])
+        : 15000,
     };
 
     cacheSet(CACHE_KEY, result, 60);
@@ -56,6 +76,9 @@ export async function getGeneralSettings(): Promise<GeneralSettings> {
       waTemplate: DEFAULT_WA_TEMPLATE,
       pertalitePrice: 10000,
       pertamaxPrice: 16300,
+      gajiInstrukturOperasional: 50000,
+      gajiInstrukturPribadi: 70000,
+      uangMakanInstrukturHarian: 15000,
     };
   }
 }
@@ -87,8 +110,8 @@ export async function saveCompanyProfile(
     await upsertSetting('nama_perusahaan', namaPerusahaan, 'Nama Perusahaan Kursus');
     await upsertSetting('kota_operasional', kotaOperasional, 'Kota Wilayah Operasional');
 
-    revalidatePath('/settings');
-    revalidatePath('/dashboard');
+    safeRevalidatePath('/settings');
+    safeRevalidatePath('/dashboard');
     return { success: true };
   } catch (err: any) {
     console.error('Error saving company profile:', err);
@@ -105,8 +128,8 @@ export async function saveSopTemplate(
   try {
     await upsertSetting('wa_footer_template', templateText, 'Template Standar Operasional Sesi WA');
 
-    revalidatePath('/settings');
-    revalidatePath('/jadwal');
+    safeRevalidatePath('/settings');
+    safeRevalidatePath('/jadwal');
     return { success: true };
   } catch (err: any) {
     console.error('Error saving SOP template:', err);
@@ -125,11 +148,47 @@ export async function saveBbmPrices(
     await upsertSetting('harga_bbm_pertalite', pertalite.toString(), 'Harga BBM Pertalite per Liter');
     await upsertSetting('harga_bbm_pertamax', pertamax.toString(), 'Harga BBM Pertamax per Liter');
 
-    revalidatePath('/settings');
-    revalidatePath('/kendaraan');
+    safeRevalidatePath('/settings');
+    safeRevalidatePath('/kendaraan');
     return { success: true };
   } catch (err: any) {
     console.error('Error saving BBM prices:', err);
     return { success: false, error: err.message || 'Gagal menyimpan harga BBM' };
+  }
+}
+
+/**
+ * Save Instructor Fee & Meal Allowance Settings
+ */
+export async function saveInstructorSalarySettings(
+  gajiOperasional: number,
+  gajiPribadi: number,
+  uangMakanHarian: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await upsertSetting(
+      'gaji_instruktur_operasional',
+      gajiOperasional.toString(),
+      'Fee mengajar instruktur per sesi (Mobil Operasional)'
+    );
+    await upsertSetting(
+      'gaji_instruktur_pribadi',
+      gajiPribadi.toString(),
+      'Fee mengajar instruktur per sesi (Mobil Pribadi)'
+    );
+    await upsertSetting(
+      'uang_makan_instruktur_harian',
+      uangMakanHarian.toString(),
+      'Uang makan harian instruktur per hari aktif mengajar'
+    );
+
+    safeRevalidatePath('/settings');
+    safeRevalidatePath('/jadwal');
+    safeRevalidatePath('/instruktur');
+    safeRevalidatePath('/dashboard');
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error saving instructor salary settings:', err);
+    return { success: false, error: err.message || 'Gagal menyimpan tarif honor instruktur' };
   }
 }

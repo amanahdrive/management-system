@@ -206,6 +206,7 @@ export interface JadwalSesi {
   siswa_id: string;
   staff_id: string;
   kendaraan_id: string | null;
+  tipe_kendaraan?: 'operasional' | 'pribadi';
   jenis_mobil: JenisMobilEnum;
   tanggal_sesi: string;
   slot_waktu_id: string;

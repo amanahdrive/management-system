@@ -248,74 +248,131 @@ export function generateWhatsAppWeeklyScheduleMarkdown(
   );
 }
 
+import { formatRupiah } from './currency';
+
+export interface RecapRates {
+  feeOperasional: number;
+  feePribadi: number;
+  uangMakanHarian: number;
+}
+
 /**
- * Generates Daily Slot Completion Recap Markdown
+ * Generates Structured Slot & Session Completion Recap Markdown with Instructor Salary & Meal Allowance
  */
 export function generateWhatsAppRecapMarkdown(
-  tanggalStr: string,
+  startDateStr: string,
+  endDateStr: string,
   groupedData: InstrukturJadwalGroup[],
+  rates: RecapRates = { feeOperasional: 50000, feePribadi: 70000, uangMakanHarian: 15000 },
   staffFilterNama?: string
 ): string {
-  const tglFormatted = formatHariTanggalIndo(tanggalStr);
+  const isSingleDay = startDateStr === endDateStr;
+  const periodeText = isSingleDay
+    ? formatHariTanggalIndo(startDateStr)
+    : `${formatDateIndo(startDateStr)} s/d ${formatDateIndo(endDateStr)}`;
 
-  let totalSelesai = 0;
-  let totalTerjadwal = 0;
-  let totalBatal = 0;
+  let grandTotalSesi = 0;
+  let grandTotalSlot = 0;
+  let grandTotalHonor = 0;
 
-  groupedData.forEach((g) => {
-    g.sesiList.forEach((s) => {
-      if (s.status_sesi === 'selesai') totalSelesai++;
-      else if (s.status_sesi === 'batal') totalBatal++;
-      else totalTerjadwal++;
-    });
-  });
-
-  let body = `*REKAP PENYELESAIAN SLOT HARIAN*\n`;
-  body += `Amanah Drive Palembang\n`;
-  body += `Tanggal: *${tglFormatted}*\n`;
+  let body = `*📋 REKAP KINERJA & ESTIMASI HONOR INSTRUKTUR*\n`;
+  body += `*Amanah Drive Palembang*\n`;
+  body += `Periode: *${periodeText}*\n`;
   if (staffFilterNama) {
     body += `Instruktur: *${staffFilterNama.toUpperCase()}*\n`;
   }
-  body += `────────────────────────\n`;
-  body += `*Ringkasan Status:*\n`;
-  body += `• Selesai: *${totalSelesai} Sesi*\n`;
-  body += `• Terjadwal: *${totalTerjadwal} Sesi*\n`;
-  if (totalBatal > 0) body += `• Batal: *${totalBatal} Sesi*\n`;
   body += `────────────────────────\n\n`;
 
   const sortedGroups = [...groupedData].sort((a, b) =>
     a.instrukturNama.localeCompare(b.instrukturNama)
   );
 
-  sortedGroups.forEach((group) => {
-    const sortedSesi = sortSesiBySlotUrutan(group.sesiList);
-    body += `*${group.instrukturNama.toUpperCase()}*:\n`;
+  sortedGroups.forEach((group, index) => {
+    const allSesi = group.sesiList;
+    const selesaiSesi = allSesi.filter((s) => s.status_sesi === 'selesai');
 
-    if (sortedSesi.length === 0) {
-      body += `  _Tidak ada sesi / Libur_\n\n`;
+    let slotCount = 0;
+    let operasionalSesiCount = 0;
+    let pribadiSesiCount = 0;
+    const activeDatesSet = new Set<string>();
+    const siswaNamesSet = new Set<string>();
+
+    selesaiSesi.forEach((s) => {
+      // Slot calculation: if multi-slot (e.g. slot 1 & 2), calculate 2 slots, else 1
+      const isDoubleSlot = Boolean(s.slot_waktu_id_akhir && s.slot_waktu_id_akhir !== s.slot_waktu_id);
+      slotCount += isDoubleSlot ? 2 : 1;
+
+      if (s.tipe_kendaraan === 'pribadi' || s.jenis_mobil === 'mobil_sendiri') {
+        pribadiSesiCount += 1;
+      } else {
+        operasionalSesiCount += 1;
+      }
+
+      if (s.tanggal_sesi) {
+        activeDatesSet.add(s.tanggal_sesi);
+      }
+
+      if (s.siswa?.nama) {
+        siswaNamesSet.add(s.siswa.nama.trim());
+      }
+    });
+
+    const activeDays = activeDatesSet.size;
+    const totalSesi = selesaiSesi.length;
+    const siswaListArray = Array.from(siswaNamesSet);
+
+    const feeOperasional = operasionalSesiCount * rates.feeOperasional;
+    const feePribadi = pribadiSesiCount * rates.feePribadi;
+    const uangMakan = activeDays * rates.uangMakanHarian;
+    const totalHonorInstruktur = feeOperasional + feePribadi + uangMakan;
+
+    grandTotalSesi += totalSesi;
+    grandTotalSlot += slotCount;
+    grandTotalHonor += totalHonorInstruktur;
+
+    body += `*${index + 1}. ${group.instrukturNama.toUpperCase()}*\n`;
+
+    if (totalSesi === 0) {
+      const terjadwalCount = allSesi.filter((s) => s.status_sesi === 'terjadwal').length;
+      if (terjadwalCount > 0) {
+        body += `• Status: _${terjadwalCount} sesi terjadwal (belum selesai)_\n\n`;
+      } else {
+        body += `• Status: _Tidak ada sesi / Libur_\n\n`;
+      }
       return;
     }
 
-    sortedSesi.forEach((sesi) => {
-      const slotNama = sesi.slot_waktu?.nama_slot || 'Slot';
-      const namaSiswa = sesi.siswa?.nama || 'Siswa';
-      const sesiKe = sesi.nomor_sesi_ke || 1;
-      const totalSesi = sesi.total_sesi_paket || 10;
-      const statusLabel =
-        sesi.status_sesi === 'selesai'
-          ? '[SELESAI]'
-          : sesi.status_sesi === 'batal'
-          ? '[BATAL]'
-          : '[TERJADWAL]';
+    body += `• Hari Bertugas Aktif: *${activeDays} Hari*\n`;
+    body += `• Total Slot Selesai: *${slotCount} Slot* (${totalSesi} Sesi)\n`;
+    if (pribadiSesiCount > 0) {
+      body += `  - Mobil Operasional: ${operasionalSesiCount} Sesi\n`;
+      body += `  - Mobil Pribadi: ${pribadiSesiCount} Sesi\n`;
+    }
 
-      body += `• ${slotNama}: *${namaSiswa}* (${statusLabel}) [Sesi ${sesiKe}/${totalSesi}]\n`;
-    });
+    if (siswaListArray.length > 0) {
+      body += `• Siswa Ditangani (${siswaListArray.length} Orang):\n`;
+      body += `  _${siswaListArray.join(', ')}_\n`;
+    }
 
-    body += `\n`;
+    body += `• *Estimasi Honor & Uang Makan:*\n`;
+    if (operasionalSesiCount > 0) {
+      body += `  - Fee Mobil Operasional: ${formatRupiah(feeOperasional)} (${operasionalSesiCount} sesi x ${formatRupiah(rates.feeOperasional)})\n`;
+    }
+    if (pribadiSesiCount > 0) {
+      body += `  - Fee Mobil Pribadi: ${formatRupiah(feePribadi)} (${pribadiSesiCount} sesi x ${formatRupiah(rates.feePribadi)})\n`;
+    }
+    if (activeDays > 0) {
+      body += `  - Uang Makan: ${formatRupiah(uangMakan)} (${activeDays} hari x ${formatRupiah(rates.uangMakanHarian)})\n`;
+    }
+    body += `  👉 *Total: ${formatRupiah(totalHonorInstruktur)}*\n\n`;
   });
 
   body += `────────────────────────\n`;
-  body += `_Laporan otomatis Amanah Drive_`;
+  body += `*GRAND TOTAL OPERASIONAL:*\n`;
+  body += `• Total Slot Selesai: *${grandTotalSlot} Slot* (${grandTotalSesi} Sesi)\n`;
+  body += `• Total Estimasi Honor & Uang Makan: *${formatRupiah(grandTotalHonor)}*\n`;
+  body += `────────────────────────\n`;
+  body += `_Laporan rekap otomatis Amanah Drive_`;
 
   return body;
 }

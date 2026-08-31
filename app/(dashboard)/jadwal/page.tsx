@@ -4,7 +4,7 @@ import React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
-import { JadwalSesi, Staff, SlotWaktu, Siswa } from '@/types/database';
+import { JadwalSesi, Staff, SlotWaktu, Siswa, Kendaraan } from '@/types/database';
 import {
   getJadwalByTanggal,
   getJadwalByBulan,
@@ -20,7 +20,7 @@ import {
   generateWhatsAppRecapText,
 } from '@/lib/actions/jadwal';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { getInstrukturList, getSlotWaktuList } from '@/lib/actions/master-data';
+import { getInstrukturList, getSlotWaktuList, getKendaraanMasterList } from '@/lib/actions/master-data';
 import { getSiswaList } from '@/lib/actions/siswa';
 import {
   getTodayDateString,
@@ -54,6 +54,8 @@ import {
   X,
   RefreshCw,
   FileSpreadsheet,
+  Car,
+  UserCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -97,6 +99,7 @@ export default function JadwalPage() {
   const [copied, setCopied] = React.useState(false);
   const [isCopyWAModalOpen, setIsCopyWAModalOpen] = React.useState(false);
   const [waCopyMode, setWaCopyMode] = React.useState<'harian' | 'mingguan' | 'custom' | 'rekap_slot'>('harian');
+  const [waRecapPeriod, setWaRecapPeriod] = React.useState<'harian' | 'mingguan' | 'custom'>('mingguan');
   const [waDateTarget, setWaDateTarget] = React.useState<string>(getTodayDateString());
   const [waWeekAnchor, setWaWeekAnchor] = React.useState<string>(getTodayDateString());
   const [waCustomDateFrom, setWaCustomDateFrom] = React.useState<string>(getTodayDateString());
@@ -108,6 +111,9 @@ export default function JadwalPage() {
   const [waSelectedStaff, setWaSelectedStaff] = React.useState<string>('semua');
   const [waPreviewText, setWaPreviewText] = React.useState<string>('');
   const [loadingWAPreview, setLoadingWAPreview] = React.useState<boolean>(false);
+
+  // Vehicle Master List State
+  const [kendaraanList, setKendaraanList] = React.useState<Kendaraan[]>([]);
 
   // Recap Panel State
   const [recapDate, setRecapDate] = React.useState(getTodayDateString());
@@ -130,6 +136,8 @@ export default function JadwalPage() {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [formData, setFormData] = React.useState<Partial<JadwalSesi>>({
     tanggal_sesi: getTodayDateString(),
+    tipe_kendaraan: 'operasional',
+    kendaraan_id: '',
     jenis_mobil: 'manual',
     total_sesi_paket: 10,
     status_sesi: 'terjadwal',
@@ -216,11 +224,12 @@ export default function JadwalPage() {
       }
     }
 
-    const [iList, sList, swList, mList] = await Promise.all([
+    const [iList, sList, swList, mList, kList] = await Promise.all([
       getInstrukturList(),
       getSiswaList(),
       getSlotWaktuList(),
       getJadwalConflictCheckList(),
+      getKendaraanMasterList(),
     ]);
 
     setJadwalList(jList);
@@ -228,6 +237,7 @@ export default function JadwalPage() {
     setSiswaList(sList);
     setSlotList(swList);
     setMonthlyJadwalList(mList);
+    setKendaraanList(kList);
 
     if (iList.length > 0 && !formData.staff_id) {
       setFormData((prev) => ({ ...prev, staff_id: iList[0].id }));
@@ -235,9 +245,12 @@ export default function JadwalPage() {
     if (swList.length > 0 && !formData.slot_waktu_id) {
       setFormData((prev) => ({ ...prev, slot_waktu_id: swList[0].id }));
     }
+    if (kList.length > 0 && !formData.kendaraan_id) {
+      setFormData((prev) => ({ ...prev, kendaraan_id: kList[0].id }));
+    }
 
     setLoading(false);
-  }, [getEffectiveDateRange, selectedStaff, formData.staff_id, formData.slot_waktu_id]);
+  }, [getEffectiveDateRange, selectedStaff, formData.staff_id, formData.slot_waktu_id, formData.kendaraan_id]);
 
   React.useEffect(() => {
     loadData();
@@ -637,6 +650,8 @@ export default function JadwalPage() {
       siswa_id: firstAvail?.id || '',
       staff_id: firstIns?.id || '',
       slot_waktu_id: firstSlot?.id || '',
+      tipe_kendaraan: 'operasional',
+      kendaraan_id: kendaraanList[0]?.id || '',
       jenis_mobil: 'manual',
       total_sesi_paket: totalSesi,
       status_sesi: 'terjadwal',
@@ -701,6 +716,7 @@ export default function JadwalPage() {
 
   const handleCopyWARekap = () => {
     setWaCopyMode('rekap_slot');
+    setWaRecapPeriod('mingguan');
     setWaDateTarget(selectedTanggal);
     setWaWeekAnchor(selectedTanggal);
     setWaCustomDateFrom(dateFrom || selectedTanggal);
@@ -723,12 +739,19 @@ export default function JadwalPage() {
     } else if (waCopyMode === 'custom') {
       text = await generateWhatsAppCustomRangeText(waCustomDateFrom, waCustomDateTo, staffParam);
     } else if (waCopyMode === 'rekap_slot') {
-      text = await generateWhatsAppRecapText(waDateTarget, staffParam);
+      if (waRecapPeriod === 'harian') {
+        text = await generateWhatsAppRecapText(waDateTarget, waDateTarget, staffParam);
+      } else if (waRecapPeriod === 'mingguan') {
+        const { startSunday, endSaturday } = getWeekSundayToSaturday(waWeekAnchor);
+        text = await generateWhatsAppRecapText(startSunday, endSaturday, staffParam);
+      } else {
+        text = await generateWhatsAppRecapText(waCustomDateFrom, waCustomDateTo, staffParam);
+      }
     }
 
     setWaPreviewText(text);
     setLoadingWAPreview(false);
-  }, [waCopyMode, waDateTarget, waWeekAnchor, waCustomDateFrom, waCustomDateTo, waSelectedStaff]);
+  }, [waCopyMode, waRecapPeriod, waDateTarget, waWeekAnchor, waCustomDateFrom, waCustomDateTo, waSelectedStaff]);
 
   React.useEffect(() => {
     if (isCopyWAModalOpen) {
@@ -770,12 +793,15 @@ export default function JadwalPage() {
       ? formData.slot_waktu_id_akhir
       : null;
 
+    const isMobilPribadi = formData.tipe_kendaraan === 'pribadi';
     const batchPayloads: Partial<JadwalSesi>[] = sessionDates.map((tgl, idx) => ({
       siswa_id: formData.siswa_id,
       staff_id: formData.staff_id,
       slot_waktu_id: formData.slot_waktu_id,
       slot_waktu_id_akhir: validSlotAkhir,
-      jenis_mobil: formData.jenis_mobil || 'manual',
+      tipe_kendaraan: isMobilPribadi ? 'pribadi' : 'operasional',
+      kendaraan_id: isMobilPribadi ? null : (formData.kendaraan_id || null),
+      jenis_mobil: isMobilPribadi ? 'mobil_sendiri' : (formData.jenis_mobil || 'manual'),
       tanggal_sesi: tgl,
       nomor_sesi_ke: idx + 1,
       total_sesi_paket: sessionDates.length,
@@ -1652,8 +1678,8 @@ export default function JadwalPage() {
 
             {/* Controls per Selected Mode */}
             <div className="space-y-3 p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl">
-              {/* Mode 1: Harian & Rekap Slot */}
-              {(waCopyMode === 'harian' || waCopyMode === 'rekap_slot') && (
+              {/* Mode 1: Harian */}
+              {waCopyMode === 'harian' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <DatePickerWIB
@@ -1793,6 +1819,156 @@ export default function JadwalPage() {
                   <div className="p-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-center text-[11px] font-semibold text-[var(--text-secondary)]">
                     Rentang: {formatHariTanggalIndo(waCustomDateFrom)} s/d {formatHariTanggalIndo(waCustomDateTo)}
                   </div>
+                </div>
+              )}
+
+              {/* Mode 4: Rekap Slot & Estimasi Honor */}
+              {waCopyMode === 'rekap_slot' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2 flex-wrap pb-1 border-b border-[var(--border)]">
+                    <span className="text-xs font-bold text-[var(--text-primary)]">
+                      Pilihan Periode Rekap:
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setWaRecapPeriod('harian')}
+                        className={`px-2 py-1 text-[11px] font-bold rounded-lg transition-all ${
+                          waRecapPeriod === 'harian'
+                            ? 'bg-[var(--brand-primary)] text-white'
+                            : 'bg-[var(--bg)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        Harian (1 Hari)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWaRecapPeriod('mingguan')}
+                        className={`px-2 py-1 text-[11px] font-bold rounded-lg transition-all ${
+                          waRecapPeriod === 'mingguan'
+                            ? 'bg-[var(--brand-primary)] text-white'
+                            : 'bg-[var(--bg)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        Mingguan (7 Hari)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWaRecapPeriod('custom')}
+                        className={`px-2 py-1 text-[11px] font-bold rounded-lg transition-all ${
+                          waRecapPeriod === 'custom'
+                            ? 'bg-[var(--brand-primary)] text-white'
+                            : 'bg-[var(--bg)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        Rentang Bebas
+                      </button>
+                    </div>
+                  </div>
+
+                  {waRecapPeriod === 'harian' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <DatePickerWIB
+                          label="Pilih Tanggal Sesi"
+                          value={waDateTarget}
+                          onChange={(val) => setWaDateTarget(val)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                          Filter Instruktur
+                        </label>
+                        <select
+                          value={waSelectedStaff}
+                          onChange={(e) => setWaSelectedStaff(e.target.value)}
+                          className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-xs"
+                        >
+                          <option value="semua">Semua Instruktur</option>
+                          {instrukturList.map((ins) => (
+                            <option key={ins.id} value={ins.id}>
+                              {ins.nama} (Instruktur)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {waRecapPeriod === 'mingguan' && (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <DatePickerWIB
+                            label="Pilih Tanggal Acuan Minggu"
+                            value={waWeekAnchor}
+                            onChange={(val) => setWaWeekAnchor(val)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                            Filter Instruktur
+                          </label>
+                          <select
+                            value={waSelectedStaff}
+                            onChange={(e) => setWaSelectedStaff(e.target.value)}
+                            className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-xs"
+                          >
+                            <option value="semua">Semua Instruktur</option>
+                            {instrukturList.map((ins) => (
+                              <option key={ins.id} value={ins.id}>
+                                {ins.nama} (Instruktur)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      {(() => {
+                        const { startSunday, endSaturday } = getWeekSundayToSaturday(waWeekAnchor);
+                        return (
+                          <div className="p-1.5 bg-[var(--bg)] border border-[var(--brand-primary)]/40 rounded-lg text-center text-xs font-bold text-[var(--brand-primary)]">
+                            Periode: Minggu, {formatDateIndo(startSunday)} s/d Sabtu, {formatDateIndo(endSaturday)}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {waRecapPeriod === 'custom' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <DatePickerWIB
+                          label="Dari Tanggal"
+                          value={waCustomDateFrom}
+                          onChange={(val) => setWaCustomDateFrom(val)}
+                        />
+                      </div>
+                      <div>
+                        <DatePickerWIB
+                          label="Sampai Tanggal"
+                          value={waCustomDateTo}
+                          onChange={(val) => setWaCustomDateTo(val)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                          Filter Instruktur
+                        </label>
+                        <select
+                          value={waSelectedStaff}
+                          onChange={(e) => setWaSelectedStaff(e.target.value)}
+                          className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-xs"
+                        >
+                          <option value="semua">Semua Instruktur</option>
+                          {instrukturList.map((ins) => (
+                            <option key={ins.id} value={ins.id}>
+                              {ins.nama} (Instruktur)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1993,7 +2169,91 @@ export default function JadwalPage() {
                 </div>
               </div>
 
-              {/* 3. MULTI-DATE PICKER MATRIX BERDASARKAN TOTAL SESI PAKET */}
+              {/* 3. Pilihan Mobil Operasional vs Mobil Pribadi & Dropdown Armada */}
+              <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl space-y-2.5">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">
+                    Tipe Kendaraan Operasional / Pribadi *
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label
+                      className={`flex items-center justify-center gap-2 p-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                        (formData.tipe_kendaraan || 'operasional') === 'operasional'
+                          ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] shadow-xs'
+                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="tipe_kendaraan"
+                        value="operasional"
+                        checked={(formData.tipe_kendaraan || 'operasional') === 'operasional'}
+                        onChange={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            tipe_kendaraan: 'operasional',
+                            kendaraan_id: prev.kendaraan_id || kendaraanList[0]?.id || '',
+                          }))
+                        }
+                        className="sr-only"
+                      />
+                      <Car className="w-4 h-4" />
+                      <span>Mobil Operasional</span>
+                    </label>
+
+                    <label
+                      className={`flex items-center justify-center gap-2 p-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                        formData.tipe_kendaraan === 'pribadi'
+                          ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shadow-xs'
+                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="tipe_kendaraan"
+                        value="pribadi"
+                        checked={formData.tipe_kendaraan === 'pribadi'}
+                        onChange={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            tipe_kendaraan: 'pribadi',
+                            kendaraan_id: null as any,
+                          }))
+                        }
+                        className="sr-only"
+                      />
+                      <UserCheck className="w-4 h-4" />
+                      <span>Mobil Pribadi / Siswa</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Dropdown Pilihan Armada Mobil (hanya jika Mobil Operasional) */}
+                {(formData.tipe_kendaraan || 'operasional') === 'operasional' && (
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">
+                      Pilih Armada Mobil Operasional *
+                    </label>
+                    <select
+                      value={formData.kendaraan_id || ''}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, kendaraan_id: e.target.value }))}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] font-bold text-[var(--text-primary)]"
+                    >
+                      {kendaraanList.length === 0 ? (
+                        <option value="">-- Belum ada armada kendaraan terdaftar --</option>
+                      ) : (
+                        kendaraanList.map((k) => (
+                          <option key={k.id} value={k.id}>
+                            {k.nama_kendaraan} — {k.plat_nomor} ({k.tipe_transmisi.toUpperCase()})
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. MULTI-DATE PICKER MATRIX BERDASARKAN TOTAL SESI PAKET */}
               <div className="space-y-2 border-t border-[var(--border)] pt-3">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-[var(--text-primary)]">

@@ -3,7 +3,7 @@
 import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { JadwalSesi, Staff, SlotWaktu } from '@/types/database';
+import { JadwalSesi, Staff, SlotWaktu, Kendaraan } from '@/types/database';
 import {
   getJadwalSesiById,
   getJadwalBySiswa,
@@ -12,7 +12,7 @@ import {
   getJadwalConflictCheckList,
   bulkUpdateJadwalSesi,
 } from '@/lib/actions/jadwal';
-import { getInstrukturList, getSlotWaktuList } from '@/lib/actions/master-data';
+import { getInstrukturList, getSlotWaktuList, getKendaraanMasterList } from '@/lib/actions/master-data';
 import { formatDateIndo } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import {
@@ -35,6 +35,8 @@ import {
   SlidersHorizontal,
   Loader2,
   X,
+  Car,
+  UserCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -58,6 +60,7 @@ export default function JadwalDetailPage() {
   const [allSesi, setAllSesi] = React.useState<JadwalSesi[]>([]);
   const [instrukturList, setInstrukturList] = React.useState<Staff[]>([]);
   const [slotList, setSlotList] = React.useState<SlotWaktu[]>([]);
+  const [kendaraanList, setKendaraanList] = React.useState<Kendaraan[]>([]);
   const [conflictList, setConflictList] = React.useState<JadwalSesi[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -74,6 +77,7 @@ export default function JadwalDetailPage() {
     staff_id: false,
     status_sesi: false,
     slot_waktu: false,
+    tipe_kendaraan: false,
     tanggal_sesi: false,
     catatan_sesi: false,
   });
@@ -82,6 +86,8 @@ export default function JadwalDetailPage() {
     status_sesi: 'terjadwal' as 'terjadwal' | 'selesai' | 'batal',
     slot_waktu_id: '',
     slot_waktu_id_akhir: null as string | null,
+    tipe_kendaraan: 'operasional' as 'operasional' | 'pribadi',
+    kendaraan_id: '' as string | null,
     tanggal_sesi: '',
     catatan_sesi: '',
   });
@@ -92,14 +98,16 @@ export default function JadwalDetailPage() {
     const data = await getJadwalSesiById(id);
     setMainSesi(data);
 
-    const [insList, swList, cList] = await Promise.all([
+    const [insList, swList, cList, kList] = await Promise.all([
       getInstrukturList(),
       getSlotWaktuList(),
       getJadwalConflictCheckList(),
+      getKendaraanMasterList(),
     ]);
     setInstrukturList(insList);
     setSlotList(swList);
     setConflictList(cList);
+    setKendaraanList(kList);
 
     if (data?.siswa_id) {
       const studentSessions = await getJadwalBySiswa(data.siswa_id);
@@ -118,12 +126,15 @@ export default function JadwalDetailPage() {
     const validAkhir = isSlotRangeValid(sesi.slot_waktu_id, sesi.slot_waktu_id_akhir, slotList)
       ? sesi.slot_waktu_id_akhir
       : null;
+    const isPribadi = sesi.tipe_kendaraan === 'pribadi' || sesi.jenis_mobil === 'mobil_sendiri';
     setEditFormData({
       id: sesi.id,
       tanggal_sesi: sesi.tanggal_sesi,
       slot_waktu_id: sesi.slot_waktu_id,
       slot_waktu_id_akhir: validAkhir,
       staff_id: sesi.staff_id,
+      tipe_kendaraan: isPribadi ? 'pribadi' : 'operasional',
+      kendaraan_id: isPribadi ? null : (sesi.kendaraan_id || kendaraanList[0]?.id || null),
       status_sesi: sesi.status_sesi,
       catatan_sesi: sesi.catatan_sesi || '',
     });
@@ -138,8 +149,12 @@ export default function JadwalDetailPage() {
       ? editFormData.slot_waktu_id_akhir
       : null;
 
+    const isMobilPribadi = editFormData.tipe_kendaraan === 'pribadi';
     const payload = {
       ...editFormData,
+      tipe_kendaraan: isMobilPribadi ? ('pribadi' as const) : ('operasional' as const),
+      kendaraan_id: isMobilPribadi ? null : (editFormData.kendaraan_id || null),
+      jenis_mobil: isMobilPribadi ? 'mobil_sendiri' : (editFormData.jenis_mobil || 'manual'),
       slot_waktu_id_akhir: validAkhir,
       id: sesiId,
     };
@@ -217,12 +232,15 @@ export default function JadwalDetailPage() {
     const defaultStaff = mainSesi?.staff_id || instrukturList[0]?.id || '';
     const defaultSlot = mainSesi?.slot_waktu_id || slotList[0]?.id || '';
     const defaultDate = mainSesi?.tanggal_sesi || new Date().toISOString().split('T')[0];
+    const isPribadi = mainSesi?.tipe_kendaraan === 'pribadi' || mainSesi?.jenis_mobil === 'mobil_sendiri';
 
     setBulkFormData({
       staff_id: defaultStaff,
       status_sesi: 'terjadwal',
       slot_waktu_id: defaultSlot,
       slot_waktu_id_akhir: null,
+      tipe_kendaraan: isPribadi ? 'pribadi' : 'operasional',
+      kendaraan_id: isPribadi ? null : (mainSesi?.kendaraan_id || kendaraanList[0]?.id || null),
       tanggal_sesi: defaultDate,
       catatan_sesi: '',
     });
@@ -231,6 +249,7 @@ export default function JadwalDetailPage() {
       staff_id: false,
       status_sesi: false,
       slot_waktu: false,
+      tipe_kendaraan: false,
       tanggal_sesi: false,
       catatan_sesi: false,
     });
@@ -269,6 +288,11 @@ export default function JadwalDetailPage() {
         ? bulkFormData.slot_waktu_id_akhir
         : null;
       updates.slot_waktu_id_akhir = validAkhir;
+    }
+    if (bulkFieldFlags.tipe_kendaraan) {
+      const isPribadi = bulkFormData.tipe_kendaraan === 'pribadi';
+      updates.tipe_kendaraan = isPribadi ? 'pribadi' : 'operasional';
+      updates.kendaraan_id = isPribadi ? null : (bulkFormData.kendaraan_id || null);
     }
     if (bulkFieldFlags.tanggal_sesi) {
       updates.tanggal_sesi = bulkFormData.tanggal_sesi;
@@ -592,10 +616,22 @@ export default function JadwalDetailPage() {
 
                   {/* Read-Only Mode Info */}
                   {!isEditing && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs text-[var(--text-primary)] pt-1 border-t border-[var(--border)]/40">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 text-xs text-[var(--text-primary)] pt-1 border-t border-[var(--border)]/40">
                       <div>
                         <span className="text-[var(--text-secondary)] font-medium">Instruktur:</span>{' '}
                         <span className="font-semibold">{sesi.instruktur?.nama || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[var(--text-secondary)] font-medium">Kendaraan:</span>{' '}
+                        <span className="font-semibold">
+                          {sesi.tipe_kendaraan === 'pribadi' || sesi.jenis_mobil === 'mobil_sendiri' ? (
+                            <span className="text-purple-600 dark:text-purple-400 font-bold">Mobil Pribadi / Siswa</span>
+                          ) : sesi.kendaraan ? (
+                            <span>{sesi.kendaraan.nama_kendaraan} ({sesi.kendaraan.plat_nomor})</span>
+                          ) : (
+                            <span>Mobil Operasional</span>
+                          )}
+                        </span>
                       </div>
                       <div>
                         <span className="text-[var(--text-secondary)] font-medium">Status Sesi:</span>{' '}
@@ -613,7 +649,7 @@ export default function JadwalDetailPage() {
                       </div>
                       <div>
                         <span className="text-[var(--text-secondary)] font-medium">Catatan:</span>{' '}
-                        <span className="italic text-[var(--text-secondary)]">
+                        <span className="italic text-[var(--text-secondary)] truncate block">
                           {sesi.catatan_sesi || 'tidak ada catatan'}
                         </span>
                       </div>
@@ -622,98 +658,181 @@ export default function JadwalDetailPage() {
 
                   {/* Editing Mode Fields */}
                   {isEditing && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs pt-2 border-t border-[var(--brand-primary)]/20">
-                      <div>
-                        <DatePickerWIB
-                          label="Pilih Tanggal Sesi"
-                          value={editFormData.tanggal_sesi || ''}
-                          onChange={(val) => setEditFormData((prev) => ({ ...prev, tanggal_sesi: val }))}
-                        />
-                      </div>
+                    <div className="space-y-3 pt-2 border-t border-[var(--brand-primary)]/20 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                          <DatePickerWIB
+                            label="Pilih Tanggal Sesi"
+                            value={editFormData.tanggal_sesi || ''}
+                            onChange={(val) => setEditFormData((prev) => ({ ...prev, tanggal_sesi: val }))}
+                          />
+                        </div>
 
-                      <div>
-                        <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                          Slot Mulai
-                        </label>
-                        <select
-                          value={editFormData.slot_waktu_id || ''}
-                          onChange={(e) => setEditFormData((prev) => ({ ...prev, slot_waktu_id: e.target.value }))}
-                          className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
-                        >
-                          {slotList.map((sw) => (
-                            <option key={sw.id} value={sw.id}>
-                              {sw.nama_slot} ({sw.jam_mulai.substring(0, 5)})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                          Slot Akhir (Opsional)
-                        </label>
-                        <select
-                          value={editFormData.slot_waktu_id_akhir || ''}
-                          onChange={(e) => setEditFormData((prev) => ({ ...prev, slot_waktu_id_akhir: e.target.value || null }))}
-                          className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
-                        >
-                          <option value="">-- Hanya 1 Slot (Standar) --</option>
-                          {slotList
-                            .filter((sw) => {
-                              const startSlot = slotList.find((s) => s.id === editFormData.slot_waktu_id);
-                              return startSlot ? (sw.urutan ?? 0) > (startSlot.urutan ?? 0) : false;
-                            })
-                            .map((sw) => (
+                        <div>
+                          <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                            Slot Mulai
+                          </label>
+                          <select
+                            value={editFormData.slot_waktu_id || ''}
+                            onChange={(e) => setEditFormData((prev) => ({ ...prev, slot_waktu_id: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                          >
+                            {slotList.map((sw) => (
                               <option key={sw.id} value={sw.id}>
-                                s/d {sw.nama_slot} ({sw.jam_selesai.substring(0, 5)} WIB)
+                                {sw.nama_slot} ({sw.jam_mulai.substring(0, 5)})
                               </option>
                             ))}
-                        </select>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                            Slot Akhir (Opsional)
+                          </label>
+                          <select
+                            value={editFormData.slot_waktu_id_akhir || ''}
+                            onChange={(e) => setEditFormData((prev) => ({ ...prev, slot_waktu_id_akhir: e.target.value || null }))}
+                            className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                          >
+                            <option value="">-- Hanya 1 Slot (Standar) --</option>
+                            {slotList
+                              .filter((sw) => {
+                                const startSlot = slotList.find((s) => s.id === editFormData.slot_waktu_id);
+                                return startSlot ? (sw.urutan ?? 0) > (startSlot.urutan ?? 0) : false;
+                              })
+                              .map((sw) => (
+                                <option key={sw.id} value={sw.id}>
+                                  s/d {sw.nama_slot} ({sw.jam_selesai.substring(0, 5)} WIB)
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                            Instruktur Bertugas
+                          </label>
+                          <select
+                            value={editFormData.staff_id || ''}
+                            onChange={(e) => setEditFormData((prev) => ({ ...prev, staff_id: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                          >
+                            {instrukturList.map((ins) => (
+                              <option key={ins.id} value={ins.id}>
+                                {ins.nama}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
 
-                      <div>
-                        <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                          Instruktur Bertugas
-                        </label>
-                        <select
-                          value={editFormData.staff_id || ''}
-                          onChange={(e) => setEditFormData((prev) => ({ ...prev, staff_id: e.target.value }))}
-                          className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
-                        >
-                          {instrukturList.map((ins) => (
-                            <option key={ins.id} value={ins.id}>
-                              {ins.nama}
-                            </option>
-                          ))}
-                        </select>
+                      {/* Kendaraan Selection */}
+                      <div className="p-2.5 bg-[var(--bg)] border border-[var(--border)] rounded-lg grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                        <div>
+                          <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                            Tipe Kendaraan
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <label
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
+                                (editFormData.tipe_kendaraan || 'operasional') === 'operasional'
+                                  ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
+                                  : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name={`tipe_kendaraan_${sesi.id}`}
+                                value="operasional"
+                                checked={(editFormData.tipe_kendaraan || 'operasional') === 'operasional'}
+                                onChange={() =>
+                                  setEditFormData((prev) => ({
+                                    ...prev,
+                                    tipe_kendaraan: 'operasional',
+                                    kendaraan_id: prev.kendaraan_id || kendaraanList[0]?.id || null,
+                                  }))
+                                }
+                                className="sr-only"
+                              />
+                              <Car className="w-3.5 h-3.5" />
+                              <span>Operasional</span>
+                            </label>
+
+                            <label
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
+                                editFormData.tipe_kendaraan === 'pribadi'
+                                  ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300'
+                                  : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name={`tipe_kendaraan_${sesi.id}`}
+                                value="pribadi"
+                                checked={editFormData.tipe_kendaraan === 'pribadi'}
+                                onChange={() =>
+                                  setEditFormData((prev) => ({
+                                    ...prev,
+                                    tipe_kendaraan: 'pribadi',
+                                    kendaraan_id: null,
+                                  }))
+                                }
+                                className="sr-only"
+                              />
+                              <UserCheck className="w-3.5 h-3.5" />
+                              <span>Pribadi / Siswa</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        {(editFormData.tipe_kendaraan || 'operasional') === 'operasional' && (
+                          <div>
+                            <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                              Armada Mobil Operasional
+                            </label>
+                            <select
+                              value={editFormData.kendaraan_id || ''}
+                              onChange={(e) => setEditFormData((prev) => ({ ...prev, kendaraan_id: e.target.value }))}
+                              className="w-full px-3 py-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                            >
+                              {kendaraanList.map((k) => (
+                                <option key={k.id} value={k.id}>
+                                  {k.nama_kendaraan} — {k.plat_nomor}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="md:col-span-3">
-                        <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                          Catatan Sesi
-                        </label>
-                        <input
-                          type="text"
-                          value={editFormData.catatan_sesi || ''}
-                          onChange={(e) => setEditFormData((prev) => ({ ...prev, catatan_sesi: e.target.value }))}
-                          placeholder="Materi pelajaran..."
-                          className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
-                        />
-                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                        <div className="sm:col-span-3">
+                          <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                            Catatan Sesi
+                          </label>
+                          <input
+                            type="text"
+                            value={editFormData.catatan_sesi || ''}
+                            onChange={(e) => setEditFormData((prev) => ({ ...prev, catatan_sesi: e.target.value }))}
+                            placeholder="Materi pelajaran..."
+                            className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
+                          />
+                        </div>
 
-                      <div>
-                        <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                          Status Sesi
-                        </label>
-                        <select
-                          value={editFormData.status_sesi || 'terjadwal'}
-                          onChange={(e) => setEditFormData((prev) => ({ ...prev, status_sesi: e.target.value as any }))}
-                          className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-[var(--text-primary)]"
-                        >
-                          <option value="terjadwal">TERJADWAL</option>
-                          <option value="selesai">SELESAI</option>
-                          <option value="batal">BATAL</option>
-                        </select>
+                        <div>
+                          <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                            Status Sesi
+                          </label>
+                          <select
+                            value={editFormData.status_sesi || 'terjadwal'}
+                            onChange={(e) => setEditFormData((prev) => ({ ...prev, status_sesi: e.target.value as any }))}
+                            className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-[var(--text-primary)]"
+                          >
+                            <option value="terjadwal">TERJADWAL</option>
+                            <option value="selesai">SELESAI</option>
+                            <option value="batal">BATAL</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -950,7 +1069,104 @@ export default function JadwalDetailPage() {
                 )}
               </div>
 
-              {/* 4. Tanggal Sesi */}
+              {/* 4. Tipe Kendaraan & Armada */}
+              <div
+                className={`p-3 rounded-lg border transition-all ${
+                  bulkFieldFlags.tipe_kendaraan
+                    ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]/10'
+                    : 'border-[var(--border)]'
+                }`}
+              >
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-[var(--text-primary)] select-none">
+                  <input
+                    type="checkbox"
+                    checked={bulkFieldFlags.tipe_kendaraan}
+                    onChange={(e) =>
+                      setBulkFieldFlags((prev) => ({ ...prev, tipe_kendaraan: e.target.checked }))
+                    }
+                    className="w-4 h-4 rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
+                  />
+                  <span>Tipe Kendaraan & Armada</span>
+                </label>
+                {bulkFieldFlags.tipe_kendaraan && (
+                  <div className="mt-2 pl-6 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <label
+                        className={`flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
+                          bulkFormData.tipe_kendaraan === 'operasional'
+                            ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
+                            : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="bulk_tipe_kendaraan"
+                          value="operasional"
+                          checked={bulkFormData.tipe_kendaraan === 'operasional'}
+                          onChange={() =>
+                            setBulkFormData((prev) => ({
+                              ...prev,
+                              tipe_kendaraan: 'operasional',
+                              kendaraan_id: prev.kendaraan_id || kendaraanList[0]?.id || null,
+                            }))
+                          }
+                          className="sr-only"
+                        />
+                        <Car className="w-3.5 h-3.5" />
+                        <span>Mobil Operasional</span>
+                      </label>
+
+                      <label
+                        className={`flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
+                          bulkFormData.tipe_kendaraan === 'pribadi'
+                            ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300'
+                            : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="bulk_tipe_kendaraan"
+                          value="pribadi"
+                          checked={bulkFormData.tipe_kendaraan === 'pribadi'}
+                          onChange={() =>
+                            setBulkFormData((prev) => ({
+                              ...prev,
+                              tipe_kendaraan: 'pribadi',
+                              kendaraan_id: null,
+                            }))
+                          }
+                          className="sr-only"
+                        />
+                        <UserCheck className="w-3.5 h-3.5" />
+                        <span>Mobil Pribadi / Siswa</span>
+                      </label>
+                    </div>
+
+                    {bulkFormData.tipe_kendaraan === 'operasional' && (
+                      <div>
+                        <label className="block text-[11px] text-[var(--text-secondary)] font-semibold mb-1">
+                          Pilih Armada Mobil Operasional
+                        </label>
+                        <select
+                          value={bulkFormData.kendaraan_id || ''}
+                          onChange={(e) =>
+                            setBulkFormData((prev) => ({ ...prev, kendaraan_id: e.target.value }))
+                          }
+                          className="w-full px-3 py-1.5 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                        >
+                          {kendaraanList.map((k) => (
+                            <option key={k.id} value={k.id}>
+                              {k.nama_kendaraan} — {k.plat_nomor}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 5. Tanggal Sesi */}
               <div
                 className={`p-3 rounded-lg border transition-all ${
                   bulkFieldFlags.tanggal_sesi
