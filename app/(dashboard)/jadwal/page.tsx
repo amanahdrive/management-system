@@ -469,15 +469,39 @@ export default function JadwalPage() {
     [instrukturList, monthlyJadwalList, slotList]
   );
 
+  // Cek apakah tanggal tertentu merupakan hari libur untuk instruktur
+  const isInstructorDayOff = React.useCallback(
+    (staffId: string | undefined, dateStr: string) => {
+      if (!staffId || !dateStr) return false;
+      const ins = instrukturList.find((i) => i.id === staffId);
+      if (!ins) return false;
+
+      const dayIdx = getDayIndexFromDateStr(dateStr);
+      const dayNameEng = DAY_NAMES[dayIdx];
+
+      const hasCustomKetersediaan =
+        ins.jadwal_ketersediaan &&
+        typeof ins.jadwal_ketersediaan === 'object' &&
+        Object.keys(ins.jadwal_ketersediaan).length > 0;
+
+      if (hasCustomKetersediaan && ins.jadwal_ketersediaan) {
+        const daySlots = ins.jadwal_ketersediaan[dayNameEng] || [];
+        return daySlots.length === 0;
+      }
+
+      const activeDays = ins.hari_kerja || ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
+      return !activeDays.includes(dayNameEng);
+    },
+    [instrukturList]
+  );
+
   // Generate multi-date array for N sessions starting from startDateStr
-  // Mempertimbangkan jadwal kerja aktif dan hari libur instruktur
+  // Melanjutkan dari tanggal sesi 1 setiap harinya, otomatis melewati hari libur instruktur
   const generateDatesForCount = React.useCallback(
     (
       count: number,
       startDateStr: string,
-      staffId?: string,
-      slotId?: string,
-      slotIdAkhir?: string | null
+      staffId?: string
     ) => {
       const dates: string[] = [];
       const baseStr = startDateStr || getTodayDateString();
@@ -495,25 +519,41 @@ export default function JadwalPage() {
         const dateStr = `${curY}-${curM}-${curD}`;
 
         if (dates.length === 0) {
-          // Sesi 1 selalu menggunakan tanggal rencana mulai siswa
-          dates.push(dateStr);
-        } else if (staffId && slotId) {
-          // Sesi berikutnya menyesuaikan hari aktif kerja instruktur di database
-          const check = getSlotValidationStatus(dateStr, staffId, slotId, slotIdAkhir);
-          if (check.status !== 'off') {
+          // Sesi 1: Jika rencana mulai jatuh di hari libur instruktur, lewati ke hari aktif kerja pertama
+          const isOff = isInstructorDayOff(staffId, dateStr);
+          if (!isOff || !staffId) {
             dates.push(dateStr);
           }
         } else {
-          dates.push(dateStr);
+          // Sesi berikutnya: Melanjutkan setiap hari, lewati hari libur instruktur
+          const isOff = isInstructorDayOff(staffId, dateStr);
+          if (!isOff) {
+            dates.push(dateStr);
+          }
         }
 
         curr.setDate(curr.getDate() + 1);
         iterations++;
       }
 
+      // Fallback jika belum terisi cukup
+      if (dates.length < count) {
+        const fallbackCurr = new Date(y, m, d);
+        while (dates.length < count) {
+          const curY = fallbackCurr.getFullYear();
+          const curM = String(fallbackCurr.getMonth() + 1).padStart(2, '0');
+          const curD = String(fallbackCurr.getDate()).padStart(2, '0');
+          const dateStr = `${curY}-${curM}-${curD}`;
+          if (!dates.includes(dateStr)) {
+            dates.push(dateStr);
+          }
+          fallbackCurr.setDate(fallbackCurr.getDate() + 1);
+        }
+      }
+
       return dates;
     },
-    [getSlotValidationStatus]
+    [isInstructorDayOff]
   );
 
   // Auto Adjust Dates: Cari N tanggal valid bebas bentrok dan hari libur, dimulai dari rencana tanggal mulai siswa
@@ -567,9 +607,7 @@ export default function JadwalPage() {
     const dates = generateDatesForCount(
       totalSesi,
       startDate,
-      formData.staff_id,
-      formData.slot_waktu_id,
-      formData.slot_waktu_id_akhir
+      formData.staff_id
     );
 
     setFormData((prev) => ({
@@ -591,8 +629,7 @@ export default function JadwalPage() {
     const dates = generateDatesForCount(
       totalSesi,
       startDate,
-      firstIns?.id,
-      firstSlot?.id
+      firstIns?.id
     );
 
     setFormData({
@@ -1869,9 +1906,7 @@ export default function JadwalPage() {
                           generateDatesForCount(
                             count,
                             startDate,
-                            formData.staff_id,
-                            formData.slot_waktu_id,
-                            formData.slot_waktu_id_akhir
+                            formData.staff_id
                           )
                         );
                       }}
@@ -1893,7 +1928,20 @@ export default function JadwalPage() {
                   </label>
                   <select
                     value={formData.staff_id}
-                    onChange={(e) => setFormData({ ...formData, staff_id: e.target.value })}
+                    onChange={(e) => {
+                      const newStaffId = e.target.value;
+                      setFormData((prev) => ({ ...prev, staff_id: newStaffId }));
+                      const sObj = siswaList.find((s) => s.id === formData.siswa_id);
+                      const count = sessionDates.length || formData.total_sesi_paket || sObj?.paket?.jumlah_sesi || 10;
+                      const startRencana = getSiswaRencanaMulaiDateStr(sObj?.tanggal_rencana_mulai);
+                      const startDate = startRencana || sessionDates[0] || formData.tanggal_sesi || selectedTanggal || getTodayDateString();
+                      const dates = generateDatesForCount(
+                        count,
+                        startDate,
+                        newStaffId
+                      );
+                      setSessionDates(dates);
+                    }}
                     className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold"
                   >
                     {instrukturList.map((ins) => (
