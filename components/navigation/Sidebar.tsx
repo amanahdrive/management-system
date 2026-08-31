@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import {
   LayoutDashboard,
+  BarChart3,
   Users,
   IdCard,
   Calendar,
@@ -130,6 +131,15 @@ export function Sidebar() {
         >
           <LayoutDashboard className="w-4 h-4 min-w-[16px]" />
           {sidebarOpen && <span className="whitespace-nowrap">Dashboard</span>}
+        </Link>
+
+        <Link
+          href="/analitik"
+          className={navItemClass(pathname.startsWith('/analitik'))}
+          title={!sidebarOpen ? 'Analitik' : undefined}
+        >
+          <BarChart3 className="w-4 h-4 min-w-[16px]" />
+          {sidebarOpen && <span className="whitespace-nowrap">Analitik</span>}
         </Link>
 
         <Link

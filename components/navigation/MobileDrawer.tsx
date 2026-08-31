@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Wallet, Database, Settings, ShieldCheck, X, AlertOctagon, IdCard } from 'lucide-react';
+import { Wallet, Database, Settings, ShieldCheck, X, AlertOctagon, IdCard, BarChart3 } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
 
 export function MobileDrawer() {
@@ -13,6 +13,7 @@ export function MobileDrawer() {
   if (!mobileDrawerOpen) return null;
 
   const EXTRA_NAV = [
+    { label: 'Pusat Analitik & Laporan', href: '/analitik', icon: BarChart3 },
     { label: 'Manajemen SIM Siswa', href: '/sim', icon: IdCard },
     { label: 'Data Insiden Operasional', href: '/insiden', icon: AlertOctagon },
     { label: 'Portal Instruktur (View)', href: '/instruktur', icon: ShieldCheck },
