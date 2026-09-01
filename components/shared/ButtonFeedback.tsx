@@ -76,20 +76,20 @@ function ButtonFeedbackInner() {
     }
 
     setIsBuffering(true);
-    setGlowIntensity(55);
+    setGlowIntensity(50);
 
     if (!pulseIntervalRef.current) {
       pulseIntervalRef.current = setInterval(() => {
         setGlowIntensity((prev) => {
-          if (prev >= 88) return 88;
-          return Math.min(88, prev + 8);
+          if (prev >= 85) return 85;
+          return Math.min(85, prev + 10);
         });
-      }, 120);
+      }, 100);
     }
   };
 
   // Finish centered ambient light glow
-  const finishGlow = (delay = 180) => {
+  const finishGlow = (delay = 140) => {
     if (pulseIntervalRef.current) {
       clearInterval(pulseIntervalRef.current);
       pulseIntervalRef.current = null;
@@ -109,18 +109,18 @@ function ButtonFeedbackInner() {
     if (isBuffering) {
       const watchdog = setTimeout(() => {
         activeRequestsRef.current = 0;
-        finishGlow(120);
-      }, 7000);
+        finishGlow(100);
+      }, 5000);
       return () => clearTimeout(watchdog);
     }
   }, [isBuffering]);
 
   // Route & search params listener
   useEffect(() => {
-    // When route finishes updating, complete any pending buffer
+    // When route finishes updating, complete any pending buffer immediately
     activeRequestsRef.current = 0;
     const timer = setTimeout(() => {
-      finishGlow(140);
+      finishGlow(120);
     }, 10);
     return () => clearTimeout(timer);
   }, [pathname, searchParams]);
@@ -145,7 +145,7 @@ function ButtonFeedbackInner() {
         if (!isPrefetch) {
           activeRequestsRef.current = Math.max(0, activeRequestsRef.current - 1);
           if (activeRequestsRef.current === 0) {
-            finishGlow(180);
+            finishGlow(140);
           }
         }
       }
@@ -160,7 +160,7 @@ function ButtonFeedbackInner() {
     const handleCustomEnd = () => {
       activeRequestsRef.current = Math.max(0, activeRequestsRef.current - 1);
       if (activeRequestsRef.current === 0) {
-        finishGlow(160);
+        finishGlow(120);
       }
     };
 
@@ -256,10 +256,10 @@ function ButtonFeedbackInner() {
           if (activeRequestsRef.current === 0) {
             finishGlow(120);
           }
-        }, 450);
+        }, 350);
       }
 
-      const clearDuration = isSubmit || isLink ? 800 : 350;
+      const clearDuration = isSubmit || isLink ? 700 : 300;
       setTimeout(() => {
         target.removeAttribute('data-loading');
         target.classList.remove('btn-buffering');
@@ -284,30 +284,30 @@ function ButtonFeedbackInner() {
           isBuffering ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
         }`}
         style={{
-          width: 'min(440px, 82vw)',
+          width: 'min(360px, 70vw)',
         }}
       >
         {/* Layer 1: Ambient Soft Glow Atmospheric Halo (Downward diffuse aura) */}
         <div
-          className="absolute -top-3 w-full h-9 bg-gradient-to-b from-emerald-400/35 via-teal-400/25 to-transparent dark:from-emerald-400/45 dark:via-teal-300/30 blur-xl transition-opacity duration-300 animate-ambience-halo"
+          className="absolute -top-3 w-full h-11 bg-gradient-to-b from-emerald-400/45 via-teal-400/30 to-transparent dark:from-emerald-400/55 dark:via-teal-300/40 blur-xl transition-opacity duration-300 animate-ambience-halo"
           style={{
-            opacity: glowIntensity > 0 ? (glowIntensity / 100) * 0.95 : 0,
+            opacity: glowIntensity > 0 ? glowIntensity / 100 : 0,
           }}
         />
 
         {/* Layer 2: Secondary Mid Glow Diffuse Beam */}
         <div
-          className="absolute top-0 w-4/5 h-2.5 bg-gradient-to-r from-transparent via-emerald-400/60 dark:via-emerald-300/70 to-transparent blur-sm transition-all duration-200"
+          className="absolute top-0 w-[85%] h-3.5 bg-gradient-to-r from-transparent via-emerald-400/70 dark:via-emerald-300/80 to-transparent blur-md transition-all duration-200"
           style={{
-            transform: `scaleX(${0.5 + (glowIntensity / 100) * 0.5})`,
+            transform: `scaleX(${0.4 + (glowIntensity / 100) * 0.6})`,
           }}
         />
 
         {/* Layer 3: Sharp Center Core Light Filament */}
         <div
-          className="h-[2.5px] w-full rounded-full bg-gradient-to-r from-transparent via-emerald-300 dark:via-emerald-200 to-transparent shadow-[0_0_14px_rgba(52,211,153,0.9)] relative overflow-hidden transition-all duration-200"
+          className="h-[3px] w-full rounded-full bg-gradient-to-r from-transparent via-emerald-300 dark:via-emerald-200 to-transparent shadow-[0_0_18px_rgba(52,211,153,0.95)] relative overflow-hidden transition-all duration-200"
           style={{
-            transform: `scaleX(${0.35 + (glowIntensity / 100) * 0.65})`,
+            transform: `scaleX(${0.3 + (glowIntensity / 100) * 0.7})`,
           }}
         >
           {/* Animated Light Shimmer Core Sweep */}

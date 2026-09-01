@@ -31,6 +31,8 @@ export async function resetDataKeuangan(): Promise<{ success: boolean; error?: s
     await dbQuery("DELETE FROM hutang_pembayaran WHERE id != '00000000-0000-0000-0000-000000000000'");
     await dbQuery("DELETE FROM kas_transaksi WHERE id != '00000000-0000-0000-0000-000000000000'");
     await dbQuery("DELETE FROM hutang WHERE id != '00000000-0000-0000-0000-000000000000'");
+    // Sinkronisasi status siswa: karena data kas & transaksi dihapus, semua siswa otomatis kembali ke status 'belum_bayar'
+    await dbQuery("UPDATE siswa SET status_pembayaran_kode = 'belum_bayar', dp_nominal = NULL, dp_tanggal = NULL, updated_at = NOW() WHERE id != '00000000-0000-0000-0000-000000000000'");
 
     cacheInvalidateAll();
 
@@ -38,6 +40,7 @@ export async function resetDataKeuangan(): Promise<{ success: boolean; error?: s
     safeRevalidatePath('/kas/cashflow');
     safeRevalidatePath('/kas/hutang');
     safeRevalidatePath('/kas/piutang');
+    safeRevalidatePath('/siswa');
     safeRevalidatePath('/dashboard');
     safeRevalidatePath('/finance');
 
