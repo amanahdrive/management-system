@@ -50,12 +50,35 @@ export function getDbPool(): Pool {
 }
 
 /**
- * Execute a SQL query directly on Supabase PostgreSQL database
+ * Deeply serializes PostgreSQL rows into 100% Plain Old JavaScript Objects (POJOs)
+ * converting Date objects to ISO strings, preserving primitives, and stripping non-serializable prototypes.
+ * This guarantees zero React 19 / Next.js Server Action serialization errors (e.g. Minified React Error #441).
+ */
+function serializeRow<T = any>(val: any): T {
+  if (val === null || val === undefined) return val;
+  if (val instanceof Date) {
+    return val.toISOString() as any;
+  }
+  if (Array.isArray(val)) {
+    return val.map(serializeRow) as any;
+  }
+  if (typeof val === 'object') {
+    const output: Record<string, any> = {};
+    for (const key of Object.keys(val)) {
+      output[key] = serializeRow(val[key]);
+    }
+    return output as T;
+  }
+  return val;
+}
+
+/**
+ * Execute a SQL query directly on Supabase PostgreSQL database with safe POJO serialization
  */
 export async function dbQuery<T = any>(text: string, params: any[] = []): Promise<T[]> {
   const pool = getDbPool();
   const res = await pool.query(text, params);
-  return res.rows as T[];
+  return res.rows.map((row) => serializeRow<T>(row));
 }
 
 /**

@@ -2,7 +2,7 @@ const { Client } = require('pg');
 
 const password = '@Limabelas15';
 const encodedPassword = encodeURIComponent(password);
-const connStr = 'postgresql://postgres:' + encodedPassword + '@db.yhwwhqqffgtiavapgjvc.supabase.co:5432/postgres';
+const connStr = 'postgresql://postgres.yhwwhqqffgtiavapgjvc:' + encodedPassword + '@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres';
 
 async function audit() {
   const client = new Client({ connectionString: connStr, ssl: { rejectUnauthorized: false } });

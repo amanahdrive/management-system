@@ -237,8 +237,16 @@ export async function addKasTransaksi(
   txData: Partial<KasTransaksi>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const cleanData = { ...txData } as any;
+    const { siswa, hutang, id: _id, created_at, updated_at, ...cleanData } = txData as any;
+
+    if (!cleanData.siswa_id || cleanData.siswa_id === '' || cleanData.siswa_id === 'null' || cleanData.siswa_id === 'undefined') {
+      cleanData.siswa_id = null;
+    }
+    if (!cleanData.hutang_id || cleanData.hutang_id === '' || cleanData.hutang_id === 'null' || cleanData.hutang_id === 'undefined') {
+      cleanData.hutang_id = null;
+    }
     if (
+      !cleanData.rekening_id ||
       cleanData.rekening_id === '' ||
       cleanData.rekening_id === 'undefined' ||
       cleanData.rekening_id === 'null' ||
@@ -254,8 +262,8 @@ export async function addKasTransaksi(
 
     await dbQuery(`INSERT INTO kas_transaksi (${cols}) VALUES (${placeholders})`, values);
 
-    if (txData.siswa_id) {
-      await syncSiswaPaymentState(txData.siswa_id);
+    if (cleanData.siswa_id) {
+      await syncSiswaPaymentState(cleanData.siswa_id);
     }
 
     cacheInvalidate('kas*');
@@ -628,8 +636,16 @@ export async function updateKasTransaksi(
       [id]
     );
 
-    const { siswa, hutang, ...cleanUpdates } = updates as any;
+    const { siswa, hutang, id: _id, created_at, updated_at, ...cleanUpdates } = updates as any;
+
+    if (!cleanUpdates.siswa_id || cleanUpdates.siswa_id === '' || cleanUpdates.siswa_id === 'null' || cleanUpdates.siswa_id === 'undefined') {
+      cleanUpdates.siswa_id = null;
+    }
+    if (!cleanUpdates.hutang_id || cleanUpdates.hutang_id === '' || cleanUpdates.hutang_id === 'null' || cleanUpdates.hutang_id === 'undefined') {
+      cleanUpdates.hutang_id = null;
+    }
     if (
+      !cleanUpdates.rekening_id ||
       cleanUpdates.rekening_id === '' ||
       cleanUpdates.rekening_id === 'undefined' ||
       cleanUpdates.rekening_id === 'null' ||
