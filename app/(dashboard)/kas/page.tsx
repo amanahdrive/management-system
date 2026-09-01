@@ -529,7 +529,13 @@ export default function KasOverviewPage() {
     const isCustom = formData.siswa_id === 'custom_dp' || formData.siswa_id.startsWith('dp_kustom_');
     const finalSiswaId = isCustom ? null : (formData.siswa_id || null);
 
-    const finalKeterangan = formData.keterangan.trim();
+    let finalKeterangan = formData.keterangan.trim();
+    if (formData.siswa_id === 'custom_dp') {
+      const p = paketList.find((item) => item.id === customPaketId) || paketList[0];
+      const price = customHargaPaket || (p ? (p.harga_promo || p.harga_normal) : 2000000);
+      const nama = customNama.trim() || 'Customer';
+      finalKeterangan = `DP Kustom - ${nama} | Paket: ${p?.nama_paket || 'Paket Kursus'} | Total: ${formatRupiah(price)}`;
+    }
 
     await addKasTransaksi({
       tanggal: formData.tanggal,

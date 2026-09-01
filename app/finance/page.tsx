@@ -542,7 +542,49 @@ export default function FinancePortalPage() {
     setCustomDpNominal(0);
   };
 
+  const handleCustomPaketChange = (paketId: string) => {
+    const p = paketList.find((item) => item.id === paketId);
+    const price = p ? (p.harga_promo || p.harga_normal) : 2000000;
+    const suggestedDp = Math.round(price * 0.5);
+    setCustomPaketId(paketId);
+    setCustomHargaPaket(price);
+    setCustomDpNominal(suggestedDp);
+    setFormData((prev) => ({
+      ...prev,
+      nominal: suggestedDp,
+      keterangan: `DP Kustom - ${customNama || 'Customer'} | Paket: ${p?.nama_paket || 'Paket Kursus'} | Total: ${formatRupiah(price)}`,
+    }));
+  };
+
+  const handleCustomHargaPaketChange = (newHarga: number) => {
+    setCustomHargaPaket(newHarga);
+    const p = paketList.find((item) => item.id === customPaketId) || paketList[0];
+    setFormData((prev) => ({
+      ...prev,
+      keterangan: `DP Kustom - ${customNama || 'Customer'} | Paket: ${p?.nama_paket || 'Paket Kursus'} | Total: ${formatRupiah(newHarga)}`,
+    }));
+  };
+
+  const handleCustomNamaChange = (nama: string) => {
+    setCustomNama(nama);
+    const p = paketList.find((item) => item.id === customPaketId) || paketList[0];
+    const price = customHargaPaket || (p ? (p.harga_promo || p.harga_normal) : 2000000);
+    setFormData((prev) => ({
+      ...prev,
+      keterangan: `DP Kustom - ${nama || 'Customer'} | Paket: ${p?.nama_paket || 'Paket Kursus'} | Total: ${formatRupiah(price)}`,
+    }));
+  };
+
+  const handleCustomDpNominalChange = (nominal: number) => {
+    setCustomDpNominal(nominal);
+    setFormData((prev) => ({
+      ...prev,
+      nominal,
+    }));
+  };
+
   const handleSiswaChange = (siswaId: string) => {
+    // 1. Kasus DP Kustom (Input DP tanpa data siswa)
     if (siswaId === 'custom_dp') {
       const defaultPaket = paketList[0];
       const defaultPrice = defaultPaket ? (defaultPaket.harga_promo || defaultPaket.harga_normal) : 2000000;
@@ -553,12 +595,28 @@ export default function FinancePortalPage() {
       setFormData((prev) => ({
         ...prev,
         siswa_id: 'custom_dp',
-        keterangan: `DP Kustom - ${customNama || 'Customer'} | Paket: ${defaultPaket?.nama_paket || 'Kursus'}`,
+        keterangan: `DP Kustom - ${customNama || 'Customer'} | Paket: ${defaultPaket?.nama_paket || 'Paket Kursus'} | Total: ${formatRupiah(defaultPrice)}`,
         nominal: defaultDp,
       }));
       return;
     }
 
+    // 2. Kasus Pelunasan DP Kustom (Memilih DP Kustom yang belum lunas)
+    if (siswaId.startsWith('dp_kustom_')) {
+      const dpId = siswaId.replace('dp_kustom_', '');
+      const dpItem = dpKustomList.find((item) => item.id === dpId);
+      if (dpItem) {
+        setFormData((prev) => ({
+          ...prev,
+          siswa_id: siswaId,
+          keterangan: `Pelunasan DP Kustom - ${dpItem.nama} | Paket: ${dpItem.namaPaket} | Sisa: ${formatRupiah(dpItem.sisaTagihan)} [Ref: ${dpItem.id}]`,
+          nominal: dpItem.sisaTagihan,
+        }));
+      }
+      return;
+    }
+
+    // 3. Kasus Siswa Terdaftar Reguler
     const s = siswaList.find((item) => item.id === siswaId);
     if (!s) {
       setFormData((prev) => ({ ...prev, siswa_id: '', keterangan: '', nominal: 0 }));
@@ -591,10 +649,16 @@ export default function FinancePortalPage() {
     if (!formData.keterangan || formData.nominal <= 0) return;
     setSubmitting(true);
 
-    const isCustom = formData.siswa_id === 'custom_dp';
+    const isCustom = formData.siswa_id === 'custom_dp' || formData.siswa_id.startsWith('dp_kustom_');
     const finalSiswaId = isCustom ? null : (formData.siswa_id || null);
 
-    const finalKeterangan = formData.keterangan.trim();
+    let finalKeterangan = formData.keterangan.trim();
+    if (formData.siswa_id === 'custom_dp') {
+      const p = paketList.find((item) => item.id === customPaketId) || paketList[0];
+      const price = customHargaPaket || (p ? (p.harga_promo || p.harga_normal) : 2000000);
+      const nama = customNama.trim() || 'Customer';
+      finalKeterangan = `DP Kustom - ${nama} | Paket: ${p?.nama_paket || 'Paket Kursus'} | Total: ${formatRupiah(price)}`;
+    }
 
     const res = await addKasTransaksi({
       tanggal: formData.tanggal,
@@ -625,6 +689,10 @@ export default function FinancePortalPage() {
         siswa_id: '',
         sumber_otomatis: false,
       });
+      setCustomNama('');
+      setCustomPaketId('');
+      setCustomHargaPaket(0);
+      setCustomDpNominal(0);
       showToast('Transaksi kas berhasil ditambahkan');
       loadData();
     } else {
@@ -1684,25 +1752,105 @@ export default function FinancePortalPage() {
 
               {/* Student Dropdown if Student Category */}
               {(formData.kategori === 'dp_siswa' || formData.kategori === 'pelunasan_siswa') && (
-                <div>
-                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
-                    Pilih Siswa Terdaftar
-                  </label>
-                  <select
-                    value={formData.siswa_id}
-                    onChange={(e) => handleSiswaChange(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
-                  >
-                    <option value="">-- Pilih Siswa Terdaftar --</option>
-                    {filteredSiswaDropdown.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nama} ({s.kode_siswa}) - {formatRupiah(s.harga_final)}
-                      </option>
-                    ))}
-                    {formData.kategori === 'dp_siswa' && (
-                      <option value="custom_dp">★ Input DP Kustom (Tanpa Data Siswa)</option>
-                    )}
-                  </select>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                      Pilih Siswa / DP Kustom
+                    </label>
+                    <select
+                      value={formData.siswa_id}
+                      onChange={(e) => handleSiswaChange(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)] text-xs"
+                    >
+                      <option value="">-- Pilih Siswa / DP Kustom --</option>
+                      {formData.kategori === 'dp_siswa' && (
+                        <option value="custom_dp" className="font-bold text-amber-600">
+                          ★ [+ Input DP Kustom (Tanpa Data Siswa)]
+                        </option>
+                      )}
+                      {formData.kategori === 'pelunasan_siswa' && dpKustomList.filter((d) => !d.isLunas).length > 0 && (
+                        <optgroup label="Daftar DP Kustom (Belum Lunas)">
+                          {dpKustomList.filter((d) => !d.isLunas).map((dp) => (
+                            <option key={`dp_kustom_${dp.id}`} value={`dp_kustom_${dp.id}`}>
+                              [DP Kustom] {dp.nama} — {dp.namaPaket} (Sisa: {formatRupiah(dp.sisaTagihan)})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {formData.kategori === 'pelunasan_siswa' && (
+                        <optgroup label="Daftar Siswa Terdaftar (Status DP)">
+                          {filteredSiswaDropdown.map((s) => {
+                            const sisaTagihan = Math.max(0, s.harga_final - (s.dp_nominal || 0));
+                            return (
+                              <option key={s.id} value={s.id}>
+                                {s.nama} ({s.kode_siswa}) — Sisa: {formatRupiah(sisaTagihan)}
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      )}
+                      {formData.kategori === 'dp_siswa' && (
+                        <optgroup label="Daftar Siswa Terdaftar (Belum Bayar)">
+                          {filteredSiswaDropdown.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.nama} ({s.kode_siswa}) - {formatRupiah(s.harga_final)}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                  </div>
+
+                  {/* Form Khusus Input DP Kustom */}
+                  {formData.siswa_id === 'custom_dp' && (
+                    <div className="pt-2 border-t border-[var(--border)] space-y-3 p-3 bg-amber-50/60 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900 text-xs">
+                      <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
+                        <User className="w-4 h-4 text-amber-600" />
+                        <span>Form Input DP Kustom (Non-Siswa)</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                            Nama Customer / Calon Siswa *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Nama customer"
+                            value={customNama}
+                            onChange={(e) => handleCustomNamaChange(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                            Pilihan Paket Kursus *
+                          </label>
+                          <select
+                            value={customPaketId}
+                            onChange={(e) => handleCustomPaketChange(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)]"
+                          >
+                            {paketList.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.nama_paket} ({formatRupiah(p.harga_promo || p.harga_normal)})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <CurrencyInput
+                            label="Total Harga Paket (Rupiah) *"
+                            value={customHargaPaket}
+                            onChange={(val) => handleCustomHargaPaketChange(val)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

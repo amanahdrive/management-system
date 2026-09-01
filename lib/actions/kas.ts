@@ -739,7 +739,10 @@ export async function getDpKustomList(): Promise<DpKustomItem[]> {
 
       const pipeParts = ket.split('|').map((s: string) => s.trim());
       if (pipeParts.length >= 2) {
-        const namePart = pipeParts[0].replace(/^dp\s*kustom\s*[-:]\s*/i, '').replace(/^nama\s*:\s*/i, '').trim();
+        const namePart = pipeParts[0]
+          .replace(/^(?:pembayaran\s+)?\[?dp\s*kustom\]?\s*[-:]?\s*/i, '')
+          .replace(/^nama\s*(?:customer|siswa)?\s*:\s*/i, '')
+          .trim();
         if (namePart) nama = namePart;
 
         for (const part of pipeParts.slice(1)) {
@@ -752,9 +755,10 @@ export async function getDpKustomList(): Promise<DpKustomItem[]> {
           }
         }
       } else {
-        const simpleMatch = ket.match(/DP Kustom\s*-\s*([^(|]+)(?:\(([^)]+)\))?/i);
-        if (simpleMatch) {
-          if (simpleMatch[1]) nama = simpleMatch[1].trim();
+        const simpleMatch = ket.match(/(?:pembayaran\s+)?\[?dp\s*kustom\]?\s*[-:]?\s*([^(|]+)(?:\(([^)]+)\))?/i);
+        if (simpleMatch && simpleMatch[1]) {
+          const rawName = simpleMatch[1].trim();
+          if (rawName) nama = rawName;
           if (simpleMatch[2]) namaPaket = simpleMatch[2].trim();
         }
       }
