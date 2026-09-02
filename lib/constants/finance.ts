@@ -51,6 +51,13 @@ export const DEFAULT_KAS_KATEGORI: KasKategori[] = [
     updated_at: '2026-09-02T00:00:00.000Z',
   },
   {
+    id: 'pengembalian-kasbon-category',
+    nama_kategori: 'pengembalian_kasbon',
+    tipe: 'pemasukan',
+    created_at: '2026-09-02T00:00:00.000Z',
+    updated_at: '2026-09-02T00:00:00.000Z',
+  },
+  {
     id: '0ceb52af-1da1-4546-8a16-518a59861066',
     nama_kategori: 'refund_siswa',
     tipe: 'pengeluaran',
@@ -141,6 +148,8 @@ export function formatKategoriLabel(kategori: string): string {
       return 'Gaji & Honor Instruktur';
     case 'kasbon':
       return 'Kasbon Karyawan';
+    case 'pengembalian_kasbon':
+      return 'Pengembalian Kasbon Staf';
     case 'cicilan_hutang':
       return 'Cicilan Hutang';
     case 'refund_siswa':
@@ -179,6 +188,9 @@ export function calculateLocalKasMetrics(
         totalKasbon += nom;
       } else if (tx.kategori === 'gaji' && tx.potongan_kasbon) {
         totalKasbon -= Number(tx.potongan_kasbon) || 0;
+      } else if (tx.kategori === 'pengembalian_kasbon') {
+        if (tx.tipe === 'pemasukan') totalKasbon -= nom;
+        else if (tx.potongan_kasbon) totalKasbon -= Number(tx.potongan_kasbon) || 0;
       }
     }
   }

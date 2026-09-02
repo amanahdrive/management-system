@@ -226,9 +226,25 @@ export async function getStaffKasbonSummary(): Promise<StaffKasbonSummary[]> {
     const res = await dbQuery<any>(`
       SELECT s.id, s.nama,
              COALESCE(SUM(CASE WHEN k.kategori = 'kasbon' AND k.tipe = 'pengeluaran' THEN k.nominal ELSE 0 END), 0)::int as total_kasbon,
-             COALESCE(SUM(CASE WHEN k.kategori = 'gaji' THEN COALESCE(k.potongan_kasbon, 0) ELSE 0 END), 0)::int as total_potongan,
-             (COALESCE(SUM(CASE WHEN k.kategori = 'kasbon' AND k.tipe = 'pengeluaran' THEN k.nominal ELSE 0 END), 0) - 
-              COALESCE(SUM(CASE WHEN k.kategori = 'gaji' THEN COALESCE(k.potongan_kasbon, 0) ELSE 0 END), 0))::int as sisa_kasbon
+             COALESCE(SUM(
+               CASE 
+                 WHEN k.kategori = 'gaji' THEN COALESCE(k.potongan_kasbon, 0)
+                 WHEN k.kategori = 'pengembalian_kasbon' AND k.tipe = 'pemasukan' THEN k.nominal
+                 WHEN COALESCE(k.potongan_kasbon, 0) > 0 AND k.kategori != 'gaji' THEN k.potongan_kasbon
+                 ELSE 0 
+               END
+             ), 0)::int as total_potongan,
+             (
+               COALESCE(SUM(CASE WHEN k.kategori = 'kasbon' AND k.tipe = 'pengeluaran' THEN k.nominal ELSE 0 END), 0) - 
+               COALESCE(SUM(
+                 CASE 
+                   WHEN k.kategori = 'gaji' THEN COALESCE(k.potongan_kasbon, 0)
+                   WHEN k.kategori = 'pengembalian_kasbon' AND k.tipe = 'pemasukan' THEN k.nominal
+                   WHEN COALESCE(k.potongan_kasbon, 0) > 0 AND k.kategori != 'gaji' THEN k.potongan_kasbon
+                   ELSE 0 
+                 END
+               ), 0)
+             )::int as sisa_kasbon
       FROM staff s
       LEFT JOIN kas_transaksi k ON s.id = k.staff_id
       WHERE s.aktif = true
@@ -239,6 +255,74 @@ export async function getStaffKasbonSummary(): Promise<StaffKasbonSummary[]> {
   } catch (err) {
     console.error('Error fetching staff kasbon summary:', err);
     return [];
+  }
+}
+
+export async function getStaffKasbonHistory(staffId: string): Promise<KasTransaksi[]> {
+  try {
+    const rows = await dbQuery<KasTransaksi>(`
+      SELECT 
+        k.*,
+        st.nama as staff_nama
+      FROM kas_transaksi k
+      LEFT JOIN staff st ON k.staff_id = st.id
+      WHERE k.staff_id = $1 
+        AND (
+          k.kategori = 'kasbon' 
+          OR k.kategori = 'gaji' 
+          OR k.kategori = 'pengembalian_kasbon' 
+          OR COALESCE(k.potongan_kasbon, 0) > 0 
+          OR k.keterangan ILIKE '%kasbon%'
+        )
+      ORDER BY k.tanggal DESC, k.created_at DESC;
+    `, [staffId]);
+    return rows || [];
+  } catch (err) {
+    console.error('Error fetching staff kasbon history:', err);
+    return [];
+  }
+}
+
+export async function recordPelunasanKasbonDirect(
+  staffId: string,
+  nominal: number,
+  tanggal: string,
+  keterangan?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const staff = await dbQuerySingle<{ id: string; nama: string }>(
+      'SELECT id, nama FROM staff WHERE id = $1',
+      [staffId]
+    );
+    if (!staff) return { success: false, error: 'Staff tidak ditemukan' };
+
+    await dbQuery(
+      `INSERT INTO kas_transaksi (
+        tanggal, tipe, kategori, keterangan, nominal, potongan_kasbon, jenis_pembayaran, pic_tipe, pic_nama, staff_id, sumber_otomatis
+      ) VALUES (
+        $1, 'pengeluaran', 'pengembalian_kasbon', $2, 0, $3, 'tunai', 'finance', 'Finance Internal', $4, true
+      )`,
+      [
+        tanggal || getTodayDateString(),
+        keterangan || `Pelunasan Kasbon Non-Kas (Internal) - ${staff.nama}`,
+        nominal,
+        staffId
+      ]
+    );
+
+    cacheInvalidate('kas*');
+    cacheInvalidate('staff*');
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('finance*');
+
+    revalidatePath('/kas');
+    revalidatePath('/kas/piutang');
+    revalidatePath('/kas/cashflow');
+    revalidatePath('/dashboard');
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
 }
 
