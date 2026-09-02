@@ -300,6 +300,26 @@ export default function CashflowPage() {
   }, [filteredData, sortField, sortDirection]);
 
   // Month Financial Summary
+  const isFilterActive =
+    filterTipe !== 'semua' ||
+    filterKategori !== 'semua' ||
+    filterJenis !== 'semua' ||
+    searchQuery.trim() !== '';
+
+  const filteredTotalMasuk = React.useMemo(() => {
+    return displayedData
+      .filter((t) => t.tipe === 'pemasukan')
+      .reduce((s, t) => s + t.nominal, 0);
+  }, [displayedData]);
+
+  const filteredTotalKeluar = React.useMemo(() => {
+    return displayedData
+      .filter((t) => t.tipe === 'pengeluaran')
+      .reduce((s, t) => s + t.nominal, 0);
+  }, [displayedData]);
+
+  const filteredNetMutasi = filteredTotalMasuk - filteredTotalKeluar;
+
   const totalMasuk = sortedMonthData.filter((t) => t.tipe === 'pemasukan').reduce((s, t) => s + t.nominal, 0);
   const totalKeluar = sortedMonthData.filter((t) => t.tipe === 'pengeluaran').reduce((s, t) => s + t.nominal, 0);
   const saldoAkhirBulan = saldoAwalBulan + totalMasuk - totalKeluar;
@@ -353,7 +373,12 @@ export default function CashflowPage() {
 
   // 5. Generate & Print / Download PDF E-Statement
   const handleExportStatementPdf = () => {
-    const statementItems = sortedMonthData.map((tx) => ({
+    const dataSource = isFilterActive ? displayedData : sortedMonthData;
+    const effMasuk = isFilterActive ? filteredTotalMasuk : totalMasuk;
+    const effKeluar = isFilterActive ? filteredTotalKeluar : totalKeluar;
+    const effSaldoAkhir = isFilterActive ? saldoAwalBulan + effMasuk - effKeluar : saldoAkhirBulan;
+
+    const statementItems = dataSource.map((tx) => ({
       no: tx.rowNumber,
       tanggal: tx.tanggal,
       tipe: tx.tipe,
@@ -367,15 +392,15 @@ export default function CashflowPage() {
     }));
 
     const statementData: StatementData = {
-      periodeBulan: `${activeMonthName} ${selectedYear}`,
+      periodeBulan: `${activeMonthName} ${selectedYear}${isFilterActive ? ' (Terfilter)' : ''}`,
       tanggalAwal: formatDateIndo(monthStartStr),
       tanggalAkhir: formatDateIndo(monthEndStr),
-      saldoAwal: saldoAwalBulan,
+      saldoAwal: isFilterActive ? 0 : saldoAwalBulan,
       saldoAwalTunai,
       saldoAwalNonTunai,
-      totalPemasukan: totalMasuk,
-      totalPengeluaran: totalKeluar,
-      saldoAkhir: saldoAkhirBulan,
+      totalPemasukan: effMasuk,
+      totalPengeluaran: effKeluar,
+      saldoAkhir: effSaldoAkhir,
       saldoAkhirTunai,
       saldoAkhirNonTunai,
       transaksiList: statementItems,
@@ -394,6 +419,11 @@ export default function CashflowPage() {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet(`Mutasi_${activeMonthName}_${selectedYear}`);
 
+      const dataSource = isFilterActive ? displayedData : sortedMonthData;
+      const effMasuk = isFilterActive ? filteredTotalMasuk : totalMasuk;
+      const effKeluar = isFilterActive ? filteredTotalKeluar : totalKeluar;
+      const effSaldoAkhir = isFilterActive ? saldoAwalBulan + effMasuk - effKeluar : saldoAkhirBulan;
+
       // Title & Header
       worksheet.mergeCells('A1:H1');
       const titleCell = worksheet.getCell('A1');
@@ -403,7 +433,7 @@ export default function CashflowPage() {
 
       worksheet.mergeCells('A2:H2');
       const subCell = worksheet.getCell('A2');
-      subCell.value = `Periode: ${formatDateIndo(monthStartStr)} s/d ${formatDateIndo(monthEndStr)} | Saldo Awal: ${formatRupiah(saldoAwalBulan)}`;
+      subCell.value = `Periode: ${formatDateIndo(monthStartStr)} s/d ${formatDateIndo(monthEndStr)} | Saldo Awal: ${formatRupiah(saldoAwalBulan)}${isFilterActive ? ' | (Laporan Terfilter)' : ''}`;
       subCell.font = { name: 'Inter', italic: true, size: 10, color: { argb: 'FF475569' } };
 
       worksheet.addRow([]);
@@ -428,12 +458,14 @@ export default function CashflowPage() {
       worksheet.getColumn(8).width = 18;
       worksheet.getColumn(9).width = 20;
 
-      // Saldo Awal Row
-      const awalRow = worksheet.addRow(['-', formatDateIndo(monthStartStr), `[SALDO AWAL KAS BULAN ${activeMonthName.toUpperCase()}]`, 'SALDO AWAL', '-', 'SYSTEM', 0, 0, saldoAwalBulan]);
-      awalRow.font = { name: 'Inter', italic: true, bold: true, size: 10 };
+      // Saldo Awal Row (only when not filtered)
+      if (!isFilterActive) {
+        const awalRow = worksheet.addRow(['-', formatDateIndo(monthStartStr), `[SALDO AWAL KAS BULAN ${activeMonthName.toUpperCase()}]`, 'SALDO AWAL', '-', 'SYSTEM', 0, 0, saldoAwalBulan]);
+        awalRow.font = { name: 'Inter', italic: true, bold: true, size: 10 };
+      }
 
       // Data Rows
-      sortedMonthData.forEach((tx) => {
+      dataSource.forEach((tx) => {
         const isMasuk = tx.tipe === 'pemasukan';
         const row = worksheet.addRow([
           tx.rowNumber,
@@ -454,7 +486,11 @@ export default function CashflowPage() {
       });
 
       // Total Row
-      const totalRow = worksheet.addRow(['', '', 'TOTAL MUTASI & SALDO AKHIR', '', '', '', totalMasuk, totalKeluar, saldoAkhirBulan]);
+      const totalRowLabel = isFilterActive
+        ? `TOTAL MUTASI TERFILTER (${dataSource.length} TRANSAKSI)`
+        : 'TOTAL MUTASI & SALDO AKHIR';
+
+      const totalRow = worksheet.addRow(['', '', totalRowLabel, '', '', '', effMasuk, effKeluar, isFilterActive ? (effMasuk - effKeluar) : effSaldoAkhir]);
       totalRow.font = { name: 'Inter', bold: true, size: 10 };
       totalRow.fill = {
         type: 'pattern',
@@ -472,7 +508,7 @@ export default function CashflowPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `amanahdrive_cashflow_${selectedYear}_${String(selectedMonth).padStart(2, '0')}.xlsx`;
+      a.download = `amanahdrive_cashflow_${selectedYear}_${String(selectedMonth).padStart(2, '0')}${isFilterActive ? '_terfilter' : ''}.xlsx`;
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (err) {
@@ -977,20 +1013,22 @@ export default function CashflowPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
-                  {/* Saldo Awal Header Row */}
-                  <tr className="bg-teal-50/50 dark:bg-teal-950/20 font-semibold text-xs">
-                    <td className="py-2 px-3 text-center text-gray-400">-</td>
-                    <td className="py-2 px-3 text-[var(--brand-primary)]">01/{String(selectedMonth).padStart(2, '0')}/{selectedYear}</td>
-                    <td className="py-2 px-3 text-[var(--brand-primary)] font-bold">
-                      [SALDO AWAL KAS SEBELUM 01 {activeMonthName.toUpperCase()} {selectedYear}]
-                    </td>
-                    <td className="py-2 px-3 text-right text-gray-400 tabular-num">-</td>
-                    <td className="py-2 px-3 text-right text-gray-400 tabular-num">-</td>
-                    <td className="py-2 px-3 text-right tabular-num font-bold text-[var(--brand-primary)]">
-                      {formatRupiah(saldoAwalBulan)}
-                    </td>
-                    <td className="py-2 px-3 text-center text-gray-400">-</td>
-                  </tr>
+                  {/* Saldo Awal Header Row (hanya tampil saat seluruh data bulan aktif ditampilkan tanpa filter) */}
+                  {!isFilterActive && (
+                    <tr className="bg-teal-50/50 dark:bg-teal-950/20 font-semibold text-xs">
+                      <td className="py-2 px-3 text-center text-gray-400">-</td>
+                      <td className="py-2 px-3 text-[var(--brand-primary)]">01/{String(selectedMonth).padStart(2, '0')}/{selectedYear}</td>
+                      <td className="py-2 px-3 text-[var(--brand-primary)] font-bold">
+                        [SALDO AWAL KAS SEBELUM 01 {activeMonthName.toUpperCase()} {selectedYear}]
+                      </td>
+                      <td className="py-2 px-3 text-right text-gray-400 tabular-num">-</td>
+                      <td className="py-2 px-3 text-right text-gray-400 tabular-num">-</td>
+                      <td className="py-2 px-3 text-right tabular-num font-bold text-[var(--brand-primary)]">
+                        {formatRupiah(saldoAwalBulan)}
+                      </td>
+                      <td className="py-2 px-3 text-center text-gray-400">-</td>
+                    </tr>
+                  )}
 
                   {/* Chronological Transaction Rows */}
                   {displayedData.map((tx) => {
@@ -1077,16 +1115,29 @@ export default function CashflowPage() {
                   {/* Summary Footer Row */}
                   <tr className="bg-[var(--bg-subtle)] font-bold text-xs border-t-2 border-[var(--border)]">
                     <td colSpan={3} className="py-3 px-3 text-right font-bold text-[var(--text-primary)]">
-                      TOTAL MUTASI & SALDO AKHIR BULAN:
+                      {isFilterActive
+                        ? `TOTAL MUTASI TERFILTER (${displayedData.length} TRANSAKSI):`
+                        : `TOTAL MUTASI & SALDO AKHIR BULAN:`}
                     </td>
                     <td className="py-3 px-3 text-right tabular-num text-emerald-600 dark:text-emerald-400">
-                      + {formatRupiah(totalMasuk)}
+                      + {formatRupiah(isFilterActive ? filteredTotalMasuk : totalMasuk)}
                     </td>
                     <td className="py-3 px-3 text-right tabular-num text-rose-600 dark:text-rose-400">
-                      − {formatRupiah(totalKeluar)}
+                      − {formatRupiah(isFilterActive ? filteredTotalKeluar : totalKeluar)}
                     </td>
                     <td className="py-3 px-3 text-right tabular-num text-[var(--brand-primary)] bg-[var(--brand-primary-light)]/50 text-sm">
-                      {formatRupiah(saldoAkhirBulan)}
+                      {isFilterActive ? (
+                        <div>
+                          <span>
+                            {filteredNetMutasi >= 0 ? '+' : '−'} {formatRupiah(Math.abs(filteredNetMutasi))}
+                          </span>
+                          <span className="block text-[9.5px] font-semibold text-[var(--text-secondary)]">
+                            Net Terfilter
+                          </span>
+                        </div>
+                      ) : (
+                        formatRupiah(saldoAkhirBulan)
+                      )}
                     </td>
                     <td className="py-3 px-3"></td>
                   </tr>
