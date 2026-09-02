@@ -1035,13 +1035,6 @@ export default function KasOverviewPage() {
                           />
                         </div>
                       </div>
-
-                      <div className="p-2 rounded bg-amber-100/70 dark:bg-amber-900/30 text-[10px] text-amber-800 dark:text-amber-300 flex items-start gap-1.5">
-                        <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600" />
-                        <span>
-                          <strong>Harga paket dapat disesuaikan manual</strong> (misal harga negosiasi atau promo khusus). Total tagihan paket ini akan tercatat sebesar <strong>{formatRupiah(customHargaPaket)}</strong> dan sisa piutang pelunasan akan otomatis dihitung dari total harga ini.
-                        </span>
-                      </div>
                     </div>
                   )}
 
@@ -1078,15 +1071,6 @@ export default function KasOverviewPage() {
                           <span className="font-bold text-rose-600 text-xs">{formatRupiah(selectedDpKustom.sisaTagihan)}</span>
                         </div>
                       </div>
-
-                      {formData.nominal === selectedDpKustom.sisaTagihan && (
-                        <div className="p-2 rounded bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 flex items-start gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-600" />
-                          <div>
-                            <strong>Pelunasan Penuh!</strong> Sisa tagihan DP Kustom ini sebesar <strong>{formatRupiah(selectedDpKustom.sisaTagihan)}</strong> akan lunas seluruhnya.
-                          </div>
-                        </div>
-                      )}
                     </div>
                   )}
 
@@ -1133,74 +1117,10 @@ export default function KasOverviewPage() {
                         </div>
                       </div>
 
-                      {/* Real-time Validation / Comparison Alert */}
-                      {isDpCategory && formData.nominal > 0 && (
-                        <div
-                          className={`p-2.5 rounded-lg flex items-start gap-2 ${
-                            formData.nominal >= selectedSiswa.harga_final
-                              ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900'
-                              : 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900'
-                          }`}
-                        >
-                          {formData.nominal >= selectedSiswa.harga_final ? (
-                            <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" />
-                          ) : (
-                            <Info className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
-                          )}
-                          <div className="leading-relaxed">
-                            {formData.nominal >= selectedSiswa.harga_final ? (
-                              <span>
-                                <strong>Lunas Penuh!</strong> Nominal pembayaran memenuhi seluruh total tagihan paket (<strong>{formatRupiah(selectedSiswa.harga_final)}</strong>). Status siswa otomatis menjadi <strong>LUNAS</strong> dan sisa piutang menjadi <strong>Rp 0</strong>.
-                              </span>
-                            ) : (
-                              <span>
-                                <strong>Pembayaran DP.</strong> DP sebesar <strong>{formatRupiah(formData.nominal)}</strong> dicatat. Sisa piutang sebesar <strong>{formatRupiah(selectedSiswa.harga_final - formData.nominal)}</strong> akan otomatis tercatat di Piutang (Status: <strong>DP</strong>).
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {isPelunasanCategory && formData.nominal > 0 && (
-                        (() => {
-                          const sisaPiutang = Math.max(0, selectedSiswa.harga_final - (selectedSiswa.dp_nominal || 0));
-                          if (formData.nominal === sisaPiutang) {
-                            return (
-                              <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 flex items-start gap-2">
-                                <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" />
-                                <div>
-                                  <strong>Pembayaran PAS!</strong> Tagihan piutang siswa lunas sepenuhnya (Sisa Piutang: Rp 0). Status siswa otomatis menjadi <strong>LUNAS</strong>.
-                                </div>
-                              </div>
-                            );
-                          } else if (formData.nominal < sisaPiutang) {
-                            return (
-                              <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900 flex items-start gap-2">
-                                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
-                                <div>
-                                  <strong>Pembayaran Sebagian.</strong> Masih ada sisa piutang sebesar <strong>{formatRupiah(sisaPiutang - formData.nominal)}</strong>. Status siswa tetap <strong>DP</strong> dengan akumulasi pembayaran terupdate.
-                                </div>
-                              </div>
-                            );
-                          } else {
-                            return (
-                              <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-900 flex items-start gap-2">
-                                <Info className="w-4 h-4 mt-0.5 shrink-0 text-blue-600" />
-                                <div>
-                                  <strong>Pembayaran Lebih.</strong> Kelebihan bayar sebesar <strong>{formatRupiah(formData.nominal - sisaPiutang)}</strong>. Status siswa otomatis menjadi <strong>LUNAS</strong>.
-                                </div>
-                              </div>
-                            );
-                          }
-                        })()
-                      )}
-
                       {isRefundCategory && (
-                        <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-900 flex items-start gap-2">
-                          <RotateCcw className="w-4 h-4 mt-0.5 shrink-0 text-rose-600" />
-                          <div>
-                            <strong>Pencatatan Refund Pengeluaran.</strong> Menyimpan transaksi ini akan mencatat pengeluaran kas sebesar <strong>{formatRupiah(formData.nominal)}</strong>, mengubah status siswa menjadi <strong>BATAL</strong>, dan menghapus sisa piutang.
-                          </div>
+                        <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-900 flex items-center gap-2 text-xs font-semibold">
+                          <RotateCcw className="w-4 h-4 shrink-0 text-rose-600" />
+                          <span>Pencatatan Refund: Status siswa akan disetel menjadi BATAL dan sisa piutang direset.</span>
                         </div>
                       )}
                     </div>

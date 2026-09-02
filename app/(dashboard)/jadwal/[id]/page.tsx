@@ -911,14 +911,6 @@ export default function JadwalDetailPage() {
               </div>
             </div>
 
-            {/* Hint message */}
-            <div className="flex items-start gap-2 p-2.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 rounded-md text-[11px] text-blue-700 dark:text-blue-300">
-              <Info className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>
-                Centang variabel yang ingin Anda ubah. Variabel yang tidak dicentang tidak akan mengubah nilai yang tersimpan pada masing-masing sesi.
-              </span>
-            </div>
-
             {/* Variable Overwrites Form */}
             <div className="space-y-3">
               {/* 1. Instruktur Bertugas */}

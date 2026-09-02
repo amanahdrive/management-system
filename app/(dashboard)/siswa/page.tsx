@@ -681,31 +681,16 @@ export default function SiswaPage() {
                     className={formData.promosi_id ? 'bg-black/5 dark:bg-white/5 cursor-not-allowed font-bold text-[var(--brand-primary)]' : ''}
                     onChange={(val) => setFormData({ ...formData, harga_final: val, harga_manual_override: true })}
                   />
-                  {formData.promosi_id ? (
-                    <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold italic">
-                      * Harga final terkunci otomatis karena menerapkan diskon promo &ldquo;{promosiList.find(p => p.id === formData.promosi_id)?.nama_promo}&rdquo;.
-                    </p>
-                  ) : (
-                    <p className="text-[10px] text-[var(--text-secondary)] italic">
-                      * Tanpa promo: Anda dapat mengubah nominal harga final secara manual jika diperlukan.
-                    </p>
-                  )}
+                    {formData.promosi_id && (
+                      <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">
+                        Diskon promo: {promosiList.find(p => p.id === formData.promosi_id)?.nama_promo}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* Info Alur Pembayaran Terkoneksi Kas */}
-              <div className="p-3 rounded-lg bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-900 flex items-start gap-2.5 text-xs">
-                <Info className="w-4 h-4 text-[var(--brand-primary)] shrink-0 mt-0.5" />
-                <div className="space-y-0.5 text-slate-700 dark:text-slate-300">
-                  <p className="font-bold text-[var(--brand-primary)]">Alur Pembayaran Terintegrasi Kas &amp; Keuangan</p>
-                  <p className="text-[11px] text-[var(--text-secondary)]">
-                    Siswa yang baru didaftarkan otomatis berstatus <strong>Belum Bayar</strong>. Status pembayaran pada daftar siswa akan otomatis terupdate saat transaksi <strong>DP</strong> atau <strong>Pelunasan</strong> diinput melalui menu <strong>Kas &amp; Keuangan</strong>.
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                   Sumber Leads / Pemasaran *
                 </label>
                 <select
