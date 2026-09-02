@@ -270,6 +270,7 @@ export interface KasTransaksi {
   kategori: string;
   keterangan: string;
   nominal: number;
+  potongan_kasbon?: number | null;
   jenis_pembayaran: 'tunai' | 'non_tunai';
   rekening_id?: string | null;
   pic_tipe: PicTipeEnum;
@@ -277,12 +278,22 @@ export interface KasTransaksi {
   foto_nota_url: string | null;
   siswa_id: string | null;
   hutang_id: string | null;
+  staff_id?: string | null;
   sumber_otomatis: boolean;
   created_at: string;
   updated_at: string;
   // Joined fields
   siswa?: Siswa;
   hutang?: Hutang;
+  staff?: Staff;
+}
+
+export interface StaffKasbonSummary {
+  id: string;
+  nama: string;
+  total_kasbon: number;
+  total_potongan: number;
+  sisa_kasbon: number;
 }
 
 export interface HutangPembayaran {

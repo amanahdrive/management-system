@@ -2,7 +2,7 @@
 
 import { dbQuery, dbQuerySingle, dbExecute } from '@/lib/db';
 import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
-import { KasTransaksi, Hutang, KasKategori, HutangPembayaran } from '@/types/database';
+import { KasTransaksi, Hutang, KasKategori, HutangPembayaran, Staff, StaffKasbonSummary } from '@/types/database';
 import { DEFAULT_KAS_KATEGORI } from '@/lib/constants/finance';
 import { getTodayDateString } from '@/lib/utils/date';
 import { getRekeningList } from '@/lib/actions/rekening';
@@ -221,6 +221,27 @@ export async function getKasKategoriList(): Promise<KasKategori[]> {
   }
 }
 
+export async function getStaffKasbonSummary(): Promise<StaffKasbonSummary[]> {
+  try {
+    const res = await dbQuery<any>(`
+      SELECT s.id, s.nama,
+             COALESCE(SUM(CASE WHEN k.kategori = 'kasbon' AND k.tipe = 'pengeluaran' THEN k.nominal ELSE 0 END), 0)::int as total_kasbon,
+             COALESCE(SUM(CASE WHEN k.kategori = 'gaji' THEN COALESCE(k.potongan_kasbon, 0) ELSE 0 END), 0)::int as total_potongan,
+             (COALESCE(SUM(CASE WHEN k.kategori = 'kasbon' AND k.tipe = 'pengeluaran' THEN k.nominal ELSE 0 END), 0) - 
+              COALESCE(SUM(CASE WHEN k.kategori = 'gaji' THEN COALESCE(k.potongan_kasbon, 0) ELSE 0 END), 0))::int as sisa_kasbon
+      FROM staff s
+      LEFT JOIN kas_transaksi k ON s.id = k.staff_id
+      WHERE s.aktif = true
+      GROUP BY s.id, s.nama
+      ORDER BY s.nama ASC
+    `);
+    return res || [];
+  } catch (err) {
+    console.error('Error fetching staff kasbon summary:', err);
+    return [];
+  }
+}
+
 export async function getKasTransaksiList(filters?: {
   startDate?: string;
   endDate?: string;
@@ -255,10 +276,12 @@ export async function getKasTransaksiList(filters?: {
       SELECT 
         k.*,
         CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
-        CASE WHEN h.id IS NOT NULL THEN to_jsonb(h) ELSE NULL END AS hutang
+        CASE WHEN h.id IS NOT NULL THEN to_jsonb(h) ELSE NULL END AS hutang,
+        CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS staff
       FROM kas_transaksi k
       LEFT JOIN siswa s ON k.siswa_id = s.id
       LEFT JOIN hutang h ON k.hutang_id = h.id
+      LEFT JOIN staff st ON k.staff_id = st.id
       ${whereSql}
       ORDER BY k.tanggal DESC, k.created_at DESC;
     `;
@@ -275,13 +298,19 @@ export async function addKasTransaksi(
   txData: Partial<KasTransaksi>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { siswa, hutang, id: _id, created_at, updated_at, ...cleanData } = txData as any;
+    const { siswa, hutang, staff, id: _id, created_at, updated_at, ...cleanData } = txData as any;
 
     if (!cleanData.siswa_id || cleanData.siswa_id === '' || cleanData.siswa_id === 'null' || cleanData.siswa_id === 'undefined') {
       cleanData.siswa_id = null;
     }
     if (!cleanData.hutang_id || cleanData.hutang_id === '' || cleanData.hutang_id === 'null' || cleanData.hutang_id === 'undefined') {
       cleanData.hutang_id = null;
+    }
+    if (!cleanData.staff_id || cleanData.staff_id === '' || cleanData.staff_id === 'null' || cleanData.staff_id === 'undefined') {
+      cleanData.staff_id = null;
+    }
+    if (cleanData.potongan_kasbon !== undefined) {
+      cleanData.potongan_kasbon = Number(cleanData.potongan_kasbon) || 0;
     }
     if (
       !cleanData.rekening_id ||
@@ -320,6 +349,7 @@ export async function addKasTransaksi(
     cacheInvalidate('dashboard*');
     cacheInvalidate('siswa*');
     cacheInvalidate('hutang*');
+    cacheInvalidate('staff*');
 
     revalidatePath('/kas');
     revalidatePath('/kas/cashflow');
@@ -686,13 +716,19 @@ export async function updateKasTransaksi(
       [id]
     );
 
-    const { siswa, hutang, id: _id, created_at, updated_at, ...cleanUpdates } = updates as any;
+    const { siswa, hutang, staff, id: _id, created_at, updated_at, ...cleanUpdates } = updates as any;
 
     if (!cleanUpdates.siswa_id || cleanUpdates.siswa_id === '' || cleanUpdates.siswa_id === 'null' || cleanUpdates.siswa_id === 'undefined') {
       cleanUpdates.siswa_id = null;
     }
     if (!cleanUpdates.hutang_id || cleanUpdates.hutang_id === '' || cleanUpdates.hutang_id === 'null' || cleanUpdates.hutang_id === 'undefined') {
       cleanUpdates.hutang_id = null;
+    }
+    if (!cleanUpdates.staff_id || cleanUpdates.staff_id === '' || cleanUpdates.staff_id === 'null' || cleanUpdates.staff_id === 'undefined') {
+      cleanUpdates.staff_id = null;
+    }
+    if (cleanUpdates.potongan_kasbon !== undefined) {
+      cleanUpdates.potongan_kasbon = Number(cleanUpdates.potongan_kasbon) || 0;
     }
     if (
       !cleanUpdates.rekening_id ||
@@ -755,6 +791,7 @@ export async function updateKasTransaksi(
     cacheInvalidate('dashboard*');
     cacheInvalidate('siswa*');
     cacheInvalidate('hutang*');
+    cacheInvalidate('staff*');
 
     revalidatePath('/kas');
     revalidatePath('/kas/cashflow');
@@ -771,8 +808,8 @@ export async function updateKasTransaksi(
 
 export async function deleteKasTransaksi(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const tx = await dbQuerySingle<{ id: string; siswa_id: string; hutang_id: string }>(
-      'SELECT id, siswa_id, hutang_id FROM kas_transaksi WHERE id = $1',
+    const tx = await dbQuerySingle<{ id: string; siswa_id: string; hutang_id: string; staff_id: string }>(
+      'SELECT id, siswa_id, hutang_id, staff_id FROM kas_transaksi WHERE id = $1',
       [id]
     );
 
@@ -790,6 +827,7 @@ export async function deleteKasTransaksi(id: string): Promise<{ success: boolean
     cacheInvalidate('dashboard*');
     cacheInvalidate('siswa*');
     cacheInvalidate('hutang*');
+    cacheInvalidate('staff*');
 
     revalidatePath('/kas');
     revalidatePath('/kas/cashflow');

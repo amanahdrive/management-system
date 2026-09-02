@@ -44,6 +44,13 @@ export const DEFAULT_KAS_KATEGORI: KasKategori[] = [
     updated_at: '2026-08-26T19:28:16.971Z',
   },
   {
+    id: 'kasbon-staff-category',
+    nama_kategori: 'kasbon',
+    tipe: 'pengeluaran',
+    created_at: '2026-09-02T00:00:00.000Z',
+    updated_at: '2026-09-02T00:00:00.000Z',
+  },
+  {
     id: '0ceb52af-1da1-4546-8a16-518a59861066',
     nama_kategori: 'refund_siswa',
     tipe: 'pengeluaran',
@@ -105,6 +112,8 @@ export interface KasOverviewMetrics {
   saldoTunai: number;
   saldoNonTunai: number;
   totalPiutang: number;
+  totalPiutangSiswa: number;
+  totalKasbonStaff: number;
   totalHutang: number;
 }
 
@@ -113,6 +122,8 @@ export const DEFAULT_METRICS: KasOverviewMetrics = {
   saldoTunai: 0,
   saldoNonTunai: 0,
   totalPiutang: 0,
+  totalPiutangSiswa: 0,
+  totalKasbonStaff: 0,
   totalHutang: 0,
 };
 
@@ -128,6 +139,8 @@ export function formatKategoriLabel(kategori: string): string {
       return 'Bahan Bakar Minyak (BBM)';
     case 'gaji':
       return 'Gaji & Honor Instruktur';
+    case 'kasbon':
+      return 'Kasbon Karyawan';
     case 'cicilan_hutang':
       return 'Cicilan Hutang';
     case 'refund_siswa':
@@ -148,6 +161,7 @@ export function calculateLocalKasMetrics(
 ): KasOverviewMetrics {
   let tunai = 0;
   let nonTunai = 0;
+  let totalKasbon = 0;
 
   if (Array.isArray(transactions)) {
     for (const tx of transactions) {
@@ -160,16 +174,22 @@ export function calculateLocalKasMetrics(
         if (isTunai) tunai -= nom;
         else nonTunai -= nom;
       }
+
+      if (tx.kategori === 'kasbon' && tx.tipe === 'pengeluaran') {
+        totalKasbon += nom;
+      } else if (tx.kategori === 'gaji' && tx.potongan_kasbon) {
+        totalKasbon -= Number(tx.potongan_kasbon) || 0;
+      }
     }
   }
 
-  let piutang = 0;
+  let piutangSiswa = 0;
   if (Array.isArray(students)) {
     for (const s of students) {
       if (s.status_pembayaran_kode === 'dp') {
-        piutang += Math.max(0, (Number(s.harga_final) || 0) - (Number(s.dp_nominal) || 0));
+        piutangSiswa += Math.max(0, (Number(s.harga_final) || 0) - (Number(s.dp_nominal) || 0));
       } else if (s.status_pembayaran_kode === 'belum_bayar') {
-        piutang += Number(s.harga_final) || 0;
+        piutangSiswa += Number(s.harga_final) || 0;
       }
     }
   }
@@ -183,11 +203,15 @@ export function calculateLocalKasMetrics(
     }
   }
 
+  totalKasbon = Math.max(0, totalKasbon);
+
   return {
     saldoAktif: tunai + nonTunai,
     saldoTunai: tunai,
     saldoNonTunai: nonTunai,
-    totalPiutang: piutang,
+    totalPiutang: piutangSiswa + totalKasbon,
+    totalPiutangSiswa: piutangSiswa,
+    totalKasbonStaff: totalKasbon,
     totalHutang: hutang,
   };
 }

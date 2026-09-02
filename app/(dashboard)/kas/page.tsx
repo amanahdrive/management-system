@@ -18,10 +18,11 @@ import {
   updateKasTransaksi,
   getDpKustomList,
   getHutangList,
+  getStaffKasbonSummary,
   DpKustomItem,
 } from '@/lib/actions/kas';
 import { getSiswaList } from '@/lib/actions/siswa';
-import { getPaketList } from '@/lib/actions/master-data';
+import { getPaketList, getStaffList } from '@/lib/actions/master-data';
 import { getRekeningList } from '@/lib/actions/rekening';
 import {
   DEFAULT_KAS_KATEGORI,
@@ -33,7 +34,7 @@ import {
   parseKeteranganDanRekening,
 } from '@/lib/constants/finance';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
-import { Siswa, Paket, RekeningBank, KasTransaksi, Hutang } from '@/types/database';
+import { Siswa, Paket, RekeningBank, KasTransaksi, Hutang, Staff, StaffKasbonSummary } from '@/types/database';
 import {
   Wallet,
   ArrowUpRight,
@@ -52,6 +53,7 @@ import {
   Landmark,
   RefreshCw,
   Loader2,
+  Banknote,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -62,6 +64,8 @@ export default function KasOverviewPage() {
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
   const [paketList, setPaketList] = React.useState<Paket[]>([]);
   const [hutangList, setHutangList] = React.useState<Hutang[]>([]);
+  const [staffList, setStaffList] = React.useState<Staff[]>([]);
+  const [staffKasbonList, setStaffKasbonList] = React.useState<StaffKasbonSummary[]>([]);
   const [dpKustomList, setDpKustomList] = React.useState<DpKustomItem[]>([]);
   const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>(DEFAULT_REKENING_LIST);
   const [selectedRekeningId, setSelectedRekeningId] = React.useState<string>(DEFAULT_REKENING_LIST[0].id);
@@ -94,6 +98,9 @@ export default function KasOverviewPage() {
     pic_nama: '',
     siswa_id: '',
     hutang_id: '',
+    staff_id: '',
+    potongan_kasbon: 0,
+    gaji_pokok: 0,
   });
 
   // DP Kustom
@@ -141,6 +148,8 @@ export default function KasOverviewPage() {
             const tx = Array.isArray(json.transaksi) ? json.transaksi : [];
             const sis = Array.isArray(json.siswa) ? json.siswa : [];
             const hut = Array.isArray(json.hutang) ? json.hutang : [];
+            const stf = Array.isArray(json.staff) ? json.staff : [];
+            const ksb = Array.isArray(json.staffKasbon) ? json.staffKasbon : [];
             const kat =
               Array.isArray(json.kategori) && json.kategori.length > 0
                 ? json.kategori
@@ -157,6 +166,8 @@ export default function KasOverviewPage() {
             setSiswaList(sis);
             setPaketList(json.paket || []);
             setHutangList(hut);
+            setStaffList(stf);
+            setStaffKasbonList(ksb);
             setDpKustomList(json.dpKustom || []);
             setRekeningList(rek);
             setMetrics(localMetrics);
@@ -175,6 +186,8 @@ export default function KasOverviewPage() {
                 siswa: sis,
                 paket: json.paket || [],
                 hutang: hut,
+                staff: stf,
+                staffKasbon: ksb,
                 rekening: rek,
                 dpKustom: json.dpKustom || [],
                 updatedAt: Date.now(),
@@ -189,7 +202,7 @@ export default function KasOverviewPage() {
 
       // Secondary Fallback: Server Actions (Promise.allSettled)
       if (!dataLoaded) {
-        const [mRes, tRes, kRes, sRes, pRes, dpKRes, rList, hList] = await Promise.allSettled([
+        const [mRes, tRes, kRes, sRes, pRes, dpKRes, rList, hList, stfList, ksbList] = await Promise.allSettled([
           getKasOverviewMetrics(),
           getKasTransaksiList(),
           getKasKategoriList(),
@@ -198,11 +211,15 @@ export default function KasOverviewPage() {
           getDpKustomList(),
           getRekeningList(),
           getHutangList(),
+          getStaffList(),
+          getStaffKasbonSummary(),
         ]);
 
         const tx = tRes.status === 'fulfilled' && Array.isArray(tRes.value) ? tRes.value : [];
         const sis = sRes.status === 'fulfilled' && Array.isArray(sRes.value) ? sRes.value : [];
         const hut = hList.status === 'fulfilled' && Array.isArray(hList.value) ? hList.value : [];
+        const stf = stfList.status === 'fulfilled' && Array.isArray(stfList.value) ? stfList.value : [];
+        const ksb = ksbList.status === 'fulfilled' && Array.isArray(ksbList.value) ? ksbList.value : [];
         const pak = pRes.status === 'fulfilled' && Array.isArray(pRes.value) ? pRes.value : [];
         const dpk = dpKRes.status === 'fulfilled' && Array.isArray(dpKRes.value) ? dpKRes.value : [];
         const kat =
@@ -221,6 +238,8 @@ export default function KasOverviewPage() {
         setSiswaList(sis);
         setPaketList(pak);
         setHutangList(hut);
+        setStaffList(stf);
+        setStaffKasbonList(ksb);
         setDpKustomList(dpk);
         setRekeningList(rek);
         setMetrics(localMetrics);
@@ -239,6 +258,8 @@ export default function KasOverviewPage() {
             siswa: sis,
             paket: pak,
             hutang: hut,
+            staff: stf,
+            staffKasbon: ksb,
             rekening: rek,
             dpKustom: dpk,
             updatedAt: Date.now(),
@@ -277,6 +298,8 @@ export default function KasOverviewPage() {
       pic_tipe: tx.pic_tipe,
       siswa_id: tx.siswa_id || '',
       hutang_id: tx.hutang_id || '',
+      staff_id: tx.staff_id || '',
+      potongan_kasbon: tx.potongan_kasbon || 0,
     });
   };
 
@@ -352,6 +375,9 @@ export default function KasOverviewPage() {
       kategori: defaultKategori,
       siswa_id: '',
       hutang_id: '',
+      staff_id: '',
+      potongan_kasbon: 0,
+      gaji_pokok: 0,
       keterangan: '',
       nominal: 0,
     }));
@@ -367,6 +393,9 @@ export default function KasOverviewPage() {
       kategori: newKategori,
       siswa_id: '',
       hutang_id: '',
+      staff_id: '',
+      potongan_kasbon: 0,
+      gaji_pokok: 0,
       keterangan: '',
       nominal: 0,
     }));
@@ -374,6 +403,64 @@ export default function KasOverviewPage() {
     setCustomPaketId('');
     setCustomHargaPaket(0);
     setCustomDpNominal(0);
+  };
+
+  const handleStaffKasbonChange = (staffId: string) => {
+    const st = staffList.find((s) => s.id === staffId);
+    if (!st) {
+      setFormData((prev) => ({ ...prev, staff_id: '', keterangan: '', nominal: 0 }));
+      return;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      staff_id: staffId,
+      keterangan: `Kasbon - ${st.nama}`,
+    }));
+  };
+
+  const handleStaffGajiChange = (staffId: string) => {
+    const st = staffList.find((s) => s.id === staffId);
+    if (!st) {
+      setFormData((prev) => ({
+        ...prev,
+        staff_id: '',
+        keterangan: '',
+        nominal: 0,
+        potongan_kasbon: 0,
+        gaji_pokok: 0,
+      }));
+      return;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      staff_id: staffId,
+      keterangan: `Gaji - ${st.nama}`,
+      potongan_kasbon: 0,
+    }));
+  };
+
+  const handleGajiPokokChange = (gross: number) => {
+    setFormData((prev) => {
+      const potongan = prev.potongan_kasbon || 0;
+      const net = Math.max(0, gross - potongan);
+      return {
+        ...prev,
+        gaji_pokok: gross,
+        nominal: net,
+      };
+    });
+  };
+
+  const handlePotonganKasbonChange = (potongan: number) => {
+    setFormData((prev) => {
+      const gross = prev.gaji_pokok || 0;
+      const net = Math.max(0, gross - potongan);
+      return {
+        ...prev,
+        potongan_kasbon: potongan,
+        nominal: net,
+      };
+    });
   };
 
   const handleHutangChange = (hutangId: string) => {
@@ -550,6 +637,13 @@ export default function KasOverviewPage() {
   const activeHutangList = React.useMemo(() => hutangList.filter((h) => h.status === 'berjalan'), [hutangList]);
   const selectedHutang = hutangList.find((h) => h.id === formData.hutang_id);
 
+  const isKasbonCategory = formData.kategori === 'kasbon';
+  const isGajiCategory = formData.kategori === 'gaji';
+  const activeStaffList = React.useMemo(() => staffList.filter((s) => s.aktif !== false), [staffList]);
+  const selectedStaff = staffList.find((s) => s.id === formData.staff_id);
+  const selectedStaffKasbon = staffKasbonList.find((s) => s.id === formData.staff_id);
+  const sisaKasbonSelectedStaff = selectedStaffKasbon?.sisa_kasbon || 0;
+
   const filteredSiswaDropdown = React.useMemo(() => {
     if (isDpCategory) {
       return siswaList.filter((s) => s.status_pembayaran_kode === 'belum_bayar');
@@ -593,6 +687,8 @@ export default function KasOverviewPage() {
     const isCustom = formData.siswa_id === 'custom_dp' || formData.siswa_id.startsWith('dp_kustom_');
     const finalSiswaId = isCustom ? null : (formData.siswa_id || null);
     const finalHutangId = formData.kategori === 'cicilan_hutang' ? (formData.hutang_id || null) : null;
+    const finalStaffId = (formData.kategori === 'kasbon' || formData.kategori === 'gaji') ? (formData.staff_id || null) : null;
+    const finalPotonganKasbon = formData.kategori === 'gaji' ? (formData.potongan_kasbon || 0) : 0;
 
     let finalKeterangan = formData.keterangan.trim();
     if (formData.siswa_id === 'custom_dp') {
@@ -608,12 +704,14 @@ export default function KasOverviewPage() {
       kategori: formData.kategori,
       keterangan: finalKeterangan,
       nominal: formData.nominal,
+      potongan_kasbon: finalPotonganKasbon,
       jenis_pembayaran: formData.jenis_pembayaran,
       rekening_id: formData.jenis_pembayaran === 'non_tunai' ? selectedRekeningId || null : null,
       pic_tipe: formData.pic_tipe,
       pic_nama: formData.pic_tipe === 'finance' ? 'Lia (Finance)' : formData.pic_nama || 'Admin Staff',
       siswa_id: finalSiswaId,
       hutang_id: finalHutangId,
+      staff_id: finalStaffId,
       sumber_otomatis: false,
     });
 
@@ -628,6 +726,9 @@ export default function KasOverviewPage() {
       pic_nama: '',
       siswa_id: '',
       hutang_id: '',
+      staff_id: '',
+      potongan_kasbon: 0,
+      gaji_pokok: 0,
     });
     setCustomNama('');
     setCustomPaketId('');
@@ -714,7 +815,11 @@ export default function KasOverviewPage() {
             label="Total Piutang Beredar"
             value={formatRupiah(metrics.totalPiutang)}
             icon={<FileText className="w-5 h-5 text-amber-600" />}
-            description="Tagihan siswa yang belum lunas"
+            description={
+              (metrics.totalKasbonStaff || 0) > 0
+                ? `Siswa: ${formatRupiah(metrics.totalPiutangSiswa || 0)} | Kasbon: ${formatRupiah(metrics.totalKasbonStaff || 0)}`
+                : 'Tagihan siswa yang belum lunas'
+            }
           />
           <StatCard
             label="Sisa Hutang Perusahaan"
@@ -1187,6 +1292,151 @@ export default function KasOverviewPage() {
                 </div>
               )}
 
+              {/* Dynamic Staff Selection for Kasbon */}
+              {isKasbonCategory && (
+                <div className="p-3 rounded-md bg-[var(--bg-subtle)] border border-[var(--border)] space-y-2.5 animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5" />
+                      <span>Pilih Karyawan / Instruktur *</span>
+                    </label>
+                    <span className="text-[10px] text-[var(--text-secondary)]">
+                      {activeStaffList.length} staf aktif
+                    </span>
+                  </div>
+
+                  <select
+                    value={formData.staff_id}
+                    required
+                    onChange={(e) => handleStaffKasbonChange(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)]"
+                  >
+                    <option value="">-- Pilih Karyawan / Instruktur --</option>
+                    {activeStaffList.map((st) => {
+                      const ksbInfo = staffKasbonList.find((k) => k.id === st.id);
+                      const sisa = ksbInfo?.sisa_kasbon || 0;
+                      return (
+                        <option key={st.id} value={st.id}>
+                          {st.nama} {sisa > 0 ? `(Sisa Kasbon: ${formatRupiah(sisa)})` : '(Tidak ada kasbon)'}
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  {selectedStaff && (
+                    <div className="pt-2 border-t border-[var(--border)] space-y-2 text-[11px]">
+                      <div className="grid grid-cols-2 gap-2 bg-[var(--bg)] p-2.5 rounded-lg border border-[var(--border)]">
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Nama Karyawan</span>
+                          <span className="font-bold text-[var(--text-primary)]">{selectedStaff.nama}</span>
+                        </div>
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Sisa Kasbon Saat Ini</span>
+                          <span className={`font-bold ${sisaKasbonSelectedStaff > 0 ? 'text-amber-600' : 'text-[var(--text-secondary)]'}`}>
+                            {formatRupiah(sisaKasbonSelectedStaff)}
+                          </span>
+                        </div>
+                        <div className="col-span-2 pt-1 border-t border-[var(--border)] flex justify-between items-center">
+                          <span className="text-[var(--text-secondary)] text-[10px]">Total Kasbon Setelah Penarikan Ini:</span>
+                          <span className="font-bold text-rose-600 text-xs">
+                            {formatRupiah(sisaKasbonSelectedStaff + formData.nominal)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Dynamic Staff Selection & Kasbon Deduction for Gaji */}
+              {isGajiCategory && (
+                <div className="p-3 rounded-md bg-[var(--bg-subtle)] border border-[var(--border)] space-y-3 animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5" />
+                      <span>Penerima Gaji *</span>
+                    </label>
+                    <span className="text-[10px] text-[var(--text-secondary)]">
+                      {activeStaffList.length} staf aktif
+                    </span>
+                  </div>
+
+                  <select
+                    value={formData.staff_id}
+                    required
+                    onChange={(e) => handleStaffGajiChange(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)]"
+                  >
+                    <option value="">-- Pilih Karyawan / Instruktur --</option>
+                    {activeStaffList.map((st) => {
+                      const ksbInfo = staffKasbonList.find((k) => k.id === st.id);
+                      const sisa = ksbInfo?.sisa_kasbon || 0;
+                      return (
+                        <option key={st.id} value={st.id}>
+                          {st.nama} {sisa > 0 ? `(Kasbon: ${formatRupiah(sisa)})` : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  {selectedStaff && (
+                    <div className="space-y-3 pt-1 border-t border-[var(--border)] text-xs">
+                      <div>
+                        <CurrencyInput
+                          label="Nominal Gaji Pokok / Total Kotor (Rp) *"
+                          value={formData.gaji_pokok || 0}
+                          onChange={(val) => handleGajiPokokChange(val)}
+                        />
+                      </div>
+
+                      {sisaKasbonSelectedStaff > 0 ? (
+                        <div className="p-2.5 rounded-lg bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-amber-900 dark:text-amber-300 flex items-center gap-1">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                              Sisa Kasbon Staff: <strong>{formatRupiah(sisaKasbonSelectedStaff)}</strong>
+                            </span>
+                            {formData.potongan_kasbon < sisaKasbonSelectedStaff && (
+                              <button
+                                type="button"
+                                onClick={() => handlePotonganKasbonChange(Math.min(sisaKasbonSelectedStaff, formData.gaji_pokok || sisaKasbonSelectedStaff))}
+                                className="text-[10px] font-bold text-amber-700 dark:text-amber-300 hover:underline"
+                              >
+                                Potong Penuh ({formatRupiah(Math.min(sisaKasbonSelectedStaff, formData.gaji_pokok || sisaKasbonSelectedStaff))})
+                              </button>
+                            )}
+                          </div>
+
+                          <CurrencyInput
+                            label="Potongan Kasbon pada Gaji Ini (Rp)"
+                            value={formData.potongan_kasbon || 0}
+                            onChange={(val) => handlePotonganKasbonChange(Math.min(val, sisaKasbonSelectedStaff))}
+                          />
+
+                          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-amber-200 dark:border-amber-900/40 text-[10px]">
+                            <div>
+                              <span className="text-[var(--text-secondary)] block">Gaji Bersih Dibayar (Kas Keluar):</span>
+                              <span className="font-bold text-emerald-600 text-xs">{formatRupiah(formData.nominal)}</span>
+                            </div>
+                            <div>
+                              <span className="text-[var(--text-secondary)] block">Sisa Kasbon Setelah Gajian:</span>
+                              <span className="font-bold text-rose-600 text-xs">
+                                {formatRupiah(Math.max(0, sisaKasbonSelectedStaff - (formData.potongan_kasbon || 0)))}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-2 rounded bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 text-[11px] text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          <span>Staff ini tidak memiliki tanggungan kasbon aktif.</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                   Keterangan Transaksi *
@@ -1201,11 +1451,13 @@ export default function KasOverviewPage() {
                 />
               </div>
 
-              <CurrencyInput
-                label="Nominal Rupiah *"
-                value={formData.nominal}
-                onChange={(val) => handleNominalChange(val)}
-              />
+              {!isGajiCategory && (
+                <CurrencyInput
+                  label="Nominal Rupiah *"
+                  value={formData.nominal}
+                  onChange={(val) => handleNominalChange(val)}
+                />
+              )}
 
               {/* Jenis Pembayaran */}
               <div>
@@ -1564,6 +1816,58 @@ export default function KasOverviewPage() {
                         </option>
                       ))}
                     </select>
+                  </div>
+                )}
+
+                {editForm.kategori === 'kasbon' && (
+                  <div className="p-2.5 rounded-md bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 space-y-1 animate-fadeIn">
+                    <label className="block text-[11px] font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1">
+                      <User className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Karyawan / Instruktur Peminjam</span>
+                    </label>
+                    <select
+                      value={editForm.staff_id || ''}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, staff_id: e.target.value || null }))}
+                      className="w-full px-2.5 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-[var(--bg)] font-semibold text-xs text-[var(--text-primary)]"
+                    >
+                      <option value="">-- Pilih Karyawan --</option>
+                      {staffList.map((st) => (
+                        <option key={st.id} value={st.id}>
+                          {st.nama}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {editForm.kategori === 'gaji' && (
+                  <div className="p-2.5 rounded-md bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 space-y-2 animate-fadeIn">
+                    <div>
+                      <label className="block text-[11px] font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1 mb-1">
+                        <User className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Karyawan / Instruktur Penerima Gaji</span>
+                      </label>
+                      <select
+                        value={editForm.staff_id || ''}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, staff_id: e.target.value || null }))}
+                        className="w-full px-2.5 py-1.5 rounded border border-blue-300 dark:border-blue-800 bg-[var(--bg)] font-semibold text-xs text-[var(--text-primary)]"
+                      >
+                        <option value="">-- Pilih Karyawan --</option>
+                        {staffList.map((st) => (
+                          <option key={st.id} value={st.id}>
+                            {st.nama}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <CurrencyInput
+                        label="Potongan Kasbon pada Gaji Ini (Rp)"
+                        value={editForm.potongan_kasbon || 0}
+                        onChange={(val) => setEditForm((prev) => ({ ...prev, potongan_kasbon: val }))}
+                      />
+                    </div>
                   </div>
                 )}
 

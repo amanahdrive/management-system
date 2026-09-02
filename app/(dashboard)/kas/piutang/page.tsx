@@ -5,9 +5,9 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { PinGateDialog } from '@/components/shared/PinGateDialog';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
-import { Siswa, RekeningBank } from '@/types/database';
+import { Siswa, RekeningBank, StaffKasbonSummary } from '@/types/database';
 import { getSiswaList, recordPelunasanDirect } from '@/lib/actions/siswa';
-import { addKasTransaksi } from '@/lib/actions/kas';
+import { addKasTransaksi, getStaffKasbonSummary } from '@/lib/actions/kas';
 import { getRekeningList } from '@/lib/actions/rekening';
 import { DEFAULT_REKENING_LIST, LABEL_REKENING_DEFAULT } from '@/lib/constants/finance';
 import { formatRupiah } from '@/lib/utils/currency';
@@ -16,11 +16,13 @@ import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { StatCard } from '@/components/shared/StatCard';
-import { ArrowLeft, CreditCard, MessageSquare, Users, Wallet, ArrowUpRight, Landmark } from 'lucide-react';
+import { ArrowLeft, CreditCard, MessageSquare, Users, Wallet, ArrowUpRight, Landmark, Banknote, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export default function PiutangPage() {
+  const [activeTab, setActiveTab] = React.useState<'siswa' | 'kasbon'>('siswa');
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
+  const [staffKasbonList, setStaffKasbonList] = React.useState<StaffKasbonSummary[]>([]);
   const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>(DEFAULT_REKENING_LIST);
   const [selectedRekeningId, setSelectedRekeningId] = React.useState<string>(DEFAULT_REKENING_LIST[0].id);
   const [loading, setLoading] = React.useState(true);
@@ -34,13 +36,18 @@ export default function PiutangPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const [data, rList] = await Promise.all([getSiswaList(), getRekeningList()]);
+    const [data, rList, ksbList] = await Promise.all([
+      getSiswaList(),
+      getRekeningList(),
+      getStaffKasbonSummary(),
+    ]);
     // Filter only students with outstanding balance (status dp or belum_bayar)
     const piutangData = data.filter(
       (s) => s.status_pembayaran_kode === 'dp' || s.status_pembayaran_kode === 'belum_bayar'
     );
     setSiswaList(piutangData);
     setRekeningList(rList);
+    setStaffKasbonList(ksbList);
     const defRek = rList.find((r) => r.aktif && r.is_utama) || rList.find((r) => r.aktif);
     if (defRek) setSelectedRekeningId(defRek.id);
     setLoading(false);
@@ -95,14 +102,18 @@ export default function PiutangPage() {
   };
 
   // Metrics
-  let totalPiutang = 0;
+  let totalPiutangSiswa = 0;
   siswaList.forEach((s) => {
     if (s.status_pembayaran_kode === 'dp') {
-      totalPiutang += s.harga_final - (s.dp_nominal || 0);
+      totalPiutangSiswa += s.harga_final - (s.dp_nominal || 0);
     } else {
-      totalPiutang += s.harga_final;
+      totalPiutangSiswa += s.harga_final;
     }
   });
+
+  const totalKasbonStaff = staffKasbonList.reduce((sum, s) => sum + (s.sisa_kasbon || 0), 0);
+  const totalSeluruhPiutang = totalPiutangSiswa + totalKasbonStaff;
+  const staffBerpiutangCount = staffKasbonList.filter((s) => s.sisa_kasbon > 0).length;
 
   const exportColumns: ExportColumn[] = [
     { header: 'Kode Siswa', key: 'kode_siswa', width: 15 },
@@ -226,54 +237,162 @@ export default function PiutangPage() {
     },
   ];
 
+  const kasbonColumns: ColumnDef<StaffKasbonSummary>[] = [
+    {
+      accessorKey: 'nama',
+      header: 'Nama Karyawan / Instruktur',
+      sortingFn: 'text',
+      cell: ({ row }) => (
+        <div className="font-bold text-[var(--text-primary)] flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center text-xs text-blue-700 dark:text-blue-300 font-bold">
+            {row.original.nama.charAt(0).toUpperCase()}
+          </div>
+          <span>{row.original.nama}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'total_kasbon',
+      header: 'Total Kasbon Diambil',
+      sortingFn: 'basic',
+      cell: ({ row }) => (
+        <span className="font-semibold text-amber-600">
+          {formatRupiah(row.original.total_kasbon)}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'total_potongan',
+      header: 'Potongan Gaji / Terbayar',
+      sortingFn: 'basic',
+      cell: ({ row }) => (
+        <span className="font-semibold text-emerald-600">
+          {formatRupiah(row.original.total_potongan)}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'sisa_kasbon',
+      header: 'Sisa Piutang Kasbon',
+      sortingFn: 'basic',
+      cell: ({ row }) => {
+        const sisa = row.original.sisa_kasbon;
+        return (
+          <span className={`font-bold text-sm ${sisa > 0 ? 'text-rose-600' : 'text-[var(--text-secondary)]'}`}>
+            {formatRupiah(sisa)}
+          </span>
+        );
+      },
+    },
+    {
+      id: 'status',
+      header: 'Status Kasbon',
+      accessorFn: (row) => (row.sisa_kasbon > 0 ? 'Berjalan' : 'Lunas'),
+      cell: ({ row }) => {
+        const isLunas = row.original.sisa_kasbon <= 0;
+        return (
+          <span
+            className={`px-2.5 py-1 text-xs font-bold rounded-md text-white inline-block ${
+              isLunas ? 'bg-emerald-600' : 'bg-rose-600'
+            }`}
+          >
+            {isLunas ? 'LUNAS' : 'BERJALAN'}
+          </span>
+        );
+      },
+    },
+  ];
+
   return (
     <PinGateDialog>
       <div className="space-y-6">
         <PageHeader
-          title="Manajemen Piutang Siswa"
-          description="Daftar rincian tagihan kursus siswa yang belum lunas dan penagihan via WA"
-          breadcrumbs={[{ label: 'Kas', href: '/kas' }, { label: 'Piutang Siswa' }]}
+          title="Manajemen Piutang"
+          description="Daftar piutang tagihan siswa kursus dan piutang kasbon karyawan / instruktur"
+          breadcrumbs={[{ label: 'Kas', href: '/kas' }, { label: 'Manajemen Piutang' }]}
           actions={
             <div className="flex items-center gap-3">
-              <ExportButton
-                data={siswaList}
-                columns={exportColumns}
-                filename="amanahdrive_piutang_siswa"
-                title="Laporan Piutang Siswa Amanah Drive"
-              />
+              {activeTab === 'siswa' && (
+                <ExportButton
+                  data={siswaList}
+                  columns={exportColumns}
+                  filename="amanahdrive_piutang_siswa"
+                  title="Laporan Piutang Siswa Amanah Drive"
+                />
+              )}
               <Link
                 href="/kas"
                 className="px-3 py-1.5 border border-[var(--border)] rounded-md text-xs font-medium flex items-center gap-1"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Kembali</span>
+                <span>Kembali ke Kas</span>
               </Link>
             </div>
           }
         />
 
         {/* Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard
-            label="Total Piutang Siswa Aktif"
-            value={formatRupiah(totalPiutang)}
-            description="Total sisa tagihan kursus belum lunas"
-            icon={<ArrowUpRight className="w-5 h-5 text-amber-600" />}
+            label="Total Seluruh Piutang Beredar"
+            value={formatRupiah(totalSeluruhPiutang)}
+            description="Akumulasi tagihan siswa & kasbon staf"
+            icon={<Wallet className="w-5 h-5 text-amber-600" />}
           />
           <StatCard
-            label="Jumlah Siswa Berpiutang"
-            value={`${siswaList.length} Siswa`}
-            description="Siswa status DP atau Belum Bayar"
+            label="Piutang Tagihan Siswa"
+            value={formatRupiah(totalPiutangSiswa)}
+            description={`${siswaList.length} siswa status DP / Belum Bayar`}
             icon={<Users className="w-5 h-5 text-blue-600" />}
+            onClick={() => setActiveTab('siswa')}
+            className={`cursor-pointer transition-all ${activeTab === 'siswa' ? 'ring-2 ring-[var(--brand-primary)]' : ''}`}
           />
+          <StatCard
+            label="Piutang Kasbon Karyawan"
+            value={formatRupiah(totalKasbonStaff)}
+            description={`${staffBerpiutangCount} karyawan memiliki sisa kasbon`}
+            icon={<Banknote className="w-5 h-5 text-rose-600" />}
+            onClick={() => setActiveTab('kasbon')}
+            className={`cursor-pointer transition-all ${activeTab === 'kasbon' ? 'ring-2 ring-rose-500' : ''}`}
+          />
+        </div>
+
+        {/* Tab Selection */}
+        <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('siswa')}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${
+              activeTab === 'siswa'
+                ? 'bg-[var(--brand-primary)] text-white shadow-xs'
+                : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Piutang Tagihan Siswa ({siswaList.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('kasbon')}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${
+              activeTab === 'kasbon'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            <Banknote className="w-4 h-4" />
+            <span>Piutang Kasbon Karyawan & Instruktur ({staffKasbonList.length})</span>
+          </button>
         </div>
 
         {/* Table */}
         <div className="card-container">
           {loading ? (
             <div className="h-64 animate-pulse bg-black/5 dark:bg-white/5 rounded-md" />
-          ) : (
+          ) : activeTab === 'siswa' ? (
             <DataTable columns={columns} data={siswaList} searchKey="nama" />
+          ) : (
+            <DataTable columns={kasbonColumns} data={staffKasbonList} searchKey="nama" />
           )}
         </div>
 
