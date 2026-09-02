@@ -8,6 +8,8 @@ type CacheEntry<T> = {
   expiresAt: number;
 };
 
+const MAX_CACHE_ENTRIES = 500;
+
 // Global singleton cache in memory
 const memoryCache = new Map<string, CacheEntry<any>>();
 
@@ -25,9 +27,15 @@ export function cacheGet<T>(key: string): T | null {
 }
 
 /**
- * Store data in memory cache with TTL (in seconds)
+ * Store data in memory cache with TTL (in seconds) and LRU/capacity safeguard
  */
 export function cacheSet<T>(key: string, data: T, ttlSeconds: number = 60): void {
+  // Evict oldest entry if size exceeds maximum allowed capacity
+  if (memoryCache.size >= MAX_CACHE_ENTRIES && !memoryCache.has(key)) {
+    const firstKey = memoryCache.keys().next().value;
+    if (firstKey) memoryCache.delete(firstKey);
+  }
+
   memoryCache.set(key, {
     data,
     expiresAt: Date.now() + ttlSeconds * 1000,

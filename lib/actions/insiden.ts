@@ -1,6 +1,7 @@
 'use server';
 
 import { dbQuery, dbQuerySingle } from '@/lib/db';
+import { cacheInvalidate } from '@/lib/utils/cache';
 import { Insiden, StatusPenangananEnum } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 import { formatHariTanggalIndo, getTodayDateString } from '../utils/date';
@@ -160,6 +161,9 @@ export async function createInsiden(
       values
     );
 
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('kendaraan*');
+
     revalidatePath('/insiden');
     revalidatePath('/kendaraan');
     revalidatePath('/dashboard');
@@ -187,6 +191,9 @@ export async function updateInsiden(
       `UPDATE insiden SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
       values
     );
+
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('kendaraan*');
 
     revalidatePath('/insiden');
     revalidatePath('/kendaraan');
@@ -242,7 +249,11 @@ export async function updateInsidenStatus(
           true,
         ]
       );
+      cacheInvalidate('kas*');
     }
+
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('kendaraan*');
 
     revalidatePath('/insiden');
     revalidatePath('/kendaraan');
@@ -259,6 +270,9 @@ export async function updateInsidenStatus(
 export async function deleteInsiden(id: string): Promise<{ success: boolean; error?: string }> {
   try {
     await dbQuery('DELETE FROM insiden WHERE id = $1', [id]);
+
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('kendaraan*');
 
     revalidatePath('/insiden');
     revalidatePath('/kendaraan');

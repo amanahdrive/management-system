@@ -5,6 +5,7 @@ import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { KasTransaksi, Hutang, KasKategori, HutangPembayaran } from '@/types/database';
 import { DEFAULT_KAS_KATEGORI } from '@/lib/constants/finance';
 import { getTodayDateString } from '@/lib/utils/date';
+import { getRekeningList } from '@/lib/actions/rekening';
 import { revalidatePath } from 'next/cache';
 
 const METRICS_CACHE_KEY = 'kas_overview_metrics';
@@ -307,10 +308,8 @@ export async function setorTunaiKas(data: {
       };
     }
 
-    const rek = await dbQuerySingle<{ nama_bank: string; nomor_rekening: string; atas_nama: string }>(
-      'SELECT nama_bank, nomor_rekening, atas_nama FROM rekening_bank WHERE id = $1',
-      [data.rekening_id]
-    );
+    const allRek = await getRekeningList();
+    const rek = allRek.find((r) => r.id === data.rekening_id);
     const bankLabel = rek ? `${rek.nama_bank} ${rek.nomor_rekening} (${rek.atas_nama})` : 'Rekening Bank';
     const pic = data.pic_nama?.trim() || 'Admin Staff';
     const tanggal = data.tanggal || getTodayDateString();

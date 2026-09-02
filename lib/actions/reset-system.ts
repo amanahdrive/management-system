@@ -206,12 +206,17 @@ export async function resetDataMasterStaff(): Promise<{ success: boolean; error?
  */
 export async function resetDataMasterPaket(): Promise<{ success: boolean; error?: string }> {
   try {
-    await dbQuery("UPDATE siswa SET paket_id = NULL WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM jadwal_sesi WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("UPDATE insiden SET siswa_id = NULL WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("UPDATE kas_transaksi SET siswa_id = NULL WHERE id != '00000000-0000-0000-0000-000000000000'");
+    await dbQuery("DELETE FROM siswa WHERE id != '00000000-0000-0000-0000-000000000000'");
     await dbQuery("DELETE FROM promosi WHERE id != '00000000-0000-0000-0000-000000000000'");
     await dbQuery("DELETE FROM paket WHERE id != '00000000-0000-0000-0000-000000000000'");
 
     cacheInvalidateAll();
 
+    safeRevalidatePath('/siswa');
+    safeRevalidatePath('/jadwal');
     safeRevalidatePath('/master-data/paket');
     safeRevalidatePath('/master-data/promosi');
     safeRevalidatePath('/dashboard');

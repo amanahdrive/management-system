@@ -188,6 +188,9 @@ export async function updateJadwalStatus(
       [status_sesi, catatan_sesi || null, id]
     );
 
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('jadwal*');
+
     revalidatePath('/jadwal');
     revalidatePath('/instruktur');
     revalidatePath('/dashboard');
@@ -226,6 +229,8 @@ export async function upsertJadwalSesi(
         `UPDATE jadwal_sesi SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
         values
       );
+      cacheInvalidate('dashboard*');
+      cacheInvalidate('jadwal*');
       revalidatePath('/jadwal');
       revalidatePath(`/jadwal/${cleanPayload.id}`);
       return { success: true, data: saved as JadwalSesi };
@@ -239,6 +244,8 @@ export async function upsertJadwalSesi(
         `INSERT INTO jadwal_sesi (${cols}) VALUES (${placeholders}) RETURNING *`,
         values
       );
+      cacheInvalidate('dashboard*');
+      cacheInvalidate('jadwal*');
       revalidatePath('/jadwal');
       return { success: true, data: saved as JadwalSesi };
     }
@@ -260,6 +267,9 @@ export async function upsertJadwalBatch(
 
       await dbQuery(`INSERT INTO jadwal_sesi (${cols}) VALUES (${placeholders})`, values);
     }
+
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('jadwal*');
 
     revalidatePath('/jadwal');
     return { success: true };
@@ -339,6 +349,9 @@ export async function bulkUpdateJadwalSesi(
       values
     );
 
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('jadwal*');
+
     revalidatePath('/jadwal');
     if (siswaId) {
       revalidatePath(`/jadwal/${siswaId}`);
@@ -388,6 +401,9 @@ export async function updateSesiProgress(
       );
     }
 
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('jadwal*');
+
     revalidatePath('/jadwal');
     revalidatePath(`/jadwal/${siswaId}`);
     revalidatePath('/instruktur');
@@ -429,6 +445,9 @@ export async function rescheduleSesiShiftCascade(
       );
     }
 
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('jadwal*');
+
     revalidatePath('/jadwal');
     revalidatePath(`/jadwal/${siswaId}`);
     revalidatePath('/instruktur');
@@ -451,6 +470,9 @@ export async function deleteJadwalSesi(
     } else {
       await dbQuery('DELETE FROM jadwal_sesi WHERE id = $1', [id]);
     }
+
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('jadwal*');
 
     revalidatePath('/jadwal');
     revalidatePath('/instruktur');
