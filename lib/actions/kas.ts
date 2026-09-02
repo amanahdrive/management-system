@@ -157,6 +157,43 @@ export async function syncSiswaPaymentState(siswaId: string): Promise<void> {
   }
 }
 
+export async function syncHutangPaymentState(hutangId: string): Promise<void> {
+  try {
+    const hutang = await dbQuerySingle<{ id: string; total_hutang: number; nama_hutang: string }>(
+      'SELECT id, total_hutang, nama_hutang FROM hutang WHERE id = $1',
+      [hutangId]
+    );
+    if (!hutang) return;
+
+    // Hitung total cicilan terbayar dari kas_transaksi untuk hutang ini
+    const txs = await dbQuery<{ nominal: number }>(
+      "SELECT nominal FROM kas_transaksi WHERE hutang_id = $1 AND tipe = 'pengeluaran'",
+      [hutangId]
+    );
+
+    const totalPaid = (txs || []).reduce((sum, tx) => sum + (Number(tx.nominal) || 0), 0);
+    const totalHutang = Number(hutang.total_hutang) || 0;
+    const newSisa = Math.max(0, totalHutang - totalPaid);
+    const newStatus = newSisa === 0 && totalHutang > 0 ? 'lunas' : 'berjalan';
+
+    await dbQuery(
+      'UPDATE hutang SET sisa_hutang = $1, status = $2, updated_at = NOW() WHERE id = $3',
+      [newSisa, newStatus, hutangId]
+    );
+
+    cacheInvalidate('hutang*');
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+
+    revalidatePath('/kas/hutang');
+    revalidatePath('/kas');
+    revalidatePath('/kas/cashflow');
+    revalidatePath('/finance');
+  } catch (err) {
+    console.error('Error in syncHutangPaymentState:', err);
+  }
+}
+
 export async function getKasKategoriList(): Promise<KasKategori[]> {
   const cached = cacheGet<KasKategori[]>('kas_kategori_list');
   if (cached && cached.length > 0) return cached;
@@ -261,19 +298,33 @@ export async function addKasTransaksi(
     const cols = keys.map((k) => `"${k}"`).join(', ');
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
 
-    await dbQuery(`INSERT INTO kas_transaksi (${cols}) VALUES (${placeholders})`, values);
+    const inserted = await dbQuerySingle<{ id: string }>(
+      `INSERT INTO kas_transaksi (${cols}) VALUES (${placeholders}) RETURNING id`,
+      values
+    );
 
     if (cleanData.siswa_id) {
       await syncSiswaPaymentState(cleanData.siswa_id);
     }
 
+    if (cleanData.hutang_id && inserted?.id) {
+      await dbQuery(
+        `INSERT INTO hutang_pembayaran (hutang_id, tanggal_bayar, nominal, kas_transaksi_id)
+         VALUES ($1, $2, $3, $4)`,
+        [cleanData.hutang_id, cleanData.tanggal || getTodayDateString(), cleanData.nominal, inserted.id]
+      );
+      await syncHutangPaymentState(cleanData.hutang_id);
+    }
+
     cacheInvalidate('kas*');
     cacheInvalidate('dashboard*');
     cacheInvalidate('siswa*');
+    cacheInvalidate('hutang*');
 
     revalidatePath('/kas');
     revalidatePath('/kas/cashflow');
     revalidatePath('/kas/piutang');
+    revalidatePath('/kas/hutang');
     revalidatePath('/siswa');
     revalidatePath('/dashboard');
     revalidatePath('/finance');
@@ -630,8 +681,8 @@ export async function updateKasTransaksi(
   updates: Partial<KasTransaksi>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const oldTx = await dbQuerySingle<{ id: string; siswa_id: string }>(
-      'SELECT id, siswa_id FROM kas_transaksi WHERE id = $1',
+    const oldTx = await dbQuerySingle<{ id: string; siswa_id: string; hutang_id: string }>(
+      'SELECT id, siswa_id, hutang_id FROM kas_transaksi WHERE id = $1',
       [id]
     );
 
@@ -668,13 +719,47 @@ export async function updateKasTransaksi(
       await syncSiswaPaymentState(cleanUpdates.siswa_id);
     }
 
+    // Update or sync hutang_pembayaran if linked
+    const targetHutangId = cleanUpdates.hutang_id !== undefined ? cleanUpdates.hutang_id : oldTx?.hutang_id;
+    if (targetHutangId) {
+      const existingHp = await dbQuerySingle<{ id: string }>(
+        'SELECT id FROM hutang_pembayaran WHERE kas_transaksi_id = $1',
+        [id]
+      );
+      if (existingHp) {
+        await dbQuery(
+          `UPDATE hutang_pembayaran 
+           SET hutang_id = $1, nominal = COALESCE($2, nominal), tanggal_bayar = COALESCE($3, tanggal_bayar), updated_at = NOW() 
+           WHERE kas_transaksi_id = $4`,
+          [targetHutangId, cleanUpdates.nominal ?? null, cleanUpdates.tanggal ?? null, id]
+        );
+      } else {
+        await dbQuery(
+          `INSERT INTO hutang_pembayaran (hutang_id, tanggal_bayar, nominal, kas_transaksi_id)
+           VALUES ($1, $2, $3, $4)`,
+          [targetHutangId, cleanUpdates.tanggal || getTodayDateString(), cleanUpdates.nominal || 0, id]
+        );
+      }
+    } else if (oldTx?.hutang_id && cleanUpdates.hutang_id === null) {
+      await dbQuery('DELETE FROM hutang_pembayaran WHERE kas_transaksi_id = $1', [id]);
+    }
+
+    if (oldTx?.hutang_id) {
+      await syncHutangPaymentState(oldTx.hutang_id);
+    }
+    if (cleanUpdates.hutang_id && cleanUpdates.hutang_id !== oldTx?.hutang_id) {
+      await syncHutangPaymentState(cleanUpdates.hutang_id);
+    }
+
     cacheInvalidate('kas*');
     cacheInvalidate('dashboard*');
     cacheInvalidate('siswa*');
+    cacheInvalidate('hutang*');
 
     revalidatePath('/kas');
     revalidatePath('/kas/cashflow');
     revalidatePath('/kas/piutang');
+    revalidatePath('/kas/hutang');
     revalidatePath('/siswa');
     revalidatePath('/dashboard');
     revalidatePath('/finance');
@@ -686,24 +771,30 @@ export async function updateKasTransaksi(
 
 export async function deleteKasTransaksi(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const tx = await dbQuerySingle<{ id: string; siswa_id: string }>(
-      'SELECT id, siswa_id FROM kas_transaksi WHERE id = $1',
+    const tx = await dbQuerySingle<{ id: string; siswa_id: string; hutang_id: string }>(
+      'SELECT id, siswa_id, hutang_id FROM kas_transaksi WHERE id = $1',
       [id]
     );
 
+    await dbQuery('DELETE FROM hutang_pembayaran WHERE kas_transaksi_id = $1', [id]);
     await dbQuery('DELETE FROM kas_transaksi WHERE id = $1', [id]);
 
     if (tx?.siswa_id) {
       await syncSiswaPaymentState(tx.siswa_id);
     }
+    if (tx?.hutang_id) {
+      await syncHutangPaymentState(tx.hutang_id);
+    }
 
     cacheInvalidate('kas*');
     cacheInvalidate('dashboard*');
     cacheInvalidate('siswa*');
+    cacheInvalidate('hutang*');
 
     revalidatePath('/kas');
     revalidatePath('/kas/cashflow');
     revalidatePath('/kas/piutang');
+    revalidatePath('/kas/hutang');
     revalidatePath('/siswa');
     revalidatePath('/dashboard');
     revalidatePath('/finance');

@@ -33,7 +33,7 @@ import {
   parseKeteranganDanRekening,
 } from '@/lib/constants/finance';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
-import { Siswa, Paket, RekeningBank, KasTransaksi } from '@/types/database';
+import { Siswa, Paket, RekeningBank, KasTransaksi, Hutang } from '@/types/database';
 import {
   Wallet,
   ArrowUpRight,
@@ -61,6 +61,7 @@ export default function KasOverviewPage() {
   const [kategoriList, setKategoriList] = React.useState<any[]>(DEFAULT_KAS_KATEGORI);
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
   const [paketList, setPaketList] = React.useState<Paket[]>([]);
+  const [hutangList, setHutangList] = React.useState<Hutang[]>([]);
   const [dpKustomList, setDpKustomList] = React.useState<DpKustomItem[]>([]);
   const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>(DEFAULT_REKENING_LIST);
   const [selectedRekeningId, setSelectedRekeningId] = React.useState<string>(DEFAULT_REKENING_LIST[0].id);
@@ -92,6 +93,7 @@ export default function KasOverviewPage() {
     pic_tipe: 'admin' as 'admin' | 'finance',
     pic_nama: '',
     siswa_id: '',
+    hutang_id: '',
   });
 
   // DP Kustom
@@ -112,6 +114,7 @@ export default function KasOverviewPage() {
           if (Array.isArray(cached.kategori) && cached.kategori.length > 0) setKategoriList(cached.kategori);
           if (Array.isArray(cached.siswa)) setSiswaList(cached.siswa);
           if (Array.isArray(cached.paket)) setPaketList(cached.paket);
+          if (Array.isArray(cached.hutang)) setHutangList(cached.hutang);
           if (Array.isArray(cached.dpKustom)) setDpKustomList(cached.dpKustom);
           if (Array.isArray(cached.rekening) && cached.rekening.length > 0) setRekeningList(cached.rekening);
         }
@@ -153,6 +156,7 @@ export default function KasOverviewPage() {
             setKategoriList(kat);
             setSiswaList(sis);
             setPaketList(json.paket || []);
+            setHutangList(hut);
             setDpKustomList(json.dpKustom || []);
             setRekeningList(rek);
             setMetrics(localMetrics);
@@ -170,6 +174,7 @@ export default function KasOverviewPage() {
                 kategori: kat,
                 siswa: sis,
                 paket: json.paket || [],
+                hutang: hut,
                 rekening: rek,
                 dpKustom: json.dpKustom || [],
                 updatedAt: Date.now(),
@@ -215,6 +220,7 @@ export default function KasOverviewPage() {
         setKategoriList(kat);
         setSiswaList(sis);
         setPaketList(pak);
+        setHutangList(hut);
         setDpKustomList(dpk);
         setRekeningList(rek);
         setMetrics(localMetrics);
@@ -232,6 +238,7 @@ export default function KasOverviewPage() {
             kategori: kat,
             siswa: sis,
             paket: pak,
+            hutang: hut,
             rekening: rek,
             dpKustom: dpk,
             updatedAt: Date.now(),
@@ -269,6 +276,7 @@ export default function KasOverviewPage() {
       pic_nama: tx.pic_nama,
       pic_tipe: tx.pic_tipe,
       siswa_id: tx.siswa_id || '',
+      hutang_id: tx.hutang_id || '',
     });
   };
 
@@ -343,6 +351,7 @@ export default function KasOverviewPage() {
       tipe: newTipe,
       kategori: defaultKategori,
       siswa_id: '',
+      hutang_id: '',
       keterangan: '',
       nominal: 0,
     }));
@@ -357,6 +366,7 @@ export default function KasOverviewPage() {
       ...prev,
       kategori: newKategori,
       siswa_id: '',
+      hutang_id: '',
       keterangan: '',
       nominal: 0,
     }));
@@ -364,6 +374,22 @@ export default function KasOverviewPage() {
     setCustomPaketId('');
     setCustomHargaPaket(0);
     setCustomDpNominal(0);
+  };
+
+  const handleHutangChange = (hutangId: string) => {
+    const h = hutangList.find((item) => item.id === hutangId);
+    if (!h) {
+      setFormData((prev) => ({ ...prev, hutang_id: '', keterangan: '', nominal: 0 }));
+      return;
+    }
+
+    const defaultNominal = Number(h.cicilan_per_bulan) > 0 ? Number(h.cicilan_per_bulan) : Number(h.sisa_hutang);
+    setFormData((prev) => ({
+      ...prev,
+      hutang_id: hutangId,
+      keterangan: `Bayar Cicilan: ${h.nama_hutang}`,
+      nominal: defaultNominal,
+    }));
   };
 
   const handleCustomPaketChange = (paketId: string) => {
@@ -419,6 +445,16 @@ export default function KasOverviewPage() {
         } else {
           if (!prev.keterangan || prev.keterangan.startsWith('Pembayaran DP Kursus -') || prev.keterangan.startsWith('Pembayaran Lunas Kursus -')) {
             updatedKeterangan = `Pembayaran DP Kursus - ${selectedSiswa.nama} (${selectedSiswa.kode_siswa})`;
+          }
+        }
+      } else if (selectedHutang && prev.kategori === 'cicilan_hutang') {
+        if (nominal >= selectedHutang.sisa_hutang && selectedHutang.sisa_hutang > 0) {
+          if (!prev.keterangan || prev.keterangan.startsWith('Bayar Cicilan:') || prev.keterangan.startsWith('Pelunasan Hutang:')) {
+            updatedKeterangan = `Pelunasan Hutang: ${selectedHutang.nama_hutang}`;
+          }
+        } else {
+          if (!prev.keterangan || prev.keterangan.startsWith('Bayar Cicilan:') || prev.keterangan.startsWith('Pelunasan Hutang:')) {
+            updatedKeterangan = `Bayar Cicilan: ${selectedHutang.nama_hutang}`;
           }
         }
       }
@@ -510,6 +546,10 @@ export default function KasOverviewPage() {
   const isRefundCategory = formData.kategori === 'refund_siswa';
   const isStudentRelated = isDpCategory || isPelunasanCategory || isRefundCategory;
 
+  const isHutangCategory = formData.kategori === 'cicilan_hutang';
+  const activeHutangList = React.useMemo(() => hutangList.filter((h) => h.status === 'berjalan'), [hutangList]);
+  const selectedHutang = hutangList.find((h) => h.id === formData.hutang_id);
+
   const filteredSiswaDropdown = React.useMemo(() => {
     if (isDpCategory) {
       return siswaList.filter((s) => s.status_pembayaran_kode === 'belum_bayar');
@@ -520,7 +560,7 @@ export default function KasOverviewPage() {
     if (isRefundCategory) {
       return siswaList.filter(
         (s) => s.status_pembayaran_kode === 'dp' || s.status_pembayaran_kode === 'lunas'
-);
+      );
     }
     return [];
   }, [siswaList, isDpCategory, isPelunasanCategory, isRefundCategory]);
@@ -552,6 +592,7 @@ export default function KasOverviewPage() {
 
     const isCustom = formData.siswa_id === 'custom_dp' || formData.siswa_id.startsWith('dp_kustom_');
     const finalSiswaId = isCustom ? null : (formData.siswa_id || null);
+    const finalHutangId = formData.kategori === 'cicilan_hutang' ? (formData.hutang_id || null) : null;
 
     let finalKeterangan = formData.keterangan.trim();
     if (formData.siswa_id === 'custom_dp') {
@@ -572,6 +613,7 @@ export default function KasOverviewPage() {
       pic_tipe: formData.pic_tipe,
       pic_nama: formData.pic_tipe === 'finance' ? 'Lia (Finance)' : formData.pic_nama || 'Admin Staff',
       siswa_id: finalSiswaId,
+      hutang_id: finalHutangId,
       sumber_otomatis: false,
     });
 
@@ -585,6 +627,7 @@ export default function KasOverviewPage() {
       pic_tipe: 'admin',
       pic_nama: '',
       siswa_id: '',
+      hutang_id: '',
     });
     setCustomNama('');
     setCustomPaketId('');
@@ -1060,6 +1103,90 @@ export default function KasOverviewPage() {
                 </div>
               )}
 
+              {/* Dynamic Hutang Selection for Cicilan Hutang */}
+              {isHutangCategory && (
+                <div className="p-3 rounded-md bg-[var(--bg-subtle)] border border-[var(--border)] space-y-2.5 animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Pilih Hutang yang Dicicil / Dilunasi *</span>
+                    </label>
+                    <span className="text-[10px] text-[var(--text-secondary)]">
+                      {activeHutangList.length} hutang aktif
+                    </span>
+                  </div>
+
+                  <select
+                    value={formData.hutang_id}
+                    required
+                    onChange={(e) => handleHutangChange(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)]"
+                  >
+                    <option value="">-- Pilih Hutang Perusahaan --</option>
+                    {activeHutangList.length > 0 ? (
+                      activeHutangList.map((h) => {
+                        const jenisLabel =
+                          h.jenis === 'cicilan_kendaraan'
+                            ? 'Armada'
+                            : h.jenis === 'pinjaman_perusahaan'
+                            ? 'Pinjaman'
+                            : 'Lainnya';
+                        return (
+                          <option key={h.id} value={h.id}>
+                            [{jenisLabel}] {h.nama_hutang} (Sisa: {formatRupiah(h.sisa_hutang)}{h.cicilan_per_bulan ? ` | Cicilan: ${formatRupiah(h.cicilan_per_bulan)}` : ''})
+                          </option>
+                        );
+                      })
+                    ) : (
+                      <option value="" disabled>
+                        Tidak ada hutang aktif (Semua hutang berstatus lunas)
+                      </option>
+                    )}
+                  </select>
+
+                  {/* Context Info & Real-time Calculation for Selected Hutang */}
+                  {selectedHutang && (
+                    <div className="pt-2 border-t border-[var(--border)] space-y-2 text-[11px]">
+                      <div className="grid grid-cols-2 gap-2 bg-[var(--bg)] p-2.5 rounded-lg border border-[var(--border)]">
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Nama Hutang</span>
+                          <span className="font-bold text-[var(--text-primary)]">{selectedHutang.nama_hutang}</span>
+                        </div>
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Total Pokok Hutang</span>
+                          <span className="font-bold text-[var(--text-primary)]">{formatRupiah(selectedHutang.total_hutang)}</span>
+                        </div>
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Sisa Hutang Saat Ini</span>
+                          <span className="font-bold text-rose-600">{formatRupiah(selectedHutang.sisa_hutang)}</span>
+                        </div>
+                        <div>
+                          <span className="text-[var(--text-secondary)] block text-[10px]">Cicilan / Bulan</span>
+                          <span className="font-semibold text-[var(--brand-primary)]">
+                            {selectedHutang.cicilan_per_bulan ? formatRupiah(selectedHutang.cicilan_per_bulan) : '-'}
+                          </span>
+                        </div>
+                        <div className="col-span-2 pt-1 border-t border-[var(--border)] flex justify-between items-center">
+                          <span className="text-[var(--text-secondary)] text-[10px]">Sisa Hutang Setelah Pembayaran:</span>
+                          <span className="font-bold text-emerald-600 text-xs">
+                            {formatRupiah(Math.max(0, selectedHutang.sisa_hutang - formData.nominal))}
+                          </span>
+                        </div>
+                      </div>
+
+                      {formData.nominal >= selectedHutang.sisa_hutang && selectedHutang.sisa_hutang > 0 && (
+                        <div className="p-2 rounded bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 flex items-start gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-600" />
+                          <div>
+                            <strong>Pelunasan Penuh Hutang!</strong> Pembayaran ini akan melunasi seluruh sisa hutang dan statusnya otomatis berubah menjadi <strong>LUNAS</strong>.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                   Keterangan Transaksi *
@@ -1418,6 +1545,27 @@ export default function KasOverviewPage() {
                     ))}
                   </select>
                 </div>
+
+                {editForm.kategori === 'cicilan_hutang' && (
+                  <div className="p-2.5 rounded-md bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 space-y-1 animate-fadeIn">
+                    <label className="block text-[11px] font-bold text-rose-900 dark:text-rose-300 flex items-center gap-1">
+                      <FileText className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Tautkan ke Hutang Perusahaan</span>
+                    </label>
+                    <select
+                      value={editForm.hutang_id || ''}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, hutang_id: e.target.value || null }))}
+                      className="w-full px-2.5 py-1.5 rounded border border-rose-300 dark:border-rose-800 bg-[var(--bg)] font-semibold text-xs text-[var(--text-primary)]"
+                    >
+                      <option value="">-- Tanpa Tautan Hutang --</option>
+                      {hutangList.map((h) => (
+                        <option key={h.id} value={h.id}>
+                          {h.nama_hutang} (Sisa: {formatRupiah(h.sisa_hutang)}) [{h.status.toUpperCase()}]
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Uraian / Keterangan</label>

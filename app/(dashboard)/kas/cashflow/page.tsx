@@ -5,8 +5,8 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { PinGateDialog } from '@/components/shared/PinGateDialog';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
-import { KasTransaksi, RekeningBank } from '@/types/database';
-import { getKasTransaksiList, getKasKategoriList, deleteKasTransaksi, updateKasTransaksi } from '@/lib/actions/kas';
+import { KasTransaksi, RekeningBank, Hutang } from '@/types/database';
+import { getKasTransaksiList, getKasKategoriList, getHutangList, deleteKasTransaksi, updateKasTransaksi } from '@/lib/actions/kas';
 import { getRekeningList } from '@/lib/actions/rekening';
 import { DEFAULT_REKENING_LIST, LABEL_REKENING_DEFAULT, parseKeteranganDanRekening } from '@/lib/constants/finance';
 import { formatRupiah } from '@/lib/utils/currency';
@@ -58,6 +58,7 @@ const BULAN_LIST = [
 export default function CashflowPage() {
   const [transaksiList, setTransaksiList] = React.useState<KasTransaksi[]>([]);
   const [kategoriList, setKategoriList] = React.useState<any[]>([]);
+  const [hutangList, setHutangList] = React.useState<Hutang[]>([]);
   const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>(DEFAULT_REKENING_LIST);
   const [loading, setLoading] = React.useState(true);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
@@ -81,14 +82,16 @@ export default function CashflowPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [tRes, kRes, rRes] = await Promise.allSettled([
+      const [tRes, kRes, rRes, hRes] = await Promise.allSettled([
         getKasTransaksiList(),
         getKasKategoriList(),
         getRekeningList(),
+        getHutangList(),
       ]);
       if (tRes.status === 'fulfilled' && tRes.value) setTransaksiList(tRes.value);
       if (kRes.status === 'fulfilled' && kRes.value) setKategoriList(kRes.value);
       if (rRes.status === 'fulfilled' && rRes.value && rRes.value.length > 0) setRekeningList(rRes.value);
+      if (hRes.status === 'fulfilled' && hRes.value) setHutangList(hRes.value);
     } catch (err) {
       console.error('Error loading cashflow data:', err);
     } finally {
@@ -322,6 +325,8 @@ export default function CashflowPage() {
       rekening_id: tx.rekening_id || '',
       pic_nama: tx.pic_nama,
       pic_tipe: tx.pic_tipe,
+      siswa_id: tx.siswa_id || '',
+      hutang_id: tx.hutang_id || '',
     });
   };
 
@@ -1188,6 +1193,27 @@ export default function CashflowPage() {
                     ))}
                   </select>
                 </div>
+
+                {editForm.kategori === 'cicilan_hutang' && (
+                  <div className="p-2.5 rounded-md bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 space-y-1 animate-fadeIn">
+                    <label className="block text-[11px] font-bold text-rose-900 dark:text-rose-300 flex items-center gap-1">
+                      <FileText className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Tautkan ke Hutang Perusahaan</span>
+                    </label>
+                    <select
+                      value={editForm.hutang_id || ''}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, hutang_id: e.target.value || null }))}
+                      className="w-full px-2.5 py-1.5 rounded border border-rose-300 dark:border-rose-800 bg-[var(--bg)] font-semibold text-xs text-[var(--text-primary)]"
+                    >
+                      <option value="">-- Tanpa Tautan Hutang --</option>
+                      {hutangList.map((h) => (
+                        <option key={h.id} value={h.id}>
+                          {h.nama_hutang} (Sisa: {formatRupiah(h.sisa_hutang)}) [{h.status.toUpperCase()}]
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Uraian / Keterangan</label>
