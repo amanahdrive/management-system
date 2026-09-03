@@ -25,6 +25,10 @@ import {
   Check,
   AlertTriangle,
   Receipt,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react';
 
 type TabView = 'active' | 'archived' | 'all';
@@ -53,6 +57,10 @@ export default function ManajemenSimPage() {
   const [datePreset, setDatePreset] = React.useState<DatePreset>('all');
   const [startDate, setStartDate] = React.useState<string>('');
   const [endDate, setEndDate] = React.useState<string>('');
+
+  // Pagination State
+  const [pageIndex, setPageIndex] = React.useState(0);
+  const [pageSize, setPageSize] = React.useState(10);
 
   // Sorting (Default: tanggal_booking ASC - dari tanggal paling awal ke terbaru)
   const [sortField, setSortField] = React.useState<SortField>('tanggal_booking');
@@ -243,6 +251,45 @@ export default function ManajemenSimPage() {
     });
     return list;
   }, [filteredStudents, sortField, sortOrder]);
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setPageIndex(0);
+  }, [currentTab, filterPembayaran, filterPaket, datePreset, startDate, endDate, searchQuery]);
+
+  const pageCount = Math.max(1, Math.ceil(sortedStudents.length / pageSize));
+  const safePageIndex = Math.min(pageIndex, pageCount - 1);
+  const paginatedStudents = React.useMemo(() => {
+    const start = safePageIndex * pageSize;
+    return sortedStudents.slice(start, start + pageSize);
+  }, [sortedStudents, safePageIndex, pageSize]);
+
+  // Page Numbers Generator
+  const getPageNumbers = React.useCallback((): (number | string)[] => {
+    if (pageCount <= 7) {
+      return Array.from({ length: pageCount }, (_, i) => i + 1);
+    }
+    const pages: (number | string)[] = [1];
+    const current = safePageIndex + 1;
+
+    if (current > 3) {
+      pages.push('...');
+    }
+
+    const start = Math.max(2, current - 1);
+    const end = Math.min(pageCount - 1, current + 1);
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+
+    if (current < pageCount - 2) {
+      pages.push('...');
+    }
+
+    pages.push(pageCount);
+    return pages;
+  }, [safePageIndex, pageCount]);
 
   return (
     <div className="space-y-6">
@@ -562,7 +609,7 @@ export default function ManajemenSimPage() {
                   </td>
                 </tr>
               ) : (
-                sortedStudents.map((s) => {
+                paginatedStudents.map((s) => {
                   const isSelesai = s.status_sim === 'selesai';
                   const isLunas = s.status_pembayaran_kode === 'lunas';
 
@@ -726,6 +773,120 @@ export default function ManajemenSimPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Enterprise Pagination Bar */}
+        {sortedStudents.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-3 px-4 border-t border-[var(--border)] text-xs text-[var(--text-secondary)]">
+            {/* Rows Per Page Selector & Summary */}
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span>Tampilkan:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPageIndex(0);
+                  }}
+                  className="px-2.5 py-1 text-xs rounded-lg border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-primary)] cursor-pointer"
+                >
+                  {[5, 10, 25, 50, 100].map((size) => (
+                    <option key={size} value={size}>
+                      {size} baris
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <span>
+                Menampilkan{' '}
+                <strong className="text-[var(--text-primary)]">
+                  {safePageIndex * pageSize + 1}
+                </strong>{' '}
+                -{' '}
+                <strong className="text-[var(--text-primary)]">
+                  {Math.min((safePageIndex + 1) * pageSize, sortedStudents.length)}
+                </strong>{' '}
+                dari{' '}
+                <strong className="text-[var(--text-primary)]">{sortedStudents.length}</strong> data
+              </span>
+            </div>
+
+            {/* Pagination Button Navigation */}
+            <div className="flex items-center gap-1 select-none">
+              {/* First Page */}
+              <button
+                type="button"
+                onClick={() => setPageIndex(0)}
+                disabled={safePageIndex === 0}
+                className="p-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                title="Halaman Pertama"
+              >
+                <ChevronsLeft className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Prev Page */}
+              <button
+                type="button"
+                onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+                disabled={safePageIndex === 0}
+                className="p-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                title="Halaman Sebelumnya"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Numbered Page Buttons */}
+              <div className="flex items-center gap-1 mx-1">
+                {getPageNumbers().map((p, idx) => {
+                  if (typeof p === 'string') {
+                    return (
+                      <span key={`ellipsis-${idx}`} className="px-1.5 text-[var(--text-muted)] font-bold">
+                        {p}
+                      </span>
+                    );
+                  }
+                  const isActive = p === safePageIndex + 1;
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPageIndex(p - 1)}
+                      className={`min-w-[28px] h-7 px-2 text-xs font-semibold rounded-md border transition-colors ${
+                        isActive
+                          ? 'bg-[var(--brand-primary)] text-white border-[var(--brand-primary)] shadow-xs'
+                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Next Page */}
+              <button
+                type="button"
+                onClick={() => setPageIndex((p) => Math.min(pageCount - 1, p + 1))}
+                disabled={safePageIndex >= pageCount - 1}
+                className="p-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                title="Halaman Berikutnya"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Last Page */}
+              <button
+                type="button"
+                onClick={() => setPageIndex(pageCount - 1)}
+                disabled={safePageIndex >= pageCount - 1}
+                className="p-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                title="Halaman Terakhir"
+              >
+                <ChevronsRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal Dialog Form: Ubah Status SIM & Tanggal Selesai */}

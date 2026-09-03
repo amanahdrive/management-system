@@ -18,7 +18,7 @@ import {
 import { getRekeningList } from '@/lib/actions/rekening';
 import { DEFAULT_REKENING_LIST, LABEL_REKENING_DEFAULT, formatKategoriLabel } from '@/lib/constants/finance';
 import { formatRupiah } from '@/lib/utils/currency';
-import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
+import { formatDateIndo, getTodayDateString, getJakartaDateParts, addDaysToDateStr } from '@/lib/utils/date';
 import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
@@ -45,16 +45,31 @@ import {
   User,
   Edit2,
   Trash2,
+  Filter,
+  Search,
+  Calendar,
 } from 'lucide-react';
 import Link from 'next/link';
 
+type PeriodOption = 'this_month' | 'last_month' | 'this_year' | 'all' | 'custom';
+
 export default function PiutangPage() {
   const [activeTab, setActiveTab] = React.useState<'siswa' | 'kasbon'>('siswa');
-  const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
-  const [staffKasbonList, setStaffKasbonList] = React.useState<StaffKasbonSummary[]>([]);
+  const [allSiswaList, setAllSiswaList] = React.useState<Siswa[]>([]);
+  const [allStaffKasbonList, setAllStaffKasbonList] = React.useState<StaffKasbonSummary[]>([]);
   const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>(DEFAULT_REKENING_LIST);
   const [selectedRekeningId, setSelectedRekeningId] = React.useState<string>(DEFAULT_REKENING_LIST[0].id);
   const [loading, setLoading] = React.useState(true);
+
+  // Period Filter State
+  const [period, setPeriod] = React.useState<PeriodOption>('all');
+  const [customStart, setCustomStart] = React.useState<string>('');
+  const [customEnd, setCustomEnd] = React.useState<string>('');
+
+  // Status & Search Filter States
+  const [statusFilterSiswa, setStatusFilterSiswa] = React.useState<'belum_lunas' | 'dp' | 'belum_bayar' | 'lunas' | 'all'>('belum_lunas');
+  const [statusFilterKasbon, setStatusFilterKasbon] = React.useState<'berjalan' | 'lunas' | 'all'>('berjalan');
+  const [searchQuery, setSearchQuery] = React.useState<string>('');
 
   // Modal Pelunasan Siswa State
   const [selectedSiswa, setSelectedSiswa] = React.useState<Siswa | null>(null);
@@ -89,13 +104,9 @@ export default function PiutangPage() {
       getRekeningList(),
       getStaffKasbonSummary(),
     ]);
-    // Filter only students with outstanding balance (status dp or belum_bayar)
-    const piutangData = data.filter(
-      (s) => s.status_pembayaran_kode === 'dp' || s.status_pembayaran_kode === 'belum_bayar'
-    );
-    setSiswaList(piutangData);
+    setAllSiswaList(data);
     setRekeningList(rList);
-    setStaffKasbonList(ksbList);
+    setAllStaffKasbonList(ksbList);
     const defRek = rList.find((r) => r.aktif && r.is_utama) || rList.find((r) => r.aktif);
     if (defRek) setSelectedRekeningId(defRek.id);
     setLoading(false);
@@ -104,6 +115,88 @@ export default function PiutangPage() {
   React.useEffect(() => {
     loadData();
   }, []);
+
+  // Compute Period Bounds
+  const periodBounds = React.useMemo(() => {
+    const todayStr = getTodayDateString();
+    const parts = getJakartaDateParts(todayStr);
+    const curYear = parts?.year ?? new Date().getFullYear();
+    const curMonth = parts?.month ?? (new Date().getMonth() + 1);
+
+    if (period === 'this_month') {
+      const start = `${curYear}-${String(curMonth).padStart(2, '0')}-01`;
+      const lastDay = new Date(curYear, curMonth, 0).getDate();
+      const end = `${curYear}-${String(curMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      return { start, end, label: `Bulan Ini (${String(curMonth).padStart(2, '0')}/${curYear})` };
+    }
+    if (period === 'last_month') {
+      const lastMonthYear = curMonth === 1 ? curYear - 1 : curYear;
+      const lastMonthNum = curMonth === 1 ? 12 : curMonth - 1;
+      const start = `${lastMonthYear}-${String(lastMonthNum).padStart(2, '0')}-01`;
+      const lastDay = new Date(lastMonthYear, lastMonthNum, 0).getDate();
+      const end = `${lastMonthYear}-${String(lastMonthNum).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      return { start, end, label: `Bulan Lalu (${String(lastMonthNum).padStart(2, '0')}/${lastMonthYear})` };
+    }
+    if (period === 'this_year') {
+      const start = `${curYear}-01-01`;
+      const end = `${curYear}-12-31`;
+      return { start, end, label: `Tahun ${curYear}` };
+    }
+    if (period === 'custom' && customStart && customEnd) {
+      const maxEnd = addDaysToDateStr(customStart, 180);
+      const clampedEnd = customEnd > maxEnd ? maxEnd : customEnd < customStart ? customStart : customEnd;
+      return { start: customStart, end: clampedEnd, label: `${formatDateIndo(customStart)} – ${formatDateIndo(clampedEnd)}` };
+    }
+    return { start: null, end: null, label: 'Semua Periode' };
+  }, [period, customStart, customEnd]);
+
+  // Filtered Siswa List
+  const filteredSiswaList = React.useMemo(() => {
+    return allSiswaList.filter((s) => {
+      // Period filter on tanggal_booking
+      if (periodBounds.start && periodBounds.end) {
+        const tgl = (s.tanggal_booking || '').slice(0, 10);
+        if (tgl && (tgl < periodBounds.start || tgl > periodBounds.end)) {
+          return false;
+        }
+      }
+
+      // Status filter
+      if (statusFilterSiswa === 'belum_lunas') {
+        if (s.status_pembayaran_kode !== 'dp' && s.status_pembayaran_kode !== 'belum_bayar') return false;
+      } else if (statusFilterSiswa !== 'all') {
+        if (s.status_pembayaran_kode !== statusFilterSiswa) return false;
+      }
+
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchNama = s.nama?.toLowerCase().includes(q);
+        const matchKode = s.kode_siswa?.toLowerCase().includes(q);
+        const matchWA = s.no_whatsapp?.toLowerCase().includes(q);
+        const matchPaket = s.paket?.nama_paket?.toLowerCase().includes(q);
+        if (!matchNama && !matchKode && !matchWA && !matchPaket) return false;
+      }
+
+      return true;
+    });
+  }, [allSiswaList, periodBounds, statusFilterSiswa, searchQuery]);
+
+  // Filtered Staff Kasbon List
+  const filteredStaffKasbonList = React.useMemo(() => {
+    return allStaffKasbonList.filter((st) => {
+      if (statusFilterKasbon === 'berjalan' && st.sisa_kasbon <= 0) return false;
+      if (statusFilterKasbon === 'lunas' && st.sisa_kasbon > 0) return false;
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchNama = st.nama?.toLowerCase().includes(q);
+        if (!matchNama) return false;
+      }
+
+      return true;
+    });
+  }, [allStaffKasbonList, statusFilterKasbon, searchQuery]);
 
   const handleOpenPelunasan = (siswa: Siswa) => {
     setSelectedSiswa(siswa);
@@ -169,56 +262,46 @@ export default function PiutangPage() {
     if (!selectedStaffForPelunasan || kasbonBayarNominal <= 0) return;
 
     setSavingKasbonPelunasan(true);
-    if (kasbonCatatKeKas) {
-      await addKasTransaksi({
-        tanggal: kasbonBayarTanggal,
-        tipe: 'pemasukan',
-        kategori: 'pengembalian_kasbon',
-        keterangan: `Pengembalian Kasbon - ${selectedStaffForPelunasan.nama}`,
-        nominal: kasbonBayarNominal,
-        jenis_pembayaran: kasbonBayarMetode,
-        rekening_id: kasbonBayarMetode === 'non_tunai' ? selectedRekeningId : null,
-        pic_tipe: 'finance',
-        pic_nama: 'Finance Staff',
-        staff_id: selectedStaffForPelunasan.id,
-        sumber_otomatis: false,
-      });
-    } else {
-      await recordPelunasanKasbonDirect(
-        selectedStaffForPelunasan.id,
-        kasbonBayarNominal,
-        kasbonBayarTanggal,
-        `Pelunasan Kasbon Non-Kas (Internal) - ${selectedStaffForPelunasan.nama}`
-      );
-    }
+    try {
+      if (kasbonCatatKeKas) {
+        await addKasTransaksi({
+          tanggal: kasbonBayarTanggal,
+          tipe: 'pemasukan',
+          kategori: 'pengembalian_kasbon',
+          keterangan: `Pengembalian Kasbon - ${selectedStaffForPelunasan.nama}`,
+          nominal: kasbonBayarNominal,
+          jenis_pembayaran: kasbonBayarMetode,
+          rekening_id: kasbonBayarMetode === 'non_tunai' ? selectedRekeningId : null,
+          pic_tipe: 'admin',
+          pic_nama: 'Admin Staff',
+          staff_id: selectedStaffForPelunasan.id,
+          sumber_otomatis: false,
+        });
+      } else {
+        await recordPelunasanKasbonDirect(
+          selectedStaffForPelunasan.id,
+          kasbonBayarNominal,
+          kasbonBayarTanggal
+        );
+      }
 
-    setSavingKasbonPelunasan(false);
-    setSelectedStaffForPelunasan(null);
-    if (selectedStaffForDetail) {
-      const updatedHist = await getStaffKasbonHistory(selectedStaffForDetail.id);
-      setStaffHistoryList(updatedHist);
-      const updatedKsbList = await getStaffKasbonSummary();
-      const updatedStaff = updatedKsbList.find((s) => s.id === selectedStaffForDetail.id);
-      if (updatedStaff) setSelectedStaffForDetail(updatedStaff);
+      setSelectedStaffForPelunasan(null);
+      loadData();
+    } catch (err: any) {
+      alert('Gagal memproses pelunasan kasbon: ' + (err?.message || 'Error'));
+    } finally {
+      setSavingKasbonPelunasan(false);
     }
-    loadData();
   };
 
-  // Edit & Delete Handlers for Single Transaction in Detail Modal
   const handleOpenEditTx = (tx: KasTransaksi) => {
     setEditingTx(tx);
     setEditForm({
-      tanggal: tx.tanggal,
-      tipe: tx.tipe,
-      kategori: tx.kategori,
-      keterangan: tx.keterangan,
       nominal: tx.nominal,
-      potongan_kasbon: tx.potongan_kasbon || 0,
-      jenis_pembayaran: tx.jenis_pembayaran || 'tunai',
-      rekening_id: tx.rekening_id || '',
-      pic_nama: tx.pic_nama,
-      pic_tipe: tx.pic_tipe,
-      staff_id: tx.staff_id || '',
+      tanggal: tx.tanggal,
+      keterangan: tx.keterangan,
+      jenis_pembayaran: tx.jenis_pembayaran,
+      rekening_id: tx.rekening_id,
     });
   };
 
@@ -233,7 +316,7 @@ export default function PiutangPage() {
     if (res.success) {
       setEditingTx(null);
       const updatedKsbList = await getStaffKasbonSummary();
-      setStaffKasbonList(updatedKsbList);
+      setAllStaffKasbonList(updatedKsbList);
       if (selectedStaffForDetail) {
         const updatedStaff = updatedKsbList.find((s) => s.id === selectedStaffForDetail.id);
         if (updatedStaff) {
@@ -255,7 +338,7 @@ export default function PiutangPage() {
     setDeletingTx(null);
 
     const updatedKsbList = await getStaffKasbonSummary();
-    setStaffKasbonList(updatedKsbList);
+    setAllStaffKasbonList(updatedKsbList);
     if (selectedStaffForDetail) {
       const updatedStaff = updatedKsbList.find((s) => s.id === selectedStaffForDetail.id);
       if (updatedStaff) {
@@ -268,22 +351,28 @@ export default function PiutangPage() {
   };
 
   // Metrics
-  let totalPiutangSiswa = 0;
-  siswaList.forEach((s) => {
-    if (s.status_pembayaran_kode === 'dp') {
-      totalPiutangSiswa += s.harga_final - (s.dp_nominal || 0);
-    } else {
-      totalPiutangSiswa += s.harga_final;
-    }
-  });
+  const totalPiutangSiswa = React.useMemo(() => {
+    return filteredSiswaList.reduce((sum, s) => {
+      if (s.status_pembayaran_kode === 'dp') {
+        return sum + (s.harga_final - (s.dp_nominal || 0));
+      } else if (s.status_pembayaran_kode === 'belum_bayar') {
+        return sum + s.harga_final;
+      }
+      return sum;
+    }, 0);
+  }, [filteredSiswaList]);
 
-  const totalKasbonStaff = staffKasbonList.reduce((sum, s) => sum + (s.sisa_kasbon || 0), 0);
+  const totalKasbonStaff = React.useMemo(() => {
+    return filteredStaffKasbonList.reduce((sum, s) => sum + (s.sisa_kasbon || 0), 0);
+  }, [filteredStaffKasbonList]);
+
   const totalSeluruhPiutang = totalPiutangSiswa + totalKasbonStaff;
-  const staffBerpiutangCount = staffKasbonList.filter((s) => s.sisa_kasbon > 0).length;
+  const staffBerpiutangCount = filteredStaffKasbonList.filter((s) => s.sisa_kasbon > 0).length;
 
   const exportColumns: ExportColumn[] = [
     { header: 'Kode Siswa', key: 'kode_siswa', width: 15 },
     { header: 'Nama Siswa', key: 'nama', width: 25 },
+    { header: 'Tanggal Daftar', key: 'tanggal_booking', width: 15 },
     { header: 'No. WhatsApp', key: 'no_whatsapp', width: 18 },
     { header: 'Total Harga', key: 'harga_final', width: 18, isCurrency: true },
     { header: 'Status Pembayaran', key: 'status_pembayaran_kode', width: 18 },
@@ -312,6 +401,16 @@ export default function PiutangPage() {
       ),
     },
     {
+      accessorKey: 'tanggal_booking',
+      header: 'Tanggal Daftar',
+      sortingFn: 'text',
+      cell: ({ row }) => (
+        <span className="tabular-num text-xs text-[var(--text-secondary)]">
+          {formatDateIndo(row.original.tanggal_booking || '')}
+        </span>
+      ),
+    },
+    {
       id: 'paket',
       header: 'Paket Kursus',
       accessorFn: (row) => row.paket?.nama_paket || 'Khusus',
@@ -324,13 +423,14 @@ export default function PiutangPage() {
       sortingFn: 'text',
       cell: ({ row }) => {
         const isDp = row.original.status_pembayaran_kode === 'dp';
+        const isLunas = row.original.status_pembayaran_kode === 'lunas';
         return (
           <span
             className={`px-2.5 py-1 text-xs font-bold rounded-md text-white inline-block ${
-              isDp ? 'bg-amber-600' : 'bg-rose-600'
+              isLunas ? 'bg-emerald-600' : isDp ? 'bg-amber-600' : 'bg-rose-600'
             }`}
           >
-            {isDp ? 'DP (Uang Muka)' : 'Belum Bayar'}
+            {isLunas ? 'Lunas' : isDp ? 'DP (Uang Muka)' : 'Belum Bayar'}
           </span>
         );
       },
@@ -344,25 +444,35 @@ export default function PiutangPage() {
     {
       id: 'dp_nominal',
       header: 'Sudah Dibayar',
-      accessorFn: (row) => row.dp_nominal || 0,
+      accessorFn: (row) => row.status_pembayaran_kode === 'lunas' ? row.harga_final : (row.dp_nominal || 0),
       sortingFn: 'basic',
-      cell: ({ row }) =>
-        row.original.dp_nominal ? formatRupiah(row.original.dp_nominal) : formatRupiah(0),
+      cell: ({ row }) => {
+        const paid = row.original.status_pembayaran_kode === 'lunas' ? row.original.harga_final : (row.original.dp_nominal || 0);
+        return formatRupiah(paid);
+      },
     },
     {
       id: 'sisa_piutang',
       header: 'Sisa Piutang',
       accessorFn: (row) => {
-        return row.status_pembayaran_kode === 'dp'
+        return row.status_pembayaran_kode === 'lunas'
+          ? 0
+          : row.status_pembayaran_kode === 'dp'
           ? row.harga_final - (row.dp_nominal || 0)
           : row.harga_final;
       },
       sortingFn: 'basic',
       cell: ({ row }) => {
-        const sisa = row.original.status_pembayaran_kode === 'dp'
+        const sisa = row.original.status_pembayaran_kode === 'lunas'
+          ? 0
+          : row.original.status_pembayaran_kode === 'dp'
           ? row.original.harga_final - (row.original.dp_nominal || 0)
           : row.original.harga_final;
-        return <span className="font-bold text-xs text-rose-700">{formatRupiah(sisa)}</span>;
+        return (
+          <span className={`font-bold text-xs ${sisa > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+            {formatRupiah(sisa)}
+          </span>
+        );
       },
     },
     {
@@ -370,7 +480,10 @@ export default function PiutangPage() {
       header: 'Aksi',
       enableSorting: false,
       cell: ({ row }) => {
-        const sisa = row.original.status_pembayaran_kode === 'dp'
+        const isLunas = row.original.status_pembayaran_kode === 'lunas';
+        const sisa = isLunas
+          ? 0
+          : row.original.status_pembayaran_kode === 'dp'
           ? row.original.harga_final - (row.original.dp_nominal || 0)
           : row.original.harga_final;
 
@@ -380,23 +493,27 @@ export default function PiutangPage() {
 
         return (
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleOpenPelunasan(row.original)}
-              className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold flex items-center gap-1"
-              title="Catat Pelunasan"
-            >
-              <CreditCard className="w-3.5 h-3.5" />
-              <span>Pelunasan</span>
-            </button>
-            <a
-              href={`https://wa.me/${row.original.no_whatsapp?.replace(/^0/, '62')}?text=${waMessage}`}
-              target="_blank"
-              rel="noreferrer"
-              className="p-1.5 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded"
-              title="Kirim Pesan WA Penagihan"
-            >
-              <MessageSquare className="w-4 h-4" />
-            </a>
+            {!isLunas && (
+              <button
+                onClick={() => handleOpenPelunasan(row.original)}
+                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold flex items-center gap-1 shadow-2xs"
+                title="Catat Pelunasan"
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Pelunasan</span>
+              </button>
+            )}
+            {!isLunas && (
+              <a
+                href={`https://wa.me/${row.original.no_whatsapp?.replace(/^0/, '62')}?text=${waMessage}`}
+                target="_blank"
+                rel="noreferrer"
+                className="p-1.5 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded"
+                title="Kirim Pesan WA Penagihan"
+              >
+                <MessageSquare className="w-4 h-4" />
+              </a>
+            )}
           </div>
         );
       },
@@ -454,6 +571,7 @@ export default function PiutangPage() {
       id: 'status',
       header: 'Status Kasbon',
       accessorFn: (row) => (row.sisa_kasbon > 0 ? 'Berjalan' : 'Lunas'),
+      sortingFn: 'text',
       cell: ({ row }) => {
         const isLunas = row.original.sisa_kasbon <= 0;
         return (
@@ -501,7 +619,7 @@ export default function PiutangPage() {
 
   return (
     <PinGateDialog>
-      <div className="space-y-6">
+      <div className="space-y-6 pb-8">
         <PageHeader
           title="Manajemen Piutang"
           description="Daftar piutang tagihan siswa kursus dan piutang kasbon karyawan / instruktur"
@@ -510,7 +628,7 @@ export default function PiutangPage() {
             <div className="flex items-center gap-3">
               {activeTab === 'siswa' && (
                 <ExportButton
-                  data={siswaList}
+                  data={filteredSiswaList}
                   columns={exportColumns}
                   filename="amanahdrive_piutang_siswa"
                   title="Laporan Piutang Siswa Amanah Drive"
@@ -518,7 +636,7 @@ export default function PiutangPage() {
               )}
               <Link
                 href="/kas"
-                className="px-3 py-1.5 border border-[var(--border)] rounded-md text-xs font-medium flex items-center gap-1"
+                className="px-3.5 py-1.5 border border-[var(--border)] rounded-full text-xs font-semibold flex items-center gap-1.5 hover:bg-[var(--bg-subtle)] transition-all shadow-xs hover:-translate-y-0.5"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Kembali ke Kas</span>
@@ -527,18 +645,137 @@ export default function PiutangPage() {
           }
         />
 
-        {/* Metrics Cards */}
+        {/* Filter Bar Periode (Standar Analitik) */}
+        <div className="card-container p-4 space-y-3 border border-[var(--border)]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-[var(--brand-primary)]" />
+                <span>Filter Periode:</span>
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-[var(--bg-subtle)] border border-[var(--border)] text-[11px] font-mono font-bold text-[var(--brand-primary)]">
+                {periodBounds.label}
+              </span>
+            </div>
+
+            {/* Quick Period Buttons */}
+            <div className="flex items-center p-0.5 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border)] text-xs font-semibold flex-wrap">
+              {(
+                [
+                  { key: 'this_month', label: 'Bulan Ini' },
+                  { key: 'last_month', label: 'Bulan Lalu' },
+                  { key: 'this_year', label: 'Tahun Ini' },
+                  { key: 'all', label: 'Semua' },
+                  { key: 'custom', label: 'Kustom' },
+                ] as const
+              ).map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setPeriod(p.key)}
+                  className={`px-3 py-1 rounded-md transition-all text-xs ${
+                    period === p.key
+                      ? 'bg-[var(--brand-primary)] text-white shadow-xs font-bold'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Custom Date Range Bar with 6 Months Limiter */}
+          {period === 'custom' && (
+            <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] space-y-2 animate-fadeIn">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <DatePickerWIB
+                  label="Tanggal Awal"
+                  value={customStart}
+                  onChange={(val) => {
+                    setCustomStart(val);
+                    if (val && customEnd) {
+                      const maxEnd = addDaysToDateStr(val, 180);
+                      if (customEnd < val) setCustomEnd(val);
+                      else if (customEnd > maxEnd) setCustomEnd(maxEnd);
+                    }
+                  }}
+                />
+                <DatePickerWIB
+                  label="Tanggal Akhir (Maksimal 6 Bulan dari Awal)"
+                  value={customEnd}
+                  onChange={(val) => {
+                    if (customStart && val) {
+                      const maxEnd = addDaysToDateStr(customStart, 180);
+                      if (val > maxEnd) {
+                        setCustomEnd(maxEnd);
+                      } else if (val < customStart) {
+                        setCustomEnd(customStart);
+                      } else {
+                        setCustomEnd(val);
+                      }
+                    } else {
+                      setCustomEnd(val);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Search & Status Filter Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <div className="sm:col-span-2 relative">
+              <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder={activeTab === 'siswa' ? 'Cari nama siswa, kode, no WhatsApp, paket...' : 'Cari nama karyawan / instruktur...'}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] w-full focus:outline-none focus:border-[var(--brand-primary)]"
+              />
+            </div>
+
+            <div>
+              {activeTab === 'siswa' ? (
+                <select
+                  value={statusFilterSiswa}
+                  onChange={(e) => setStatusFilterSiswa(e.target.value as any)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-primary)]"
+                >
+                  <option value="belum_lunas">Semua Piutang Siswa (DP & Belum Bayar)</option>
+                  <option value="dp">Hanya Status DP (Uang Muka)</option>
+                  <option value="belum_bayar">Hanya Status Belum Bayar</option>
+                  <option value="lunas">Hanya Status Lunas</option>
+                  <option value="all">Semua Status (Termasuk Lunas)</option>
+                </select>
+              ) : (
+                <select
+                  value={statusFilterKasbon}
+                  onChange={(e) => setStatusFilterKasbon(e.target.value as any)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-primary)]"
+                >
+                  <option value="berjalan">Kasbon Berjalan (Sisa &gt; 0)</option>
+                  <option value="lunas">Kasbon Lunas (Sisa 0)</option>
+                  <option value="all">Semua Status Kasbon</option>
+                </select>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Dynamic Metrics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard
             label="Total Seluruh Piutang Beredar"
             value={formatRupiah(totalSeluruhPiutang)}
-            description="Akumulasi tagihan siswa & kasbon staf"
+            description={`Akumulasi tagihan siswa & kasbon (${periodBounds.label})`}
             icon={<Wallet className="w-5 h-5 text-amber-600" />}
           />
           <StatCard
             label="Piutang Tagihan Siswa"
             value={formatRupiah(totalPiutangSiswa)}
-            description={`${siswaList.length} siswa status DP / Belum Bayar`}
+            description={`${filteredSiswaList.length} siswa sesuai filter aktif`}
             icon={<Users className="w-5 h-5 text-blue-600" />}
             onClick={() => setActiveTab('siswa')}
             className={`cursor-pointer transition-all ${activeTab === 'siswa' ? 'ring-2 ring-[var(--brand-primary)]' : ''}`}
@@ -565,7 +802,7 @@ export default function PiutangPage() {
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Piutang Tagihan Siswa ({siswaList.length})</span>
+            <span>Piutang Tagihan Siswa ({filteredSiswaList.length})</span>
           </button>
           <button
             type="button"
@@ -577,18 +814,18 @@ export default function PiutangPage() {
             }`}
           >
             <Banknote className="w-4 h-4" />
-            <span>Piutang Kasbon Karyawan & Instruktur ({staffKasbonList.length})</span>
+            <span>Piutang Kasbon Karyawan & Instruktur ({filteredStaffKasbonList.length})</span>
           </button>
         </div>
 
-        {/* Table */}
+        {/* Table with Enterprise Pagination & Sorting */}
         <div className="card-container">
           {loading ? (
             <div className="h-64 animate-pulse bg-black/5 dark:bg-white/5 rounded-md" />
           ) : activeTab === 'siswa' ? (
-            <DataTable columns={columns} data={siswaList} searchKey="nama" />
+            <DataTable columns={columns} data={filteredSiswaList} initialPageSize={10} />
           ) : (
-            <DataTable columns={kasbonColumns} data={staffKasbonList} searchKey="nama" />
+            <DataTable columns={kasbonColumns} data={filteredStaffKasbonList} initialPageSize={10} />
           )}
         </div>
 

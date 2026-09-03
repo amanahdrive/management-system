@@ -18,7 +18,7 @@ import {
   HutangPembayaranDetail,
 } from '@/lib/actions/kas';
 import { formatRupiah } from '@/lib/utils/currency';
-import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
+import { getTodayDateString, formatDateIndo, getJakartaDateParts, addDaysToDateStr } from '@/lib/utils/date';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
@@ -32,14 +32,28 @@ import {
   History,
   FileText,
   CheckCircle2,
+  Calendar,
+  Search,
+  Filter,
 } from 'lucide-react';
 import Link from 'next/link';
+
+type PeriodOption = 'this_month' | 'last_month' | 'this_year' | 'all' | 'custom';
 
 export default function HutangPage() {
   const [hutangList, setHutangList] = React.useState<Hutang[]>([]);
   const [pembayaranList, setPembayaranList] = React.useState<HutangPembayaranDetail[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<'hutang' | 'cicilan'>('hutang');
+
+  // Period Filter State
+  const [period, setPeriod] = React.useState<PeriodOption>('all');
+  const [customStart, setCustomStart] = React.useState<string>('');
+  const [customEnd, setCustomEnd] = React.useState<string>('');
+
+  // Status & Search Filter States
+  const [statusFilterHutang, setStatusFilterHutang] = React.useState<'all' | 'berjalan' | 'lunas'>('all');
+  const [searchQuery, setSearchQuery] = React.useState<string>('');
 
   // Modals for Hutang
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
@@ -95,18 +109,102 @@ export default function HutangPage() {
     loadData();
   }, []);
 
+  // Compute Period Bounds
+  const periodBounds = React.useMemo(() => {
+    const todayStr = getTodayDateString();
+    const parts = getJakartaDateParts(todayStr);
+    const curYear = parts?.year ?? new Date().getFullYear();
+    const curMonth = parts?.month ?? (new Date().getMonth() + 1);
+
+    if (period === 'this_month') {
+      const start = `${curYear}-${String(curMonth).padStart(2, '0')}-01`;
+      const lastDay = new Date(curYear, curMonth, 0).getDate();
+      const end = `${curYear}-${String(curMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      return { start, end, label: `Bulan Ini (${String(curMonth).padStart(2, '0')}/${curYear})` };
+    }
+    if (period === 'last_month') {
+      const lastMonthYear = curMonth === 1 ? curYear - 1 : curYear;
+      const lastMonthNum = curMonth === 1 ? 12 : curMonth - 1;
+      const start = `${lastMonthYear}-${String(lastMonthNum).padStart(2, '0')}-01`;
+      const lastDay = new Date(lastMonthYear, lastMonthNum, 0).getDate();
+      const end = `${lastMonthYear}-${String(lastMonthNum).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      return { start, end, label: `Bulan Lalu (${String(lastMonthNum).padStart(2, '0')}/${lastMonthYear})` };
+    }
+    if (period === 'this_year') {
+      const start = `${curYear}-01-01`;
+      const end = `${curYear}-12-31`;
+      return { start, end, label: `Tahun ${curYear}` };
+    }
+    if (period === 'custom' && customStart && customEnd) {
+      const maxEnd = addDaysToDateStr(customStart, 180);
+      const clampedEnd = customEnd > maxEnd ? maxEnd : customEnd < customStart ? customStart : customEnd;
+      return { start: customStart, end: clampedEnd, label: `${formatDateIndo(customStart)} – ${formatDateIndo(clampedEnd)}` };
+    }
+    return { start: null, end: null, label: 'Semua Periode' };
+  }, [period, customStart, customEnd]);
+
+  // Filtered Hutang List
+  const filteredHutangList = React.useMemo(() => {
+    return hutangList.filter((h) => {
+      // Period filter
+      if (periodBounds.start && periodBounds.end) {
+        const tgl = (h.tanggal_mulai || '').slice(0, 10);
+        if (tgl && (tgl < periodBounds.start || tgl > periodBounds.end)) {
+          return false;
+        }
+      }
+
+      // Status filter
+      if (statusFilterHutang === 'berjalan' && h.status !== 'berjalan') return false;
+      if (statusFilterHutang === 'lunas' && h.status !== 'lunas') return false;
+
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchNama = h.nama_hutang?.toLowerCase().includes(q);
+        const matchJenis = h.jenis?.toLowerCase().includes(q);
+        if (!matchNama && !matchJenis) return false;
+      }
+
+      return true;
+    });
+  }, [hutangList, periodBounds, statusFilterHutang, searchQuery]);
+
+  // Filtered Pembayaran Cicilan List
+  const filteredPembayaranList = React.useMemo(() => {
+    return pembayaranList.filter((p) => {
+      // Period filter
+      if (periodBounds.start && periodBounds.end) {
+        const tgl = (p.tanggal_bayar || '').slice(0, 10);
+        if (tgl && (tgl < periodBounds.start || tgl > periodBounds.end)) {
+          return false;
+        }
+      }
+
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchNama = p.nama_hutang?.toLowerCase().includes(q);
+        const matchPic = p.pic_nama?.toLowerCase().includes(q);
+        if (!matchNama && !matchPic) return false;
+      }
+
+      return true;
+    });
+  }, [pembayaranList, periodBounds, searchQuery]);
+
   // Summary Metrics
   const totalHutangKeseluruhan = React.useMemo(
-    () => hutangList.reduce((sum, h) => sum + (Number(h.total_hutang) || 0), 0),
-    [hutangList]
+    () => filteredHutangList.reduce((sum, h) => sum + (Number(h.total_hutang) || 0), 0),
+    [filteredHutangList]
   );
   const totalSisaHutang = React.useMemo(
-    () => hutangList.filter((h) => h.status === 'berjalan').reduce((sum, h) => sum + (Number(h.sisa_hutang) || 0), 0),
-    [hutangList]
+    () => filteredHutangList.filter((h) => h.status === 'berjalan').reduce((sum, h) => sum + (Number(h.sisa_hutang) || 0), 0),
+    [filteredHutangList]
   );
   const totalCicilanTerbayar = React.useMemo(
-    () => pembayaranList.reduce((sum, p) => sum + (Number(p.nominal) || 0), 0),
-    [pembayaranList]
+    () => filteredPembayaranList.reduce((sum, p) => sum + (Number(p.nominal) || 0), 0),
+    [filteredPembayaranList]
   );
 
   // Submit Handlers - Hutang
@@ -389,13 +487,118 @@ export default function HutangPage() {
           }
         />
 
+        {/* Filter Bar Periode (Standar Analitik) */}
+        <div className="card-container p-4 space-y-3 border border-[var(--border)]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-[var(--brand-primary)]" />
+                <span>Filter Periode:</span>
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-[var(--bg-subtle)] border border-[var(--border)] text-[11px] font-mono font-bold text-[var(--brand-primary)]">
+                {periodBounds.label}
+              </span>
+            </div>
+
+            {/* Quick Period Buttons */}
+            <div className="flex items-center p-0.5 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border)] text-xs font-semibold flex-wrap">
+              {(
+                [
+                  { key: 'this_month', label: 'Bulan Ini' },
+                  { key: 'last_month', label: 'Bulan Lalu' },
+                  { key: 'this_year', label: 'Tahun Ini' },
+                  { key: 'all', label: 'Semua' },
+                  { key: 'custom', label: 'Kustom' },
+                ] as const
+              ).map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setPeriod(p.key)}
+                  className={`px-3 py-1 rounded-md transition-all text-xs ${
+                    period === p.key
+                      ? 'bg-[var(--brand-primary)] text-white shadow-xs font-bold'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Custom Date Range Bar with 6 Months Limiter */}
+          {period === 'custom' && (
+            <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] space-y-2 animate-fadeIn">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <DatePickerWIB
+                  label="Tanggal Awal"
+                  value={customStart}
+                  onChange={(val) => {
+                    setCustomStart(val);
+                    if (val && customEnd) {
+                      const maxEnd = addDaysToDateStr(val, 180);
+                      if (customEnd < val) setCustomEnd(val);
+                      else if (customEnd > maxEnd) setCustomEnd(maxEnd);
+                    }
+                  }}
+                />
+                <DatePickerWIB
+                  label="Tanggal Akhir (Maksimal 6 Bulan dari Awal)"
+                  value={customEnd}
+                  onChange={(val) => {
+                    if (customStart && val) {
+                      const maxEnd = addDaysToDateStr(customStart, 180);
+                      if (val > maxEnd) {
+                        setCustomEnd(maxEnd);
+                      } else if (val < customStart) {
+                        setCustomEnd(customStart);
+                      } else {
+                        setCustomEnd(val);
+                      }
+                    } else {
+                      setCustomEnd(val);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Search & Status Filter Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <div className="sm:col-span-2 relative">
+              <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder={activeTab === 'hutang' ? 'Cari nama hutang, jenis pinjaman...' : 'Cari riwayat cicilan, PIC, nama hutang...'}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] w-full focus:outline-none focus:border-[var(--brand-primary)]"
+              />
+            </div>
+
+            <div>
+              <select
+                value={statusFilterHutang}
+                onChange={(e) => setStatusFilterHutang(e.target.value as any)}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-primary)]"
+              >
+                <option value="all">Semua Status Hutang</option>
+                <option value="berjalan">Hutang Berjalan (Belum Lunas)</option>
+                <option value="lunas">Hutang Lunas</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         {/* Overview Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard
             label="Total Hutang Tercatat"
             value={formatRupiah(totalHutangKeseluruhan)}
             icon={<FileText className="w-5 h-5 text-rose-600" />}
-            description={`${hutangList.length} hutang / cicilan terdaftar`}
+            description={`${filteredHutangList.length} hutang sesuai filter aktif`}
           />
           <StatCard
             label="Sisa Hutang Berjalan"
@@ -407,7 +610,7 @@ export default function HutangPage() {
             label="Total Cicilan Terbayar"
             value={formatRupiah(totalCicilanTerbayar)}
             icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
-            description={`${pembayaranList.length} kali pembayaran cicilan`}
+            description={`${filteredPembayaranList.length} kali pembayaran cicilan`}
           />
         </div>
 
@@ -423,7 +626,7 @@ export default function HutangPage() {
             }`}
           >
             <CreditCard className="w-4 h-4" />
-            <span>Daftar Hutang & Cicilan ({hutangList.length})</span>
+            <span>Daftar Hutang & Cicilan ({filteredHutangList.length})</span>
           </button>
 
           <button
@@ -436,7 +639,7 @@ export default function HutangPage() {
             }`}
           >
             <History className="w-4 h-4" />
-            <span>Riwayat Cicilan Terbayar ({pembayaranList.length})</span>
+            <span>Riwayat Cicilan Terbayar ({filteredPembayaranList.length})</span>
           </button>
         </div>
 
@@ -446,7 +649,7 @@ export default function HutangPage() {
             {loading ? (
               <div className="h-64 animate-pulse bg-black/5 dark:bg-white/5 rounded-md" />
             ) : (
-              <DataTable columns={hutangColumns} data={hutangList} searchKey="nama_hutang" />
+              <DataTable columns={hutangColumns} data={filteredHutangList} initialPageSize={10} />
             )}
           </div>
         )}
@@ -457,7 +660,7 @@ export default function HutangPage() {
             {loading ? (
               <div className="h-64 animate-pulse bg-black/5 dark:bg-white/5 rounded-md" />
             ) : (
-              <DataTable columns={cicilanColumns} data={pembayaranList} searchKey="nama_hutang" />
+              <DataTable columns={cicilanColumns} data={filteredPembayaranList} initialPageSize={10} />
             )}
           </div>
         )}
