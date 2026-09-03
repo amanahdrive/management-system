@@ -17,7 +17,7 @@ import { CertificateTemplate, IssuedCertificate } from '@/types/certificate';
 import { formatDateIndo, getTodayDateString, getJakartaDateParts, addDaysToDateStr } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { StatCard } from '@/components/shared/StatCard';
-import { CertificatePrecisionModal } from '@/components/sertifikat/CertificatePrecisionModal';
+import { CertificateSvgModal } from '@/components/sertifikat/CertificateSvgModal';
 import { CertificateTemplateEditor } from '@/components/sertifikat/CertificateTemplateEditor';
 import { IssuedCertificateHistoryTable } from '@/components/sertifikat/IssuedCertificateHistoryTable';
 import {
@@ -511,9 +511,9 @@ export default function SertifikatPage() {
         />
       )}
 
-      {/* High-Precision PDF Certificate Modal */}
+      {/* SVG-based Certificate Modal */}
       {selectedForCertificate && (
-        <CertificatePrecisionModal
+        <CertificateSvgModal
           item={selectedForCertificate}
           onClose={() => setSelectedForCertificate(null)}
           staffList={staffList}
