@@ -9,10 +9,17 @@ import {
   getSiswaSertifikatList,
 } from '@/lib/actions/sertifikat';
 import { getStaffList } from '@/lib/actions/master-data';
+import {
+  getActiveCertificateTemplate,
+  getIssuedCertificatesList,
+} from '@/lib/actions/certificate-template';
+import { CertificateTemplate, IssuedCertificate } from '@/types/certificate';
 import { formatDateIndo, getTodayDateString, getJakartaDateParts, addDaysToDateStr } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { StatCard } from '@/components/shared/StatCard';
-import { CertificateModal } from '@/components/sertifikat/CertificateModal';
+import { CertificatePrecisionModal } from '@/components/sertifikat/CertificatePrecisionModal';
+import { CertificateTemplateEditor } from '@/components/sertifikat/CertificateTemplateEditor';
+import { IssuedCertificateHistoryTable } from '@/components/sertifikat/IssuedCertificateHistoryTable';
 import {
   Award,
   Calendar,
@@ -25,14 +32,21 @@ import {
   MessageCircle,
   IdCard,
   ExternalLink,
+  History,
+  Sliders,
+  Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
 
 type PeriodOption = 'this_month' | 'last_month' | 'this_year' | 'all' | 'custom';
+type TabOption = 'generate' | 'history' | 'template';
 
 export default function SertifikatPage() {
+  const [activeTab, setActiveTab] = React.useState<TabOption>('generate');
   const [allStudents, setAllStudents] = React.useState<SiswaSertifikatItem[]>([]);
   const [staffList, setStaffList] = React.useState<{ id: string; nama: string }[]>([]);
+  const [activeTemplate, setActiveTemplate] = React.useState<CertificateTemplate | null>(null);
+  const [issuedHistory, setIssuedHistory] = React.useState<IssuedCertificate[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   // Filter States
@@ -48,12 +62,16 @@ export default function SertifikatPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [list, staff] = await Promise.all([
+      const [list, staff, template, history] = await Promise.all([
         getSiswaSertifikatList(),
         getStaffList(),
+        getActiveCertificateTemplate(),
+        getIssuedCertificatesList(),
       ]);
       setAllStudents(list);
       setStaffList(staff.map((s) => ({ id: s.id, nama: s.nama })));
+      setActiveTemplate(template);
+      setIssuedHistory(history);
     } catch (err) {
       console.error('Error loading certificate data:', err);
     } finally {
@@ -131,7 +149,7 @@ export default function SertifikatPage() {
   // Metrics
   const totalLulus = React.useMemo(() => allStudents.filter((s) => s.is_lulus).length, [allStudents]);
   const totalSiapCetak = React.useMemo(() => filteredStudents.filter((s) => s.is_lulus).length, [filteredStudents]);
-  const totalBerjalan = React.useMemo(() => allStudents.filter((s) => !s.is_lulus).length, [allStudents]);
+  const totalTerbit = React.useMemo(() => issuedHistory.length, [issuedHistory]);
 
   // Table Columns
   const columns: ColumnDef<SiswaSertifikatItem>[] = [
@@ -266,7 +284,7 @@ export default function SertifikatPage() {
               type="button"
               onClick={() => setSelectedForCertificate(student)}
               className="px-3 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-xs hover:shadow"
-              title="Cetak dan Unduh Sertifikat (PDF / JPG)"
+              title="Cetak dan Unduh Sertifikat Presisi PDF"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Cetak Sertifikat</span>
@@ -289,7 +307,7 @@ export default function SertifikatPage() {
     <div className="space-y-6 pb-12">
       <PageHeader
         title="Sertifikat Siswa"
-        description="Penerbitan dan pencetakan sertifikat kelulusan kursus mengemudi mobil Amanah Drive format A4 Landscape"
+        description="Penerbitan dan pencetakan sertifikat kelulusan berbasis Template Canva Resmi Amanah Drive (A4 Landscape)"
         breadcrumbs={[{ label: 'Siswa', href: '/siswa' }, { label: 'Sertifikat Siswa' }]}
       />
 
@@ -304,136 +322,202 @@ export default function SertifikatPage() {
         <StatCard
           label="Siap Cetak Sertifikat (Filter Aktif)"
           value={`${totalSiapCetak} Siswa`}
-          description={`Sesuai filter periode: ${periodBounds.label}`}
+          description={`Sesuai filter: ${periodBounds.label}`}
           icon={<FileCheck2 className="w-5 h-5 text-blue-600" />}
         />
         <StatCard
-          label="Siswa Sesi Berjalan"
-          value={`${totalBerjalan} Siswa`}
-          description="Masih dalam tahapan sesi latihan"
-          icon={<Users className="w-5 h-5 text-amber-600" />}
+          label="Total Sertifikat Diterbitkan"
+          value={`${totalTerbit} Sertifikat`}
+          description="Tercatat dalam log sistem"
+          icon={<History className="w-5 h-5 text-amber-600" />}
         />
       </div>
 
-      {/* Filter Bar Periode (Standar Enterprise Analitik) */}
-      <div className="card-container p-4 space-y-3 border border-[var(--border)]">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-[var(--brand-primary)]" />
-              <span>Filter Periode Selesai:</span>
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-[var(--bg-subtle)] border border-[var(--border)] text-[11px] font-mono font-bold text-[var(--brand-primary)]">
-              {periodBounds.label}
-            </span>
-          </div>
+      {/* Tab Navigation */}
+      <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2 text-xs font-bold">
+        <button
+          type="button"
+          onClick={() => setActiveTab('generate')}
+          className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+            activeTab === 'generate'
+              ? 'bg-[var(--brand-primary)] text-white shadow-xs'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]'
+          }`}
+        >
+          <Printer className="w-4 h-4" />
+          <span>Daftar Siswa &amp; Cetak Sertifikat</span>
+        </button>
 
-          {/* Quick Period Buttons */}
-          <div className="flex items-center p-0.5 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border)] text-xs font-semibold flex-wrap">
-            {(
-              [
-                { key: 'this_month', label: 'Bulan Ini' },
-                { key: 'last_month', label: 'Bulan Lalu' },
-                { key: 'this_year', label: 'Tahun Ini' },
-                { key: 'all', label: 'Semua' },
-                { key: 'custom', label: 'Kustom' },
-              ] as const
-            ).map((p) => (
-              <button
-                key={p.key}
-                type="button"
-                onClick={() => setPeriod(p.key)}
-                className={`px-3 py-1 rounded-md transition-all text-xs ${
-                  period === p.key
-                    ? 'bg-[var(--brand-primary)] text-white shadow-xs font-bold'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => setActiveTab('history')}
+          className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+            activeTab === 'history'
+              ? 'bg-[var(--brand-primary)] text-white shadow-xs'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]'
+          }`}
+        >
+          <History className="w-4 h-4" />
+          <span>Riwayat Sertifikat Diterbitkan ({issuedHistory.length})</span>
+        </button>
 
-        {/* Custom Date Range Bar with 6 Months Limiter */}
-        {period === 'custom' && (
-          <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] space-y-2 animate-fadeIn">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <DatePickerWIB
-                label="Tanggal Awal"
-                value={customStart}
-                onChange={(val) => {
-                  setCustomStart(val);
-                  if (val && customEnd) {
-                    const maxEnd = addDaysToDateStr(val, 180);
-                    if (customEnd < val) setCustomEnd(val);
-                    else if (customEnd > maxEnd) setCustomEnd(maxEnd);
-                  }
-                }}
-              />
-              <DatePickerWIB
-                label="Tanggal Akhir (Maksimal 6 Bulan dari Awal)"
-                value={customEnd}
-                onChange={(val) => {
-                  if (customStart && val) {
-                    const maxEnd = addDaysToDateStr(customStart, 180);
-                    if (val > maxEnd) {
-                      setCustomEnd(maxEnd);
-                    } else if (val < customStart) {
-                      setCustomEnd(customStart);
-                    } else {
-                      setCustomEnd(val);
-                    }
-                  } else {
-                    setCustomEnd(val);
-                  }
-                }}
-              />
+        <button
+          type="button"
+          onClick={() => setActiveTab('template')}
+          className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+            activeTab === 'template'
+              ? 'bg-[var(--brand-primary)] text-white shadow-xs'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]'
+          }`}
+        >
+          <Sliders className="w-4 h-4" />
+          <span>Editor Template Sertifikat</span>
+        </button>
+      </div>
+
+      {/* TAB 1: GENERATE & CETAK */}
+      {activeTab === 'generate' && (
+        <div className="space-y-4">
+          {/* Filter Bar Periode */}
+          <div className="card-container p-4 space-y-3 border border-[var(--border)]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-[var(--brand-primary)]" />
+                  <span>Filter Periode Selesai:</span>
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-[var(--bg-subtle)] border border-[var(--border)] text-[11px] font-mono font-bold text-[var(--brand-primary)]">
+                  {periodBounds.label}
+                </span>
+              </div>
+
+              {/* Quick Period Buttons */}
+              <div className="flex items-center p-0.5 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border)] text-xs font-semibold flex-wrap">
+                {(
+                  [
+                    { key: 'this_month', label: 'Bulan Ini' },
+                    { key: 'last_month', label: 'Bulan Lalu' },
+                    { key: 'this_year', label: 'Tahun Ini' },
+                    { key: 'all', label: 'Semua' },
+                    { key: 'custom', label: 'Kustom' },
+                  ] as const
+                ).map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => setPeriod(p.key)}
+                    className={`px-3 py-1 rounded-md transition-all text-xs ${
+                      period === p.key
+                        ? 'bg-[var(--brand-primary)] text-white shadow-xs font-bold'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Date Range Bar with 6 Months Limiter */}
+            {period === 'custom' && (
+              <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] space-y-2 animate-fadeIn">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <DatePickerWIB
+                    label="Tanggal Awal"
+                    value={customStart}
+                    onChange={(val) => {
+                      setCustomStart(val);
+                      if (val && customEnd) {
+                        const maxEnd = addDaysToDateStr(val, 180);
+                        if (customEnd < val) setCustomEnd(val);
+                        else if (customEnd > maxEnd) setCustomEnd(maxEnd);
+                      }
+                    }}
+                  />
+                  <DatePickerWIB
+                    label="Tanggal Akhir (Maksimal 6 Bulan dari Awal)"
+                    value={customEnd}
+                    onChange={(val) => {
+                      if (customStart && val) {
+                        const maxEnd = addDaysToDateStr(customStart, 180);
+                        if (val > maxEnd) {
+                          setCustomEnd(maxEnd);
+                        } else if (val < customStart) {
+                          setCustomEnd(customStart);
+                        } else {
+                          setCustomEnd(val);
+                        }
+                      } else {
+                        setCustomEnd(val);
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Search & Status Filter Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div className="sm:col-span-2 relative">
+                <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Cari nama siswa, kode siswa, paket, atau nama instruktur..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 pr-4 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] w-full focus:outline-none focus:border-[var(--brand-primary)]"
+                />
+              </div>
+
+              <div>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-primary)]"
+                >
+                  <option value="lulus">Hanya Siswa Selesai Kursus / Lulus</option>
+                  <option value="all">Semua Siswa (Termasuk Sesi Berjalan)</option>
+                </select>
+              </div>
             </div>
           </div>
-        )}
 
-        {/* Search & Status Filter Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-          <div className="sm:col-span-2 relative">
-            <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Cari nama siswa, kode siswa, paket, atau nama instruktur..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] w-full focus:outline-none focus:border-[var(--brand-primary)]"
-            />
-          </div>
-
-          <div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-primary)]"
-            >
-              <option value="lulus">Hanya Siswa Selesai Kursus / Lulus</option>
-              <option value="all">Semua Siswa (Termasuk Sesi Berjalan)</option>
-            </select>
+          {/* Table with Enterprise Pagination & Sorting */}
+          <div className="card-container">
+            {loading ? (
+              <div className="h-64 animate-pulse bg-black/5 dark:bg-white/5 rounded-md" />
+            ) : (
+              <DataTable columns={columns} data={filteredStudents} initialPageSize={10} />
+            )}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Table with Enterprise Pagination & Sorting */}
-      <div className="card-container">
-        {loading ? (
-          <div className="h-64 animate-pulse bg-black/5 dark:bg-white/5 rounded-md" />
-        ) : (
-          <DataTable columns={columns} data={filteredStudents} initialPageSize={10} />
-        )}
-      </div>
+      {/* TAB 2: RIWAYAT TERBIT */}
+      {activeTab === 'history' && (
+        <IssuedCertificateHistoryTable
+          onPrintCertificate={(cert) => {
+            const matched = allStudents.find((s) => s.id === cert.student_id);
+            if (matched) setSelectedForCertificate(matched);
+          }}
+        />
+      )}
 
-      {/* Certificate Modal Dialog */}
+      {/* TAB 3: TEMPLATE EDITOR */}
+      {activeTab === 'template' && activeTemplate && (
+        <CertificateTemplateEditor
+          initialTemplate={activeTemplate}
+          onSaved={() => loadData()}
+        />
+      )}
+
+      {/* High-Precision PDF Certificate Modal */}
       {selectedForCertificate && (
-        <CertificateModal
+        <CertificatePrecisionModal
           item={selectedForCertificate}
           onClose={() => setSelectedForCertificate(null)}
           staffList={staffList}
+          onCertificateIssued={() => loadData()}
         />
       )}
     </div>
