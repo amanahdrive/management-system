@@ -326,6 +326,42 @@ export async function recordPelunasanKasbonDirect(
   }
 }
 
+export async function unlinkStaffKasbon(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const tx = await dbQuerySingle<{ id: string; nominal: number; potongan_kasbon: number }>(
+      'SELECT id, nominal, potongan_kasbon FROM kas_transaksi WHERE id = $1',
+      [id]
+    );
+    if (!tx) return { success: false, error: 'Transaksi tidak ditemukan' };
+
+    // If it is a purely non-kas internal adjustment (nominal === 0), delete the internal record
+    if (Number(tx.nominal) === 0) {
+      await dbQuery('DELETE FROM kas_transaksi WHERE id = $1', [id]);
+    } else {
+      // Physical/Bank cash transaction stays in cashbook & ledger, unlinking from staff piutang
+      await dbQuery(
+        'UPDATE kas_transaksi SET staff_id = NULL, potongan_kasbon = 0, updated_at = NOW() WHERE id = $1',
+        [id]
+      );
+    }
+
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('staff*');
+    cacheInvalidate('finance*');
+
+    revalidatePath('/kas');
+    revalidatePath('/kas/cashflow');
+    revalidatePath('/kas/piutang');
+    revalidatePath('/finance');
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error in unlinkStaffKasbon:', err);
+    return { success: false, error: err.message || 'Gagal melepas catatan piutang kasbon' };
+  }
+}
+
 export async function getKasTransaksiList(filters?: {
   startDate?: string;
   endDate?: string;
@@ -770,9 +806,9 @@ export async function deleteHutangPembayaran(id: string): Promise<{ success: boo
       }
     }
 
-    // Delete kas transaksi record
+    // Unlink kas transaksi record (keep physical cash transaction in ledger)
     if (old.kas_transaksi_id) {
-      await dbQuery('DELETE FROM kas_transaksi WHERE id = $1', [old.kas_transaksi_id]);
+      await dbQuery('UPDATE kas_transaksi SET hutang_id = NULL, updated_at = NOW() WHERE id = $1', [old.kas_transaksi_id]);
     }
 
     // Delete hutang pembayaran record

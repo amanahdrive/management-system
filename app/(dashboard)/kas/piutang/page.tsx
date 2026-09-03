@@ -13,7 +13,7 @@ import {
   getStaffKasbonHistory,
   recordPelunasanKasbonDirect,
   updateKasTransaksi,
-  deleteKasTransaksi,
+  unlinkStaffKasbon,
 } from '@/lib/actions/kas';
 import { getRekeningList } from '@/lib/actions/rekening';
 import { DEFAULT_REKENING_LIST, LABEL_REKENING_DEFAULT, formatKategoriLabel } from '@/lib/constants/finance';
@@ -251,7 +251,7 @@ export default function PiutangPage() {
   const handleDeleteTx = async () => {
     if (!deletingTx) return;
 
-    await deleteKasTransaksi(deletingTx.id);
+    await unlinkStaffKasbon(deletingTx.id);
     setDeletingTx(null);
 
     const updatedKsbList = await getStaffKasbonSummary();
@@ -1271,16 +1271,16 @@ export default function PiutangPage() {
           isOpen={!!deletingTx}
           onClose={() => setDeletingTx(null)}
           onConfirm={handleDeleteTx}
-          title="Hapus Transaksi Kasbon"
+          title="Lepas dari Piutang Kasbon"
           description={
             deletingTx
-              ? `Apakah Anda yakin ingin menghapus transaksi "${deletingTx.keterangan}" (${formatRupiah(
+              ? `Apakah Anda yakin ingin melepas catatan "${deletingTx.keterangan}" (${formatRupiah(
                   deletingTx.nominal > 0 ? deletingTx.nominal : deletingTx.potongan_kasbon || 0
-                )})? Data sisa kasbon staf akan otomatis disesuaikan ulang.`
+                )}) dari daftar piutang staf? Sisa kasbon staf akan otomatis disesuaikan, dan transaksi pada Buku Kas & Keuangan tetap tersimpan (hanya ditandai belum tertaut).`
               : ''
           }
           isDanger={true}
-          confirmText="Hapus Transaksi"
+          confirmText="Lepas dari Piutang"
           cancelText="Batal"
         />
       </div>

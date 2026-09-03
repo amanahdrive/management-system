@@ -1569,6 +1569,27 @@ export default function KasOverviewPage() {
                               </span>
                             </>
                           )}
+                          {(() => {
+                            const isKasbonCat = tx.kategori === 'kasbon' || tx.kategori === 'pengembalian_kasbon' || (tx.kategori === 'gaji' && (tx.potongan_kasbon || 0) > 0);
+                            const isHutangCat = tx.kategori === 'cicilan_hutang' || tx.kategori === 'pemasukan_hutang' || tx.kategori === 'bayar_hutang';
+                            const isSiswaCat = tx.kategori === 'dp_siswa' || tx.kategori === 'pelunasan_siswa';
+
+                            let warningText = '';
+                            if (isKasbonCat && !tx.staff_id) warningText = 'Tidak tercatat pada piutang';
+                            else if (isHutangCat && !tx.hutang_id) warningText = 'Tidak tercatat pada hutang';
+                            else if (isSiswaCat && !tx.siswa_id) warningText = 'Tidak tercatat pada tagihan siswa';
+
+                            if (!warningText) return null;
+                            return (
+                              <>
+                                <span>•</span>
+                                <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-semibold inline-flex items-center gap-1">
+                                  <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
+                                  <span>{warningText}</span>
+                                </span>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
