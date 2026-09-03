@@ -7,7 +7,14 @@ import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Siswa, RekeningBank, StaffKasbonSummary, KasTransaksi } from '@/types/database';
 import { getSiswaList, recordPelunasanDirect } from '@/lib/actions/siswa';
-import { addKasTransaksi, getStaffKasbonSummary, getStaffKasbonHistory, recordPelunasanKasbonDirect } from '@/lib/actions/kas';
+import {
+  addKasTransaksi,
+  getStaffKasbonSummary,
+  getStaffKasbonHistory,
+  recordPelunasanKasbonDirect,
+  updateKasTransaksi,
+  deleteKasTransaksi,
+} from '@/lib/actions/kas';
 import { getRekeningList } from '@/lib/actions/rekening';
 import { DEFAULT_REKENING_LIST, LABEL_REKENING_DEFAULT, formatKategoriLabel } from '@/lib/constants/finance';
 import { formatRupiah } from '@/lib/utils/currency';
@@ -16,6 +23,7 @@ import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { StatCard } from '@/components/shared/StatCard';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import {
   ArrowLeft,
   CreditCard,
@@ -35,6 +43,8 @@ import {
   FileText,
   Clock,
   User,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -57,6 +67,12 @@ export default function PiutangPage() {
   const [selectedStaffForDetail, setSelectedStaffForDetail] = React.useState<StaffKasbonSummary | null>(null);
   const [staffHistoryList, setStaffHistoryList] = React.useState<KasTransaksi[]>([]);
   const [loadingHistory, setLoadingHistory] = React.useState<boolean>(false);
+
+  // Edit & Delete Single Transaction State in Detail Modal
+  const [deletingTx, setDeletingTx] = React.useState<KasTransaksi | null>(null);
+  const [editingTx, setEditingTx] = React.useState<KasTransaksi | null>(null);
+  const [editForm, setEditForm] = React.useState<Partial<KasTransaksi>>({});
+  const [savingEdit, setSavingEdit] = React.useState<boolean>(false);
 
   // Modal Pelunasan Kasbon Staff State
   const [selectedStaffForPelunasan, setSelectedStaffForPelunasan] = React.useState<StaffKasbonSummary | null>(null);
@@ -181,6 +197,72 @@ export default function PiutangPage() {
     if (selectedStaffForDetail) {
       const updatedHist = await getStaffKasbonHistory(selectedStaffForDetail.id);
       setStaffHistoryList(updatedHist);
+      const updatedKsbList = await getStaffKasbonSummary();
+      const updatedStaff = updatedKsbList.find((s) => s.id === selectedStaffForDetail.id);
+      if (updatedStaff) setSelectedStaffForDetail(updatedStaff);
+    }
+    loadData();
+  };
+
+  // Edit & Delete Handlers for Single Transaction in Detail Modal
+  const handleOpenEditTx = (tx: KasTransaksi) => {
+    setEditingTx(tx);
+    setEditForm({
+      tanggal: tx.tanggal,
+      tipe: tx.tipe,
+      kategori: tx.kategori,
+      keterangan: tx.keterangan,
+      nominal: tx.nominal,
+      potongan_kasbon: tx.potongan_kasbon || 0,
+      jenis_pembayaran: tx.jenis_pembayaran || 'tunai',
+      rekening_id: tx.rekening_id || '',
+      pic_nama: tx.pic_nama,
+      pic_tipe: tx.pic_tipe,
+      staff_id: tx.staff_id || '',
+    });
+  };
+
+  const handleSaveEditTx = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTx) return;
+
+    setSavingEdit(true);
+    const res = await updateKasTransaksi(editingTx.id, editForm);
+    setSavingEdit(false);
+
+    if (res.success) {
+      setEditingTx(null);
+      const updatedKsbList = await getStaffKasbonSummary();
+      setStaffKasbonList(updatedKsbList);
+      if (selectedStaffForDetail) {
+        const updatedStaff = updatedKsbList.find((s) => s.id === selectedStaffForDetail.id);
+        if (updatedStaff) {
+          setSelectedStaffForDetail(updatedStaff);
+        }
+        const hist = await getStaffKasbonHistory(selectedStaffForDetail.id);
+        setStaffHistoryList(hist);
+      }
+      loadData();
+    } else {
+      alert('Gagal menyimpan perubahan: ' + res.error);
+    }
+  };
+
+  const handleDeleteTx = async () => {
+    if (!deletingTx) return;
+
+    await deleteKasTransaksi(deletingTx.id);
+    setDeletingTx(null);
+
+    const updatedKsbList = await getStaffKasbonSummary();
+    setStaffKasbonList(updatedKsbList);
+    if (selectedStaffForDetail) {
+      const updatedStaff = updatedKsbList.find((s) => s.id === selectedStaffForDetail.id);
+      if (updatedStaff) {
+        setSelectedStaffForDetail(updatedStaff);
+      }
+      const hist = await getStaffKasbonHistory(selectedStaffForDetail.id);
+      setStaffHistoryList(hist);
     }
     loadData();
   };
@@ -729,6 +811,7 @@ export default function PiutangPage() {
                           <th className="p-2.5">Uraian / Keterangan</th>
                           <th className="p-2.5 text-right">Nominal</th>
                           <th className="p-2.5 text-right">Metode</th>
+                          <th className="p-2.5 text-center w-16">Aksi</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[var(--border)] font-medium">
@@ -787,6 +870,24 @@ export default function PiutangPage() {
                               <td className="p-2.5 text-right whitespace-nowrap text-[11px] text-[var(--text-secondary)]">
                                 {tx.jenis_pembayaran === 'non_tunai' ? 'Transfer' : 'Tunai'}
                               </td>
+                              <td className="p-2.5 text-center whitespace-nowrap">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => handleOpenEditTx(tx)}
+                                    className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded transition-colors"
+                                    title="Edit Transaksi Ini"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDeletingTx(tx)}
+                                    className="p-1 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors"
+                                    title="Hapus Transaksi Ini"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
                             </tr>
                           );
                         })}
@@ -819,6 +920,182 @@ export default function PiutangPage() {
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Edit Transaksi Kasbon / Mutasi */}
+        {editingTx && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn">
+            <div className="card-container max-w-md w-full bg-[var(--bg)] shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+                <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                  <Edit2 className="w-4 h-4 text-blue-600" />
+                  <span>Edit Transaksi Kasbon</span>
+                </h3>
+                <button
+                  onClick={() => setEditingTx(null)}
+                  className="p-1 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEditTx} className="space-y-3.5 text-xs">
+                <DatePickerWIB
+                  label="Tanggal Transaksi *"
+                  value={editForm.tanggal || getTodayDateString()}
+                  onChange={(val) => setEditForm((prev) => ({ ...prev, tanggal: val }))}
+                />
+
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                    Uraian / Keterangan *
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.keterangan || ''}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, keterangan: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] text-xs font-medium"
+                  />
+                </div>
+
+                {editForm.kategori === 'kasbon' && (
+                  <div>
+                    <CurrencyInput
+                      label="Nominal Kasbon (Rp) *"
+                      value={editForm.nominal || 0}
+                      onChange={(val) => setEditForm((prev) => ({ ...prev, nominal: val }))}
+                    />
+                  </div>
+                )}
+
+                {editForm.kategori === 'gaji' && (
+                  <div className="space-y-2.5 p-2.5 rounded-md bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
+                    <div>
+                      <CurrencyInput
+                        label="Nominal Kas Keluar Gaji Dibayar (Rp) *"
+                        value={editForm.nominal || 0}
+                        onChange={(val) => setEditForm((prev) => ({ ...prev, nominal: val }))}
+                      />
+                    </div>
+                    <div>
+                      <CurrencyInput
+                        label="Potongan Kasbon pada Gaji Ini (Rp)"
+                        value={editForm.potongan_kasbon || 0}
+                        onChange={(val) => setEditForm((prev) => ({ ...prev, potongan_kasbon: val }))}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {editForm.kategori === 'pengembalian_kasbon' && (
+                  <div>
+                    <CurrencyInput
+                      label="Nominal Pengembalian / Pelunasan (Rp) *"
+                      value={editForm.nominal || editForm.potongan_kasbon || 0}
+                      onChange={(val) => setEditForm((prev) => ({ ...prev, nominal: val, potongan_kasbon: val }))}
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                    Metode Pembayaran *
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label
+                      className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                        editForm.jenis_pembayaran === 'tunai'
+                          ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'
+                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="editJenisPembayaran"
+                        value="tunai"
+                        checked={editForm.jenis_pembayaran === 'tunai'}
+                        onChange={() => setEditForm((prev) => ({ ...prev, jenis_pembayaran: 'tunai' }))}
+                        className="sr-only"
+                      />
+                      <span>Tunai</span>
+                    </label>
+
+                    <label
+                      className={`flex items-center justify-center gap-2 p-2 rounded-md border text-xs font-semibold cursor-pointer transition-all ${
+                        editForm.jenis_pembayaran === 'non_tunai'
+                          ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'
+                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="editJenisPembayaran"
+                        value="non_tunai"
+                        checked={editForm.jenis_pembayaran === 'non_tunai'}
+                        onChange={() => setEditForm((prev) => ({ ...prev, jenis_pembayaran: 'non_tunai' }))}
+                        className="sr-only"
+                      />
+                      <span>Transfer Bank</span>
+                    </label>
+                  </div>
+
+                  {editForm.jenis_pembayaran === 'non_tunai' && (
+                    <div className="mt-2 p-2 rounded-md bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 space-y-1">
+                      <label className="block text-[11px] font-bold text-blue-900 dark:text-blue-300">
+                        Rekening Bank
+                      </label>
+                      <select
+                        value={editForm.rekening_id || ''}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, rekening_id: e.target.value }))}
+                        className="w-full px-2.5 py-1.5 text-xs rounded border border-blue-300 dark:border-blue-800 bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                      >
+                        <option value="">{LABEL_REKENING_DEFAULT}</option>
+                        {rekeningList
+                          .filter((r) => r.aktif)
+                          .map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.nama_bank} - {r.nomor_rekening} (a.n {r.atas_nama})
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                    Nama PIC Transaksi *
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.pic_nama || ''}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, pic_nama: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] text-xs"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border)]">
+                  <button
+                    type="button"
+                    onClick={() => setEditingTx(null)}
+                    disabled={savingEdit}
+                    className="px-4 py-2 text-xs font-medium border border-[var(--border)] rounded-md hover:bg-[var(--bg-subtle)]"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingEdit}
+                    className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-xs disabled:opacity-50"
+                  >
+                    {savingEdit ? 'Menyimpan...' : 'Simpan Perubahan'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
@@ -988,6 +1265,24 @@ export default function PiutangPage() {
             </div>
           </div>
         )}
+
+        {/* Confirm Delete Single Kasbon / Mutation Dialog */}
+        <ConfirmDialog
+          isOpen={!!deletingTx}
+          onClose={() => setDeletingTx(null)}
+          onConfirm={handleDeleteTx}
+          title="Hapus Transaksi Kasbon"
+          description={
+            deletingTx
+              ? `Apakah Anda yakin ingin menghapus transaksi "${deletingTx.keterangan}" (${formatRupiah(
+                  deletingTx.nominal > 0 ? deletingTx.nominal : deletingTx.potongan_kasbon || 0
+                )})? Data sisa kasbon staf akan otomatis disesuaikan ulang.`
+              : ''
+          }
+          isDanger={true}
+          confirmText="Hapus Transaksi"
+          cancelText="Batal"
+        />
       </div>
     </PinGateDialog>
   );
