@@ -25,6 +25,7 @@ import {
   Clock,
   AlertOctagon,
   Receipt,
+  Award,
 } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
 
@@ -158,6 +159,15 @@ export function Sidebar() {
         >
           <IdCard className="w-4 h-4 min-w-[16px]" />
           {sidebarOpen && <span className="whitespace-nowrap">Manajemen SIM</span>}
+        </Link>
+
+        <Link
+          href="/sertifikat"
+          className={navItemClass(pathname.startsWith('/sertifikat'))}
+          title={!sidebarOpen ? 'Sertifikat Siswa' : undefined}
+        >
+          <Award className="w-4 h-4 min-w-[16px]" />
+          {sidebarOpen && <span className="whitespace-nowrap">Sertifikat Siswa</span>}
         </Link>
 
         <Link
