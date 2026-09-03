@@ -371,7 +371,11 @@ export async function updateSesiProgress(
   siswaId: string,
   nomorSesiKe: number,
   tanggalSesi: string,
-  statusSesi: 'selesai' | 'batal' | 'terjadwal'
+  statusSesi: 'selesai' | 'batal' | 'terjadwal',
+  options?: {
+    staff_id?: string | null;
+    slot_waktu_id?: string | null;
+  }
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const siswaRecord = await dbQuerySingle<{ jumlah_sesi: number }>(`
@@ -383,32 +387,38 @@ export async function updateSesiProgress(
 
     const totalSesiPaket = siswaRecord?.jumlah_sesi || 10;
 
-    const existing = await dbQuerySingle<{ id: string }>(
-      'SELECT id FROM jadwal_sesi WHERE siswa_id = $1 AND nomor_sesi_ke = $2',
+    const existing = await dbQuerySingle<{ id: string; staff_id: string | null; slot_waktu_id: string | null }>(
+      'SELECT id, staff_id, slot_waktu_id FROM jadwal_sesi WHERE siswa_id = $1 AND nomor_sesi_ke = $2',
       [siswaId, nomorSesiKe]
     );
 
+    const targetStaffId = options?.staff_id !== undefined ? (options.staff_id || null) : (existing?.staff_id || null);
+    const targetSlotWaktuId = options?.slot_waktu_id !== undefined ? (options.slot_waktu_id || null) : (existing?.slot_waktu_id || null);
+
     if (existing) {
       await dbQuery(
-        'UPDATE jadwal_sesi SET tanggal_sesi = $1, status_sesi = $2, updated_at = NOW() WHERE id = $3',
-        [tanggalSesi, statusSesi, existing.id]
+        'UPDATE jadwal_sesi SET tanggal_sesi = $1, status_sesi = $2, staff_id = $3, slot_waktu_id = $4, updated_at = NOW() WHERE id = $5',
+        [tanggalSesi, statusSesi, targetStaffId, targetSlotWaktuId, existing.id]
       );
     } else {
       await dbQuery(
-        `INSERT INTO jadwal_sesi (siswa_id, nomor_sesi_ke, tanggal_sesi, status_sesi, total_sesi_paket, jenis_mobil)
-         VALUES ($1, $2, $3, $4, $5, 'manual')`,
-        [siswaId, nomorSesiKe, tanggalSesi, statusSesi, totalSesiPaket]
+        `INSERT INTO jadwal_sesi (siswa_id, nomor_sesi_ke, tanggal_sesi, status_sesi, staff_id, slot_waktu_id, total_sesi_paket, jenis_mobil)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'manual')`,
+        [siswaId, nomorSesiKe, tanggalSesi, statusSesi, targetStaffId, targetSlotWaktuId, totalSesiPaket]
       );
     }
 
     cacheInvalidate('dashboard*');
     cacheInvalidate('jadwal*');
+    cacheInvalidate('staff*');
+    cacheInvalidate('analitik*');
 
     revalidatePath('/jadwal');
     revalidatePath(`/jadwal/${siswaId}`);
     revalidatePath('/instruktur');
     revalidatePath('/dashboard');
     revalidatePath('/siswa');
+    revalidatePath('/analitik');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -418,7 +428,11 @@ export async function updateSesiProgress(
 export async function rescheduleSesiShiftCascade(
   siswaId: string,
   fromNomorSesiKe: number,
-  shiftDays: number
+  shiftDays: number,
+  options?: {
+    staff_id?: string | null;
+    slot_waktu_id?: string | null;
+  }
 ): Promise<{ success: boolean; error?: string; count?: number }> {
   try {
     if (!shiftDays || shiftDays <= 0) {
@@ -439,20 +453,30 @@ export async function rescheduleSesiShiftCascade(
 
     for (const sesi of sessions) {
       const newDate = addDaysToDateStr(sesi.tanggal_sesi, shiftDays);
-      await dbQuery(
-        "UPDATE jadwal_sesi SET tanggal_sesi = $1, status_sesi = 'terjadwal', updated_at = NOW() WHERE id = $2",
-        [newDate, sesi.id]
-      );
+      if (sesi.nomor_sesi_ke === fromNomorSesiKe && (options?.staff_id !== undefined || options?.slot_waktu_id !== undefined)) {
+        await dbQuery(
+          "UPDATE jadwal_sesi SET tanggal_sesi = $1, status_sesi = 'terjadwal', staff_id = COALESCE($2, staff_id), slot_waktu_id = COALESCE($3, slot_waktu_id), updated_at = NOW() WHERE id = $4",
+          [newDate, options?.staff_id || null, options?.slot_waktu_id || null, sesi.id]
+        );
+      } else {
+        await dbQuery(
+          "UPDATE jadwal_sesi SET tanggal_sesi = $1, status_sesi = 'terjadwal', updated_at = NOW() WHERE id = $2",
+          [newDate, sesi.id]
+        );
+      }
     }
 
     cacheInvalidate('dashboard*');
     cacheInvalidate('jadwal*');
+    cacheInvalidate('staff*');
+    cacheInvalidate('analitik*');
 
     revalidatePath('/jadwal');
     revalidatePath(`/jadwal/${siswaId}`);
     revalidatePath('/instruktur');
     revalidatePath('/dashboard');
     revalidatePath('/siswa');
+    revalidatePath('/analitik');
 
     return { success: true, count: sessions.length };
   } catch (err: any) {

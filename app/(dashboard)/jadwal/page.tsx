@@ -56,6 +56,7 @@ import {
   FileSpreadsheet,
   Car,
   UserCheck,
+  User,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -129,6 +130,8 @@ export default function JadwalPage() {
   const [progressModalJadwal, setProgressModalJadwal] = React.useState<JadwalSesi | null>(null);
   const [progressSesiKe, setProgressSesiKe] = React.useState<number>(1);
   const [progressTanggal, setProgressTanggal] = React.useState<string>(getTodayDateString());
+  const [progressStaffId, setProgressStaffId] = React.useState<string>('');
+  const [progressSlotWaktuId, setProgressSlotWaktuId] = React.useState<string>('');
   const [isReschedulingProgress, setIsReschedulingProgress] = React.useState<boolean>(false);
   const [rescheduleShiftDays, setRescheduleShiftDays] = React.useState<number>(1);
 
@@ -665,11 +668,28 @@ export default function JadwalPage() {
     setProgressModalJadwal(jadwal);
     setProgressSesiKe(jadwal.nomor_sesi_ke || 1);
     setProgressTanggal(jadwal.tanggal_sesi || getTodayDateString());
+    setProgressStaffId(jadwal.staff_id || '');
+    setProgressSlotWaktuId(jadwal.slot_waktu_id || '');
     setIsReschedulingProgress(false);
     setRescheduleShiftDays(1);
   };
 
-  // Save Progress Action
+  // Switch session number inside progress modal and preload its respective date, instructor, and slot
+  const handleSelectProgressSesiKe = (sesiNum: number) => {
+    setProgressSesiKe(sesiNum);
+    if (progressModalJadwal?.siswa_id) {
+      const existingSession = (monthlyJadwalList.length > 0 ? monthlyJadwalList : jadwalList).find(
+        (j) => j.siswa_id === progressModalJadwal.siswa_id && j.nomor_sesi_ke === sesiNum
+      );
+      if (existingSession) {
+        if (existingSession.tanggal_sesi) setProgressTanggal(existingSession.tanggal_sesi);
+        if (existingSession.staff_id) setProgressStaffId(existingSession.staff_id);
+        if (existingSession.slot_waktu_id) setProgressSlotWaktuId(existingSession.slot_waktu_id);
+      }
+    }
+  };
+
+  // Save Progress Action (updates status, date, instructor, slot in database and history)
   const handleSaveProgressStatus = async (status: 'selesai' | 'batal' | 'terjadwal') => {
     if (!progressModalJadwal || !progressModalJadwal.siswa_id) return;
 
@@ -677,7 +697,11 @@ export default function JadwalPage() {
       progressModalJadwal.siswa_id,
       progressSesiKe,
       progressTanggal,
-      status
+      status,
+      {
+        staff_id: progressStaffId || null,
+        slot_waktu_id: progressSlotWaktuId || null,
+      }
     );
 
     setProgressModalJadwal(null);
@@ -692,7 +716,11 @@ export default function JadwalPage() {
     const res = await rescheduleSesiShiftCascade(
       progressModalJadwal.siswa_id,
       progressSesiKe,
-      rescheduleShiftDays
+      rescheduleShiftDays,
+      {
+        staff_id: progressStaffId || null,
+        slot_waktu_id: progressSlotWaktuId || null,
+      }
     );
 
     if (res.success) {
@@ -1453,14 +1481,14 @@ export default function JadwalPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
                   Pilih Nomor Sesi
                 </label>
                 <select
                   value={progressSesiKe}
-                  onChange={(e) => setProgressSesiKe(parseInt(e.target.value))}
+                  onChange={(e) => handleSelectProgressSesiKe(parseInt(e.target.value))}
                   className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-[var(--brand-primary)]"
                 >
                   {Array.from({ length: progressModalJadwal.total_sesi_paket || 10 }).map((_, idx) => (
@@ -1477,6 +1505,44 @@ export default function JadwalPage() {
                   value={progressTanggal}
                   onChange={(val) => setProgressTanggal(val)}
                 />
+              </div>
+
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1 font-semibold flex items-center gap-1">
+                  <User className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                  <span>Instruktur Penugasan / Pengambil Alih</span>
+                </label>
+                <select
+                  value={progressStaffId}
+                  onChange={(e) => setProgressStaffId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                >
+                  <option value="">-- Tanpa Instruktur Khusus --</option>
+                  {instrukturList.map((ins) => (
+                    <option key={ins.id} value={ins.id}>
+                      {ins.nama}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1 font-semibold flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                  <span>Slot Waktu Sesi</span>
+                </label>
+                <select
+                  value={progressSlotWaktuId}
+                  onChange={(e) => setProgressSlotWaktuId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                >
+                  <option value="">-- Tanpa Slot Khusus --</option>
+                  {slotList.map((sl) => (
+                    <option key={sl.id} value={sl.id}>
+                      {sl.nama_slot} ({sl.jam_mulai} - {sl.jam_selesai})
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
