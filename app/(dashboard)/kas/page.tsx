@@ -163,7 +163,7 @@ export default function KasOverviewPage() {
                 ? json.rekening
                 : DEFAULT_REKENING_LIST;
 
-            const localMetrics = calculateLocalKasMetrics(tx, sis, hut);
+            const localMetrics = calculateLocalKasMetrics(tx, sis, hut, ksb);
 
             setTransaksiList(tx);
             setKategoriList(kat);
@@ -239,7 +239,7 @@ export default function KasOverviewPage() {
             ? rList.value
             : DEFAULT_REKENING_LIST;
 
-        const localMetrics = calculateLocalKasMetrics(tx, sis, hut);
+        const localMetrics = calculateLocalKasMetrics(tx, sis, hut, ksb);
 
         setTransaksiList(tx);
         setKategoriList(kat);

@@ -50,7 +50,7 @@ export async function GET() {
     const staffKasbon = ksbSettled.status === 'fulfilled' ? ksbSettled.value : [];
     const kendaraan = kndSettled.status === 'fulfilled' ? kndSettled.value : [];
 
-    const metrics = calculateLocalKasMetrics(transaksi, siswa, hutang);
+    const metrics = calculateLocalKasMetrics(transaksi, siswa, hutang, staffKasbon);
 
     return NextResponse.json({
       success: true,

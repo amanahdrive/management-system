@@ -31,8 +31,40 @@ export async function getKasOverviewMetrics() {
               WHEN status_pembayaran_kode = 'belum_bayar' THEN COALESCE(harga_final, 0)
               ELSE 0 
             END
-          ), 0) AS total_piutang
+          ), 0) AS total_piutang_siswa
         FROM siswa
+      ),
+      kasbon_calc AS (
+        SELECT COALESCE(SUM(sisa), 0) AS total_kasbon_staff
+        FROM (
+          SELECT s.id,
+                 (
+                   COALESCE(SUM(CASE WHEN k.kategori = 'kasbon' AND k.tipe = 'pengeluaran' THEN k.nominal ELSE 0 END), 0) -
+                   COALESCE(SUM(
+                     CASE 
+                       WHEN k.kategori = 'gaji' THEN COALESCE(k.potongan_kasbon, 0)
+                       WHEN k.kategori = 'pengembalian_kasbon' AND k.tipe = 'pemasukan' THEN k.nominal
+                       WHEN COALESCE(k.potongan_kasbon, 0) > 0 AND k.kategori != 'gaji' THEN k.potongan_kasbon
+                       ELSE 0 
+                     END
+                   ), 0)
+                 ) as sisa
+          FROM staff s
+          JOIN kas_transaksi k ON s.id = k.staff_id
+          WHERE s.aktif = true
+          GROUP BY s.id
+          HAVING (
+            COALESCE(SUM(CASE WHEN k.kategori = 'kasbon' AND k.tipe = 'pengeluaran' THEN k.nominal ELSE 0 END), 0) -
+            COALESCE(SUM(
+              CASE 
+                WHEN k.kategori = 'gaji' THEN COALESCE(k.potongan_kasbon, 0)
+                WHEN k.kategori = 'pengembalian_kasbon' AND k.tipe = 'pemasukan' THEN k.nominal
+                WHEN COALESCE(k.potongan_kasbon, 0) > 0 AND k.kategori != 'gaji' THEN k.potongan_kasbon
+                ELSE 0 
+              END
+            ), 0)
+          ) > 0
+        ) sub
       ),
       hutang_calc AS (
         SELECT
@@ -44,9 +76,11 @@ export async function getKasOverviewMetrics() {
         (k.total_masuk - k.total_keluar)::numeric AS "saldoAktif",
         k.saldo_tunai::numeric AS "saldoTunai",
         k.saldo_non_tunai::numeric AS "saldoNonTunai",
-        p.total_piutang::numeric AS "totalPiutang",
+        p.total_piutang_siswa::numeric AS "totalPiutangSiswa",
+        COALESCE(kb.total_kasbon_staff, 0)::numeric AS "totalKasbonStaff",
+        (p.total_piutang_siswa + COALESCE(kb.total_kasbon_staff, 0))::numeric AS "totalPiutang",
         h.total_hutang::numeric AS "totalHutang"
-      FROM kas_calc k, piutang_calc p, hutang_calc h;
+      FROM kas_calc k, piutang_calc p, kasbon_calc kb, hutang_calc h;
     `;
 
     const row = await dbQuerySingle<{
@@ -54,6 +88,8 @@ export async function getKasOverviewMetrics() {
       saldoTunai: number;
       saldoNonTunai: number;
       totalPiutang: number;
+      totalPiutangSiswa: number;
+      totalKasbonStaff: number;
       totalHutang: number;
     }>(sql);
 
@@ -63,6 +99,8 @@ export async function getKasOverviewMetrics() {
         saldoTunai: Number((row as any).saldoTunai ?? (row as any).saldotunai ?? (row as any).saldo_tunai ?? 0),
         saldoNonTunai: Number((row as any).saldoNonTunai ?? (row as any).saldonontunai ?? (row as any).saldo_non_tunai ?? 0),
         totalPiutang: Number((row as any).totalPiutang ?? (row as any).totalpiutang ?? (row as any).total_piutang ?? 0),
+        totalPiutangSiswa: Number((row as any).totalPiutangSiswa ?? (row as any).totalpiutangsiswa ?? (row as any).total_piutang_siswa ?? 0),
+        totalKasbonStaff: Number((row as any).totalKasbonStaff ?? (row as any).totalkasbonstaff ?? (row as any).total_kasbon_staff ?? 0),
         totalHutang: Number((row as any).totalHutang ?? (row as any).totalhutang ?? (row as any).total_hutang ?? 0),
       };
     }

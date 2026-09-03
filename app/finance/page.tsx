@@ -15,6 +15,7 @@ import {
   deleteHutang,
   payHutangCicilan,
   getDpKustomList,
+  getStaffKasbonSummary,
   DpKustomItem,
 } from '@/lib/actions/kas';
 import { getSiswaList, recordPelunasanDirect } from '@/lib/actions/siswa';
@@ -316,7 +317,7 @@ export default function FinancePortalPage() {
                 : DEFAULT_REKENING_LIST;
 
             // Instant client-side calculation to guarantee 100% synchronization
-            const localMetrics = calculateLocalKasMetrics(tx, sis, hut);
+            const localMetrics = calculateLocalKasMetrics(tx, sis, hut, json.staffKasbon || []);
 
             setRecentTx(tx);
             setKategoriList(kat);
@@ -356,7 +357,7 @@ export default function FinancePortalPage() {
 
       // Secondary Fallback: Server Actions (Promise.allSettled)
       if (!dataLoaded) {
-        const [mRes, tRes, kRes, sRes, pRes, hRes, dpKRes, rRes] = await Promise.allSettled([
+        const [mRes, tRes, kRes, sRes, pRes, hRes, dpKRes, rRes, ksbRes] = await Promise.allSettled([
           getKasOverviewMetrics(),
           getKasTransaksiList(),
           getKasKategoriList(),
@@ -365,6 +366,7 @@ export default function FinancePortalPage() {
           getHutangList(),
           getDpKustomList(),
           getRekeningList(),
+          getStaffKasbonSummary(),
         ]);
 
         const tx = tRes.status === 'fulfilled' && Array.isArray(tRes.value) ? tRes.value : [];
@@ -372,6 +374,7 @@ export default function FinancePortalPage() {
         const hut = hRes.status === 'fulfilled' && Array.isArray(hRes.value) ? hRes.value : [];
         const pak = pRes.status === 'fulfilled' && Array.isArray(pRes.value) ? pRes.value : [];
         const dpk = dpKRes.status === 'fulfilled' && Array.isArray(dpKRes.value) ? dpKRes.value : [];
+        const ksb = ksbRes.status === 'fulfilled' && Array.isArray(ksbRes.value) ? ksbRes.value : [];
         const kat =
           kRes.status === 'fulfilled' && Array.isArray(kRes.value) && kRes.value.length > 0
             ? kRes.value
@@ -381,7 +384,7 @@ export default function FinancePortalPage() {
             ? rRes.value
             : DEFAULT_REKENING_LIST;
 
-        const localMetrics = calculateLocalKasMetrics(tx, sis, hut);
+        const localMetrics = calculateLocalKasMetrics(tx, sis, hut, ksb);
 
         setRecentTx(tx);
         setKategoriList(kat);

@@ -166,11 +166,20 @@ export function formatKategoriLabel(kategori: string): string {
 export function calculateLocalKasMetrics(
   transactions: any[] = [],
   students: any[] = [],
-  loans: any[] = []
+  loans: any[] = [],
+  staffKasbon: any[] = []
 ): KasOverviewMetrics {
   let tunai = 0;
   let nonTunai = 0;
   let totalKasbon = 0;
+
+  // 1. If pre-calculated staff kasbon summary is provided, use it directly (100% precision)
+  if (Array.isArray(staffKasbon) && staffKasbon.length > 0) {
+    totalKasbon = staffKasbon.reduce(
+      (acc, s) => acc + Math.max(0, Number(s.sisa_kasbon) || 0),
+      0
+    );
+  }
 
   if (Array.isArray(transactions)) {
     for (const tx of transactions) {
@@ -184,13 +193,18 @@ export function calculateLocalKasMetrics(
         else nonTunai -= nom;
       }
 
-      if (tx.kategori === 'kasbon' && tx.tipe === 'pengeluaran') {
-        totalKasbon += nom;
-      } else if (tx.kategori === 'gaji' && tx.potongan_kasbon) {
-        totalKasbon -= Number(tx.potongan_kasbon) || 0;
-      } else if (tx.kategori === 'pengembalian_kasbon') {
-        if (tx.tipe === 'pemasukan') totalKasbon -= nom;
-        else if (tx.potongan_kasbon) totalKasbon -= Number(tx.potongan_kasbon) || 0;
+      // 2. Fallback: calculate from transactions only for records LINKED to staff (staff_id is not null)
+      if (!Array.isArray(staffKasbon) || staffKasbon.length === 0) {
+        if (tx.staff_id) {
+          if (tx.kategori === 'kasbon' && tx.tipe === 'pengeluaran') {
+            totalKasbon += nom;
+          } else if (tx.kategori === 'gaji' && tx.potongan_kasbon) {
+            totalKasbon -= Number(tx.potongan_kasbon) || 0;
+          } else if (tx.kategori === 'pengembalian_kasbon') {
+            if (tx.tipe === 'pemasukan') totalKasbon -= nom;
+            else if (tx.potongan_kasbon) totalKasbon -= Number(tx.potongan_kasbon) || 0;
+          }
+        }
       }
     }
   }
