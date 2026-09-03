@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { getAnalitikData, AnalitikData } from '@/lib/actions/analitik';
 import { formatRupiah } from '@/lib/utils/currency';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
+import { addDaysToDateStr } from '@/lib/utils/date';
 import {
   TrendingUp,
   Users,
@@ -21,6 +22,7 @@ import {
   Layers,
   Fuel,
   Printer,
+  Info,
 } from 'lucide-react';
 
 // Dynamic import for Recharts to avoid SSR hydration mismatches
@@ -147,9 +149,43 @@ export default function AnalitikPage() {
 
       {/* Custom Date Picker Bar */}
       {period === 'custom' && (
-        <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--bg)] grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <DatePickerWIB label="Tanggal Awal" value={customStart} onChange={setCustomStart} />
-          <DatePickerWIB label="Tanggal Akhir" value={customEnd} onChange={setCustomEnd} />
+        <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--bg)] space-y-2 animate-fadeIn">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <DatePickerWIB
+              label="Tanggal Awal"
+              value={customStart}
+              onChange={(val) => {
+                setCustomStart(val);
+                if (val && customEnd) {
+                  const maxEnd = addDaysToDateStr(val, 180);
+                  if (customEnd < val) setCustomEnd(val);
+                  else if (customEnd > maxEnd) setCustomEnd(maxEnd);
+                }
+              }}
+            />
+            <DatePickerWIB
+              label="Tanggal Akhir (Maksimal 6 Bulan dari Awal)"
+              value={customEnd}
+              onChange={(val) => {
+                if (customStart && val) {
+                  const maxEnd = addDaysToDateStr(customStart, 180);
+                  if (val > maxEnd) {
+                    setCustomEnd(maxEnd);
+                  } else if (val < customStart) {
+                    setCustomEnd(customStart);
+                  } else {
+                    setCustomEnd(val);
+                  }
+                } else {
+                  setCustomEnd(val);
+                }
+              }}
+            />
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] font-medium">
+            <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span>Rentang kustom menampilkan grafik harian untuk rentang maksimal 6 bulan (180 hari).</span>
+          </div>
         </div>
       )}
 
@@ -249,11 +285,16 @@ export default function AnalitikPage() {
             <div className="lg:col-span-2 p-4 rounded-lg border border-[var(--border)] bg-[var(--bg)] space-y-3">
               <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                 <span className="text-xs font-bold text-[var(--text-primary)]">
-                  Arus Kas Historis (Pemasukan vs Pengeluaran 6 Bulan)
+                  {finansialExecutive.cashflowChartTitle || 'Arus Kas (Pemasukan vs Pengeluaran)'}
                 </span>
-                <span className="text-[11px] text-[var(--text-secondary)]">Nominal Kas Riil</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)]">
+                  {finansialExecutive.cashflowGrouping === 'daily' ? 'Agregasi Harian' : 'Agregasi Bulanan'}
+                </span>
               </div>
-              <AnalitikCashflowChart data={finansialExecutive.cashflowMonthly} />
+              <AnalitikCashflowChart
+                data={finansialExecutive.cashflowTrend || finansialExecutive.cashflowMonthly}
+                grouping={finansialExecutive.cashflowGrouping}
+              />
             </div>
 
             {/* Rincian Beban Biaya Pengeluaran */}

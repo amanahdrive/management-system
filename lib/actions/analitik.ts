@@ -2,7 +2,7 @@
 
 import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheGet, cacheSet } from '@/lib/utils/cache';
-import { getTodayDateString, getJakartaDateParts, addDaysToDateStr } from '@/lib/utils/date';
+import { getTodayDateString, getJakartaDateParts, addDaysToDateStr, formatDateIndo } from '@/lib/utils/date';
 import { getGeneralSettings } from '@/lib/actions/settings';
 
 export interface AnalitikFilter {
@@ -86,7 +86,10 @@ export interface AnalitikData {
     labaBersih: number;
     profitMargin: number;
     expenseBreakdown: { kategori: string; label: string; nominal: number; persentase: number }[];
-    cashflowMonthly: { bulanKey: string; bulanLabel: string; pemasukan: number; pengeluaran: number; netProfit: number }[];
+    cashflowTrend: { dateKey: string; dateLabel: string; bulanKey: string; bulanLabel: string; pemasukan: number; pengeluaran: number; netProfit: number }[];
+    cashflowMonthly: { bulanKey: string; bulanLabel: string; dateKey?: string; dateLabel?: string; pemasukan: number; pengeluaran: number; netProfit: number }[];
+    cashflowGrouping: 'daily' | 'monthly';
+    cashflowChartTitle: string;
   };
   strategicInsights: {
     type: 'positive' | 'warning' | 'info' | 'action';
@@ -109,13 +112,21 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
   let startDate = filter?.startDate || '';
   let endDate = filter?.endDate || '';
   let periodeLabel = 'Semua Periode';
+  let cashflowChartTitle = 'Arus Kas';
 
   const periodType = filter?.period || 'this_month';
+  const isDaily =
+    periodType === 'this_month' ||
+    periodType === 'last_month' ||
+    periodType === 'custom' ||
+    Boolean(filter?.startDate && filter?.endDate);
 
-  if (periodType === 'this_month' && (!startDate || !endDate)) {
+  if (periodType === 'this_month' && (!filter?.startDate || !filter?.endDate)) {
+    const daysInCurrentMonth = new Date(currentYear, currentMonth, 0).getDate();
     startDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
-    endDate = todayStr;
+    endDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(daysInCurrentMonth).padStart(2, '0')}`;
     periodeLabel = `Bulan Ini (${MONTH_NAMES_INDO[currentMonth - 1]} ${currentYear})`;
+    cashflowChartTitle = `Arus Kas Harian (${MONTH_NAMES_INDO[currentMonth - 1]} ${currentYear})`;
   } else if (periodType === 'last_month') {
     const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
     const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
@@ -123,34 +134,54 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
     startDate = `${lastMonthYear}-${String(lastMonth).padStart(2, '0')}-01`;
     endDate = `${lastMonthYear}-${String(lastMonth).padStart(2, '0')}-${String(daysInLastMonth).padStart(2, '0')}`;
     periodeLabel = `Bulan Lalu (${MONTH_NAMES_INDO[lastMonth - 1]} ${lastMonthYear})`;
+    cashflowChartTitle = `Arus Kas Harian (${MONTH_NAMES_INDO[lastMonth - 1]} ${lastMonthYear})`;
+  } else if (periodType === 'custom' || (filter?.startDate && filter?.endDate)) {
+    let s = filter?.startDate || `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+    let e = filter?.endDate || todayStr;
+    if (e < s) {
+      const tmp = s;
+      s = e;
+      e = tmp;
+    }
+    // Limit to max 180 days (6 months)
+    const maxEnd = addDaysToDateStr(s, 180);
+    if (e > maxEnd) {
+      e = maxEnd;
+    }
+    startDate = s;
+    endDate = e;
+    periodeLabel = `Periode Kustom (${formatDateIndo(startDate)} s/d ${formatDateIndo(endDate)})`;
+    cashflowChartTitle = `Arus Kas Harian (${formatDateIndo(startDate)} s/d ${formatDateIndo(endDate)})`;
   } else if (periodType === 'q1') {
     startDate = `${currentYear}-01-01`;
     endDate = `${currentYear}-03-31`;
     periodeLabel = `Kuartal 1 (Jan - Mar ${currentYear})`;
+    cashflowChartTitle = `Arus Kas Bulanan (${periodeLabel})`;
   } else if (periodType === 'q2') {
     startDate = `${currentYear}-04-01`;
     endDate = `${currentYear}-06-30`;
     periodeLabel = `Kuartal 2 (Apr - Jun ${currentYear})`;
+    cashflowChartTitle = `Arus Kas Bulanan (${periodeLabel})`;
   } else if (periodType === 'q3') {
     startDate = `${currentYear}-07-01`;
     endDate = `${currentYear}-09-30`;
     periodeLabel = `Kuartal 3 (Jul - Sep ${currentYear})`;
+    cashflowChartTitle = `Arus Kas Bulanan (${periodeLabel})`;
   } else if (periodType === 'q4') {
     startDate = `${currentYear}-10-01`;
     endDate = `${currentYear}-12-31`;
     periodeLabel = `Kuartal 4 (Okt - Des ${currentYear})`;
+    cashflowChartTitle = `Arus Kas Bulanan (${periodeLabel})`;
   } else if (periodType === 'this_year') {
     startDate = `${currentYear}-01-01`;
-    endDate = todayStr;
-    periodeLabel = `Tahun Ini (YTD ${currentYear})`;
+    endDate = `${currentYear}-12-31`;
+    periodeLabel = `Tahun Ini (${currentYear})`;
+    cashflowChartTitle = `Arus Kas Bulanan (Tahun ${currentYear})`;
   } else if (periodType === 'all') {
     startDate = '2025-01-01';
     endDate = todayStr;
     periodeLabel = 'Semua Waktu (Historis Lengkap)';
-  } else if (filter?.startDate && filter?.endDate) {
-    startDate = filter.startDate;
-    endDate = filter.endDate;
-    periodeLabel = `Periode ${startDate} s/d ${endDate}`;
+    cashflowChartTitle = 'Arus Kas Bulanan (Semua Waktu)';
   }
 
   // Load General Settings for Instructors
@@ -560,20 +591,96 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       persentase: totalPengeluaranKas > 0 ? Math.round((nominal / totalPengeluaranKas) * 100) : 0,
     })).sort((a, b) => b.nominal - a.nominal);
 
-    // Monthly Cashflow Trend
-    const cashflowMonthly = trendKasRaw.map((t) => {
-      const [y, m] = t.bulan_key.split('-');
-      const mIdx = parseInt(m, 10) - 1;
-      const pem = Number(t.pemasukan) || 0;
-      const peng = Number(t.pengeluaran) || 0;
-      return {
-        bulanKey: t.bulan_key,
-        bulanLabel: `${MONTH_SHORT[mIdx]} ${y}`,
-        pemasukan: pem,
-        pengeluaran: peng,
-        netProfit: pem - peng,
-      };
-    });
+    // Cashflow Trend Calculation (Daily for monthly/custom periods, Monthly for annual/all-time)
+    let cashflowTrend: {
+      dateKey: string;
+      dateLabel: string;
+      bulanKey: string;
+      bulanLabel: string;
+      pemasukan: number;
+      pengeluaran: number;
+      netProfit: number;
+    }[] = [];
+
+    if (isDaily) {
+      const dailyKasMap = new Map<string, { pemasukan: number; pengeluaran: number }>();
+      kasRows.forEach((k) => {
+        const dKey = k.tanggal.slice(0, 10);
+        const prev = dailyKasMap.get(dKey) || { pemasukan: 0, pengeluaran: 0 };
+        const nom = Number(k.nominal) || 0;
+        if (k.tipe === 'pemasukan') {
+          prev.pemasukan += nom;
+        } else {
+          prev.pengeluaran += nom;
+        }
+        dailyKasMap.set(dKey, prev);
+      });
+
+      let curr = startDate;
+      while (curr <= endDate) {
+        const parts = curr.split('-');
+        const d = parseInt(parts[2], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const val = dailyKasMap.get(curr) || { pemasukan: 0, pengeluaran: 0 };
+        const label = `${String(d).padStart(2, '0')} ${MONTH_SHORT[m]}`;
+
+        cashflowTrend.push({
+          dateKey: curr,
+          dateLabel: label,
+          bulanKey: curr,
+          bulanLabel: label,
+          pemasukan: val.pemasukan,
+          pengeluaran: val.pengeluaran,
+          netProfit: val.pemasukan - val.pengeluaran,
+        });
+
+        curr = addDaysToDateStr(curr, 1);
+      }
+    } else {
+      const monthlyKasMap = new Map<string, { pemasukan: number; pengeluaran: number }>();
+      kasRows.forEach((k) => {
+        const mKey = k.tanggal.slice(0, 7);
+        const prev = monthlyKasMap.get(mKey) || { pemasukan: 0, pengeluaran: 0 };
+        const nom = Number(k.nominal) || 0;
+        if (k.tipe === 'pemasukan') {
+          prev.pemasukan += nom;
+        } else {
+          prev.pengeluaran += nom;
+        }
+        monthlyKasMap.set(mKey, prev);
+      });
+
+      const startYear = parseInt(startDate.slice(0, 4), 10);
+      const startMonth = parseInt(startDate.slice(5, 7), 10);
+      const endYear = parseInt(endDate.slice(0, 4), 10);
+      const endMonth = parseInt(endDate.slice(5, 7), 10);
+
+      let y = startYear;
+      let m = startMonth;
+      while (y < endYear || (y === endYear && m <= endMonth)) {
+        const bKey = `${y}-${String(m).padStart(2, '0')}`;
+        const val = monthlyKasMap.get(bKey) || { pemasukan: 0, pengeluaran: 0 };
+        const label = `${MONTH_SHORT[m - 1]} ${y}`;
+
+        cashflowTrend.push({
+          dateKey: bKey,
+          dateLabel: label,
+          bulanKey: bKey,
+          bulanLabel: label,
+          pemasukan: val.pemasukan,
+          pengeluaran: val.pengeluaran,
+          netProfit: val.pemasukan - val.pengeluaran,
+        });
+
+        m++;
+        if (m > 12) {
+          m = 1;
+          y++;
+        }
+      }
+    }
+
+    const cashflowMonthly = cashflowTrend;
 
     const monthlyTrendSiswa = trendSiswaRaw.map((t) => {
       const [y, m] = t.bulan_key.split('-');
@@ -710,7 +817,10 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
         labaBersih,
         profitMargin,
         expenseBreakdown,
+        cashflowTrend,
         cashflowMonthly,
+        cashflowGrouping: isDaily ? 'daily' : 'monthly',
+        cashflowChartTitle,
       },
       strategicInsights,
     };

@@ -17,9 +17,11 @@ import {
 } from 'recharts';
 import { formatRupiah } from '@/lib/utils/currency';
 
-interface CashflowMonthlyItem {
-  bulanKey: string;
-  bulanLabel: string;
+interface CashflowItem {
+  dateKey?: string;
+  dateLabel?: string;
+  bulanKey?: string;
+  bulanLabel?: string;
   pemasukan: number;
   pengeluaran: number;
   netProfit: number;
@@ -49,34 +51,65 @@ interface DayItem {
 
 const PALETTE = ['#0F7A73', '#2563EB', '#D97706', '#7C3AED', '#DC2626', '#059669'];
 
-export function AnalitikCashflowChart({ data }: { data: CashflowMonthlyItem[] }) {
+export function AnalitikCashflowChart({
+  data,
+  grouping = 'daily',
+}: {
+  data: CashflowItem[];
+  grouping?: 'daily' | 'monthly';
+}) {
   if (!data || data.length === 0) {
     return <div className="h-64 flex items-center justify-center text-xs text-[var(--text-secondary)]">Tidak ada data arus kas</div>;
   }
 
+  // Ensure every item has a display label
+  const formattedData = data.map((item) => ({
+    ...item,
+    displayLabel: item.dateLabel || item.bulanLabel || item.dateKey || item.bulanKey || '',
+  }));
+
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+        <AreaChart data={formattedData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="pemasukanGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
+              <stop offset="5%" stopColor="#10B981" stopOpacity={0.35} />
               <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="pengeluaranGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3} />
+              <stop offset="5%" stopColor="#EF4444" stopOpacity={0.35} />
               <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <XAxis dataKey="bulanLabel" stroke="var(--text-muted)" fontSize={11} tickLine={false} />
+          <XAxis
+            dataKey="displayLabel"
+            stroke="var(--text-muted)"
+            fontSize={11}
+            tickLine={false}
+            interval="preserveStartEnd"
+            minTickGap={grouping === 'daily' ? 28 : 16}
+          />
           <YAxis
             stroke="var(--text-muted)"
             fontSize={11}
             tickLine={false}
-            tickFormatter={(v) => `${(v / 1000000).toFixed(0)}jt`}
+            tickFormatter={(v) => {
+              if (v === 0) return '0';
+              if (Math.abs(v) >= 1_000_000) {
+                const jt = (v / 1_000_000).toFixed(1).replace('.0', '');
+                return `${jt}jt`;
+              }
+              if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(0)}rb`;
+              return String(v);
+            }}
           />
           <Tooltip
-            formatter={(value: any, name: any) => [formatRupiah(Number(value) || 0), name === 'pemasukan' ? 'Pemasukan' : name === 'pengeluaran' ? 'Pengeluaran' : 'Laba Bersih']}
+            formatter={(value: any, name: any) => [
+              formatRupiah(Number(value) || 0),
+              name === 'pemasukan' ? 'Pemasukan' : name === 'pengeluaran' ? 'Pengeluaran' : 'Laba Bersih',
+            ]}
+            labelFormatter={(label) => `Tanggal/Bulan: ${label}`}
             contentStyle={{
               backgroundColor: 'var(--bg)',
               borderColor: 'var(--border)',
