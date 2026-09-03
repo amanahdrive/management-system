@@ -5,9 +5,9 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { PinGateDialog } from '@/components/shared/PinGateDialog';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
-import { KasTransaksi, RekeningBank, Hutang, Staff } from '@/types/database';
+import { KasTransaksi, RekeningBank, Hutang, Staff, Kendaraan } from '@/types/database';
 import { getKasTransaksiList, getKasKategoriList, getHutangList, deleteKasTransaksi, updateKasTransaksi } from '@/lib/actions/kas';
-import { getStaffList } from '@/lib/actions/master-data';
+import { getStaffList, getKendaraanMasterList } from '@/lib/actions/master-data';
 import { getRekeningList } from '@/lib/actions/rekening';
 import { DEFAULT_REKENING_LIST, LABEL_REKENING_DEFAULT, parseKeteranganDanRekening } from '@/lib/constants/finance';
 import { formatRupiah } from '@/lib/utils/currency';
@@ -41,6 +41,7 @@ import {
   ChevronDown,
   User,
   AlertTriangle,
+  Car,
 } from 'lucide-react';
 
 const BULAN_LIST = [
@@ -63,6 +64,7 @@ export default function CashflowPage() {
   const [kategoriList, setKategoriList] = React.useState<any[]>([]);
   const [hutangList, setHutangList] = React.useState<Hutang[]>([]);
   const [staffList, setStaffList] = React.useState<Staff[]>([]);
+  const [kendaraanList, setKendaraanList] = React.useState<Kendaraan[]>([]);
   const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>(DEFAULT_REKENING_LIST);
   const [loading, setLoading] = React.useState(true);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
@@ -86,18 +88,20 @@ export default function CashflowPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [tRes, kRes, rRes, hRes, sRes] = await Promise.allSettled([
+      const [tRes, kRes, rRes, hRes, sRes, kdRes] = await Promise.allSettled([
         getKasTransaksiList(),
         getKasKategoriList(),
         getRekeningList(),
         getHutangList(),
         getStaffList(),
+        getKendaraanMasterList(),
       ]);
       if (tRes.status === 'fulfilled' && tRes.value) setTransaksiList(tRes.value);
       if (kRes.status === 'fulfilled' && kRes.value) setKategoriList(kRes.value);
       if (rRes.status === 'fulfilled' && rRes.value && rRes.value.length > 0) setRekeningList(rRes.value);
       if (hRes.status === 'fulfilled' && hRes.value) setHutangList(hRes.value);
       if (sRes.status === 'fulfilled' && sRes.value) setStaffList(sRes.value);
+      if (kdRes.status === 'fulfilled' && kdRes.value) setKendaraanList(kdRes.value);
     } catch (err) {
       console.error('Error loading cashflow data:', err);
     } finally {
@@ -354,6 +358,7 @@ export default function CashflowPage() {
       siswa_id: tx.siswa_id || '',
       hutang_id: tx.hutang_id || '',
       staff_id: tx.staff_id || '',
+      kendaraan_id: tx.kendaraan_id || '',
       potongan_kasbon: tx.potongan_kasbon || 0,
     });
   };
@@ -1068,6 +1073,15 @@ export default function CashflowPage() {
                                 <span>{bankInfo || 'Rekening Bank'}</span>
                               </span>
                             )}
+                            {tx.kendaraan_id && (
+                              <>
+                                <span className="text-[var(--text-muted)]">•</span>
+                                <span className="px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-mono text-[9.5px]">
+                                  <Car className="w-2.5 h-2.5 text-amber-600" />
+                                  <span>{kendaraanList.find((k) => k.id === tx.kendaraan_id)?.nama_kendaraan || 'Armada'} ({kendaraanList.find((k) => k.id === tx.kendaraan_id)?.plat_nomor || ''})</span>
+                                </span>
+                              </>
+                            )}
                             <span className="text-[var(--text-muted)]">•</span>
                             <span className="capitalize">{tx.kategori.replace(/_/g, ' ')}</span>
                             <span className="text-[var(--text-muted)]">•</span>
@@ -1084,11 +1098,13 @@ export default function CashflowPage() {
                               const isKasbonCat = tx.kategori === 'kasbon' || tx.kategori === 'pengembalian_kasbon' || (tx.kategori === 'gaji' && (tx.potongan_kasbon || 0) > 0);
                               const isHutangCat = tx.kategori === 'cicilan_hutang' || tx.kategori === 'pemasukan_hutang' || tx.kategori === 'bayar_hutang';
                               const isSiswaCat = tx.kategori === 'dp_siswa' || tx.kategori === 'pelunasan_siswa';
+                              const isBbmCat = tx.kategori === 'bbm' || tx.kategori?.toLowerCase()?.includes('bbm');
 
                               let warningText = '';
                               if (isKasbonCat && !tx.staff_id) warningText = 'Tidak tercatat pada piutang';
                               else if (isHutangCat && !tx.hutang_id) warningText = 'Tidak tercatat pada hutang';
                               else if (isSiswaCat && !tx.siswa_id) warningText = 'Tidak tercatat pada tagihan siswa';
+                              else if (isBbmCat && !tx.kendaraan_id) warningText = 'Tidak tercatat pada armada';
 
                               if (!warningText) return null;
                               return (
@@ -1344,6 +1360,29 @@ export default function CashflowPage() {
                         onChange={(val) => setEditForm((prev) => ({ ...prev, potongan_kasbon: val }))}
                       />
                     </div>
+                  </div>
+                )}
+
+                {(editForm.kategori === 'bbm' || editForm.kategori?.toLowerCase()?.includes('bbm')) && (
+                  <div className="p-2.5 rounded-md bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 space-y-1 animate-fadeIn">
+                    <label className="block text-[11px] font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1">
+                      <Car className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Armada Kendaraan (BBM)</span>
+                    </label>
+                    <select
+                      value={editForm.kendaraan_id || ''}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, kendaraan_id: e.target.value || null }))}
+                      className="w-full px-2.5 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-[var(--bg)] font-semibold text-xs text-[var(--text-primary)]"
+                    >
+                      <option value="">-- Pilih Armada Kendaraan --</option>
+                      {kendaraanList
+                        .filter((k) => k.aktif)
+                        .map((k) => (
+                          <option key={k.id} value={k.id}>
+                            {k.nama_kendaraan} - {k.plat_nomor} ({k.tipe_transmisi?.toUpperCase()})
+                          </option>
+                        ))}
+                    </select>
                   </div>
                 )}
 

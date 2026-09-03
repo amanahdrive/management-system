@@ -7,7 +7,7 @@ import {
   getStaffKasbonSummary,
 } from '@/lib/actions/kas';
 import { getSiswaList } from '@/lib/actions/siswa';
-import { getPaketList, getStaffList } from '@/lib/actions/master-data';
+import { getPaketList, getStaffList, getKendaraanMasterList } from '@/lib/actions/master-data';
 import { getRekeningList } from '@/lib/actions/rekening';
 import {
   DEFAULT_KAS_KATEGORI,
@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const [txSettled, katSettled, sisSettled, pakSettled, hutSettled, dpkSettled, rekSettled, stfSettled, ksbSettled] =
+    const [txSettled, katSettled, sisSettled, pakSettled, hutSettled, dpkSettled, rekSettled, stfSettled, ksbSettled, kndSettled] =
       await Promise.allSettled([
         getKasTransaksiList(),
         getKasKategoriList(),
@@ -30,6 +30,7 @@ export async function GET() {
         getRekeningList(),
         getStaffList(),
         getStaffKasbonSummary(),
+        getKendaraanMasterList(),
       ]);
 
     const transaksi = txSettled.status === 'fulfilled' ? txSettled.value : [];
@@ -47,6 +48,7 @@ export async function GET() {
         : DEFAULT_REKENING_LIST;
     const staff = stfSettled.status === 'fulfilled' ? stfSettled.value : [];
     const staffKasbon = ksbSettled.status === 'fulfilled' ? ksbSettled.value : [];
+    const kendaraan = kndSettled.status === 'fulfilled' ? kndSettled.value : [];
 
     const metrics = calculateLocalKasMetrics(transaksi, siswa, hutang);
 
@@ -62,6 +64,7 @@ export async function GET() {
       dpKustom,
       staff,
       staffKasbon,
+      kendaraan,
       timestamp: Date.now(),
     });
   } catch (err: any) {

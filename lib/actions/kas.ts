@@ -429,6 +429,9 @@ export async function addKasTransaksi(
     if (!cleanData.staff_id || cleanData.staff_id === '' || cleanData.staff_id === 'null' || cleanData.staff_id === 'undefined') {
       cleanData.staff_id = null;
     }
+    if (!cleanData.kendaraan_id || cleanData.kendaraan_id === '' || cleanData.kendaraan_id === 'null' || cleanData.kendaraan_id === 'undefined') {
+      cleanData.kendaraan_id = null;
+    }
     if (cleanData.potongan_kasbon !== undefined) {
       cleanData.potongan_kasbon = Number(cleanData.potongan_kasbon) || 0;
     }
@@ -465,11 +468,44 @@ export async function addKasTransaksi(
       await syncHutangPaymentState(cleanData.hutang_id);
     }
 
+    // Auto-sync BBM to Kendaraan status & log harian if kendaraan_id is specified
+    if (cleanData.kendaraan_id && (cleanData.kategori === 'bbm' || cleanData.kategori?.toLowerCase()?.includes('bbm'))) {
+      const txTanggal = cleanData.tanggal || getTodayDateString();
+      const txNominal = Number(cleanData.nominal) || 0;
+
+      await dbQuery(
+        `UPDATE kendaraan_status 
+         SET 
+           bensin_tanggal_terakhir = $1,
+           bensin_nominal_terakhir = $2,
+           updated_at = NOW() 
+         WHERE kendaraan_id = $3`,
+        [txTanggal, txNominal, cleanData.kendaraan_id]
+      );
+
+      await dbQuery(
+        `INSERT INTO kendaraan_log_harian (kendaraan_id, tanggal, bbm_nominal, catatan)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (kendaraan_id, tanggal) DO UPDATE
+         SET 
+           bbm_nominal = COALESCE(kendaraan_log_harian.bbm_nominal, 0) + EXCLUDED.bbm_nominal,
+           catatan = COALESCE(EXCLUDED.catatan, kendaraan_log_harian.catatan),
+           updated_at = NOW()`,
+        [cleanData.kendaraan_id, txTanggal, txNominal, cleanData.keterangan || 'Pengisian BBM dari Transaksi Kas']
+      );
+
+      cacheInvalidate('master_kendaraan*');
+      cacheInvalidate('kendaraan*');
+      revalidatePath('/kendaraan');
+      revalidatePath(`/kendaraan/${cleanData.kendaraan_id}`);
+    }
+
     cacheInvalidate('kas*');
     cacheInvalidate('dashboard*');
     cacheInvalidate('siswa*');
     cacheInvalidate('hutang*');
     cacheInvalidate('staff*');
+    cacheInvalidate('master_kendaraan*');
 
     revalidatePath('/kas');
     revalidatePath('/kas/cashflow');
@@ -831,8 +867,8 @@ export async function updateKasTransaksi(
   updates: Partial<KasTransaksi>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const oldTx = await dbQuerySingle<{ id: string; siswa_id: string; hutang_id: string }>(
-      'SELECT id, siswa_id, hutang_id FROM kas_transaksi WHERE id = $1',
+    const oldTx = await dbQuerySingle<KasTransaksi>(
+      'SELECT * FROM kas_transaksi WHERE id = $1',
       [id]
     );
 
@@ -846,6 +882,9 @@ export async function updateKasTransaksi(
     }
     if (!cleanUpdates.staff_id || cleanUpdates.staff_id === '' || cleanUpdates.staff_id === 'null' || cleanUpdates.staff_id === 'undefined') {
       cleanUpdates.staff_id = null;
+    }
+    if (!cleanUpdates.kendaraan_id || cleanUpdates.kendaraan_id === '' || cleanUpdates.kendaraan_id === 'null' || cleanUpdates.kendaraan_id === 'undefined') {
+      cleanUpdates.kendaraan_id = null;
     }
     if (cleanUpdates.potongan_kasbon !== undefined) {
       cleanUpdates.potongan_kasbon = Number(cleanUpdates.potongan_kasbon) || 0;
@@ -905,6 +944,29 @@ export async function updateKasTransaksi(
     }
     if (cleanUpdates.hutang_id && cleanUpdates.hutang_id !== oldTx?.hutang_id) {
       await syncHutangPaymentState(cleanUpdates.hutang_id);
+    }
+
+    // Sync BBM to Kendaraan status if updated
+    const targetKendaraanId = cleanUpdates.kendaraan_id !== undefined ? cleanUpdates.kendaraan_id : oldTx?.kendaraan_id;
+    const targetKategori = cleanUpdates.kategori || oldTx?.kategori;
+    if (targetKendaraanId && (targetKategori === 'bbm' || targetKategori?.toLowerCase()?.includes('bbm'))) {
+      const txTanggal = cleanUpdates.tanggal || oldTx?.tanggal || getTodayDateString();
+      const txNominal = cleanUpdates.nominal !== undefined ? Number(cleanUpdates.nominal) : (Number(oldTx?.nominal) || 0);
+
+      await dbQuery(
+        `UPDATE kendaraan_status 
+         SET 
+           bensin_tanggal_terakhir = $1,
+           bensin_nominal_terakhir = $2,
+           updated_at = NOW() 
+         WHERE kendaraan_id = $3`,
+        [txTanggal, txNominal, targetKendaraanId]
+      );
+
+      cacheInvalidate('master_kendaraan*');
+      cacheInvalidate('kendaraan*');
+      revalidatePath('/kendaraan');
+      revalidatePath(`/kendaraan/${targetKendaraanId}`);
     }
 
     cacheInvalidate('kas*');

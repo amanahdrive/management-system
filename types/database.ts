@@ -279,6 +279,7 @@ export interface KasTransaksi {
   siswa_id: string | null;
   hutang_id: string | null;
   staff_id?: string | null;
+  kendaraan_id?: string | null;
   sumber_otomatis: boolean;
   created_at: string;
   updated_at: string;
@@ -286,6 +287,7 @@ export interface KasTransaksi {
   siswa?: Siswa;
   hutang?: Hutang;
   staff?: Staff;
+  kendaraan?: Kendaraan;
 }
 
 export interface StaffKasbonSummary {

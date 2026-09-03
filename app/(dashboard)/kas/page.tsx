@@ -22,7 +22,7 @@ import {
   DpKustomItem,
 } from '@/lib/actions/kas';
 import { getSiswaList } from '@/lib/actions/siswa';
-import { getPaketList, getStaffList } from '@/lib/actions/master-data';
+import { getPaketList, getStaffList, getKendaraanMasterList } from '@/lib/actions/master-data';
 import { getRekeningList } from '@/lib/actions/rekening';
 import {
   DEFAULT_KAS_KATEGORI,
@@ -34,7 +34,7 @@ import {
   parseKeteranganDanRekening,
 } from '@/lib/constants/finance';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
-import { Siswa, Paket, RekeningBank, KasTransaksi, Hutang, Staff, StaffKasbonSummary } from '@/types/database';
+import { Siswa, Paket, RekeningBank, KasTransaksi, Hutang, Staff, StaffKasbonSummary, Kendaraan } from '@/types/database';
 import {
   Wallet,
   ArrowUpRight,
@@ -54,6 +54,7 @@ import {
   RefreshCw,
   Loader2,
   Banknote,
+  Car,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -66,6 +67,7 @@ export default function KasOverviewPage() {
   const [hutangList, setHutangList] = React.useState<Hutang[]>([]);
   const [staffList, setStaffList] = React.useState<Staff[]>([]);
   const [staffKasbonList, setStaffKasbonList] = React.useState<StaffKasbonSummary[]>([]);
+  const [kendaraanList, setKendaraanList] = React.useState<Kendaraan[]>([]);
   const [dpKustomList, setDpKustomList] = React.useState<DpKustomItem[]>([]);
   const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>(DEFAULT_REKENING_LIST);
   const [selectedRekeningId, setSelectedRekeningId] = React.useState<string>(DEFAULT_REKENING_LIST[0].id);
@@ -99,6 +101,7 @@ export default function KasOverviewPage() {
     siswa_id: '',
     hutang_id: '',
     staff_id: '',
+    kendaraan_id: '',
     potongan_kasbon: 0,
     gaji_pokok: 0,
   });
@@ -150,6 +153,7 @@ export default function KasOverviewPage() {
             const hut = Array.isArray(json.hutang) ? json.hutang : [];
             const stf = Array.isArray(json.staff) ? json.staff : [];
             const ksb = Array.isArray(json.staffKasbon) ? json.staffKasbon : [];
+            const knd = Array.isArray(json.kendaraan) ? json.kendaraan : [];
             const kat =
               Array.isArray(json.kategori) && json.kategori.length > 0
                 ? json.kategori
@@ -168,6 +172,7 @@ export default function KasOverviewPage() {
             setHutangList(hut);
             setStaffList(stf);
             setStaffKasbonList(ksb);
+            setKendaraanList(knd);
             setDpKustomList(json.dpKustom || []);
             setRekeningList(rek);
             setMetrics(localMetrics);
@@ -188,6 +193,7 @@ export default function KasOverviewPage() {
                 hutang: hut,
                 staff: stf,
                 staffKasbon: ksb,
+                kendaraan: knd,
                 rekening: rek,
                 dpKustom: json.dpKustom || [],
                 updatedAt: Date.now(),
@@ -202,7 +208,7 @@ export default function KasOverviewPage() {
 
       // Secondary Fallback: Server Actions (Promise.allSettled)
       if (!dataLoaded) {
-        const [mRes, tRes, kRes, sRes, pRes, dpKRes, rList, hList, stfList, ksbList] = await Promise.allSettled([
+        const [mRes, tRes, kRes, sRes, pRes, dpKRes, rList, hList, stfList, ksbList, kndList] = await Promise.allSettled([
           getKasOverviewMetrics(),
           getKasTransaksiList(),
           getKasKategoriList(),
@@ -213,6 +219,7 @@ export default function KasOverviewPage() {
           getHutangList(),
           getStaffList(),
           getStaffKasbonSummary(),
+          getKendaraanMasterList(),
         ]);
 
         const tx = tRes.status === 'fulfilled' && Array.isArray(tRes.value) ? tRes.value : [];
@@ -220,6 +227,7 @@ export default function KasOverviewPage() {
         const hut = hList.status === 'fulfilled' && Array.isArray(hList.value) ? hList.value : [];
         const stf = stfList.status === 'fulfilled' && Array.isArray(stfList.value) ? stfList.value : [];
         const ksb = ksbList.status === 'fulfilled' && Array.isArray(ksbList.value) ? ksbList.value : [];
+        const knd = kndList.status === 'fulfilled' && Array.isArray(kndList.value) ? kndList.value : [];
         const pak = pRes.status === 'fulfilled' && Array.isArray(pRes.value) ? pRes.value : [];
         const dpk = dpKRes.status === 'fulfilled' && Array.isArray(dpKRes.value) ? dpKRes.value : [];
         const kat =
@@ -240,6 +248,7 @@ export default function KasOverviewPage() {
         setHutangList(hut);
         setStaffList(stf);
         setStaffKasbonList(ksb);
+        setKendaraanList(knd);
         setDpKustomList(dpk);
         setRekeningList(rek);
         setMetrics(localMetrics);
@@ -299,6 +308,7 @@ export default function KasOverviewPage() {
       siswa_id: tx.siswa_id || '',
       hutang_id: tx.hutang_id || '',
       staff_id: tx.staff_id || '',
+      kendaraan_id: tx.kendaraan_id || '',
       potongan_kasbon: tx.potongan_kasbon || 0,
     });
   };
@@ -639,6 +649,7 @@ export default function KasOverviewPage() {
 
   const isKasbonCategory = formData.kategori === 'kasbon';
   const isGajiCategory = formData.kategori === 'gaji';
+  const isBbmCategory = formData.tipe === 'pengeluaran' && (formData.kategori === 'bbm' || formData.kategori?.toLowerCase()?.includes('bbm'));
   const activeStaffList = React.useMemo(() => staffList.filter((s) => s.aktif !== false), [staffList]);
   const selectedStaff = staffList.find((s) => s.id === formData.staff_id);
   const selectedStaffKasbon = staffKasbonList.find((s) => s.id === formData.staff_id);
@@ -688,6 +699,7 @@ export default function KasOverviewPage() {
     const finalSiswaId = isCustom ? null : (formData.siswa_id || null);
     const finalHutangId = formData.kategori === 'cicilan_hutang' ? (formData.hutang_id || null) : null;
     const finalStaffId = (formData.kategori === 'kasbon' || formData.kategori === 'gaji') ? (formData.staff_id || null) : null;
+    const finalKendaraanId = formData.kategori === 'bbm' ? (formData.kendaraan_id || null) : null;
     const finalPotonganKasbon = formData.kategori === 'gaji' ? (formData.potongan_kasbon || 0) : 0;
 
     let finalKeterangan = formData.keterangan.trim();
@@ -712,6 +724,7 @@ export default function KasOverviewPage() {
       siswa_id: finalSiswaId,
       hutang_id: finalHutangId,
       staff_id: finalStaffId,
+      kendaraan_id: finalKendaraanId,
       sumber_otomatis: false,
     });
 
@@ -727,6 +740,7 @@ export default function KasOverviewPage() {
       siswa_id: '',
       hutang_id: '',
       staff_id: '',
+      kendaraan_id: '',
       potongan_kasbon: 0,
       gaji_pokok: 0,
     });
@@ -1357,6 +1371,45 @@ export default function KasOverviewPage() {
                 </div>
               )}
 
+              {/* Dynamic Vehicle Selection for BBM */}
+              {isBbmCategory && (
+                <div className="p-3 rounded-md bg-[var(--bg-subtle)] border border-[var(--border)] space-y-2.5 animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                      <Car className="w-3.5 h-3.5" />
+                      <span>Pilih Armada Kendaraan (BBM) *</span>
+                    </label>
+                    <span className="text-[10px] text-[var(--text-secondary)]">
+                      {kendaraanList.filter((k) => k.aktif).length} armada aktif
+                    </span>
+                  </div>
+
+                  <select
+                    value={formData.kendaraan_id}
+                    required
+                    onChange={(e) => {
+                      const vId = e.target.value;
+                      const selectedVeh = kendaraanList.find((k) => k.id === vId);
+                      setFormData((prev) => ({
+                        ...prev,
+                        kendaraan_id: vId,
+                        keterangan: selectedVeh ? `BBM ${selectedVeh.nama_kendaraan} (${selectedVeh.plat_nomor})` : prev.keterangan,
+                      }));
+                    }}
+                    className="w-full px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)]"
+                  >
+                    <option value="">-- Pilih Armada Mobil / Motor --</option>
+                    {kendaraanList
+                      .filter((k) => k.aktif)
+                      .map((k) => (
+                        <option key={k.id} value={k.id}>
+                          {k.nama_kendaraan} - {k.plat_nomor} ({k.tipe_transmisi?.toUpperCase()})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                   Keterangan Transaksi *
@@ -1559,6 +1612,15 @@ export default function KasOverviewPage() {
                               <span>{bankInfo || 'Rekening Bank'}</span>
                             </span>
                           )}
+                          {tx.kendaraan_id && (
+                            <>
+                              <span>•</span>
+                              <span className="px-1.5 py-0.2 rounded-full font-semibold text-[9.5px] inline-flex items-center gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-mono">
+                                <Car className="w-2.5 h-2.5 text-amber-600" />
+                                <span>{kendaraanList.find((k) => k.id === tx.kendaraan_id)?.nama_kendaraan || 'Armada'} ({kendaraanList.find((k) => k.id === tx.kendaraan_id)?.plat_nomor || ''})</span>
+                              </span>
+                            </>
+                          )}
                           <span>•</span>
                           <span>PIC: {tx.pic_nama}</span>
                           {tx.sumber_otomatis && (
@@ -1573,11 +1635,13 @@ export default function KasOverviewPage() {
                             const isKasbonCat = tx.kategori === 'kasbon' || tx.kategori === 'pengembalian_kasbon' || (tx.kategori === 'gaji' && (tx.potongan_kasbon || 0) > 0);
                             const isHutangCat = tx.kategori === 'cicilan_hutang' || tx.kategori === 'pemasukan_hutang' || tx.kategori === 'bayar_hutang';
                             const isSiswaCat = tx.kategori === 'dp_siswa' || tx.kategori === 'pelunasan_siswa';
+                            const isBbmCat = tx.kategori === 'bbm' || tx.kategori?.toLowerCase()?.includes('bbm');
 
                             let warningText = '';
                             if (isKasbonCat && !tx.staff_id) warningText = 'Tidak tercatat pada piutang';
                             else if (isHutangCat && !tx.hutang_id) warningText = 'Tidak tercatat pada hutang';
                             else if (isSiswaCat && !tx.siswa_id) warningText = 'Tidak tercatat pada tagihan siswa';
+                            else if (isBbmCat && !tx.kendaraan_id) warningText = 'Tidak tercatat pada armada';
 
                             if (!warningText) return null;
                             return (
@@ -1809,6 +1873,29 @@ export default function KasOverviewPage() {
                         onChange={(val) => setEditForm((prev) => ({ ...prev, potongan_kasbon: val }))}
                       />
                     </div>
+                  </div>
+                )}
+
+                {(editForm.kategori === 'bbm' || editForm.kategori?.toLowerCase()?.includes('bbm')) && (
+                  <div className="p-2.5 rounded-md bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 space-y-1 animate-fadeIn">
+                    <label className="block text-[11px] font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1">
+                      <Car className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Armada Kendaraan (BBM)</span>
+                    </label>
+                    <select
+                      value={editForm.kendaraan_id || ''}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, kendaraan_id: e.target.value || null }))}
+                      className="w-full px-2.5 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-[var(--bg)] font-semibold text-xs text-[var(--text-primary)]"
+                    >
+                      <option value="">-- Pilih Armada Kendaraan --</option>
+                      {kendaraanList
+                        .filter((k) => k.aktif)
+                        .map((k) => (
+                          <option key={k.id} value={k.id}>
+                            {k.nama_kendaraan} - {k.plat_nomor} ({k.tipe_transmisi?.toUpperCase()})
+                          </option>
+                        ))}
+                    </select>
                   </div>
                 )}
 
