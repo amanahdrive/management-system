@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/shared/ThemeProvider';
 import { ButtonFeedback } from '@/components/shared/ButtonFeedback';
+import { LivingGridBackground } from '@/components/shared/LivingGridBackground';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -100,26 +101,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id" className={inter.variable} suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,slnt,wdth,wght,ROND@8..144,-10..0,25..150,400..700,0..100&display=swap"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Google+Sans+Code:ital,wght@0,400..700;1,400..700&display=swap"
-          rel="stylesheet"
-        />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Google+Symbols:opsz,wght,FILL,GRAD,ROND@20..48,100..700,0..1,-50..200,0..100&display=block"
-        />
-      </head>
-      <body className={`${inter.className} antialiased bg-[var(--bg-subtle)] text-[var(--text-primary)] font-sans selection:bg-[var(--brand-primary-muted)] selection:text-[var(--brand-primary-dark)]`}>
+      <head />
+      <body className={`${inter.className} antialiased bg-[var(--bg-subtle)] text-[var(--text-primary)] font-sans selection:bg-[var(--brand-primary-muted)] selection:text-[var(--brand-primary-dark)] relative overflow-x-hidden min-h-screen`}>
         <ThemeProvider>
+          <LivingGridBackground />
           <ButtonFeedback />
-          {children}
+          <div className="relative z-10">
+            {children}
+          </div>
         </ThemeProvider>
       </body>
     </html>

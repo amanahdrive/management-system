@@ -32,6 +32,7 @@ import {
   parseKeteranganDanRekening,
 } from '@/lib/constants/finance';
 import { formatRupiah } from '@/lib/utils/currency';
+import { sound } from '@/lib/sound/SoundFX';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
@@ -1009,7 +1010,7 @@ export default function FinancePortalPage() {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg)]">
         <div className="w-full max-w-sm card-container text-center p-6 shadow-2xl border-2 border-[var(--brand-primary)] animate-fadeIn">
-          <div className="w-14 h-14 rounded-2xl bg-[var(--brand-primary-light)] text-[var(--brand-primary)] flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 rounded-none bg-[var(--brand-primary-light)] text-[var(--brand-primary)] flex items-center justify-center mx-auto mb-4">
             <Lock className="w-7 h-7" />
           </div>
           <h2 className="text-lg font-bold text-[var(--text-primary)]">Finance Portal — Amanah Drive</h2>
@@ -1028,7 +1029,7 @@ export default function FinancePortalPage() {
                 onChange={(e) => handlePinInputChange(e.target.value)}
                 placeholder="••••••"
                 autoFocus
-                className="w-full px-4 py-3 text-center text-3xl tracking-widest font-bold tabular-nums rounded-2xl border-2 border-[var(--border)] bg-[var(--bg-subtle)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
+                className="w-full px-4 py-3 text-center text-3xl tracking-widest font-bold tabular-nums rounded-none border-2 border-[var(--border)] bg-[var(--bg-subtle)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
               />
               {pinError && <p className="text-xs text-[var(--danger)] font-semibold mt-2">{pinError}</p>}
             </div>
@@ -1036,7 +1037,7 @@ export default function FinancePortalPage() {
             <button
               type="submit"
               disabled={pinLoading || pinInput.length !== 6}
-              className="w-full py-3 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] disabled:opacity-50 text-white font-bold rounded-2xl text-xs transition-colors shadow-sm"
+              className="w-full py-3 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] disabled:opacity-50 text-white font-bold rounded-none text-xs transition-colors shadow-sm"
             >
               {pinLoading ? 'Memverifikasi...' : 'Buka Portal Finance'}
             </button>
@@ -1050,7 +1051,7 @@ export default function FinancePortalPage() {
     <div className="min-h-screen bg-[var(--bg-subtle)] text-[var(--text-primary)] pb-28">
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-slate-900 text-emerald-300 text-xs font-bold rounded-full shadow-2xl border border-emerald-500/30 flex items-center gap-2 animate-fadeIn">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-slate-900 text-emerald-300 text-xs font-bold rounded-none shadow-2xl border border-emerald-500/30 flex items-center gap-2 animate-fadeIn">
           <Check className="w-3.5 h-3.5 text-emerald-400" />
           <span>{toast}</span>
         </div>
@@ -1060,7 +1061,7 @@ export default function FinancePortalPage() {
       <header className="sticky top-0 z-30 bg-[var(--bg-elevated)]/90 backdrop-blur-md border-b border-[var(--border)] px-4 py-3">
         <div className="max-w-md mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[var(--brand-primary)] text-white flex items-center justify-center font-bold text-sm shadow-xs">
+            <div className="w-8 h-8 rounded-none bg-[var(--brand-primary)] text-white flex items-center justify-center font-bold text-sm shadow-xs">
               AD
             </div>
             <div>
@@ -1076,7 +1077,7 @@ export default function FinancePortalPage() {
               type="button"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="p-2 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition-colors"
+              className="p-2 rounded-none border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition-colors"
               title="Perbarui Data"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[var(--brand-primary)]' : ''}`} />
@@ -1092,12 +1093,12 @@ export default function FinancePortalPage() {
         {activeTab === 'kas' && (
           <div className="space-y-4 animate-fadeIn">
             {/* Saldo Aktif Hero Card */}
-            <div className="p-5 rounded-3xl bg-linear-to-br from-[#0F7A73] to-[#0A5651] text-white shadow-lg space-y-4">
+            <div className="p-5 rounded-none bg-[#0F7A73] border border-[#0F7A73]/60 text-white shadow-none space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold tracking-wider uppercase opacity-85">
                   Total Saldo Kas Aktif
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-white/20 backdrop-blur-xs">
+                <span className="px-2 py-0.5 rounded-none text-[9.5px] font-extrabold bg-white/20 backdrop-blur-xs">
                   Realtime
                 </span>
               </div>
@@ -1115,16 +1116,16 @@ export default function FinancePortalPage() {
               <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/20 text-xs">
                 <div
                   onClick={handleOpenSetorTunai}
-                  className="bg-black/10 hover:bg-black/20 rounded-2xl p-2.5 cursor-pointer transition-colors"
+                  className="bg-black/10 hover:bg-black/20 rounded-none p-2.5 cursor-pointer transition-colors"
                   title="Klik untuk setor tunai ke bank"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] opacity-80 font-medium">Kas Fisik (Tunai)</span>
-                    <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded-full font-bold">Setor →</span>
+                    <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded-none font-bold">Setor →</span>
                   </div>
                   <span className="font-bold tabular-nums block mt-1">{formatRupiah(metrics.saldoTunai)}</span>
                 </div>
-                <div className="bg-black/10 rounded-2xl p-2.5">
+                <div className="bg-black/10 rounded-none p-2.5">
                   <span className="text-[10px] opacity-80 block font-medium">Bank (Non-Tunai)</span>
                   <span className="font-bold tabular-nums block mt-1">{formatRupiah(metrics.saldoNonTunai)}</span>
                 </div>
@@ -1135,10 +1136,10 @@ export default function FinancePortalPage() {
             <button
               type="button"
               onClick={handleOpenSetorTunai}
-              className="w-full py-2.5 px-4 rounded-2xl bg-[var(--bg)] border border-[var(--border)] shadow-xs flex items-center justify-between text-xs font-bold text-[var(--text-primary)] hover:border-emerald-500 transition-colors active:scale-98"
+              className="w-full py-2.5 px-4 rounded-none bg-[var(--bg)] border border-[var(--border)] shadow-xs flex items-center justify-between text-xs font-bold text-[var(--text-primary)] hover:border-emerald-500 transition-colors active:scale-98"
             >
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+                <div className="w-7 h-7 rounded-none bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
                   <Landmark className="w-3.5 h-3.5" />
                 </div>
                 <span>Setor Tunai Kas ke Bank</span>
@@ -1150,7 +1151,7 @@ export default function FinancePortalPage() {
             <div className="grid grid-cols-2 gap-3">
               <div
                 onClick={() => setActiveTab('piutang')}
-                className="p-3.5 rounded-2xl bg-[var(--bg)] border border-[var(--border)] shadow-xs space-y-1 cursor-pointer active:scale-98 transition-transform"
+                className="p-3.5 rounded-none bg-[var(--bg)] border border-[var(--border)] shadow-xs space-y-1 cursor-pointer active:scale-98 transition-transform"
               >
                 <div className="flex items-center justify-between text-[var(--text-secondary)]">
                   <span className="text-[10.5px] font-bold">Piutang Beredar</span>
@@ -1166,7 +1167,7 @@ export default function FinancePortalPage() {
 
               <div
                 onClick={() => setActiveTab('hutang')}
-                className="p-3.5 rounded-2xl bg-[var(--bg)] border border-[var(--border)] shadow-xs space-y-1 cursor-pointer active:scale-98 transition-transform"
+                className="p-3.5 rounded-none bg-[var(--bg)] border border-[var(--border)] shadow-xs space-y-1 cursor-pointer active:scale-98 transition-transform"
               >
                 <div className="flex items-center justify-between text-[var(--text-secondary)]">
                   <span className="text-[10.5px] font-bold">Total Hutang</span>
@@ -1199,7 +1200,7 @@ export default function FinancePortalPage() {
                     placeholder="Cari transaksi, keterangan, PIC..."
                     value={txSearchQuery}
                     onChange={(e) => setTxSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] text-xs text-[var(--text-primary)] focus:outline-none"
+                    className="w-full pl-8 pr-3 py-1.5 rounded-none border border-[var(--border)] bg-[var(--bg-subtle)] text-xs text-[var(--text-primary)] focus:outline-none"
                   />
                 </div>
 
@@ -1207,7 +1208,7 @@ export default function FinancePortalPage() {
                   <button
                     type="button"
                     onClick={() => setTxFilterType('all')}
-                    className={`flex-1 py-1 rounded-lg font-bold text-[11px] transition-colors ${
+                    className={`flex-1 py-1 rounded-none font-bold text-[11px] transition-colors ${
                       txFilterType === 'all'
                         ? 'bg-[var(--brand-primary)] text-white'
                         : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
@@ -1218,7 +1219,7 @@ export default function FinancePortalPage() {
                   <button
                     type="button"
                     onClick={() => setTxFilterType('pemasukan')}
-                    className={`flex-1 py-1 rounded-lg font-bold text-[11px] transition-colors ${
+                    className={`flex-1 py-1 rounded-none font-bold text-[11px] transition-colors ${
                       txFilterType === 'pemasukan'
                         ? 'bg-emerald-600 text-white'
                         : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
@@ -1229,7 +1230,7 @@ export default function FinancePortalPage() {
                   <button
                     type="button"
                     onClick={() => setTxFilterType('pengeluaran')}
-                    className={`flex-1 py-1 rounded-lg font-bold text-[11px] transition-colors ${
+                    className={`flex-1 py-1 rounded-none font-bold text-[11px] transition-colors ${
                       txFilterType === 'pengeluaran'
                         ? 'bg-rose-600 text-white'
                         : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
@@ -1259,11 +1260,11 @@ export default function FinancePortalPage() {
                     return (
                       <div
                         key={tx.id}
-                        className="p-3 rounded-2xl bg-[var(--bg)] border border-[var(--border)] flex items-start justify-between gap-2.5 shadow-2xs"
+                        className="p-3 rounded-none bg-[var(--bg)] border border-[var(--border)] flex items-start justify-between gap-2.5 shadow-2xs"
                       >
                         <div className="flex items-start gap-2.5">
                           <div
-                            className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                            className={`w-7 h-7 rounded-none flex items-center justify-center shrink-0 mt-0.5 ${
                               isIncome
                                 ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600'
                                 : 'bg-rose-100 dark:bg-rose-950/50 text-rose-600'
@@ -1279,7 +1280,7 @@ export default function FinancePortalPage() {
                               <span>{formatDateIndo(tx.tanggal)}</span>
                               <span>•</span>
                               <span
-                                className={`px-1.5 py-0.2 rounded-full font-semibold text-[9px] inline-flex items-center gap-0.5 ${
+                                className={`px-1.5 py-0.2 rounded-none font-semibold text-[9px] inline-flex items-center gap-0.5 ${
                                   isTunai
                                     ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
                                     : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
@@ -1288,7 +1289,7 @@ export default function FinancePortalPage() {
                                 {isTunai ? 'Tunai' : 'Non-Tunai'}
                               </span>
                               {!isTunai && (bankInfo || tx.rekening_id) && (
-                                <span className="px-1.5 py-0.2 rounded-full font-semibold text-[9px] inline-flex items-center gap-1 bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 font-mono">
+                                <span className="px-1.5 py-0.2 rounded-none font-semibold text-[9px] inline-flex items-center gap-1 bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 font-mono">
                                   <Landmark className="w-2.5 h-2.5" />
                                   <span>{bankInfo || 'Rekening Bank'}</span>
                                 </span>
@@ -1316,7 +1317,7 @@ export default function FinancePortalPage() {
                           <button
                             type="button"
                             onClick={() => handleOpenEditTx(tx)}
-                            className="px-2 py-0.5 text-[var(--brand-primary)] bg-[var(--brand-primary-light)] hover:opacity-80 rounded-lg flex items-center gap-1 text-[10px] font-semibold transition-all"
+                            className="px-2 py-0.5 text-[var(--brand-primary)] bg-[var(--brand-primary-light)] hover:opacity-80 rounded-none flex items-center gap-1 text-[10px] font-semibold transition-all"
                             title="Edit Transaksi Kas"
                           >
                             <Pencil className="w-3 h-3" />
@@ -1342,7 +1343,7 @@ export default function FinancePortalPage() {
               </h3>
 
               {/* Net Cashflow Card */}
-              <div className="p-4 rounded-2xl bg-[var(--bg-subtle)] border border-[var(--border)] space-y-2">
+              <div className="p-4 rounded-none bg-[var(--bg-subtle)] border border-[var(--border)] space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[var(--text-secondary)] font-semibold">Net Cashflow</span>
                   <span
@@ -1360,7 +1361,7 @@ export default function FinancePortalPage() {
                     <span className="text-emerald-600">Masuk: {formatRupiah(cashflowData.masuk)}</span>
                     <span className="text-rose-600">Keluar: {formatRupiah(cashflowData.keluar)}</span>
                   </div>
-                  <div className="w-full h-2.5 rounded-full bg-rose-200 dark:bg-rose-950 overflow-hidden flex">
+                  <div className="w-full h-2.5 rounded-none bg-rose-200 dark:bg-rose-950 overflow-hidden flex">
                     <div
                       style={{
                         width: `${
@@ -1385,7 +1386,7 @@ export default function FinancePortalPage() {
                 {Object.entries(cashflowData.catMap).map(([kat, data]) => (
                   <div
                     key={kat}
-                    className="p-3 rounded-2xl bg-[var(--bg)] border border-[var(--border)] flex items-center justify-between text-xs"
+                    className="p-3 rounded-none bg-[var(--bg)] border border-[var(--border)] flex items-center justify-between text-xs"
                   >
                     <div>
                       <span className="font-bold text-[var(--text-primary)] capitalize">
@@ -1407,7 +1408,7 @@ export default function FinancePortalPage() {
         {activeTab === 'piutang' && (
           <div className="space-y-4 animate-fadeIn">
             {/* Header Card */}
-            <div className="p-4 rounded-3xl bg-linear-to-br from-amber-600 to-amber-700 text-white shadow-md space-y-1">
+            <div className="p-4 rounded-none bg-linear-to-br from-amber-600 to-amber-700 text-white shadow-md space-y-1">
               <span className="text-[10px] uppercase font-bold tracking-wider opacity-90">
                 Total Piutang Siswa Beredar
               </span>
@@ -1449,7 +1450,7 @@ export default function FinancePortalPage() {
                         </div>
 
                         <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                          className={`px-2.5 py-0.5 rounded-none text-[10px] font-extrabold border ${
                             isDp
                               ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300'
                               : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300'
@@ -1459,7 +1460,7 @@ export default function FinancePortalPage() {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[var(--bg-subtle)] text-xs">
+                      <div className="grid grid-cols-2 gap-2 p-2.5 rounded-none bg-[var(--bg-subtle)] text-xs">
                         <div>
                           <span className="text-[10px] text-[var(--text-secondary)] block">Paket Kursus</span>
                           <span className="font-semibold text-[var(--text-primary)]">
@@ -1482,7 +1483,7 @@ export default function FinancePortalPage() {
                         <button
                           type="button"
                           onClick={() => handleOpenPelunasan(s)}
-                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1 shadow-xs active:scale-95 transition-all"
+                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-none text-xs flex items-center gap-1 shadow-xs active:scale-95 transition-all"
                         >
                           <CreditCard className="w-3.5 h-3.5" />
                           <span>Input Pelunasan</span>
@@ -1500,7 +1501,7 @@ export default function FinancePortalPage() {
         {activeTab === 'hutang' && (
           <div className="space-y-4 animate-fadeIn">
             {/* Header Card */}
-            <div className="p-4 rounded-3xl bg-linear-to-br from-rose-600 to-rose-700 text-white shadow-md flex items-center justify-between">
+            <div className="p-4 rounded-none bg-linear-to-br from-rose-600 to-rose-700 text-white shadow-md flex items-center justify-between">
               <div>
                 <span className="text-[10px] uppercase font-bold tracking-wider opacity-90">
                   Total Sisa Hutang Usaha
@@ -1513,7 +1514,7 @@ export default function FinancePortalPage() {
               <button
                 type="button"
                 onClick={() => setShowAddHutangModal(true)}
-                className="px-3 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-xs text-white text-xs font-bold rounded-2xl flex items-center gap-1.5 transition-colors shadow-xs"
+                className="px-3 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-xs text-white text-xs font-bold rounded-none flex items-center gap-1.5 transition-colors shadow-xs"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Tambah Hutang</span>
@@ -1548,7 +1549,7 @@ export default function FinancePortalPage() {
                         </div>
 
                         <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                          className={`px-2.5 py-0.5 rounded-none text-[10px] font-extrabold border ${
                             isLunas
                               ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                               : 'bg-rose-100 text-rose-800 border-rose-300'
@@ -1558,7 +1559,7 @@ export default function FinancePortalPage() {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[var(--bg-subtle)] text-xs">
+                      <div className="grid grid-cols-2 gap-2 p-2.5 rounded-none bg-[var(--bg-subtle)] text-xs">
                         <div>
                           <span className="text-[10px] text-[var(--text-secondary)] block">Total Hutang</span>
                           <span className="font-bold text-[var(--text-primary)] tabular-nums">
@@ -1578,7 +1579,7 @@ export default function FinancePortalPage() {
                           <button
                             type="button"
                             onClick={() => handleOpenEditHutang(h)}
-                            className="px-2.5 py-1 text-[11px] font-semibold text-amber-600 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg flex items-center gap-1 transition-colors"
+                            className="px-2.5 py-1 text-[11px] font-semibold text-amber-600 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-none flex items-center gap-1 transition-colors"
                             title="Edit Hutang"
                           >
                             <Pencil className="w-3 h-3" />
@@ -1587,7 +1588,7 @@ export default function FinancePortalPage() {
                           <button
                             type="button"
                             onClick={() => setDeletingHutang(h)}
-                            className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-lg flex items-center gap-1 transition-colors"
+                            className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-none flex items-center gap-1 transition-colors"
                             title="Hapus Hutang"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -1599,7 +1600,7 @@ export default function FinancePortalPage() {
                           <button
                             type="button"
                             onClick={() => handleOpenCicilan(h)}
-                            className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs flex items-center gap-1 shadow-xs active:scale-95 transition-all"
+                            className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-none text-xs flex items-center gap-1 shadow-xs active:scale-95 transition-all"
                           >
                             <Banknote className="w-3.5 h-3.5" />
                             <span>Bayar Cicilan</span>
@@ -1617,75 +1618,94 @@ export default function FinancePortalPage() {
         )}
       </main>
 
-      {/* Navigasi Bawah */}
-      <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto z-40">
-        <div className="bg-[var(--bg)]/90 backdrop-blur-2xl border border-[var(--border)] rounded-full shadow-[0_12px_36px_rgba(0,0,0,0.18)] px-4 py-2 flex items-center justify-between">
+      {/* Navigasi Bawah Dock Utilitarian Modern (0px Radius) */}
+      <div className="fixed bottom-3 left-3 right-3 max-w-md mx-auto z-40">
+        <div className="bg-[var(--bg)]/95 backdrop-blur-2xl border border-[var(--border)] rounded-none shadow-[0_8px_32px_rgba(0,0,0,0.14)] px-2 py-1.5 flex items-center justify-between">
           {/* Tab 1: Kas */}
           <button
             type="button"
-            onClick={() => setActiveTab('kas')}
-            className={`flex-1 py-1 flex flex-col items-center gap-0.5 transition-all ${
-              activeTab === 'kas' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)]'
+            onClick={() => {
+              sound.playMechanicalTick();
+              setActiveTab('kas');
+            }}
+            className={`flex-1 py-1.5 flex flex-col items-center gap-1 transition-colors relative ${
+              activeTab === 'kas' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
-            <div className={`p-1.5 rounded-full transition-all ${activeTab === 'kas' ? 'bg-[var(--brand-primary-light)] scale-110' : ''}`}>
-              <Wallet className="w-5 h-5" />
-            </div>
-            <span className="text-[10px]">Kas</span>
+            {activeTab === 'kas' && (
+              <span className="absolute -top-1.5 left-2 right-2 h-0.5 bg-[var(--brand-primary)]" />
+            )}
+            <Wallet className="w-4 h-4" />
+            <span className="text-[10px] tracking-wider uppercase font-mono">Kas</span>
           </button>
 
           {/* Tab 2: Cashflow */}
           <button
             type="button"
-            onClick={() => setActiveTab('cashflow')}
-            className={`flex-1 py-1 flex flex-col items-center gap-0.5 transition-all ${
-              activeTab === 'cashflow' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)]'
+            onClick={() => {
+              sound.playMechanicalTick();
+              setActiveTab('cashflow');
+            }}
+            className={`flex-1 py-1.5 flex flex-col items-center gap-1 transition-colors relative ${
+              activeTab === 'cashflow' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
-            <div className={`p-1.5 rounded-full transition-all ${activeTab === 'cashflow' ? 'bg-[var(--brand-primary-light)] scale-110' : ''}`}>
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <span className="text-[10px]">Cashflow</span>
+            {activeTab === 'cashflow' && (
+              <span className="absolute -top-1.5 left-2 right-2 h-0.5 bg-[var(--brand-primary)]" />
+            )}
+            <TrendingUp className="w-4 h-4" />
+            <span className="text-[10px] tracking-wider uppercase font-mono">Flow</span>
           </button>
 
-          {/* Center: Elevated Glowing Floating Action Button (+) */}
-          <div className="relative -top-6 px-1">
+          {/* Center: Sharp Tactile Action Button (+) */}
+          <div className="px-1.5">
             <button
               type="button"
-              onClick={() => setShowAddForm(true)}
-              className="w-13 h-13 rounded-full bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white flex items-center justify-center shadow-[0_6px_20px_var(--brand-glow)] border-4 border-[var(--bg)] transition-transform active:scale-90 hover:scale-105"
+              onClick={() => {
+                sound.playTactileClick();
+                setShowAddForm(true);
+              }}
+              className="w-10 h-10 rounded-none bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white flex items-center justify-center border border-white/20 transition-all active:scale-95 shadow-none"
               title="Tambah Transaksi Kas"
             >
-              <Plus className="w-6 h-6 stroke-[3]" />
+              <Plus className="w-5 h-5 stroke-[2.5]" />
             </button>
           </div>
 
           {/* Tab 3: Piutang */}
           <button
             type="button"
-            onClick={() => setActiveTab('piutang')}
-            className={`flex-1 py-1 flex flex-col items-center gap-0.5 transition-all ${
-              activeTab === 'piutang' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)]'
+            onClick={() => {
+              sound.playMechanicalTick();
+              setActiveTab('piutang');
+            }}
+            className={`flex-1 py-1.5 flex flex-col items-center gap-1 transition-colors relative ${
+              activeTab === 'piutang' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
-            <div className={`p-1.5 rounded-full transition-all ${activeTab === 'piutang' ? 'bg-[var(--brand-primary-light)] scale-110' : ''}`}>
-              <CreditCard className="w-5 h-5" />
-            </div>
-            <span className="text-[10px]">Piutang</span>
+            {activeTab === 'piutang' && (
+              <span className="absolute -top-1.5 left-2 right-2 h-0.5 bg-[var(--brand-primary)]" />
+            )}
+            <CreditCard className="w-4 h-4" />
+            <span className="text-[10px] tracking-wider uppercase font-mono">Piutang</span>
           </button>
 
           {/* Tab 4: Hutang */}
           <button
             type="button"
-            onClick={() => setActiveTab('hutang')}
-            className={`flex-1 py-1 flex flex-col items-center gap-0.5 transition-all ${
-              activeTab === 'hutang' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)]'
+            onClick={() => {
+              sound.playMechanicalTick();
+              setActiveTab('hutang');
+            }}
+            className={`flex-1 py-1.5 flex flex-col items-center gap-1 transition-colors relative ${
+              activeTab === 'hutang' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
-            <div className={`p-1.5 rounded-full transition-all ${activeTab === 'hutang' ? 'bg-[var(--brand-primary-light)] scale-110' : ''}`}>
-              <Banknote className="w-5 h-5" />
-            </div>
-            <span className="text-[10px]">Hutang</span>
+            {activeTab === 'hutang' && (
+              <span className="absolute -top-1.5 left-2 right-2 h-0.5 bg-[var(--brand-primary)]" />
+            )}
+            <Banknote className="w-4 h-4" />
+            <span className="text-[10px] tracking-wider uppercase font-mono">Hutang</span>
           </button>
         </div>
       </div>
@@ -1693,7 +1713,7 @@ export default function FinancePortalPage() {
       {/* Modal Tambah Transaksi Kas */}
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-xs p-0 sm:p-4 animate-fadeIn">
-          <div className="w-full max-w-md bg-[var(--bg)] border-t sm:border border-[var(--border)] rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-md bg-[var(--bg)] border-t sm:border border-[var(--border)] rounded-none sm:rounded-none p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <h3 className="font-bold text-sm text-[var(--text-primary)] flex items-center gap-2">
                 <Plus className="w-4 h-4 text-[var(--brand-primary)]" />
@@ -1702,7 +1722,7 @@ export default function FinancePortalPage() {
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-600"
+                className="p-1 rounded-none text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1714,7 +1734,7 @@ export default function FinancePortalPage() {
                 <button
                   type="button"
                   onClick={() => handleTipeChange('pemasukan')}
-                  className={`py-2 rounded-xl font-bold transition-all ${
+                  className={`py-2 rounded-none font-bold transition-all ${
                     formData.tipe === 'pemasukan'
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
@@ -1725,7 +1745,7 @@ export default function FinancePortalPage() {
                 <button
                   type="button"
                   onClick={() => handleTipeChange('pengeluaran')}
-                  className={`py-2 rounded-xl font-bold transition-all ${
+                  className={`py-2 rounded-none font-bold transition-all ${
                     formData.tipe === 'pengeluaran'
                       ? 'bg-rose-600 text-white shadow-xs'
                       : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
@@ -1743,7 +1763,7 @@ export default function FinancePortalPage() {
                 <select
                   value={formData.kategori}
                   onChange={(e) => handleKategoriChange(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                  className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
                 >
                   {availableKategoriList.map((k) => (
                     <option key={k.id} value={k.nama_kategori}>
@@ -1763,7 +1783,7 @@ export default function FinancePortalPage() {
                     <select
                       value={formData.siswa_id}
                       onChange={(e) => handleSiswaChange(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)] text-xs"
+                      className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)] text-xs"
                     >
                       <option value="">-- Pilih Siswa / DP Kustom --</option>
                       {formData.kategori === 'dp_siswa' && (
@@ -1806,7 +1826,7 @@ export default function FinancePortalPage() {
 
                   {/* Form Khusus Input DP Kustom */}
                   {formData.siswa_id === 'custom_dp' && (
-                    <div className="pt-2 border-t border-[var(--border)] space-y-3 p-3 bg-amber-50/60 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900 text-xs">
+                    <div className="pt-2 border-t border-[var(--border)] space-y-3 p-3 bg-amber-50/60 dark:bg-amber-950/20 rounded-none border border-amber-200 dark:border-amber-900 text-xs">
                       <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
                         <User className="w-4 h-4 text-amber-600" />
                         <span>Form Input DP Kustom (Non-Siswa)</span>
@@ -1875,7 +1895,7 @@ export default function FinancePortalPage() {
                   type="date"
                   value={formData.tanggal}
                   onChange={(e) => setFormData((prev) => ({ ...prev, tanggal: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
                 />
               </div>
 
@@ -1888,7 +1908,7 @@ export default function FinancePortalPage() {
                   <button
                     type="button"
                     onClick={() => setFormData((prev) => ({ ...prev, jenis_pembayaran: 'tunai' }))}
-                    className={`py-2 rounded-xl font-bold transition-all ${
+                    className={`py-2 rounded-none font-bold transition-all ${
                       formData.jenis_pembayaran === 'tunai'
                         ? 'border-2 border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                         : 'border border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
@@ -1899,7 +1919,7 @@ export default function FinancePortalPage() {
                   <button
                     type="button"
                     onClick={() => setFormData((prev) => ({ ...prev, jenis_pembayaran: 'non_tunai' }))}
-                    className={`py-2 rounded-xl font-bold transition-all ${
+                    className={`py-2 rounded-none font-bold transition-all ${
                       formData.jenis_pembayaran === 'non_tunai'
                         ? 'border-2 border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                         : 'border border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
@@ -1913,7 +1933,7 @@ export default function FinancePortalPage() {
                   <select
                     value={selectedRekeningId}
                     onChange={(e) => setSelectedRekeningId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold mt-2"
+                    className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold mt-2"
                   >
                     <option value="">{LABEL_REKENING_DEFAULT}</option>
                     {rekeningList
@@ -1938,7 +1958,7 @@ export default function FinancePortalPage() {
                   placeholder="Keterangan transaksi kas..."
                   value={formData.keterangan}
                   onChange={(e) => setFormData((prev) => ({ ...prev, keterangan: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs"
+                  className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs"
                 />
               </div>
 
@@ -1946,7 +1966,7 @@ export default function FinancePortalPage() {
                 <button
                   type="submit"
                   disabled={submitting || formData.nominal <= 0 || !formData.keterangan}
-                  className="w-full py-3 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] disabled:opacity-50 text-white font-bold rounded-2xl text-xs transition-colors shadow-sm"
+                  className="w-full py-3 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] disabled:opacity-50 text-white font-bold rounded-none text-xs transition-colors shadow-sm"
                 >
                   {submitting ? 'Menyimpan Transaksi...' : 'Simpan Transaksi Kas'}
                 </button>
@@ -1959,7 +1979,7 @@ export default function FinancePortalPage() {
       {/* Modal Pelunasan Piutang Siswa */}
       {showPelunasanModal && selectedPiutangSiswa && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-fadeIn">
-          <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl space-y-4">
+          <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-none p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <div>
                 <h3 className="font-bold text-sm text-[var(--text-primary)]">Input Pelunasan Siswa</h3>
@@ -1970,7 +1990,7 @@ export default function FinancePortalPage() {
               <button
                 type="button"
                 onClick={() => setShowPelunasanModal(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-600"
+                className="p-1 rounded-none text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1993,12 +2013,12 @@ export default function FinancePortalPage() {
                   type="date"
                   value={pelunasanTanggal}
                   onChange={(e) => setPelunasanTanggal(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
                 />
               </div>
 
               {/* Opsi Catat ke Buku Kas */}
-              <div className="p-2.5 rounded-2xl border border-[var(--border)] bg-[var(--bg-subtle)] space-y-1">
+              <div className="p-2.5 rounded-none border border-[var(--border)] bg-[var(--bg-subtle)] space-y-1">
                 <label className="flex items-center gap-2 cursor-pointer font-semibold text-xs text-[var(--text-primary)] select-none">
                   <input
                     type="checkbox"
@@ -2024,7 +2044,7 @@ export default function FinancePortalPage() {
                     <button
                       type="button"
                       onClick={() => setPelunasanMetode('tunai')}
-                      className={`py-2 rounded-xl font-bold ${
+                      className={`py-2 rounded-none font-bold ${
                         pelunasanMetode === 'tunai'
                           ? 'border-2 border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
                           : 'border border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
@@ -2035,7 +2055,7 @@ export default function FinancePortalPage() {
                     <button
                       type="button"
                       onClick={() => setPelunasanMetode('non_tunai')}
-                      className={`py-2 rounded-xl font-bold ${
+                      className={`py-2 rounded-none font-bold ${
                         pelunasanMetode === 'non_tunai'
                           ? 'border-2 border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
                           : 'border border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
@@ -2049,7 +2069,7 @@ export default function FinancePortalPage() {
                     <select
                       value={selectedRekeningId}
                       onChange={(e) => setSelectedRekeningId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold mt-2"
+                      className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold mt-2"
                     >
                       <option value="">{LABEL_REKENING_DEFAULT}</option>
                       {rekeningList
@@ -2068,14 +2088,14 @@ export default function FinancePortalPage() {
                 <button
                   type="button"
                   onClick={() => setShowPelunasanModal(false)}
-                  className="flex-1 py-2 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] font-semibold"
+                  className="flex-1 py-2 rounded-none border border-[var(--border)] text-[var(--text-secondary)] font-semibold"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={pelunasanLoading || pelunasanNominal <= 0}
-                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs disabled:opacity-50"
+                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-none shadow-xs disabled:opacity-50"
                 >
                   {pelunasanLoading ? 'Menyimpan...' : 'Simpan Pelunasan'}
                 </button>
@@ -2088,10 +2108,10 @@ export default function FinancePortalPage() {
       {/* Modal Setor Tunai */}
       {showSetorTunaiModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-fadeIn">
-          <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl space-y-4">
+          <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-none p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-none bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
                   <Landmark className="w-4 h-4" />
                 </div>
                 <div>
@@ -2102,14 +2122,14 @@ export default function FinancePortalPage() {
               <button
                 type="button"
                 onClick={() => setShowSetorTunaiModal(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-600"
+                className="p-1 rounded-none text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="p-2.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40">
+              <div className="p-2.5 rounded-none bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40">
                 <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 block">
                   Kas Fisik (Tunai)
                 </span>
@@ -2117,7 +2137,7 @@ export default function FinancePortalPage() {
                   {formatRupiah(metrics.saldoTunai)}
                 </span>
               </div>
-              <div className="p-2.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40">
+              <div className="p-2.5 rounded-none bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40">
                 <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-400 block">
                   Bank (Non-Tunai)
                 </span>
@@ -2164,7 +2184,7 @@ export default function FinancePortalPage() {
                   value={setorRekeningId}
                   onChange={(e) => setSetorRekeningId(e.target.value)}
                   required
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
                 >
                   <option value="">-- Pilih Rekening Bank --</option>
                   {rekeningList
@@ -2185,7 +2205,7 @@ export default function FinancePortalPage() {
                   type="date"
                   value={setorTanggal}
                   onChange={(e) => setSetorTanggal(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
                 />
               </div>
 
@@ -2198,7 +2218,7 @@ export default function FinancePortalPage() {
                   value={setorPicNama}
                   onChange={(e) => setSetorPicNama(e.target.value)}
                   placeholder="Nama staf"
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
                 />
               </div>
 
@@ -2211,7 +2231,7 @@ export default function FinancePortalPage() {
                   value={setorKeterangan}
                   onChange={(e) => setSetorKeterangan(e.target.value)}
                   placeholder="Keterangan setoran"
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
                 />
               </div>
 
@@ -2220,7 +2240,7 @@ export default function FinancePortalPage() {
                   type="button"
                   onClick={() => setShowSetorTunaiModal(false)}
                   disabled={setorLoading}
-                  className="flex-1 py-2 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] font-semibold"
+                  className="flex-1 py-2 rounded-none border border-[var(--border)] text-[var(--text-secondary)] font-semibold"
                 >
                   Batal
                 </button>
@@ -2232,7 +2252,7 @@ export default function FinancePortalPage() {
                     setorNominal > metrics.saldoTunai ||
                     !setorRekeningId
                   }
-                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-none shadow-xs disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
                   {setorLoading ? (
                     <>
@@ -2252,7 +2272,7 @@ export default function FinancePortalPage() {
       {/* Modal Bayar Cicilan Hutang */}
       {showCicilanModal && selectedHutang && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-fadeIn">
-          <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl space-y-4">
+          <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-none p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <div>
                 <h3 className="font-bold text-sm text-[var(--text-primary)]">Bayar Cicilan Hutang</h3>
@@ -2263,7 +2283,7 @@ export default function FinancePortalPage() {
               <button
                 type="button"
                 onClick={() => setShowCicilanModal(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-600"
+                className="p-1 rounded-none text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2286,7 +2306,7 @@ export default function FinancePortalPage() {
                   type="date"
                   value={cicilanTanggal}
                   onChange={(e) => setCicilanTanggal(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
                 />
               </div>
 
@@ -2298,7 +2318,7 @@ export default function FinancePortalPage() {
                   <button
                     type="button"
                     onClick={() => setCicilanMetode('tunai')}
-                    className={`py-2 rounded-xl font-bold ${
+                    className={`py-2 rounded-none font-bold ${
                       cicilanMetode === 'tunai'
                         ? 'border-2 border-rose-600 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300'
                         : 'border border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
@@ -2309,7 +2329,7 @@ export default function FinancePortalPage() {
                   <button
                     type="button"
                     onClick={() => setCicilanMetode('non_tunai')}
-                    className={`py-2 rounded-xl font-bold ${
+                    className={`py-2 rounded-none font-bold ${
                       cicilanMetode === 'non_tunai'
                         ? 'border-2 border-rose-600 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300'
                         : 'border border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
@@ -2324,14 +2344,14 @@ export default function FinancePortalPage() {
                 <button
                   type="button"
                   onClick={() => setShowCicilanModal(false)}
-                  className="flex-1 py-2 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] font-semibold"
+                  className="flex-1 py-2 rounded-none border border-[var(--border)] text-[var(--text-secondary)] font-semibold"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={cicilanLoading || cicilanNominal <= 0}
-                  className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-xs disabled:opacity-50"
+                  className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-none shadow-xs disabled:opacity-50"
                 >
                   {cicilanLoading ? 'Menyimpan...' : 'Bayar Cicilan'}
                 </button>
@@ -2344,13 +2364,13 @@ export default function FinancePortalPage() {
       {/* Modal Tambah Hutang Baru */}
       {showAddHutangModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-fadeIn">
-          <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl space-y-4">
+          <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-none p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <h3 className="font-bold text-sm text-[var(--text-primary)]">Tambah Hutang Baru</h3>
               <button
                 type="button"
                 onClick={() => setShowAddHutangModal(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-600"
+                className="p-1 rounded-none text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2367,7 +2387,7 @@ export default function FinancePortalPage() {
                   placeholder="Contoh: Cicilan Mobil Avanza"
                   value={newHutangForm.nama_hutang}
                   onChange={(e) => setNewHutangForm({ ...newHutangForm, nama_hutang: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
                 />
               </div>
 
@@ -2399,7 +2419,7 @@ export default function FinancePortalPage() {
                     onChange={(e) =>
                       setNewHutangForm({ ...newHutangForm, jatuh_tempo_bulanan: Number(e.target.value) })
                     }
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
                   />
                 </div>
               </div>
@@ -2408,14 +2428,14 @@ export default function FinancePortalPage() {
                 <button
                   type="button"
                   onClick={() => setShowAddHutangModal(false)}
-                  className="flex-1 py-2 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] font-semibold"
+                  className="flex-1 py-2 rounded-none border border-[var(--border)] text-[var(--text-secondary)] font-semibold"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={savingHutang || !newHutangForm.nama_hutang || newHutangForm.total_hutang <= 0}
-                  className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-xs disabled:opacity-50"
+                  className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-none shadow-xs disabled:opacity-50"
                 >
                   {savingHutang ? 'Menyimpan...' : 'Simpan Hutang'}
                 </button>
@@ -2430,7 +2450,7 @@ export default function FinancePortalPage() {
       
       {editHutang && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-fadeIn">
-          <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl space-y-4">
+          <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-none p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <h3 className="font-bold text-sm text-[var(--text-primary)] flex items-center gap-2">
                 <Pencil className="w-4 h-4 text-amber-600" />
@@ -2439,7 +2459,7 @@ export default function FinancePortalPage() {
               <button
                 type="button"
                 onClick={() => setEditHutang(null)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-600"
+                className="p-1 rounded-none text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2455,7 +2475,7 @@ export default function FinancePortalPage() {
                   required
                   value={editHutangForm.nama_hutang || ''}
                   onChange={(e) => setEditHutangForm({ ...editHutangForm, nama_hutang: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
                 />
               </div>
 
@@ -2487,7 +2507,7 @@ export default function FinancePortalPage() {
                   <select
                     value={editHutangForm.status || 'berjalan'}
                     onChange={(e) => setEditHutangForm({ ...editHutangForm, status: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
                   >
                     <option value="berjalan">Berjalan</option>
                     <option value="lunas">Lunas</option>
@@ -2499,14 +2519,14 @@ export default function FinancePortalPage() {
                 <button
                   type="button"
                   onClick={() => setEditHutang(null)}
-                  className="flex-1 py-2 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] font-semibold"
+                  className="flex-1 py-2 rounded-none border border-[var(--border)] text-[var(--text-secondary)] font-semibold"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={savingEditHutang}
-                  className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-xs disabled:opacity-50"
+                  className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-none shadow-xs disabled:opacity-50"
                 >
                   {savingEditHutang ? 'Menyimpan...' : 'Simpan Perubahan'}
                 </button>
@@ -2542,7 +2562,7 @@ export default function FinancePortalPage() {
                   required
                   value={editTxForm.tanggal || ''}
                   onChange={(e) => setEditTxForm((prev) => ({ ...prev, tanggal: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                  className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
                 />
               </div>
 
@@ -2555,7 +2575,7 @@ export default function FinancePortalPage() {
                   <select
                     value={editTxForm.tipe || 'pengeluaran'}
                     onChange={(e) => setEditTxForm((prev) => ({ ...prev, tipe: e.target.value as any }))}
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
+                    className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
                   >
                     <option value="pemasukan">Pemasukan (+)</option>
                     <option value="pengeluaran">Pengeluaran (−)</option>
@@ -2574,7 +2594,7 @@ export default function FinancePortalPage() {
                         rekening_id: e.target.value === 'tunai' ? '' : prev.rekening_id,
                       }))
                     }
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
+                    className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
                   >
                     <option value="tunai">Tunai</option>
                     <option value="non_tunai">Non-Tunai</option>
@@ -2584,14 +2604,14 @@ export default function FinancePortalPage() {
 
               {/* Rekening Bank (Jika Non-Tunai) */}
               {editTxForm.jenis_pembayaran === 'non_tunai' && (
-                <div className="p-2.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 space-y-1">
+                <div className="p-2.5 rounded-none bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 space-y-1">
                   <label className="block text-[11px] font-bold text-blue-900 dark:text-blue-300">
                     Pilih Rekening Bank (Non-Tunai)
                   </label>
                   <select
                     value={editTxForm.rekening_id || ''}
                     onChange={(e) => setEditTxForm((prev) => ({ ...prev, rekening_id: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-blue-300 dark:border-blue-800 bg-[var(--bg)] font-semibold text-xs text-[var(--text-primary)]"
+                    className="w-full px-2.5 py-1.5 rounded-none border border-blue-300 dark:border-blue-800 bg-[var(--bg)] font-semibold text-xs text-[var(--text-primary)]"
                   >
                     <option value="">{LABEL_REKENING_DEFAULT}</option>
                     {rekeningList
@@ -2613,7 +2633,7 @@ export default function FinancePortalPage() {
                 <select
                   value={editTxForm.kategori || 'operasional'}
                   onChange={(e) => setEditTxForm((prev) => ({ ...prev, kategori: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
                 >
                   {(kategoriList && kategoriList.length > 0 ? kategoriList : DEFAULT_KAS_KATEGORI).map((k) => (
                     <option key={k.id} value={k.nama_kategori}>
@@ -2633,7 +2653,7 @@ export default function FinancePortalPage() {
                   required
                   value={editTxForm.keterangan || ''}
                   onChange={(e) => setEditTxForm((prev) => ({ ...prev, keterangan: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-medium"
+                  className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-medium"
                 />
               </div>
 
@@ -2656,7 +2676,7 @@ export default function FinancePortalPage() {
                   required
                   value={editTxForm.pic_nama || ''}
                   onChange={(e) => setEditTxForm((prev) => ({ ...prev, pic_nama: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs"
+                  className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs"
                 />
               </div>
 
@@ -2664,14 +2684,14 @@ export default function FinancePortalPage() {
                 <button
                   type="button"
                   onClick={() => setEditingTx(null)}
-                  className="flex-1 py-2 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] font-semibold"
+                  className="flex-1 py-2 rounded-none border border-[var(--border)] text-[var(--text-secondary)] font-semibold"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={savingEditTx}
-                  className="flex-1 py-2 bg-[var(--brand-primary)] hover:opacity-90 text-white font-bold rounded-xl shadow-xs disabled:opacity-50"
+                  className="flex-1 py-2 bg-[var(--brand-primary)] hover:opacity-90 text-white font-bold rounded-none shadow-xs disabled:opacity-50"
                 >
                   {savingEditTx ? 'Menyimpan...' : 'Simpan Perubahan'}
                 </button>

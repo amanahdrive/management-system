@@ -64,10 +64,10 @@ export function Sidebar() {
   const navItemClass = (isActive: boolean) =>
     `group relative flex items-center ${
       sidebarOpen ? 'gap-3 px-3.5' : 'justify-center px-0'
-    } py-2.5 rounded-full text-xs font-semibold transition-all duration-200 ${
+    } py-2.5 text-xs font-medium transition-colors border-l-2 ${
       isActive
-        ? 'bg-[var(--brand-primary)] text-white shadow-[0_2px_12px_var(--brand-glow)]'
-        : 'text-[var(--text-secondary)] hover:bg-[var(--brand-primary-light)] hover:text-[var(--brand-primary)]'
+        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+        : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
     }`;
 
   return (
@@ -99,10 +99,10 @@ export function Sidebar() {
             <button
               onClick={toggleSidebar}
               aria-label="Ciutkan Sidebar"
-              className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] transition-colors shrink-0"
+              className="p-1.5 border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] transition-colors shrink-0"
               title="Ciutkan Sidebar"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-4 h-4" />
             </button>
           </>
         ) : (
@@ -221,10 +221,10 @@ export function Sidebar() {
             onClick={handleMasterClick}
             className={`w-full flex items-center ${
               sidebarOpen ? 'justify-between px-3.5' : 'justify-center px-0'
-            } py-2.5 rounded-full text-xs font-semibold transition-all ${
+            } py-2.5 text-xs font-medium transition-colors border-l-2 ${
               isMasterActive
-                ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
-                : 'text-[var(--text-secondary)] hover:bg-[var(--brand-primary-light)] hover:text-[var(--brand-primary)]'
+                ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+                : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
             }`}
             title={!sidebarOpen ? 'Master Data' : undefined}
           >
@@ -239,7 +239,7 @@ export function Sidebar() {
 
           {/* Expanded Sub Menu List */}
           {sidebarOpen && masterExpanded && (
-            <div className="pl-4 pt-1 space-y-1 border-l-2 border-[var(--brand-primary)]/40 ml-5 my-1.5">
+            <div className="pl-4 pt-1 space-y-1 border-l border-[var(--border)] ml-5 my-1.5">
               {MASTER_SUB_ITEMS.map((sub) => {
                 const SubIcon = sub.icon;
                 const isSubActive = pathname === sub.href;
@@ -248,10 +248,10 @@ export function Sidebar() {
                   <Link
                     key={sub.href}
                     href={sub.href}
-                    className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    className={`flex items-center gap-2.5 px-3 py-1.5 text-xs font-normal transition-colors border-l ${
                       isSubActive
-                        ? 'bg-[var(--brand-primary)] text-white font-semibold shadow-xs'
-                        : 'text-[var(--text-secondary)] hover:bg-[var(--brand-primary-light)] hover:text-[var(--brand-primary)]'
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+                        : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
                     }`}
                   >
                     <SubIcon className="w-3.5 h-3.5" />

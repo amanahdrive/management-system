@@ -28,19 +28,19 @@ import {
 // Dynamic import for Recharts to avoid SSR hydration mismatches
 const AnalitikCashflowChart = dynamic(
   () => import('@/components/analitik/AnalitikInteractiveCharts').then((mod) => mod.AnalitikCashflowChart),
-  { ssr: false, loading: () => <div className="h-72 rounded-lg bg-black/5 dark:bg-white/5 animate-pulse" /> }
+  { ssr: false, loading: () => <div className="h-72 rounded-none bg-black/5 dark:bg-white/5 animate-pulse" /> }
 );
 const AnalitikChannelChart = dynamic(
   () => import('@/components/analitik/AnalitikInteractiveCharts').then((mod) => mod.AnalitikChannelChart),
-  { ssr: false, loading: () => <div className="h-64 rounded-lg bg-black/5 dark:bg-white/5 animate-pulse" /> }
+  { ssr: false, loading: () => <div className="h-64 rounded-none bg-black/5 dark:bg-white/5 animate-pulse" /> }
 );
 const AnalitikSlotChart = dynamic(
   () => import('@/components/analitik/AnalitikInteractiveCharts').then((mod) => mod.AnalitikSlotChart),
-  { ssr: false, loading: () => <div className="h-64 rounded-lg bg-black/5 dark:bg-white/5 animate-pulse" /> }
+  { ssr: false, loading: () => <div className="h-64 rounded-none bg-black/5 dark:bg-white/5 animate-pulse" /> }
 );
 const AnalitikDayChart = dynamic(
   () => import('@/components/analitik/AnalitikInteractiveCharts').then((mod) => mod.AnalitikDayChart),
-  { ssr: false, loading: () => <div className="h-64 rounded-lg bg-black/5 dark:bg-white/5 animate-pulse" /> }
+  { ssr: false, loading: () => <div className="h-64 rounded-none bg-black/5 dark:bg-white/5 animate-pulse" /> }
 );
 
 type AnalyticsTab = 'keuangan' | 'siswa' | 'sesi' | 'instruktur' | 'armada';
@@ -83,10 +83,10 @@ export default function AnalitikPage() {
         />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 rounded-lg bg-black/5 dark:bg-white/5 animate-pulse border border-[var(--border)]" />
+            <div key={i} className="h-24 rounded-none bg-black/5 dark:bg-white/5 animate-pulse border border-[var(--border)]" />
           ))}
         </div>
-        <div className="h-96 rounded-lg bg-black/5 dark:bg-white/5 animate-pulse border border-[var(--border)]" />
+        <div className="h-96 rounded-none bg-black/5 dark:bg-white/5 animate-pulse border border-[var(--border)]" />
       </div>
     );
   }
@@ -103,7 +103,7 @@ export default function AnalitikPage() {
               <BarChart3 className="w-5 h-5 text-[var(--brand-primary)]" />
               <span>Pusat Analitik & Performa</span>
             </h1>
-            <span className="px-2 py-0.5 rounded-md bg-[var(--bg-subtle)] text-[var(--text-secondary)] font-mono text-[11px] border border-[var(--border)]">
+            <span className="px-2 py-0.5 rounded-none bg-[var(--bg-subtle)] text-[var(--text-secondary)] font-mono text-[11px] border border-[var(--border)]">
               {data.periodeLabel}
             </span>
           </div>
@@ -111,7 +111,7 @@ export default function AnalitikPage() {
 
         {/* Period Buttons */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          <div className="flex items-center p-0.5 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border)] text-xs font-semibold">
+          <div className="flex items-center p-0.5 rounded-none bg-[var(--bg-subtle)] border border-[var(--border)] text-xs font-semibold">
             {(
               [
                 { key: 'this_month', label: 'Bulan Ini' },
@@ -125,7 +125,7 @@ export default function AnalitikPage() {
                 key={p.key}
                 type="button"
                 onClick={() => setPeriod(p.key)}
-                className={`px-2.5 py-1 rounded-md transition-all ${
+                className={`px-2.5 py-1 rounded-none transition-all ${
                   period === p.key
                     ? 'bg-[var(--brand-primary)] text-white shadow-xs'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -139,7 +139,7 @@ export default function AnalitikPage() {
           <button
             type="button"
             onClick={() => window.print()}
-            className="p-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+            className="p-1.5 rounded-none border border-[var(--border)] bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
             title="Cetak Halaman"
           >
             <Printer className="w-4 h-4" />
@@ -149,7 +149,7 @@ export default function AnalitikPage() {
 
       {/* Custom Date Picker Bar */}
       {period === 'custom' && (
-        <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--bg)] space-y-2 animate-fadeIn">
+        <div className="p-3 rounded-none border border-[var(--border)] bg-[var(--bg)] space-y-2 animate-fadeIn">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <DatePickerWIB
               label="Tanggal Awal"
@@ -192,7 +192,7 @@ export default function AnalitikPage() {
       {/* Top Metric Strip (Real Data, Zero Fluff) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {/* Omzet Booking */}
-        <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--bg)]">
+        <div className="p-3 rounded-none border border-[var(--border)] bg-[var(--bg)]">
           <span className="text-[11px] font-medium text-[var(--text-secondary)] block">Omzet Booking</span>
           <div className="text-base sm:text-lg font-bold text-[var(--text-primary)] tabular-nums mt-0.5">
             {formatRupiah(summaryKPI.totalOmzet)}
@@ -201,7 +201,7 @@ export default function AnalitikPage() {
         </div>
 
         {/* Pemasukan Kas */}
-        <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--bg)]">
+        <div className="p-3 rounded-none border border-[var(--border)] bg-[var(--bg)]">
           <span className="text-[11px] font-medium text-[var(--text-secondary)] block">Pemasukan Kas</span>
           <div className="text-base sm:text-lg font-bold text-emerald-600 tabular-nums mt-0.5">
             {formatRupiah(finansialExecutive.totalPemasukan)}
@@ -210,7 +210,7 @@ export default function AnalitikPage() {
         </div>
 
         {/* Piutang Belum Tertagih */}
-        <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--bg)]">
+        <div className="p-3 rounded-none border border-[var(--border)] bg-[var(--bg)]">
           <span className="text-[11px] font-medium text-[var(--text-secondary)] block">Sisa Piutang</span>
           <div className="text-base sm:text-lg font-bold text-amber-600 tabular-nums mt-0.5">
             {formatRupiah(summaryKPI.totalPiutang)}
@@ -219,7 +219,7 @@ export default function AnalitikPage() {
         </div>
 
         {/* Laba Bersih Operasional */}
-        <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--bg)]">
+        <div className="p-3 rounded-none border border-[var(--border)] bg-[var(--bg)]">
           <span className="text-[11px] font-medium text-[var(--text-secondary)] block">Laba Bersih Kas</span>
           <div className={`text-base sm:text-lg font-bold tabular-nums mt-0.5 ${summaryKPI.labaBersih >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
             {formatRupiah(summaryKPI.labaBersih)}
@@ -228,7 +228,7 @@ export default function AnalitikPage() {
         </div>
 
         {/* Sesi Selesai */}
-        <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--bg)]">
+        <div className="p-3 rounded-none border border-[var(--border)] bg-[var(--bg)]">
           <span className="text-[11px] font-medium text-[var(--text-secondary)] block">Sesi Selesai</span>
           <div className="text-base sm:text-lg font-bold text-blue-600 tabular-nums mt-0.5">
             {summaryKPI.totalSesiSelesai} <span className="text-xs font-normal text-[var(--text-secondary)]">Sesi</span>
@@ -237,7 +237,7 @@ export default function AnalitikPage() {
         </div>
 
         {/* Jarak Tempuh Armada */}
-        <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--bg)]">
+        <div className="p-3 rounded-none border border-[var(--border)] bg-[var(--bg)]">
           <span className="text-[11px] font-medium text-[var(--text-secondary)] block">Jarak Tempuh Armada</span>
           <div className="text-base sm:text-lg font-bold text-[var(--text-primary)] tabular-nums mt-0.5">
             {summaryKPI.totalKmOperasional.toLocaleString('id-ID')} <span className="text-xs font-normal text-[var(--text-secondary)]">KM</span>
@@ -264,7 +264,7 @@ export default function AnalitikPage() {
               key={t.key}
               type="button"
               onClick={() => setActiveTab(t.key)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-none transition-all whitespace-nowrap ${
                 isActive
                   ? 'bg-[var(--text-primary)] text-[var(--bg)] font-bold'
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]'
@@ -282,7 +282,7 @@ export default function AnalitikPage() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Chart Arus Kas */}
-            <div className="lg:col-span-2 p-4 rounded-lg border border-[var(--border)] bg-[var(--bg)] space-y-3">
+            <div className="lg:col-span-2 p-4 rounded-none border border-[var(--border)] bg-[var(--bg)] space-y-3">
               <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                 <span className="text-xs font-bold text-[var(--text-primary)]">
                   {finansialExecutive.cashflowChartTitle || 'Arus Kas (Pemasukan vs Pengeluaran)'}
@@ -298,7 +298,7 @@ export default function AnalitikPage() {
             </div>
 
             {/* Rincian Beban Biaya Pengeluaran */}
-            <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--bg)] space-y-3">
+            <div className="p-4 rounded-none border border-[var(--border)] bg-[var(--bg)] space-y-3">
               <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                 <span className="text-xs font-bold text-[var(--text-primary)]">
                   Rincian Pengeluaran Kas ({data.periodeLabel})
@@ -320,9 +320,9 @@ export default function AnalitikPage() {
                           {formatRupiah(exp.nominal)} ({exp.persentase}%)
                         </span>
                       </div>
-                      <div className="w-full bg-[var(--bg-subtle)] h-1.5 rounded-full overflow-hidden">
+                      <div className="w-full bg-[var(--bg-subtle)] h-1.5 rounded-none overflow-hidden">
                         <div
-                          className="bg-rose-500 h-full rounded-full"
+                          className="bg-rose-500 h-full rounded-none"
                           style={{ width: `${Math.max(exp.persentase, 3)}%` }}
                         />
                       </div>
@@ -340,7 +340,7 @@ export default function AnalitikPage() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Chart Channel Marketing */}
-            <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--bg)] space-y-3">
+            <div className="p-4 rounded-none border border-[var(--border)] bg-[var(--bg)] space-y-3">
               <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                 <span className="text-xs font-bold text-[var(--text-primary)]">
                   Akuisisi Siswa per Channel Marketing
@@ -351,7 +351,7 @@ export default function AnalitikPage() {
             </div>
 
             {/* Tabel Kontribusi Channel */}
-            <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--bg)] space-y-3">
+            <div className="p-4 rounded-none border border-[var(--border)] bg-[var(--bg)] space-y-3">
               <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                 <span className="text-xs font-bold text-[var(--text-primary)]">
                   Data Omzet per Channel Marketing
@@ -382,7 +382,7 @@ export default function AnalitikPage() {
           </div>
 
           {/* Tabel Distribusi Paket Kursus */}
-          <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--bg)] space-y-3">
+          <div className="p-4 rounded-none border border-[var(--border)] bg-[var(--bg)] space-y-3">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
               <span className="text-xs font-bold text-[var(--text-primary)]">
                 Distribusi Penjualan Paket Kursus ({data.periodeLabel})
@@ -430,7 +430,7 @@ export default function AnalitikPage() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Slot Waktu Heatmap */}
-            <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--bg)] space-y-3">
+            <div className="p-4 rounded-none border border-[var(--border)] bg-[var(--bg)] space-y-3">
               <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                 <span className="text-xs font-bold text-[var(--text-primary)]">
                   Volume Sesi per Slot Waktu (Jam Belajar)
@@ -441,7 +441,7 @@ export default function AnalitikPage() {
             </div>
 
             {/* Hari Belajar Tersibuk */}
-            <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--bg)] space-y-3">
+            <div className="p-4 rounded-none border border-[var(--border)] bg-[var(--bg)] space-y-3">
               <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                 <span className="text-xs font-bold text-[var(--text-primary)]">
                   Volume Sesi per Hari (Senin s/d Minggu)
@@ -456,7 +456,7 @@ export default function AnalitikPage() {
 
       {/* TAB 4: KINERJA INSTRUKTUR (SDM) */}
       {activeTab === 'instruktur' && (
-        <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--bg)] space-y-3">
+        <div className="p-4 rounded-none border border-[var(--border)] bg-[var(--bg)] space-y-3">
           <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
             <span className="text-xs font-bold text-[var(--text-primary)]">
               Data Kinerja & Produktivitas Instruktur ({data.periodeLabel})
@@ -515,7 +515,7 @@ export default function AnalitikPage() {
 
       {/* TAB 5: ARMADA MOBIL & BBM */}
       {activeTab === 'armada' && (
-        <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--bg)] space-y-3">
+        <div className="p-4 rounded-none border border-[var(--border)] bg-[var(--bg)] space-y-3">
           <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
             <span className="text-xs font-bold text-[var(--text-primary)]">
               Data Utilisasi Armada & Konsumsi Bahan Bakar ({data.periodeLabel})

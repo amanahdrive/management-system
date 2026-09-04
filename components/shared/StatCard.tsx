@@ -28,30 +28,27 @@ export function StatCard({
   return (
     <div
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-[24px] transition-all duration-300 ${
+      className={`relative border transition-colors ${
         isHero
-          ? 'bg-gradient-to-b from-[var(--bento-hero-bg)] to-[var(--bg)] border border-[var(--brand-primary)]/20 shadow-[0_4px_20px_var(--brand-glow)]'
-          : 'bg-[var(--bento-bg)] border border-[var(--bento-border)] hover:border-[var(--brand-primary)]/30 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:hover:shadow-[0_8px_30px_rgba(0,0,0,0.4)]'
-      } p-5 md:p-6 flex flex-col justify-between ${
-        onClick ? 'cursor-pointer hover:-translate-y-0.5' : ''
+          ? 'bg-[var(--bento-hero-bg)] border-[var(--brand-primary)]'
+          : 'bg-[var(--bento-bg)] border-[var(--bento-border)] hover:border-[var(--brand-primary)]'
+      } p-4 md:p-5 flex flex-col justify-between ${
+        onClick ? 'cursor-pointer' : ''
       } ${className}`}
     >
-      {/* Subtle ambient light gradient accent on hover */}
-      <div className="absolute top-0 right-0 -mr-8 -mt-8 w-28 h-28 rounded-full bg-[var(--brand-primary)]/5 blur-2xl group-hover:bg-[var(--brand-primary)]/10 transition-colors pointer-events-none" />
-
-      <div className="flex items-start justify-between gap-3 relative z-10">
-        <span className="eyebrow-label text-[11px] font-bold tracking-wider text-[var(--text-muted)]">
+      <div className="flex items-start justify-between gap-2">
+        <span className="eyebrow-label text-[10px] font-mono tracking-widest text-[var(--text-muted)]">
           {label}
         </span>
         {icon && (
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-[var(--brand-primary-light)] text-[var(--brand-primary)] shrink-0 border border-[var(--brand-primary)]/10 shadow-xs transition-transform duration-300 group-hover:scale-105">
+          <div className="w-8 h-8 flex items-center justify-center bg-[var(--brand-primary-light)] text-[var(--brand-primary)] shrink-0 border border-[var(--brand-primary)]/20">
             {icon}
           </div>
         )}
       </div>
 
-      <div className="mt-4 relative z-10">
-        <div className="text-2xl md:text-3xl font-mono font-bold text-[var(--text-primary)] tabular-num tracking-tight">
+      <div className="mt-3">
+        <div className="text-xl md:text-2xl font-mono font-bold text-[var(--text-primary)] tabular-nums tracking-tight">
           {value}
         </div>
 
@@ -59,19 +56,19 @@ export function StatCard({
           <div className="flex items-center flex-wrap gap-2 mt-2 text-xs">
             {trend && (
               <span
-                className={`font-semibold px-2.5 py-0.5 rounded-full text-[10px] tracking-wide inline-flex items-center gap-1 ${
+                className={`font-mono text-[10px] font-medium px-1.5 py-0.5 border ${
                   trendType === 'positive'
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
                     : trendType === 'negative'
-                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                    : 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20'
+                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                    : 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/30'
                 }`}
               >
                 {trend}
               </span>
             )}
             {description && (
-              <span className="text-[var(--text-muted)] text-[11px] font-medium leading-tight">
+              <span className="text-[var(--text-muted)] text-[11px] font-normal leading-tight">
                 {description}
               </span>
             )}

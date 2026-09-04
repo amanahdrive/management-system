@@ -109,21 +109,23 @@ export function AnalitikCashflowChart({
               formatRupiah(Number(value) || 0),
               name === 'pemasukan' ? 'Pemasukan' : name === 'pengeluaran' ? 'Pengeluaran' : 'Laba Bersih',
             ]}
-            labelFormatter={(label) => `Tanggal/Bulan: ${label}`}
+            labelFormatter={(label) => `Periode: ${label}`}
             contentStyle={{
               backgroundColor: 'var(--bg)',
               borderColor: 'var(--border)',
-              borderRadius: '8px',
+              borderRadius: '0px',
               color: 'var(--text-primary)',
-              fontSize: '12px',
+              fontSize: '11px',
+              fontFamily: 'monospace',
+              boxShadow: 'none',
             }}
           />
           <Legend
-            wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
-            formatter={(value) => (value === 'pemasukan' ? 'Pemasukan Kas' : value === 'pengeluaran' ? 'Pengeluaran Kas' : 'Laba Bersih')}
+            wrapperStyle={{ fontSize: '10px', paddingTop: '8px', fontFamily: 'monospace' }}
+            formatter={(value) => (value === 'pemasukan' ? 'Pemasukan' : value === 'pengeluaran' ? 'Pengeluaran' : 'Laba Bersih')}
           />
-          <Area type="monotone" dataKey="pemasukan" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#pemasukanGrad)" />
-          <Area type="monotone" dataKey="pengeluaran" stroke="#EF4444" strokeWidth={2} fillOpacity={1} fill="url(#pengeluaranGrad)" />
+          <Area type="monotone" dataKey="pemasukan" stroke="#10B981" strokeWidth={1.5} fillOpacity={1} fill="url(#pemasukanGrad)" />
+          <Area type="monotone" dataKey="pengeluaran" stroke="#EF4444" strokeWidth={1.5} fillOpacity={1} fill="url(#pengeluaranGrad)" />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -139,19 +141,21 @@ export function AnalitikChannelChart({ data }: { data: ChannelItem[] }) {
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-          <XAxis type="number" stroke="var(--text-muted)" fontSize={11} tickLine={false} />
-          <YAxis dataKey="channel" type="category" stroke="var(--text-muted)" fontSize={11} tickLine={false} width={80} />
+          <XAxis type="number" stroke="var(--text-muted)" fontSize={10} tickLine={false} />
+          <YAxis dataKey="channel" type="category" stroke="var(--text-muted)" fontSize={10} tickLine={false} width={80} />
           <Tooltip
             formatter={(value: any) => [`${value} Siswa`, 'Total Siswa']}
             contentStyle={{
               backgroundColor: 'var(--bg)',
               borderColor: 'var(--border)',
-              borderRadius: '8px',
+              borderRadius: '0px',
               color: 'var(--text-primary)',
-              fontSize: '12px',
+              fontSize: '11px',
+              fontFamily: 'monospace',
+              boxShadow: 'none',
             }}
           />
-          <Bar dataKey="totalSiswa" radius={[0, 4, 4, 0]}>
+          <Bar dataKey="totalSiswa" radius={[0, 0, 0, 0]}>
             {data.map((_, index) => (
               <Cell key={`cell-${index}`} fill={PALETTE[index % PALETTE.length]} />
             ))}
@@ -172,18 +176,20 @@ export function AnalitikSlotChart({ data }: { data: SlotItem[] }) {
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
           <XAxis dataKey="namaSlot" stroke="var(--text-muted)" fontSize={10} tickLine={false} />
-          <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} />
+          <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} />
           <Tooltip
             formatter={(value: any) => [`${value} Sesi`, 'Total Sesi']}
             contentStyle={{
               backgroundColor: 'var(--bg)',
               borderColor: 'var(--border)',
-              borderRadius: '8px',
+              borderRadius: '0px',
               color: 'var(--text-primary)',
-              fontSize: '12px',
+              fontSize: '11px',
+              fontFamily: 'monospace',
+              boxShadow: 'none',
             }}
           />
-          <Bar dataKey="totalSesi" fill="var(--brand-primary)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="totalSesi" fill="var(--brand-primary)" radius={[0, 0, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -199,19 +205,21 @@ export function AnalitikDayChart({ data }: { data: DayItem[] }) {
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-          <XAxis dataKey="dayName" stroke="var(--text-muted)" fontSize={11} tickLine={false} />
-          <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} />
+          <XAxis dataKey="dayName" stroke="var(--text-muted)" fontSize={10} tickLine={false} />
+          <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} />
           <Tooltip
             formatter={(value: any) => [`${value} Sesi`, 'Total Sesi']}
             contentStyle={{
               backgroundColor: 'var(--bg)',
               borderColor: 'var(--border)',
-              borderRadius: '8px',
+              borderRadius: '0px',
               color: 'var(--text-primary)',
-              fontSize: '12px',
+              fontSize: '11px',
+              fontFamily: 'monospace',
+              boxShadow: 'none',
             }}
           />
-          <Bar dataKey="totalSesi" fill="#7C3AED" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="totalSesi" fill="#0F7A73" radius={[0, 0, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

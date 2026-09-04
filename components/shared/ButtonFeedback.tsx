@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { sound } from '@/lib/sound/SoundFX';
 
 function isPrefetchRequest(input: RequestInfo | URL, init?: RequestInit): boolean {
   try {
@@ -185,6 +186,9 @@ function ButtonFeedbackInner() {
       if (target.hasAttribute('disabled') || target.getAttribute('aria-disabled') === 'true') {
         return;
       }
+
+      // Procedural Web Audio tactile microswitch click
+      sound.playTactileClick();
 
       // Tactile Ripple Wave
       const rect = target.getBoundingClientRect();

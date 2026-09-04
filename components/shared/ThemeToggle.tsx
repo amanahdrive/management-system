@@ -12,14 +12,14 @@ export function ThemeToggle() {
     setMounted(true);
   }, []);
 
-  if (!mounted) return <div className="w-8 h-8 rounded-xl bg-black/5 dark:bg-white/5" />;
+  if (!mounted) return <div className="w-8 h-8 rounded-none bg-black/5 dark:bg-white/5" />;
 
   const isDark = theme === 'dark';
 
   return (
     <button
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      className="p-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] transition-all text-[var(--text-primary)] shadow-xs"
+      className="p-2 rounded-none border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] transition-all text-[var(--text-primary)] shadow-none"
       title={isDark ? 'Beralih ke Mode Terang (Default)' : 'Beralih ke Mode Gelap (Graphite Console)'}
       aria-label={isDark ? 'Beralih ke Mode Terang' : 'Beralih ke Mode Gelap'}
     >
