@@ -307,7 +307,7 @@ export default function InstrukturPortalPage() {
       {/* Toast Alert */}
       {toastMessage && (
         <div 
-          className="fixed top-3 left-1/2 -translate-x-1/2 z-50 px-3.5 py-1.5 bg-emerald-800 text-white font-mono text-xs border border-emerald-600 shadow-2xl rounded-[4px] flex items-center gap-2 animate-in fade-in"
+          className="fixed top-3 left-1/2 -translate-x-1/2 z-50 px-3.5 py-1.5 bg-emerald-800 text-white font-mono text-xs border border-emerald-600 shadow-2xl rounded-xl flex items-center gap-2 animate-in fade-in"
         >
           <Check className="w-3.5 h-3.5" />
           <span>{toastMessage}</span>
@@ -337,7 +337,7 @@ export default function InstrukturPortalPage() {
         <div ref={scheduleRef} className="space-y-4">
           {/* Mini Calendar Month Grid */}
           <section 
-            className="border border-[var(--border)] bg-[var(--bg)] rounded-[6px] p-3 sm:p-4 space-y-3"
+            className="liquid-glass-card rounded-3xl p-5 sm:p-6 space-y-4 shadow-sm"
           >
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
               <div className="flex items-center gap-2">

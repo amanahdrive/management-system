@@ -38,6 +38,7 @@ import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { PwaInstallModal } from '@/components/shared/PwaInstallModal';
+import { LiquidGlassBottomNav } from '@/components/navigation/LiquidGlassBottomNav';
 import {
   TrendingUp,
   TrendingDown,
@@ -1093,7 +1094,7 @@ export default function FinancePortalPage() {
         {activeTab === 'kas' && (
           <div className="space-y-4 animate-fadeIn">
             {/* Saldo Aktif Hero Card */}
-            <div className="p-5 rounded-[8px] bg-linear-to-br from-[#0F7A73] to-[#0A5954] border border-[#0F7A73]/60 text-white shadow-sm space-y-4">
+            <div className="p-6 rounded-3xl bg-linear-to-br from-[#0F7A73] via-[#0D6B65] to-[#084844] text-white shadow-[0_16px_40px_rgba(15,122,115,0.22),_inset_0_1.5px_1.5px_rgba(255,255,255,0.3)] border border-white/20 space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold tracking-wider uppercase opacity-85">
                   Total Saldo Kas Aktif
@@ -1136,7 +1137,7 @@ export default function FinancePortalPage() {
             <button
               type="button"
               onClick={handleOpenSetorTunai}
-              className="w-full py-2.5 px-4 rounded-[6px] bg-[var(--bg)] border border-[var(--border)] shadow-xs flex items-center justify-between text-xs font-bold text-[var(--text-primary)] hover:border-emerald-500 transition-colors active:scale-98"
+              className="w-full py-3 px-4 rounded-2xl liquid-glass-card border border-[var(--liquid-glass-border)] flex items-center justify-between text-xs font-bold text-[var(--text-primary)] hover:border-emerald-500 transition-all active:scale-98"
             >
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-none bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
@@ -1151,7 +1152,7 @@ export default function FinancePortalPage() {
             <div className="grid grid-cols-2 gap-3">
               <div
                 onClick={() => setActiveTab('piutang')}
-                className="p-3.5 rounded-[6px] bg-[var(--bg)] border border-[var(--border)] shadow-xs space-y-1 cursor-pointer active:scale-98 transition-all"
+                className="p-4 rounded-2xl liquid-glass-card border border-[var(--liquid-glass-border)] space-y-1 cursor-pointer active:scale-98 transition-all"
               >
                 <div className="flex items-center justify-between text-[var(--text-secondary)]">
                   <span className="text-[10.5px] font-bold">Piutang Beredar</span>
@@ -1618,97 +1619,24 @@ export default function FinancePortalPage() {
         )}
       </main>
 
-      {/* Navigasi Bawah Dock Utilitarian Modern (0px Radius) */}
-      <div className="fixed bottom-3 left-3 right-3 max-w-md mx-auto z-40">
-        <div className="bg-[var(--bg)]/95 backdrop-blur-2xl border border-[var(--border)] rounded-[8px] shadow-[0_8px_32px_rgba(0,0,0,0.14)] p-1.5 flex items-center justify-between">
-          {/* Tab 1: Kas */}
-          <button
-            type="button"
-            onClick={() => {
-              sound.playMechanicalTick();
-              setActiveTab('kas');
-            }}
-            className={`flex-1 py-1.5 flex flex-col items-center gap-1 transition-colors relative ${
-              activeTab === 'kas' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            {activeTab === 'kas' && (
-              <span className="absolute -top-1.5 left-2 right-2 h-0.5 bg-[var(--brand-primary)]" />
-            )}
-            <Wallet className="w-4 h-4" />
-            <span className="text-[10px] tracking-wider uppercase font-mono">Kas</span>
-          </button>
-
-          {/* Tab 2: Cashflow */}
-          <button
-            type="button"
-            onClick={() => {
-              sound.playMechanicalTick();
-              setActiveTab('cashflow');
-            }}
-            className={`flex-1 py-1.5 flex flex-col items-center gap-1 transition-colors relative ${
-              activeTab === 'cashflow' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            {activeTab === 'cashflow' && (
-              <span className="absolute -top-1.5 left-2 right-2 h-0.5 bg-[var(--brand-primary)]" />
-            )}
-            <TrendingUp className="w-4 h-4" />
-            <span className="text-[10px] tracking-wider uppercase font-mono">Flow</span>
-          </button>
-
-          {/* Center: Sharp Tactile Action Button (+) */}
-          <div className="px-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                sound.playTactileClick();
-                setShowAddForm(true);
-              }}
-              className="w-10 h-10 rounded-[6px] bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white flex items-center justify-center border border-white/20 transition-all active:scale-95 shadow-xs"
-              title="Tambah Transaksi Kas"
-            >
-              <Plus className="w-5 h-5 stroke-[2.5]" />
-            </button>
-          </div>
-
-          {/* Tab 3: Piutang */}
-          <button
-            type="button"
-            onClick={() => {
-              sound.playMechanicalTick();
-              setActiveTab('piutang');
-            }}
-            className={`flex-1 py-1.5 flex flex-col items-center gap-1 transition-colors relative ${
-              activeTab === 'piutang' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            {activeTab === 'piutang' && (
-              <span className="absolute -top-1.5 left-2 right-2 h-0.5 bg-[var(--brand-primary)]" />
-            )}
-            <CreditCard className="w-4 h-4" />
-            <span className="text-[10px] tracking-wider uppercase font-mono">Piutang</span>
-          </button>
-
-          {/* Tab 4: Hutang */}
-          <button
-            type="button"
-            onClick={() => {
-              sound.playMechanicalTick();
-              setActiveTab('hutang');
-            }}
-            className={`flex-1 py-1.5 flex flex-col items-center gap-1 transition-colors relative ${
-              activeTab === 'hutang' ? 'text-[var(--brand-primary)] font-bold' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            {activeTab === 'hutang' && (
-              <span className="absolute -top-1.5 left-2 right-2 h-0.5 bg-[var(--brand-primary)]" />
-            )}
-            <Banknote className="w-4 h-4" />
-            <span className="text-[10px] tracking-wider uppercase font-mono">Hutang</span>
-          </button>
-        </div>
-      </div>
+      {/* Navigasi Bawah Liquid Glass iOS Scooped Dock */}
+      <LiquidGlassBottomNav
+        leftItems={[
+          { id: 'kas', label: 'Kas', icon: Wallet, onClick: () => setActiveTab('kas') },
+          { id: 'cashflow', label: 'Flow', icon: TrendingUp, onClick: () => setActiveTab('cashflow') },
+        ]}
+        rightItems={[
+          { id: 'piutang', label: 'Piutang', icon: CreditCard, onClick: () => setActiveTab('piutang') },
+          { id: 'hutang', label: 'Hutang', icon: Banknote, onClick: () => setActiveTab('hutang') },
+        ]}
+        activeId={activeTab}
+        centerAction={{
+          icon: Plus,
+          label: 'Catat Kas',
+          title: 'Catat Transaksi Kas Baru',
+          onClick: () => setShowAddForm(true),
+        }}
+      />
 
       {/* Modal Tambah Transaksi Kas */}
       {showAddForm && (

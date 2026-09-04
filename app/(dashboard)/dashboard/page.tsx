@@ -95,28 +95,28 @@ export default function DashboardPage() {
         <div className="flex items-center gap-1.5 flex-wrap">
           <Link
             href="/siswa"
-            className="px-3 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-[4px] shadow-2xs transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-xl shadow-2xs transition-colors flex items-center gap-1.5"
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span>+ Siswa Baru</span>
           </Link>
           <Link
             href="/jadwal"
-            className="px-3 py-1.5 border border-[var(--border)] bg-[var(--bg)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-primary)] text-xs font-semibold rounded-[4px] shadow-2xs transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 border border-[var(--border)] bg-[var(--bg)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-primary)] text-xs font-semibold rounded-xl shadow-2xs transition-colors flex items-center gap-1.5"
           >
             <Calendar className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
             <span>+ Jadwal</span>
           </Link>
           <Link
             href="/kas"
-            className="px-3 py-1.5 border border-[var(--border)] bg-[var(--bg)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-primary)] text-xs font-semibold rounded-[4px] shadow-2xs transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 border border-[var(--border)] bg-[var(--bg)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-primary)] text-xs font-semibold rounded-xl shadow-2xs transition-colors flex items-center gap-1.5"
           >
             <Wallet className="w-3.5 h-3.5 text-emerald-600" />
             <span>Catat Kas</span>
           </Link>
           <Link
             href="/sim"
-            className="px-3 py-1.5 border border-[var(--border)] bg-[var(--bg)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-primary)] text-xs font-semibold rounded-[4px] shadow-2xs transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 border border-[var(--border)] bg-[var(--bg)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-primary)] text-xs font-semibold rounded-xl shadow-2xs transition-colors flex items-center gap-1.5"
           >
             <IdCard className="w-3.5 h-3.5 text-blue-600" />
             <span>SIM</span>
@@ -127,7 +127,7 @@ export default function DashboardPage() {
       {/* 4 Primary KPI Metrics Row (Swiss Hairline 1px Grid) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Pendapatan Kas Bulan Ini */}
-        <div className="p-3.5 border border-[var(--border)] bg-[var(--bg)] rounded-[6px] shadow-xs space-y-1">
+        <div className="p-4 liquid-glass-card rounded-2xl shadow-xs space-y-1">
           <div className="flex items-center justify-between text-[10px] font-mono text-[var(--text-secondary)] uppercase tracking-wider">
             <span>Kas Masuk (Bulan Ini)</span>
             <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
@@ -146,7 +146,7 @@ export default function DashboardPage() {
         {/* Saldo Kas Aktif */}
         <Link
           href="/kas"
-          className="p-3.5 border border-[var(--border)] bg-[var(--bg)] hover:border-emerald-500 transition-all rounded-[6px] shadow-xs space-y-1 block"
+          className="p-4 liquid-glass-card rounded-2xl hover:border-emerald-500 transition-all shadow-xs space-y-1 block"
         >
           <div className="flex items-center justify-between text-[10px] font-mono text-[var(--text-secondary)] uppercase tracking-wider">
             <span>Saldo Kas Likuid</span>
@@ -161,7 +161,7 @@ export default function DashboardPage() {
         {/* Siswa On Progress */}
         <Link
           href="/siswa"
-          className="p-3.5 border border-[var(--border)] bg-[var(--bg)] hover:border-blue-500 transition-all rounded-[6px] shadow-xs space-y-1 block"
+          className="p-4 liquid-glass-card rounded-2xl hover:border-blue-500 transition-all shadow-xs space-y-1 block"
         >
           <div className="flex items-center justify-between text-[10px] font-mono text-[var(--text-secondary)] uppercase tracking-wider">
             <span>Siswa On Progress</span>
@@ -179,7 +179,7 @@ export default function DashboardPage() {
         {/* Sesi Hari Ini */}
         <Link
           href="/jadwal"
-          className="p-3.5 border border-[var(--border)] bg-[var(--bg)] hover:border-purple-500 transition-all rounded-[6px] shadow-xs space-y-1 block"
+          className="p-4 liquid-glass-card rounded-2xl hover:border-purple-500 transition-all shadow-xs space-y-1 block"
         >
           <div className="flex items-center justify-between text-[10px] font-mono text-[var(--text-secondary)] uppercase tracking-wider">
             <span>Sesi Hari Ini</span>
@@ -199,7 +199,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Left Col (2 Cols): Jadwal Sesi Hari Ini Table */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="p-4 border border-[var(--border)] bg-[var(--bg)] rounded-[6px] shadow-xs space-y-3">
+          <div className="p-5 sm:p-6 liquid-glass-card rounded-3xl shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-2.5">
               <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
@@ -207,7 +207,7 @@ export default function DashboardPage() {
               </span>
 
               {/* Filter Tabs */}
-              <div className="flex items-center gap-1 bg-[var(--bg-subtle)] p-0.5 border border-[var(--border)] rounded-[4px] text-xs font-mono">
+              <div className="flex items-center gap-1 bg-[var(--bg-subtle)] p-0.5 border border-[var(--border)] rounded-xl text-xs font-mono">
                 <button
                   type="button"
                   onClick={() => setSesiFilter('all')}
@@ -325,7 +325,7 @@ export default function DashboardPage() {
               {/* Alert 1: SIM Siap */}
               <Link
                 href="/sim"
-                className="p-3 border border-blue-200 dark:border-blue-900/40 bg-blue-50/20 dark:bg-blue-950/20 hover:border-blue-500 flex items-center justify-between rounded-[4px] transition-colors block"
+                className="p-3 border border-blue-200 dark:border-blue-900/40 bg-blue-50/20 dark:bg-blue-950/20 hover:border-blue-500 flex items-center justify-between rounded-xl transition-colors block"
               >
                 <div className="flex items-center gap-2.5">
                   <IdCard className="w-4 h-4 text-blue-600 shrink-0" />
@@ -340,7 +340,7 @@ export default function DashboardPage() {
               {/* Alert 2: Follow Up Pelunasan */}
               <Link
                 href="/kas/piutang"
-                className="p-3 border border-amber-200 dark:border-amber-900/40 bg-amber-50/20 dark:bg-amber-950/20 hover:border-amber-500 flex items-center justify-between rounded-[4px] transition-colors block"
+                className="p-3 border border-amber-200 dark:border-amber-900/40 bg-amber-50/20 dark:bg-amber-950/20 hover:border-amber-500 flex items-center justify-between rounded-xl transition-colors block"
               >
                 <div className="flex items-center gap-2.5">
                   <Receipt className="w-4 h-4 text-amber-600 shrink-0" />
@@ -356,7 +356,7 @@ export default function DashboardPage() {
               {metrics.kendaraanPerluPerhatian.length > 0 && (
                 <Link
                   href="/kendaraan"
-                  className="p-3 border border-rose-200 dark:border-rose-900/40 bg-rose-50/20 dark:bg-rose-950/20 hover:border-rose-500 flex items-center justify-between rounded-[4px] transition-colors block"
+                  className="p-3 border border-rose-200 dark:border-rose-900/40 bg-rose-50/20 dark:bg-rose-950/20 hover:border-rose-500 flex items-center justify-between rounded-xl transition-colors block"
                 >
                   <div className="flex items-center gap-2.5">
                     <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -374,7 +374,7 @@ export default function DashboardPage() {
           {/* Quick Link to Analitik */}
           <Link
             href="/analitik"
-            className="p-4 border border-[var(--border)] bg-[var(--bg-subtle)] hover:border-[var(--brand-primary)] transition-colors rounded-[6px] shadow-xs flex items-center justify-between block group"
+            className="p-5 liquid-glass-card rounded-2xl hover:border-[var(--brand-primary)] transition-all flex items-center justify-between block group shadow-xs"
           >
             <div>
               <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">

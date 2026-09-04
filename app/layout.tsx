@@ -104,6 +104,12 @@ export default function RootLayout({
       <head />
       <body className={`${inter.className} antialiased bg-[var(--bg-subtle)] text-[var(--text-primary)] font-sans selection:bg-[var(--brand-primary-muted)] selection:text-[var(--brand-primary-dark)] relative overflow-x-hidden min-h-screen`}>
         <ThemeProvider>
+          {/* Ambient Brand Gradient Mesh Orbs for Liquid Glass Refraction */}
+          <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+            <div className="absolute -top-[15%] -left-[10%] w-[55vw] h-[55vw] rounded-full bg-[#0F7A73] opacity-15 dark:opacity-20 blur-[130px]" />
+            <div className="absolute top-[35%] -right-[15%] w-[50vw] h-[50vw] rounded-full bg-[#10B981] opacity-10 dark:opacity-15 blur-[140px]" />
+            <div className="absolute -bottom-[20%] left-[20%] w-[60vw] h-[60vw] rounded-full bg-[#0A5954] opacity-12 dark:opacity-18 blur-[150px]" />
+          </div>
           <LivingGridBackground />
           <ButtonFeedback />
           <div className="relative z-10">

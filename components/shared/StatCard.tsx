@@ -28,12 +28,12 @@ export function StatCard({
   return (
     <div
       onClick={onClick}
-      className={`relative border transition-all rounded-[6px] shadow-xs ${
+      className={`relative liquid-glass-card transition-all rounded-2xl shadow-xs ${
         isHero
-          ? 'bg-[var(--bento-hero-bg)] border-[var(--brand-primary)]'
-          : 'bg-[var(--bento-bg)] border-[var(--bento-border)] hover:border-[var(--brand-primary)]'
-      } p-4 md:p-5 flex flex-col justify-between ${
-        onClick ? 'cursor-pointer' : ''
+          ? 'border-[var(--brand-primary)]'
+          : 'hover:border-[var(--brand-primary)]'
+      } p-5 md:p-6 flex flex-col justify-between ${
+        onClick ? 'cursor-pointer active:scale-98' : ''
       } ${className}`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -41,7 +41,7 @@ export function StatCard({
           {label}
         </span>
         {icon && (
-          <div className="w-8 h-8 rounded-[4px] flex items-center justify-center bg-[var(--brand-primary-light)] text-[var(--brand-primary)] shrink-0 border border-[var(--brand-primary)]/20">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-[var(--brand-primary-light)] text-[var(--brand-primary)] shrink-0 border border-[var(--brand-primary)]/20 shadow-xs">
             {icon}
           </div>
         )}
@@ -56,7 +56,7 @@ export function StatCard({
           <div className="flex items-center flex-wrap gap-2 mt-2 text-xs">
             {trend && (
               <span
-                className={`font-mono text-[10px] font-medium px-1.5 py-0.5 rounded-[3px] border ${
+                className={`font-mono text-[10px] font-medium px-2 py-0.5 rounded-full border ${
                   trendType === 'positive'
                     ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
                     : trendType === 'negative'

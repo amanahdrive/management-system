@@ -65,13 +65,13 @@ export function Topbar() {
 
   return (
     <header
-      className={`h-14 fixed top-0 right-0 z-30 bg-[var(--bg)]/90 backdrop-blur-md border-b border-[var(--border)] flex items-center justify-between px-4 md:px-6 transition-all duration-300 left-0 ${
+      className={`h-14 fixed top-0 right-0 z-30 bg-[var(--liquid-glass-bg)] backdrop-blur-2xl border-b border-[var(--liquid-glass-border)] flex items-center justify-between px-4 md:px-6 transition-all duration-300 left-0 shadow-xs ${
         sidebarOpen ? 'md:left-64' : 'md:left-20'
       }`}
     >
       {/* Toast Notification Alert */}
       {toastMessage && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 px-3.5 py-1.5 bg-emerald-800 text-white text-xs font-mono border border-emerald-600 rounded-[4px] shadow-2xl flex items-center gap-2">
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-emerald-800/90 backdrop-blur-md text-white text-xs font-mono border border-emerald-500/40 rounded-full shadow-2xl flex items-center gap-2">
           <Check className="w-3.5 h-3.5" />
           <span>{toastMessage}</span>
         </div>
@@ -91,7 +91,7 @@ export function Topbar() {
         </div>
 
         {/* Live Database Sync Telemetry */}
-        <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 bg-[var(--bg)] border border-[var(--border)] rounded-[4px] text-[10px] font-mono">
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-white/40 dark:bg-black/20 backdrop-blur-md border border-[var(--liquid-glass-border)] rounded-full text-[10px] font-mono shadow-xs">
           <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
           <span className="text-[var(--text-muted)] uppercase tracking-wider">SYNC:</span>
           <span className="text-[var(--text-primary)] tabular-nums">
@@ -106,7 +106,7 @@ export function Topbar() {
         <button
           onClick={handleToggleSound}
           aria-label={isMuted ? 'Aktifkan Audio Mikro' : 'Bisukan Audio Mikro'}
-          className="p-1.5 border border-[var(--border)] bg-[var(--bg)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] rounded-[4px] shadow-2xs transition-colors text-xs"
+          className="p-2 border border-[var(--liquid-glass-border)] bg-white/40 dark:bg-black/20 hover:bg-white/60 dark:hover:bg-black/40 backdrop-blur-md text-[var(--text-secondary)] rounded-xl shadow-xs transition-all text-xs active:scale-95"
           title={isMuted ? 'Aktifkan Suara Mikro' : 'Bisukan Suara Mikro'}
         >
           {isMuted ? <VolumeX className="w-3.5 h-3.5 text-zinc-400" /> : <Volume2 className="w-3.5 h-3.5 text-[var(--brand-primary)]" />}
@@ -117,7 +117,7 @@ export function Topbar() {
           onClick={handleRefreshDatabase}
           disabled={isRefreshing}
           aria-label="Refresh Data dan Sinkronisasi Database"
-          className="flex items-center gap-1 px-2.5 py-1.5 border border-[var(--border)] bg-[var(--bg)] hover:bg-black/5 dark:hover:bg-white/5 text-[11px] font-mono text-[var(--text-primary)] rounded-[4px] shadow-2xs transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 border border-[var(--liquid-glass-border)] bg-white/40 dark:bg-black/20 hover:bg-white/60 dark:hover:bg-black/40 backdrop-blur-md text-[11px] font-mono text-[var(--text-primary)] rounded-xl shadow-xs transition-all active:scale-95"
           title="Refresh Data & Sinkronisasi Database"
         >
           <RefreshCw className={`w-3 h-3 text-[var(--brand-primary)] ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -126,8 +126,8 @@ export function Topbar() {
 
         <ThemeToggle />
 
-        <div className="flex items-center gap-2 pl-2 border-l border-[var(--border)]">
-          <div className="w-7 h-7 bg-zinc-900 border border-zinc-700 text-zinc-200 text-xs font-mono font-bold rounded-[3px] flex items-center justify-center">
+        <div className="flex items-center gap-2.5 pl-2 border-l border-[var(--border)]">
+          <div className="w-8 h-8 bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/20 text-zinc-200 text-xs font-mono font-bold rounded-full flex items-center justify-center shadow-xs">
             AD
           </div>
           <div className="hidden sm:block text-left">

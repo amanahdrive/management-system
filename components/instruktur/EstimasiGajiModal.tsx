@@ -33,7 +33,7 @@ export function EstimasiGajiModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-xs animate-fadeIn">
       <div 
-        className="w-full max-w-lg bg-[var(--bg)] border border-[var(--border)] shadow-2xl rounded-[8px] flex flex-col max-h-[90vh] overflow-hidden"
+        className="w-full max-w-lg liquid-glass border border-[var(--liquid-glass-border)] shadow-2xl rounded-3xl flex flex-col max-h-[90vh] overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--bg-subtle)]">
@@ -58,7 +58,7 @@ export function EstimasiGajiModal({
         {/* Content */}
         <div className="p-4 overflow-y-auto space-y-4 text-xs">
           {/* Driver ID Strip */}
-          <div className="flex items-center justify-between p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-[4px]">
+          <div className="flex items-center justify-between p-4 bg-white/40 dark:bg-black/20 border border-[var(--liquid-glass-border)] rounded-2xl shadow-xs">
             <div>
               <span className="font-bold text-[var(--text-primary)] text-sm block">
                 {staff.nama}
@@ -74,7 +74,7 @@ export function EstimasiGajiModal({
 
           {/* Telemetric Breakdown Grid */}
           <div className="grid grid-cols-2 gap-2">
-            <div className="p-3 border border-[var(--border)] bg-[var(--bg)] rounded-[4px] space-y-1">
+            <div className="p-4 border border-[var(--liquid-glass-border)] bg-white/40 dark:bg-black/20 rounded-2xl space-y-1 shadow-xs">
               <span className="font-mono text-[10px] uppercase text-[var(--text-muted)] block">
                 Sesi Diselesaikan
               </span>
@@ -86,7 +86,7 @@ export function EstimasiGajiModal({
               </span>
             </div>
 
-            <div className="p-3 border border-emerald-500/30 bg-emerald-500/5 rounded-[4px] space-y-1">
+            <div className="p-4 border border-emerald-500/30 bg-emerald-500/10 rounded-2xl space-y-1 shadow-xs">
               <span className="font-mono text-[10px] uppercase text-emerald-600 dark:text-emerald-400 font-semibold block">
                 Estimasi Komisi Sesi
               </span>
@@ -100,7 +100,7 @@ export function EstimasiGajiModal({
           </div>
 
           {/* Net Highlight Tile */}
-          <div className="p-3 border border-[var(--brand-primary)] bg-[var(--brand-primary-light)] rounded-[4px] flex items-center justify-between">
+          <div className="p-4 border border-[var(--brand-primary)]/40 bg-[var(--brand-primary-light)] rounded-2xl flex items-center justify-between shadow-xs">
             <div>
               <span className="font-mono text-[10px] uppercase font-bold text-[var(--brand-primary)] block">
                 Estimasi Total Diterima
@@ -124,7 +124,7 @@ export function EstimasiGajiModal({
                 Belum ada sesi selesai pada periode ini.
               </div>
             ) : (
-              <div className="border border-[var(--border)] rounded-[4px] max-h-48 overflow-y-auto">
+              <div className="border border-[var(--liquid-glass-border)] rounded-2xl max-h-48 overflow-y-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-[var(--bg-subtle)] border-b border-[var(--border)] font-mono text-[10px] uppercase text-[var(--text-muted)]">
                     <tr>
@@ -161,7 +161,7 @@ export function EstimasiGajiModal({
               sound.playTactileClick();
               onClose();
             }}
-            className="px-4 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white font-mono text-xs uppercase font-bold rounded-[4px] transition-colors"
+            className="px-5 py-2.5 bg-gradient-to-r from-[#0F7A73] to-[#10B981] hover:brightness-110 text-white font-mono text-xs uppercase font-bold rounded-xl transition-all shadow-sm active:scale-95"
           >
             Tutup
           </button>

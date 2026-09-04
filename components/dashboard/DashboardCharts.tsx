@@ -31,7 +31,7 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
       {/* Charts Hairline Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Tren Pendaftaran Siswa Bar Chart */}
-        <div className="border border-[var(--border)] bg-[var(--bg)] rounded-[6px] p-4 sm:p-5 space-y-3 shadow-xs">
+        <div className="liquid-glass-card rounded-3xl p-5 sm:p-6 space-y-3 shadow-sm">
           <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
             <div>
               <span className="eyebrow-label text-[10px] font-mono tracking-widest text-[var(--text-muted)]">TELEMETRI AKUISISI</span>
@@ -39,7 +39,7 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
                 Tren Pendaftaran Siswa (6 Bulan)
               </h3>
             </div>
-            <span className="font-mono text-[10px] text-[var(--brand-primary)] px-1.5 py-0.5 rounded-[3px] border border-[var(--brand-primary)]/20 bg-[var(--brand-primary-light)]">
+            <span className="font-mono text-[10px] text-[var(--brand-primary)] px-1.5 py-0.5 rounded-full border border-[var(--brand-primary)]/20 bg-[var(--brand-primary-light)]">
               HISTORIKAL
             </span>
           </div>
@@ -52,20 +52,20 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
                   contentStyle={{
                     backgroundColor: 'var(--bg)',
                     border: '1px solid var(--border)',
-                    borderRadius: '4px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                    borderRadius: '14px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
                     color: 'var(--text-primary)',
                     fontSize: '11px',
                     fontFamily: 'monospace',
                   }}
                 />
-                <Bar dataKey="total" fill="var(--brand-primary)" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="total" fill="var(--brand-primary)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Tren Cashflow Line Chart */}
-        <div className="border border-[var(--border)] bg-[var(--bg)] rounded-[6px] p-4 sm:p-5 space-y-3 shadow-xs">
+        <div className="liquid-glass-card rounded-3xl p-5 sm:p-6 space-y-3 shadow-sm">
           <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
             <div>
               <span className="eyebrow-label text-[10px] font-mono tracking-widest text-[var(--text-muted)]">FINANSIAL OPERASIONAL</span>
@@ -73,7 +73,7 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
                 Cashflow (Pemasukan vs Pengeluaran)
               </h3>
             </div>
-            <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-[3px] border border-emerald-500/20 bg-emerald-500/10">
+            <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/10">
               REALTIME
             </span>
           </div>
@@ -87,7 +87,7 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
                   contentStyle={{
                     backgroundColor: 'var(--bg)',
                     border: '1px solid var(--border)',
-                    borderRadius: '4px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                    borderRadius: '14px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
                     color: 'var(--text-primary)',
                     fontSize: '11px',
                     fontFamily: 'monospace',
@@ -103,7 +103,7 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
       </div>
 
       {/* Sumber Leads Conversion Chart */}
-      <div className="border border-[var(--border)] bg-[var(--bg)] rounded-[6px] p-4 sm:p-5 space-y-3 shadow-xs">
+      <div className="liquid-glass-card rounded-3xl p-5 sm:p-6 space-y-3 shadow-sm">
         <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
           <div>
             <span className="eyebrow-label text-[10px] font-mono tracking-widest text-[var(--text-muted)]">DISTRIBUSI KANAL MARKETING</span>
@@ -111,7 +111,7 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
               Proporsi Sumber Leads Siswa Terdaftar
             </h3>
           </div>
-          <span className="font-mono text-[10px] text-zinc-500 px-1.5 py-0.5 rounded-[3px] border border-[var(--border)]">
+          <span className="font-mono text-[10px] text-zinc-500 px-1.5 py-0.5 rounded-full border border-[var(--border)]">
             KONVERSI
           </span>
         </div>
@@ -138,7 +138,7 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
                 contentStyle={{
                   backgroundColor: 'var(--bg)',
                   border: '1px solid var(--border)',
-                  borderRadius: '4px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                  borderRadius: '14px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
                   color: 'var(--text-primary)',
                   fontSize: '11px',
                   fontFamily: 'monospace',

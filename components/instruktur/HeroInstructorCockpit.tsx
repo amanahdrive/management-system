@@ -49,10 +49,10 @@ export function HeroInstructorCockpit({
   const progressPct = totalToday > 0 ? Math.round((completedToday / totalToday) * 100) : 0;
 
   return (
-    <div className="relative border border-[var(--border)] bg-[var(--bg)] rounded-[6px] p-4 sm:p-5 overflow-hidden shadow-xs">
+    <div className="relative liquid-glass rounded-3xl p-5 sm:p-6 overflow-hidden">
       {/* Subtle Atmospheric Ambient Glow behind cockpit */}
       <div
-        className="absolute -top-12 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full pointer-events-none opacity-40 dark:opacity-25 blur-3xl"
+        className="absolute -top-12 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full pointer-events-none opacity-50 dark:opacity-30 blur-3xl"
         style={{
           background: 'radial-gradient(circle, var(--brand-glow) 0%, transparent 70%)',
         }}
@@ -78,7 +78,7 @@ export function HeroInstructorCockpit({
               onRefresh();
             }}
             disabled={isRefreshing}
-            className="p-1.5 border border-[var(--border)] bg-[var(--bg-subtle)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] rounded-[3px] transition-colors"
+            className="p-2 border border-[var(--liquid-glass-border)] bg-white/40 dark:bg-black/20 hover:bg-white/60 dark:hover:bg-black/40 text-[var(--text-secondary)] rounded-xl transition-all shadow-xs"
             title="Refresh Jadwal"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[var(--brand-primary)]' : ''}`} />
@@ -88,7 +88,7 @@ export function HeroInstructorCockpit({
               sound.playTactileClick();
               onLogout();
             }}
-            className="px-2 py-1 border border-[var(--border)] hover:border-rose-400 hover:text-rose-600 text-[var(--text-secondary)] transition-colors font-mono text-[10px] uppercase rounded-[3px] flex items-center gap-1"
+            className="px-2.5 py-1.5 border border-[var(--liquid-glass-border)] hover:border-rose-400 hover:text-rose-600 text-[var(--text-secondary)] transition-all font-mono text-[10px] uppercase rounded-xl flex items-center gap-1 shadow-xs"
             title="Ganti Profil Instruktur"
           >
             <LogOut className="w-3 h-3" />
@@ -128,7 +128,7 @@ export function HeroInstructorCockpit({
 
         {/* Instructor Meta Tag */}
         <div className="flex items-center gap-2 mt-1">
-          <span className="font-mono text-[10px] px-2 py-0.5 rounded-[3px] border border-[var(--brand-primary)]/30 bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold uppercase">
+          <span className="font-mono text-[10px] px-3 py-1 rounded-full border border-[var(--brand-primary)]/30 bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold uppercase shadow-xs">
             INSTRUKTUR LAPANGAN
           </span>
           <span className="font-mono text-[10px] text-[var(--text-muted)]">
@@ -137,14 +137,14 @@ export function HeroInstructorCockpit({
         </div>
 
         {/* Dynamic Shift Duty Status Selector */}
-        <div className="mt-3 inline-flex items-center p-0.5 border border-[var(--border)] bg-[var(--bg-subtle)] rounded-[4px] text-[10.5px] font-mono">
+        <div className="mt-3 inline-flex items-center p-1 border border-[var(--liquid-glass-border)] bg-black/5 dark:bg-white/5 backdrop-blur-md rounded-full text-[10.5px] font-mono shadow-inner">
           <button
             type="button"
             onClick={() => {
               sound.playTactileClick();
               setDutyStatus('ready');
             }}
-            className={`px-2.5 py-1 rounded-[2px] transition-all flex items-center gap-1.5 ${
+            className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1.5 ${
               dutyStatus === 'ready'
                 ? 'bg-emerald-600 text-white font-bold shadow-2xs'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -159,7 +159,7 @@ export function HeroInstructorCockpit({
               sound.playTactileClick();
               setDutyStatus('teaching');
             }}
-            className={`px-2.5 py-1 rounded-[2px] transition-all flex items-center gap-1.5 ${
+            className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1.5 ${
               dutyStatus === 'teaching'
                 ? 'bg-amber-600 text-white font-bold shadow-2xs'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -174,7 +174,7 @@ export function HeroInstructorCockpit({
               sound.playTactileClick();
               setDutyStatus('break');
             }}
-            className={`px-2.5 py-1 rounded-[2px] transition-all flex items-center gap-1.5 ${
+            className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1.5 ${
               dutyStatus === 'break'
                 ? 'bg-slate-700 text-white font-bold shadow-2xs'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -187,7 +187,7 @@ export function HeroInstructorCockpit({
       </div>
 
       {/* High-Precision Telemetry Metrics Strip */}
-      <div className="mt-3 border border-[var(--border)] bg-[var(--bg-subtle)] rounded-[4px] divide-y sm:divide-y-0 sm:divide-x divide-[var(--border)] grid grid-cols-1 sm:grid-cols-3">
+      <div className="mt-4 border border-[var(--liquid-glass-border)] bg-white/40 dark:bg-black/20 backdrop-blur-md rounded-2xl divide-y sm:divide-y-0 sm:divide-x divide-[var(--liquid-glass-border)] grid grid-cols-1 sm:grid-cols-3 shadow-xs">
         {/* Metric 1: Sesi Hari Ini with micro-progress bar */}
         <div className="p-3">
           <div className="flex items-center justify-between text-[10px] font-mono text-[var(--text-muted)] uppercase">
@@ -251,7 +251,7 @@ export function HeroInstructorCockpit({
             sound.playTactileClick();
             onOpenGajiModal();
           }}
-          className="p-2.5 border border-[var(--border)] bg-[var(--bg)] hover:border-emerald-500 hover:bg-emerald-500/5 text-[var(--text-primary)] rounded-[4px] transition-all flex items-center justify-center gap-2 font-mono text-xs font-semibold shadow-2xs active:scale-98"
+          className="p-3 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 text-[var(--text-primary)] rounded-2xl transition-all flex items-center justify-center gap-2 font-mono text-xs font-semibold shadow-xs active:scale-98"
         >
           <Wallet className="w-3.5 h-3.5 text-emerald-600" />
           <span>ESTIMASI GAJI</span>
@@ -262,7 +262,7 @@ export function HeroInstructorCockpit({
             sound.playTactileClick();
             onScrollToSchedule();
           }}
-          className="p-2.5 border border-[var(--border)] bg-[var(--bg)] hover:border-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/5 text-[var(--text-primary)] rounded-[4px] transition-all flex items-center justify-center gap-2 font-mono text-xs font-semibold shadow-2xs active:scale-98"
+          className="p-3 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 text-[var(--text-primary)] rounded-2xl transition-all flex items-center justify-center gap-2 font-mono text-xs font-semibold shadow-xs active:scale-98"
         >
           <Calendar className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
           <span>LIHAT JADWAL</span>
@@ -273,7 +273,7 @@ export function HeroInstructorCockpit({
             sound.playConfirmChime();
             onRefresh();
           }}
-          className="col-span-2 sm:col-span-1 p-2.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white rounded-[4px] transition-all flex items-center justify-center gap-2 font-mono text-xs font-semibold shadow-sm active:scale-98"
+          className="col-span-2 sm:col-span-1 p-3 bg-gradient-to-r from-[#0F7A73] to-[#10B981] hover:brightness-110 text-white rounded-2xl transition-all flex items-center justify-center gap-2 font-mono text-xs font-semibold shadow-md active:scale-98"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
           <span>PRESENSI CEPAT</span>
