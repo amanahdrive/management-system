@@ -1,6 +1,13 @@
 // lib/utils/whatsapp-markdown.ts
 import { JadwalSesi } from '@/types/database';
 import { formatHariTanggalIndo, formatDateIndo } from './date';
+import { formatRupiah } from './currency';
+
+export interface RecapRates {
+  feeOperasional: number;
+  feePribadi: number;
+  uangMakanHarian: number;
+}
 
 export interface InstrukturJadwalGroup {
   instrukturNama: string;
@@ -118,6 +125,7 @@ export function generateWhatsAppJadwalMarkdown(
   return body;
 }
 
+
 /**
  * Generates Weekly or Custom Range WhatsApp Schedule Markdown
  */
@@ -127,7 +135,8 @@ export function generateWhatsAppRangeScheduleMarkdown(
   daysData: { tanggal: string; groups: InstrukturJadwalGroup[] }[],
   isWeeklySundaySaturday: boolean = false,
   staffFilterNama?: string,
-  footerTemplate?: string
+  footerTemplate?: string,
+  rates: RecapRates = { feeOperasional: 50000, feePribadi: 70000, uangMakanHarian: 15000 }
 ): string {
   const startFmt = formatHariTanggalIndo(startDateStr);
   const endFmt = formatHariTanggalIndo(endDateStr);
@@ -196,19 +205,26 @@ export function generateWhatsAppRangeScheduleMarkdown(
         } else {
           sortedSesi.forEach((sesi) => {
             const namaSiswa = sesi.siswa?.nama || 'Siswa';
-            const kodeSiswa = sesi.siswa?.kode_siswa || '-';
-            const noWa = sesi.siswa?.no_whatsapp || '-';
-            const alamat = sesi.siswa?.alamat || '-';
-            const slotNama = sesi.slot_waktu?.nama_slot || 'Slot';
-            const jamMulai = sesi.slot_waktu?.jam_mulai?.substring(0, 5) || '';
-            const jamSelesai = (sesi.slot_waktu_akhir || sesi.slot_waktu)?.jam_selesai?.substring(0, 5) || '';
+            const kodeSiswa = sesi.siswa?.kode_siswa ? ` (${sesi.siswa.kode_siswa})` : '';
+
+            const slotAwalObj = sesi.slot_waktu;
+            const slotAkhirObj = sesi.slot_waktu_akhir || sesi.slot_waktu;
+            let slotNama = slotAwalObj?.nama_slot || 'Slot';
+            let jamMulai = slotAwalObj?.jam_mulai ? slotAwalObj.jam_mulai.substring(0, 5) : '';
+            let jamSelesai = slotAkhirObj?.jam_selesai ? slotAkhirObj.jam_selesai.substring(0, 5) : '';
+
+            if (sesi.slot_waktu_akhir && sesi.slot_waktu_akhir.id !== sesi.slot_waktu?.id) {
+              const namaSlotAkhir = sesi.slot_waktu_akhir.nama_slot;
+              slotNama = `${slotNama} s/d ${namaSlotAkhir}`;
+            }
+
+            const timeStr = jamMulai && jamSelesai ? ` (${jamMulai}-${jamSelesai} WIB)` : '';
             const sesiKe = sesi.nomor_sesi_ke || 1;
             const totalSesi = sesi.total_sesi_paket || 10;
             const statusText = sesi.status_sesi === 'selesai' ? '[SELESAI]' : sesi.status_sesi === 'batal' ? '[BATAL]' : '[TERJADWAL]';
 
-            body += `  ${statusText} *${slotNama}* (${jamMulai}-${jamSelesai} WIB)\n`;
-            body += `     Siswa: ${namaSiswa} (${kodeSiswa}) [Sesi ${sesiKe}/${totalSesi}]\n`;
-            body += `     Alamat: ${alamat} | No. WA: ${noWa}\n`;
+            body += `  ${statusText} *${slotNama}*${timeStr}\n`;
+            body += `     Siswa: ${namaSiswa}${kodeSiswa} [Sesi ${sesiKe}/${totalSesi}]\n`;
           });
         }
         body += `\n`;
@@ -216,14 +232,112 @@ export function generateWhatsAppRangeScheduleMarkdown(
     });
   }
 
-  const defaultFooter =
-    '• Minta share lokasi kepada klien sebelum berangkat.\n' +
-    '• Laporan keluar Basecamp beserta foto odometer.\n' +
-    '• Laporan saat sesi dimulai dan selesai.';
-  const catatanFooter = footerTemplate?.trim() || defaultFooter;
+  // Rekapan total slot + gaji + uang makan, total gaji
+  interface InstSummary {
+    nama: string;
+    sesiSelesai: number;
+    slotSelesai: number;
+    operasionalCount: number;
+    pribadiCount: number;
+    activeDates: Set<string>;
+  }
+
+  const summaryMap = new Map<string, InstSummary>();
+
+  daysData.forEach((day) => {
+    day.groups.forEach((g) => {
+      const instNama = g.instrukturNama || 'Instruktur';
+      if (!summaryMap.has(instNama)) {
+        summaryMap.set(instNama, {
+          nama: instNama,
+          sesiSelesai: 0,
+          slotSelesai: 0,
+          operasionalCount: 0,
+          pribadiCount: 0,
+          activeDates: new Set<string>(),
+        });
+      }
+      const item = summaryMap.get(instNama)!;
+
+      g.sesiList.forEach((s) => {
+        if (s.status_sesi === 'selesai') {
+          item.sesiSelesai += 1;
+          const isDouble = Boolean(
+            s.slot_waktu_id_akhir && s.slot_waktu_id_akhir !== s.slot_waktu_id
+          );
+          item.slotSelesai += isDouble ? 2 : 1;
+
+          if (s.tipe_kendaraan === 'pribadi' || s.jenis_mobil === 'mobil_sendiri') {
+            item.pribadiCount += 1;
+          } else {
+            item.operasionalCount += 1;
+          }
+
+          if (day.tanggal) {
+            item.activeDates.add(day.tanggal);
+          }
+        }
+      });
+    });
+  });
+
+  let totalGrandSlotSelesai = 0;
+  let totalGrandSesiSelesai = 0;
+  let totalGrandFee = 0;
+  let totalGrandUangMakan = 0;
+  let totalGrandGaji = 0;
 
   body += `════════════════════════\n`;
-  body += `*SOP Instruktur:*\n${catatanFooter}`;
+  body += `*REKAP HONOR & GAJI INSTRUKTUR:*\n`;
+
+  const sortedSummaries = Array.from(summaryMap.values()).sort((a, b) =>
+    a.nama.localeCompare(b.nama)
+  );
+
+  if (sortedSummaries.length === 0) {
+    body += `_Belum ada sesi selesai pada periode ini._\n`;
+  } else if (sortedSummaries.length === 1) {
+    const inst = sortedSummaries[0];
+    const feeOperasional = inst.operasionalCount * rates.feeOperasional;
+    const feePribadi = inst.pribadiCount * rates.feePribadi;
+    const totalFee = feeOperasional + feePribadi;
+    const activeDays = inst.activeDates.size;
+    const uangMakan = activeDays * rates.uangMakanHarian;
+    const totalGaji = totalFee + uangMakan;
+
+    body += `• Total Slot Selesai: *${inst.slotSelesai} Slot* (${inst.sesiSelesai} Sesi)\n`;
+    body += `• Total Fee Sesi: *${formatRupiah(totalFee)}*\n`;
+    body += `• Total Uang Makan: *${formatRupiah(uangMakan)}* (${activeDays} Hari Tugas)\n`;
+    body += `👉 *TOTAL GAJI & HONOR: ${formatRupiah(totalGaji)}*\n`;
+  } else {
+    sortedSummaries.forEach((inst) => {
+      const feeOperasional = inst.operasionalCount * rates.feeOperasional;
+      const feePribadi = inst.pribadiCount * rates.feePribadi;
+      const totalFee = feeOperasional + feePribadi;
+      const activeDays = inst.activeDates.size;
+      const uangMakan = activeDays * rates.uangMakanHarian;
+      const totalGaji = totalFee + uangMakan;
+
+      totalGrandSlotSelesai += inst.slotSelesai;
+      totalGrandSesiSelesai += inst.sesiSelesai;
+      totalGrandFee += totalFee;
+      totalGrandUangMakan += uangMakan;
+      totalGrandGaji += totalGaji;
+
+      body += `*${inst.nama.toUpperCase()}*:\n`;
+      body += `  • Slot Selesai: *${inst.slotSelesai} Slot* (${inst.sesiSelesai} Sesi)\n`;
+      body += `  • Fee Sesi: ${formatRupiah(totalFee)}\n`;
+      body += `  • Uang Makan: ${formatRupiah(uangMakan)} (${activeDays} Hari)\n`;
+      body += `  • Subtotal Gaji: *${formatRupiah(totalGaji)}*\n\n`;
+    });
+
+    body += `────────────────────────\n`;
+    body += `*GRAND TOTAL PERIODE:*\n`;
+    body += `• Total Slot Selesai: *${totalGrandSlotSelesai} Slot* (${totalGrandSesiSelesai} Sesi)\n`;
+    body += `• Total Fee Sesi: *${formatRupiah(totalGrandFee)}*\n`;
+    body += `• Total Uang Makan: *${formatRupiah(totalGrandUangMakan)}*\n`;
+    body += `👉 *TOTAL GAJI INSTRUKTUR: ${formatRupiah(totalGrandGaji)}*\n`;
+  }
 
   return body;
 }
@@ -236,7 +350,8 @@ export function generateWhatsAppWeeklyScheduleMarkdown(
   endDateStr: string,
   daysData: { tanggal: string; groups: InstrukturJadwalGroup[] }[],
   footerTemplate?: string,
-  staffFilterNama?: string
+  staffFilterNama?: string,
+  rates?: RecapRates
 ): string {
   return generateWhatsAppRangeScheduleMarkdown(
     startDateStr,
@@ -244,16 +359,9 @@ export function generateWhatsAppWeeklyScheduleMarkdown(
     daysData,
     true,
     staffFilterNama,
-    footerTemplate
+    footerTemplate,
+    rates
   );
-}
-
-import { formatRupiah } from './currency';
-
-export interface RecapRates {
-  feeOperasional: number;
-  feePribadi: number;
-  uangMakanHarian: number;
 }
 
 /**

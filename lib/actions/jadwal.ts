@@ -614,11 +614,12 @@ export async function generateWhatsAppWeeklyScheduleText(
       });
     }
 
-    let footerTemplate: string | undefined;
-    try {
-      const setRow = await dbQuerySingle<{ value: string }>("SELECT value FROM settings WHERE key = 'wa_footer_template'");
-      if (setRow?.value) footerTemplate = setRow.value;
-    } catch (e) {}
+    const settings = await getGeneralSettings();
+    const rates = {
+      feeOperasional: settings.gajiInstrukturOperasional || 50000,
+      feePribadi: settings.gajiInstrukturPribadi || 70000,
+      uangMakanHarian: settings.uangMakanInstrukturHarian || 15000,
+    };
 
     return generateWhatsAppRangeScheduleMarkdown(
       startDateStr,
@@ -626,7 +627,8 @@ export async function generateWhatsAppWeeklyScheduleText(
       daysData,
       true,
       staffFilterNama,
-      footerTemplate
+      undefined,
+      rates
     );
   } catch (err: any) {
     return 'Terjadi kesalahan saat membuat format WA mingguan';
@@ -700,11 +702,12 @@ export async function generateWhatsAppCustomRangeText(
       });
     }
 
-    let footerTemplate: string | undefined;
-    try {
-      const setRow = await dbQuerySingle<{ value: string }>("SELECT value FROM settings WHERE key = 'wa_footer_template'");
-      if (setRow?.value) footerTemplate = setRow.value;
-    } catch (e) {}
+    const settings = await getGeneralSettings();
+    const rates = {
+      feeOperasional: settings.gajiInstrukturOperasional || 50000,
+      feePribadi: settings.gajiInstrukturPribadi || 70000,
+      uangMakanHarian: settings.uangMakanInstrukturHarian || 15000,
+    };
 
     return generateWhatsAppRangeScheduleMarkdown(
       startDateStr,
@@ -712,7 +715,8 @@ export async function generateWhatsAppCustomRangeText(
       daysData,
       false,
       staffFilterNama,
-      footerTemplate
+      undefined,
+      rates
     );
   } catch (err: any) {
     return 'Terjadi kesalahan saat membuat format WA rentang tanggal';
