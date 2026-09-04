@@ -30,8 +30,7 @@ export function FloatingInstructorNav({
   return (
     <div className="fixed bottom-3 inset-x-0 z-40 flex justify-center px-3 pointer-events-none">
       <nav 
-        className="pointer-events-auto max-w-md w-full bg-[var(--bg)]/95 backdrop-blur-md border border-[var(--border)] shadow-2xl flex items-center justify-between px-1 py-1"
-        style={{ borderRadius: 0 }}
+        className="pointer-events-auto max-w-md w-full bg-[var(--bg)]/95 backdrop-blur-md border border-[var(--border)] shadow-xl rounded-[8px] flex items-center justify-between p-1.5"
       >
         {tabs.map((tab) => {
           const isActive = currentTab === tab.id;
@@ -44,20 +43,19 @@ export function FloatingInstructorNav({
                 sound.playMechanicalTick();
                 onSelectTab(tab.id);
               }}
-              className={`relative flex-1 py-1.5 flex flex-col items-center justify-center text-center transition-colors font-mono text-[9px] uppercase tracking-wider ${
+              className={`relative flex-1 py-1.5 flex flex-col items-center justify-center text-center rounded-[4px] transition-all font-mono text-[9px] uppercase tracking-wider ${
                 isActive
-                  ? 'text-[var(--brand-primary)] font-bold bg-[var(--brand-primary-light)]'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  ? 'text-[var(--brand-primary)] font-bold bg-[var(--brand-primary-light)] shadow-2xs'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
               }`}
-              style={{ borderRadius: 0 }}
             >
               {isActive && (
-                <div className="absolute top-0 inset-x-0 h-[2px] bg-[var(--brand-primary)]" />
+                <div className="absolute top-0 inset-x-2 h-[2px] bg-[var(--brand-primary)] rounded-full" />
               )}
               <div className="relative">
                 <Icon className="w-4 h-4 mb-0.5" />
                 {tab.badge && (
-                  <span className="absolute -top-1 -right-2 px-1 py-0.2 text-[8px] font-mono bg-emerald-600 text-white font-bold">
+                  <span className="absolute -top-1 -right-2 px-1 py-0.2 text-[8px] font-mono bg-emerald-600 text-white font-bold rounded-[2px]">
                     {tab.badge}
                   </span>
                 )}

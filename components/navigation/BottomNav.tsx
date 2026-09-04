@@ -20,7 +20,7 @@ export function BottomNav() {
 
   return (
     <div className="md:hidden fixed bottom-3 inset-x-0 z-40 flex justify-center px-3 pointer-events-none">
-      <nav className="pointer-events-auto max-w-md w-full bg-[var(--bg)]/95 backdrop-blur-md border border-[var(--border)] shadow-2xl flex items-center justify-between px-1 py-1">
+      <nav className="pointer-events-auto max-w-md w-full bg-[var(--bg)]/95 backdrop-blur-md border border-[var(--border)] shadow-2xl rounded-[8px] flex items-center justify-between p-1.5">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive =
@@ -31,14 +31,14 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               onClick={() => sound.playMechanicalTick()}
-              className={`relative flex-1 py-1.5 flex flex-col items-center justify-center text-center transition-colors font-mono text-[9px] uppercase tracking-wider ${
+              className={`relative flex-1 py-1.5 flex flex-col items-center justify-center text-center rounded-[4px] transition-all font-mono text-[9px] uppercase tracking-wider ${
                 isActive
                   ? 'text-[var(--brand-primary)] font-bold bg-[var(--brand-primary-light)]'
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               {isActive && (
-                <div className="absolute top-0 inset-x-0 h-[2px] bg-[var(--brand-primary)]" />
+                <div className="absolute top-0 inset-x-2 h-[2px] bg-[var(--brand-primary)] rounded-full" />
               )}
               <Icon className="w-4 h-4 mb-0.5" />
               <span>{item.label}</span>

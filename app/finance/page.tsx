@@ -1093,7 +1093,7 @@ export default function FinancePortalPage() {
         {activeTab === 'kas' && (
           <div className="space-y-4 animate-fadeIn">
             {/* Saldo Aktif Hero Card */}
-            <div className="p-5 rounded-none bg-[#0F7A73] border border-[#0F7A73]/60 text-white shadow-none space-y-4">
+            <div className="p-5 rounded-[8px] bg-linear-to-br from-[#0F7A73] to-[#0A5954] border border-[#0F7A73]/60 text-white shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold tracking-wider uppercase opacity-85">
                   Total Saldo Kas Aktif
@@ -1116,7 +1116,7 @@ export default function FinancePortalPage() {
               <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/20 text-xs">
                 <div
                   onClick={handleOpenSetorTunai}
-                  className="bg-black/10 hover:bg-black/20 rounded-none p-2.5 cursor-pointer transition-colors"
+                  className="bg-black/15 hover:bg-black/25 rounded-[4px] p-2.5 cursor-pointer transition-colors"
                   title="Klik untuk setor tunai ke bank"
                 >
                   <div className="flex items-center justify-between">
@@ -1125,7 +1125,7 @@ export default function FinancePortalPage() {
                   </div>
                   <span className="font-bold tabular-nums block mt-1">{formatRupiah(metrics.saldoTunai)}</span>
                 </div>
-                <div className="bg-black/10 rounded-none p-2.5">
+                <div className="bg-black/15 rounded-[4px] p-2.5">
                   <span className="text-[10px] opacity-80 block font-medium">Bank (Non-Tunai)</span>
                   <span className="font-bold tabular-nums block mt-1">{formatRupiah(metrics.saldoNonTunai)}</span>
                 </div>
@@ -1136,7 +1136,7 @@ export default function FinancePortalPage() {
             <button
               type="button"
               onClick={handleOpenSetorTunai}
-              className="w-full py-2.5 px-4 rounded-none bg-[var(--bg)] border border-[var(--border)] shadow-xs flex items-center justify-between text-xs font-bold text-[var(--text-primary)] hover:border-emerald-500 transition-colors active:scale-98"
+              className="w-full py-2.5 px-4 rounded-[6px] bg-[var(--bg)] border border-[var(--border)] shadow-xs flex items-center justify-between text-xs font-bold text-[var(--text-primary)] hover:border-emerald-500 transition-colors active:scale-98"
             >
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-none bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
@@ -1151,7 +1151,7 @@ export default function FinancePortalPage() {
             <div className="grid grid-cols-2 gap-3">
               <div
                 onClick={() => setActiveTab('piutang')}
-                className="p-3.5 rounded-none bg-[var(--bg)] border border-[var(--border)] shadow-xs space-y-1 cursor-pointer active:scale-98 transition-transform"
+                className="p-3.5 rounded-[6px] bg-[var(--bg)] border border-[var(--border)] shadow-xs space-y-1 cursor-pointer active:scale-98 transition-all"
               >
                 <div className="flex items-center justify-between text-[var(--text-secondary)]">
                   <span className="text-[10.5px] font-bold">Piutang Beredar</span>
@@ -1620,7 +1620,7 @@ export default function FinancePortalPage() {
 
       {/* Navigasi Bawah Dock Utilitarian Modern (0px Radius) */}
       <div className="fixed bottom-3 left-3 right-3 max-w-md mx-auto z-40">
-        <div className="bg-[var(--bg)]/95 backdrop-blur-2xl border border-[var(--border)] rounded-none shadow-[0_8px_32px_rgba(0,0,0,0.14)] px-2 py-1.5 flex items-center justify-between">
+        <div className="bg-[var(--bg)]/95 backdrop-blur-2xl border border-[var(--border)] rounded-[8px] shadow-[0_8px_32px_rgba(0,0,0,0.14)] p-1.5 flex items-center justify-between">
           {/* Tab 1: Kas */}
           <button
             type="button"
@@ -1665,7 +1665,7 @@ export default function FinancePortalPage() {
                 sound.playTactileClick();
                 setShowAddForm(true);
               }}
-              className="w-10 h-10 rounded-none bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white flex items-center justify-center border border-white/20 transition-all active:scale-95 shadow-none"
+              className="w-10 h-10 rounded-[6px] bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white flex items-center justify-center border border-white/20 transition-all active:scale-95 shadow-xs"
               title="Tambah Transaksi Kas"
             >
               <Plus className="w-5 h-5 stroke-[2.5]" />

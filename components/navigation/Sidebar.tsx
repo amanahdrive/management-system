@@ -64,7 +64,7 @@ export function Sidebar() {
   const navItemClass = (isActive: boolean) =>
     `group relative flex items-center ${
       sidebarOpen ? 'gap-3 px-3.5' : 'justify-center px-0'
-    } py-2.5 text-xs font-medium transition-colors border-l-2 ${
+    } py-2 text-xs font-medium transition-colors rounded-[4px] border-l-2 ${
       isActive
         ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
         : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'

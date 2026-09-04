@@ -215,8 +215,7 @@ export default function InstrukturPortalPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[var(--bg-subtle)] text-[var(--text-primary)]">
         <div 
-          className="max-w-xl w-full border border-[var(--border)] bg-[var(--bg)] p-5 sm:p-8 space-y-6 shadow-2xl relative"
-          style={{ borderRadius: 0 }}
+          className="max-w-xl w-full border border-[var(--border)] bg-[var(--bg)] rounded-[6px] p-5 sm:p-8 space-y-6 shadow-2xl relative"
         >
           {/* Header */}
           <div className="border-b border-[var(--border)] pb-4 text-center sm:text-left flex flex-col sm:flex-row items-center sm:justify-between gap-3">
@@ -249,10 +248,9 @@ export default function InstrukturPortalPage() {
                   <button
                     key={ins.id}
                     onClick={() => handleSelectInstruktur(ins.id)}
-                    className="p-3 border border-[var(--border)] bg-[var(--bg)] hover:border-[var(--brand-primary)] hover:bg-black/5 dark:hover:bg-white/5 transition-all flex items-center gap-3 text-left group"
-                    style={{ borderRadius: 0 }}
+                    className="p-3 border border-[var(--border)] bg-[var(--bg)] rounded-[6px] hover:border-[var(--brand-primary)] hover:bg-black/5 dark:hover:bg-white/5 transition-all flex items-center gap-3 text-left group"
                   >
-                    <div className="relative w-12 h-14 bg-[var(--bg-subtle)] border border-[var(--border)] flex items-end justify-center overflow-hidden shrink-0">
+                    <div className="relative w-12 h-14 flex items-end justify-center shrink-0">
                       <Image
                         src={photoSrc}
                         alt={ins.nama}
@@ -309,8 +307,7 @@ export default function InstrukturPortalPage() {
       {/* Toast Alert */}
       {toastMessage && (
         <div 
-          className="fixed top-3 left-1/2 -translate-x-1/2 z-50 px-3.5 py-1.5 bg-emerald-800 text-white font-mono text-xs border border-emerald-600 shadow-2xl flex items-center gap-2 animate-in fade-in"
-          style={{ borderRadius: 0 }}
+          className="fixed top-3 left-1/2 -translate-x-1/2 z-50 px-3.5 py-1.5 bg-emerald-800 text-white font-mono text-xs border border-emerald-600 shadow-2xl rounded-[4px] flex items-center gap-2 animate-in fade-in"
         >
           <Check className="w-3.5 h-3.5" />
           <span>{toastMessage}</span>
@@ -324,6 +321,7 @@ export default function InstrukturPortalPage() {
         completedToday={completedToday}
         nextSessionTime={nextSessionTime}
         nextStudentName={nextStudentName}
+        nextStudentPhone={upcomingToday?.siswa?.no_whatsapp}
         onOpenGajiModal={() => setIsGajiModalOpen(true)}
         onScrollToSchedule={() => {
           setActiveTab('jadwal');
@@ -339,8 +337,7 @@ export default function InstrukturPortalPage() {
         <div ref={scheduleRef} className="space-y-4">
           {/* Mini Calendar Month Grid */}
           <section 
-            className="border border-[var(--border)] bg-[var(--bg)] p-3 sm:p-4 space-y-3"
-            style={{ borderRadius: 0 }}
+            className="border border-[var(--border)] bg-[var(--bg)] rounded-[6px] p-3 sm:p-4 space-y-3"
           >
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
               <div className="flex items-center gap-2">
@@ -362,7 +359,6 @@ export default function InstrukturPortalPage() {
                     }
                   }}
                   className="p-1 border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                  style={{ borderRadius: 0 }}
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
@@ -377,7 +373,6 @@ export default function InstrukturPortalPage() {
                     }
                   }}
                   className="p-1 border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                  style={{ borderRadius: 0 }}
                 >
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
@@ -427,7 +422,6 @@ export default function InstrukturPortalPage() {
                         ? 'border-[var(--brand-primary)]/40 bg-[var(--bg)] hover:border-[var(--brand-primary)]'
                         : 'border-[var(--border)] bg-[var(--bg)] hover:border-zinc-400'
                     }`}
-                    style={{ borderRadius: 0 }}
                   >
                     <span className={`font-mono text-[10px] ${isSunday ? 'text-rose-600 font-bold' : 'text-[var(--text-primary)]'}`}>
                       {dayNum}
@@ -449,8 +443,7 @@ export default function InstrukturPortalPage() {
           {/* Daily Schedule List Section */}
           <section className="space-y-3">
             <div 
-              className="border border-[var(--border)] bg-[var(--bg)] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-              style={{ borderRadius: 0 }}
+              className="border border-[var(--border)] bg-[var(--bg)] rounded-[6px] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
             >
               <div>
                 <span className="font-mono text-[10px] uppercase font-bold text-[var(--brand-primary)] tracking-wider block">
@@ -473,11 +466,11 @@ export default function InstrukturPortalPage() {
             </div>
 
             {loadingSchedule ? (
-              <div className="h-32 border border-[var(--border)] bg-[var(--bg)] flex items-center justify-center font-mono text-xs text-[var(--text-secondary)] animate-pulse">
+              <div className="h-32 border border-[var(--border)] bg-[var(--bg)] rounded-[6px] flex items-center justify-center font-mono text-xs text-[var(--text-secondary)] animate-pulse">
                 MEMUAT DAFTAR SESI...
               </div>
             ) : dailyJadwal.length === 0 ? (
-              <div className="p-8 text-center border border-[var(--border)] bg-[var(--bg)] space-y-1">
+              <div className="p-8 text-center border border-[var(--border)] bg-[var(--bg)] rounded-[6px] space-y-1">
                 <span className="font-mono text-xs text-[var(--text-muted)] block">
                   TIDAK ADA JADWAL SESI UNTUK TANGGAL INI
                 </span>
@@ -499,7 +492,6 @@ export default function InstrukturPortalPage() {
                           ? 'border-emerald-500/30 bg-emerald-500/5'
                           : 'border-[var(--border)] bg-[var(--bg)] hover:border-[var(--brand-primary)]'
                       }`}
-                      style={{ borderRadius: 0 }}
                     >
                       <div className="flex items-start justify-between gap-2 border-b border-[var(--border)] pb-2.5">
                         <div className="flex items-center gap-2">
@@ -552,7 +544,6 @@ export default function InstrukturPortalPage() {
                               rel="noreferrer"
                               onClick={() => sound.playTactileClick()}
                               className="flex-1 py-1.5 px-2.5 border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors hover:bg-emerald-500/20"
-                              style={{ borderRadius: 0 }}
                             >
                               <MessageCircle className="w-3.5 h-3.5" />
                               <span>HUBUNGI WA</span>
@@ -566,7 +557,6 @@ export default function InstrukturPortalPage() {
                               setIsRescheduling(false);
                             }}
                             className="py-1.5 px-3 border border-[var(--border)] bg-[var(--bg-subtle)] hover:bg-black/5 dark:hover:bg-white/5 font-mono text-xs font-semibold transition-colors"
-                            style={{ borderRadius: 0 }}
                           >
                             KELOLA SESI
                           </button>
@@ -584,7 +574,7 @@ export default function InstrukturPortalPage() {
       {/* TAB CONTENT 2: SISWA SAYA */}
       {activeTab === 'siswa' && (
         <div className="space-y-3">
-          <div className="border border-[var(--border)] bg-[var(--bg)] p-3.5">
+          <div className="border border-[var(--border)] bg-[var(--bg)] rounded-[6px] p-3.5">
             <span className="font-mono text-[10px] uppercase font-bold text-[var(--brand-primary)] tracking-wider block">
               Daftar Siswa Bimbingan
             </span>
@@ -595,7 +585,7 @@ export default function InstrukturPortalPage() {
 
           <div className="space-y-2">
             {monthlyJadwal.length === 0 ? (
-              <div className="p-8 text-center border border-[var(--border)] bg-[var(--bg)] font-mono text-xs text-[var(--text-muted)]">
+              <div className="p-8 text-center border border-[var(--border)] bg-[var(--bg)] rounded-[6px] font-mono text-xs text-[var(--text-muted)]">
                 Belum ada siswa bimbingan pada periode ini.
               </div>
             ) : (
@@ -608,8 +598,7 @@ export default function InstrukturPortalPage() {
                 return (
                   <div
                     key={siswaId}
-                    className="border border-[var(--border)] bg-[var(--bg)] p-3 flex items-center justify-between gap-3"
-                    style={{ borderRadius: 0 }}
+                    className="border border-[var(--border)] bg-[var(--bg)] rounded-[6px] p-3 flex items-center justify-between gap-3"
                   >
                     <div>
                       <span className="font-bold text-sm text-[var(--text-primary)] block">
@@ -627,7 +616,6 @@ export default function InstrukturPortalPage() {
                         rel="noreferrer"
                         onClick={() => sound.playTactileClick()}
                         className="py-1.5 px-3 border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-xs font-semibold flex items-center gap-1.5"
-                        style={{ borderRadius: 0 }}
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
                         <span>WA</span>
@@ -644,7 +632,7 @@ export default function InstrukturPortalPage() {
       {/* TAB CONTENT 3: KOMISI & GAJI */}
       {activeTab === 'gaji' && (
         <div className="space-y-4">
-          <div className="border border-[var(--border)] bg-[var(--bg)] p-4 space-y-3">
+          <div className="border border-[var(--border)] bg-[var(--bg)] rounded-[6px] p-4 space-y-3">
             <div className="border-b border-[var(--border)] pb-2.5 flex items-center justify-between">
               <div>
                 <span className="font-mono text-[10px] uppercase font-bold text-[var(--brand-primary)] tracking-wider block">
@@ -676,7 +664,6 @@ export default function InstrukturPortalPage() {
                 setIsGajiModalOpen(true);
               }}
               className="w-full py-2.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white font-mono text-xs font-bold uppercase transition-colors"
-              style={{ borderRadius: 0 }}
             >
               BUKA RINCIAN ESTIMASI GAJI LENGKAP
             </button>
@@ -687,7 +674,7 @@ export default function InstrukturPortalPage() {
       {/* TAB CONTENT 4: PROFIL */}
       {activeTab === 'profil' && (
         <div className="space-y-4">
-          <div className="border border-[var(--border)] bg-[var(--bg)] p-4 space-y-3">
+          <div className="border border-[var(--border)] bg-[var(--bg)] rounded-[6px] p-4 space-y-3">
             <span className="font-mono text-[10px] uppercase font-bold text-[var(--brand-primary)] tracking-wider block border-b border-[var(--border)] pb-2">
               Informasi Instruktur Bertugas
             </span>
@@ -718,7 +705,6 @@ export default function InstrukturPortalPage() {
             <button
               onClick={handleLogoutInstruktur}
               className="w-full mt-3 py-2 border border-rose-400 text-rose-600 hover:bg-rose-500 hover:text-white font-mono text-xs font-bold uppercase transition-colors flex items-center justify-center gap-1.5"
-              style={{ borderRadius: 0 }}
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>GANTI PROFIL INSTRUKTUR</span>
@@ -742,7 +728,6 @@ export default function InstrukturPortalPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div 
             className="w-full max-w-md bg-[var(--bg)] border border-[var(--border)] shadow-2xl p-4 space-y-4"
-            style={{ borderRadius: 0 }}
           >
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
               <span className="font-mono text-xs font-bold uppercase text-[var(--text-primary)]">
@@ -782,7 +767,6 @@ export default function InstrukturPortalPage() {
                   disabled={isUpdatingStatus}
                   onClick={() => handleStatusChange(selectedJadwalDetail.id, 'selesai')}
                   className="py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs font-bold uppercase transition-colors"
-                  style={{ borderRadius: 0 }}
                 >
                   TANDAI SELESAI
                 </button>
@@ -790,7 +774,6 @@ export default function InstrukturPortalPage() {
                   disabled={isUpdatingStatus}
                   onClick={() => handleStatusChange(selectedJadwalDetail.id, 'batal')}
                   className="py-2 border border-rose-400 text-rose-600 hover:bg-rose-500 hover:text-white font-mono text-xs font-bold uppercase transition-colors"
-                  style={{ borderRadius: 0 }}
                 >
                   BATALKAN SESI
                 </button>
@@ -835,7 +818,6 @@ export default function InstrukturPortalPage() {
                     disabled={isUpdatingStatus}
                     onClick={handleExecuteCascadeShift}
                     className="w-full py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-mono text-xs font-bold uppercase"
-                    style={{ borderRadius: 0 }}
                   >
                     EKSEKUSI RESCHEDULE
                   </button>
