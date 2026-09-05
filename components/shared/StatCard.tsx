@@ -37,7 +37,7 @@ export function StatCard({
       } ${className}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="eyebrow-label text-[10px] font-mono tracking-widest text-[var(--text-muted)]">
+        <span className="eyebrow-label text-[10px] font-mono tracking-widest text-[var(--text-muted)] font-semibold">
           {label}
         </span>
         {icon && (
@@ -56,19 +56,19 @@ export function StatCard({
           <div className="flex items-center flex-wrap gap-2 mt-2 text-xs">
             {trend && (
               <span
-                className={`font-mono text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+                className={`font-mono text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
                   trendType === 'positive'
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40'
                     : trendType === 'negative'
-                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30'
-                    : 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/30'
+                    ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40'
+                    : 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-300 border-zinc-500/40'
                 }`}
               >
                 {trend}
               </span>
             )}
             {description && (
-              <span className="text-[var(--text-muted)] text-[11px] font-normal leading-tight">
+              <span className="text-[var(--text-secondary)] text-[11px] font-normal leading-tight">
                 {description}
               </span>
             )}

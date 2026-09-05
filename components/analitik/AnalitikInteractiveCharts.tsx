@@ -113,11 +113,14 @@ export function AnalitikCashflowChart({
             contentStyle={{
               backgroundColor: 'var(--bg)',
               borderColor: 'var(--border)',
-              borderRadius: '14px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+              borderRadius: '14px',
+              boxShadow: 'var(--shadow-md)',
               color: 'var(--text-primary)',
               fontSize: '11px',
               fontFamily: 'monospace',
             }}
+            itemStyle={{ color: 'var(--text-primary)' }}
+            labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
           />
           <Legend
             wrapperStyle={{ fontSize: '10px', paddingTop: '8px', fontFamily: 'monospace' }}
@@ -147,11 +150,14 @@ export function AnalitikChannelChart({ data }: { data: ChannelItem[] }) {
             contentStyle={{
               backgroundColor: 'var(--bg)',
               borderColor: 'var(--border)',
-              borderRadius: '14px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+              borderRadius: '14px',
+              boxShadow: 'var(--shadow-md)',
               color: 'var(--text-primary)',
               fontSize: '11px',
               fontFamily: 'monospace',
             }}
+            itemStyle={{ color: 'var(--text-primary)' }}
+            labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
           />
           <Bar dataKey="totalSiswa" radius={[0, 6, 6, 0]}>
             {data.map((_, index) => (
@@ -180,11 +186,14 @@ export function AnalitikSlotChart({ data }: { data: SlotItem[] }) {
             contentStyle={{
               backgroundColor: 'var(--bg)',
               borderColor: 'var(--border)',
-              borderRadius: '14px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+              borderRadius: '14px',
+              boxShadow: 'var(--shadow-md)',
               color: 'var(--text-primary)',
               fontSize: '11px',
               fontFamily: 'monospace',
             }}
+            itemStyle={{ color: 'var(--text-primary)' }}
+            labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
           />
           <Bar dataKey="totalSesi" fill="var(--brand-primary)" radius={[6, 6, 0, 0]} />
         </BarChart>
@@ -209,11 +218,14 @@ export function AnalitikDayChart({ data }: { data: DayItem[] }) {
             contentStyle={{
               backgroundColor: 'var(--bg)',
               borderColor: 'var(--border)',
-              borderRadius: '14px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+              borderRadius: '14px',
+              boxShadow: 'var(--shadow-md)',
               color: 'var(--text-primary)',
               fontSize: '11px',
               fontFamily: 'monospace',
             }}
+            itemStyle={{ color: 'var(--text-primary)' }}
+            labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
           />
           <Bar dataKey="totalSesi" fill="#0F7A73" radius={[6, 6, 0, 0]} />
         </BarChart>

@@ -141,7 +141,8 @@ export function LivingGridBackground() {
 function drawStaticGrid(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
  const w = (canvas.width = window.innerWidth);
  const h = (canvas.height = window.innerHeight);
- const isDark = document.documentElement.classList.contains('dark');
+  const isDark = document.documentElement.classList.contains('dark') || 
+                 document.documentElement.getAttribute('data-theme') === 'dark';
  ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(15, 23, 42, 0.04)';
  const GRID = 44;
  for (let x = 0; x < w; x += GRID) {

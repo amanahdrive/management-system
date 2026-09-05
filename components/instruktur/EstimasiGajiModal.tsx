@@ -36,7 +36,7 @@ export function EstimasiGajiModal({
         className="w-full max-w-lg liquid-glass border border-[var(--liquid-glass-border)] shadow-2xl rounded-3xl flex flex-col max-h-[90vh] overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--bg-subtle)]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--liquid-glass-border)] bg-transparent">
           <div className="flex items-center gap-2">
             <Wallet className="w-4 h-4 text-[var(--brand-primary)]" />
             <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--text-primary)]">
@@ -49,16 +49,16 @@ export function EstimasiGajiModal({
               onClose();
             }}
             aria-label="Tutup Modal"
-            className="p-1 border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] rounded-[3px] transition-colors"
+            className="p-1.5 border border-[var(--liquid-glass-border)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] rounded-xl transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-4 overflow-y-auto space-y-4 text-xs">
+        <div className="p-5 overflow-y-auto space-y-4 text-xs">
           {/* Driver ID Strip */}
-          <div className="flex items-center justify-between p-4 bg-white/40 dark:bg-black/20 border border-[var(--liquid-glass-border)] rounded-2xl shadow-xs">
+          <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-black/30 border border-[var(--liquid-glass-border)] rounded-2xl shadow-xs">
             <div>
               <span className="font-bold text-[var(--text-primary)] text-sm block">
                 {staff.nama}
@@ -67,27 +67,27 @@ export function EstimasiGajiModal({
                 Periode: {monthLabel}
               </span>
             </div>
-            <span className="font-mono text-[10px] px-2 py-0.5 rounded-[3px] border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 uppercase font-semibold">
+            <span className="font-mono text-[10px] px-2.5 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 uppercase font-semibold">
               ON DUTY
             </span>
           </div>
 
           {/* Telemetric Breakdown Grid */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="p-4 border border-[var(--liquid-glass-border)] bg-white/40 dark:bg-black/20 rounded-2xl space-y-1 shadow-xs">
-              <span className="font-mono text-[10px] uppercase text-[var(--text-muted)] block">
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="p-4 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-black/30 rounded-2xl space-y-1 shadow-xs">
+              <span className="font-mono text-[10px] uppercase text-[var(--text-muted)] font-semibold block">
                 Sesi Diselesaikan
               </span>
               <div className="text-xl font-mono font-bold text-[var(--text-primary)] tabular-nums">
                 {completedSessionsCount} <span className="text-xs font-normal text-[var(--text-secondary)]">Sesi</span>
               </div>
-              <span className="font-mono text-[10px] text-[var(--text-muted)]">
+              <span className="font-mono text-[10px] text-[var(--text-secondary)]">
                 Tarif: {formatRupiah(ratePerSesi)}/sesi
               </span>
             </div>
 
             <div className="p-4 border border-emerald-500/30 bg-emerald-500/10 rounded-2xl space-y-1 shadow-xs">
-              <span className="font-mono text-[10px] uppercase text-emerald-600 dark:text-emerald-400 font-semibold block">
+              <span className="font-mono text-[10px] uppercase text-emerald-700 dark:text-emerald-300 font-semibold block">
                 Estimasi Komisi Sesi
               </span>
               <div className="text-xl font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
@@ -126,23 +126,23 @@ export function EstimasiGajiModal({
             ) : (
               <div className="border border-[var(--liquid-glass-border)] rounded-2xl max-h-48 overflow-y-auto">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-[var(--bg-subtle)] border-b border-[var(--border)] font-mono text-[10px] uppercase text-[var(--text-muted)]">
+                  <thead className="bg-black/5 dark:bg-white/5 border-b border-[var(--liquid-glass-border)] font-mono text-[10px] uppercase text-[var(--text-muted)] font-semibold">
                     <tr>
-                      <th className="p-2">Tgl</th>
-                      <th className="p-2">Siswa</th>
-                      <th className="p-2 text-right">Nominal</th>
+                      <th className="p-2.5">Tgl</th>
+                      <th className="p-2.5">Siswa</th>
+                      <th className="p-2.5 text-right">Nominal</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[var(--border)] font-mono text-[11px]">
+                  <tbody className="divide-y divide-[var(--liquid-glass-border)] font-mono text-[11px]">
                     {completedList.map((j) => (
                       <tr key={j.id} className="hover:bg-black/5 dark:hover:bg-white/5">
-                        <td className="p-2 text-[var(--text-secondary)]">
+                        <td className="p-2.5 text-[var(--text-secondary)] font-medium">
                           {formatDateIndo(j.tanggal_sesi).slice(0, 6)}
                         </td>
-                        <td className="p-2 font-medium text-[var(--text-primary)] truncate max-w-[140px]">
+                        <td className="p-2.5 font-bold text-[var(--text-primary)] truncate max-w-[140px]">
                           {j.siswa?.nama || 'Siswa'}
                         </td>
-                        <td className="p-2 text-right font-bold text-emerald-600 tabular-nums">
+                        <td className="p-2.5 text-right font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
                           +{formatRupiah(ratePerSesi)}
                         </td>
                       </tr>
@@ -155,7 +155,7 @@ export function EstimasiGajiModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-3 border-t border-[var(--border)] bg-[var(--bg-subtle)] flex justify-end gap-2">
+        <div className="p-4 border-t border-[var(--liquid-glass-border)] bg-transparent flex justify-end gap-2">
           <button
             onClick={() => {
               sound.playTactileClick();

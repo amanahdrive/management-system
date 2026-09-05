@@ -52,11 +52,14 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
                   contentStyle={{
                     backgroundColor: 'var(--bg)',
                     border: '1px solid var(--border)',
-                    borderRadius: '14px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                    borderRadius: '14px',
+                    boxShadow: 'var(--shadow-md)',
                     color: 'var(--text-primary)',
                     fontSize: '11px',
                     fontFamily: 'monospace',
                   }}
+                  itemStyle={{ color: 'var(--text-primary)' }}
+                  labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
                 />
                 <Bar dataKey="total" fill="var(--brand-primary)" radius={[6, 6, 0, 0]} />
               </BarChart>
@@ -87,13 +90,16 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
                   contentStyle={{
                     backgroundColor: 'var(--bg)',
                     border: '1px solid var(--border)',
-                    borderRadius: '14px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                    borderRadius: '14px',
+                    boxShadow: 'var(--shadow-md)',
                     color: 'var(--text-primary)',
                     fontSize: '11px',
                     fontFamily: 'monospace',
                   }}
+                  itemStyle={{ color: 'var(--text-primary)' }}
+                  labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
                 />
-                <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '8px', fontFamily: 'monospace' }} />
+                <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '8px', fontFamily: 'monospace', color: 'var(--text-secondary)' }} />
                 <Line type="monotone" dataKey="pemasukan" stroke="#10B981" strokeWidth={1.5} dot={{ r: 2 }} name="Pemasukan" />
                 <Line type="monotone" dataKey="pengeluaran" stroke="#F43F5E" strokeWidth={1.5} dot={{ r: 2 }} name="Pengeluaran" />
               </LineChart>
@@ -138,11 +144,14 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
                 contentStyle={{
                   backgroundColor: 'var(--bg)',
                   border: '1px solid var(--border)',
-                  borderRadius: '14px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                  borderRadius: '14px',
+                  boxShadow: 'var(--shadow-md)',
                   color: 'var(--text-primary)',
                   fontSize: '11px',
                   fontFamily: 'monospace',
                 }}
+                itemStyle={{ color: 'var(--text-primary)' }}
+                labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
               />
             </PieChart>
           </ResponsiveContainer>

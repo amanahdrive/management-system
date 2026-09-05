@@ -64,21 +64,21 @@ export function Sidebar() {
   const navItemClass = (isActive: boolean) =>
     `group relative flex items-center ${
       sidebarOpen ? 'gap-3 px-3.5' : 'justify-center px-0'
-    } py-2 text-xs font-medium transition-colors rounded-[4px] border-l-2 ${
+    } py-2 text-xs font-medium transition-all rounded-xl border-l-2 ${
       isActive
-        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold shadow-2xs'
         : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
     }`;
 
   return (
     <aside
-      className={`hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-40 bg-[var(--bg)]/95 backdrop-blur-xl border-r border-[var(--border)] transition-all duration-300 ${
+      className={`hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-40 bg-[var(--liquid-glass-bg)] backdrop-blur-2xl border-r border-[var(--liquid-glass-border)] shadow-xs transition-all duration-300 ${
         sidebarOpen ? 'w-64' : 'w-20'
       }`}
     >
       {/* Brand Header */}
       <div
-        className={`h-16 flex items-center border-b border-[var(--border)] ${
+        className={`h-16 flex items-center border-b border-[var(--liquid-glass-border)] ${
           sidebarOpen ? 'justify-between px-4' : 'justify-center px-2'
         }`}
       >
@@ -99,7 +99,7 @@ export function Sidebar() {
             <button
               onClick={toggleSidebar}
               aria-label="Ciutkan Sidebar"
-              className="p-1.5 border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] transition-colors shrink-0"
+              className="p-1.5 border border-[var(--liquid-glass-border)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] rounded-xl transition-colors shrink-0"
               title="Ciutkan Sidebar"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -248,7 +248,7 @@ export function Sidebar() {
                   <Link
                     key={sub.href}
                     href={sub.href}
-                    className={`flex items-center gap-2.5 px-3 py-1.5 text-xs font-normal transition-colors border-l ${
+                    className={`flex items-center gap-2.5 px-3 py-1.5 text-xs font-normal transition-all rounded-lg border-l ${
                       isSubActive
                         ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
                         : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
@@ -284,7 +284,7 @@ export function Sidebar() {
 
       {/* Footer Info */}
       {sidebarOpen && (
-        <div className="p-4 border-t border-[var(--border)] text-[11px] text-[var(--text-muted)]">
+        <div className="p-4 border-t border-[var(--liquid-glass-border)] text-[11px] text-[var(--text-muted)]">
           <p className="font-semibold text-[var(--text-primary)]">Amanah Drive Console</p>
           <p>Palembang, Sumatera Selatan</p>
         </div>

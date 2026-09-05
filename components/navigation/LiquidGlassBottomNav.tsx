@@ -51,10 +51,18 @@ export function LiquidGlassBottomNav({
             <defs>
               {/* Specular Rim Light Gradient along Top Scoop & Edges */}
               <linearGradient id="liquidRimGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgba(255, 255, 255, 0.9)" />
-                <stop offset="35%" stopColor="rgba(255, 255, 255, 0.55)" />
-                <stop offset="70%" stopColor="rgba(255, 255, 255, 0.2)" />
+                <stop offset="0%" stopColor="rgba(255, 255, 255, 0.95)" />
+                <stop offset="35%" stopColor="rgba(255, 255, 255, 0.60)" />
+                <stop offset="70%" stopColor="rgba(255, 255, 255, 0.25)" />
                 <stop offset="100%" stopColor="rgba(255, 255, 255, 0.08)" />
+              </linearGradient>
+
+              {/* Dark Mode Luminous Specular Rim Gradient */}
+              <linearGradient id="liquidRimGradDark" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgba(255, 255, 255, 0.45)" />
+                <stop offset="30%" stopColor="rgba(16, 185, 129, 0.40)" />
+                <stop offset="70%" stopColor="rgba(255, 255, 255, 0.15)" />
+                <stop offset="100%" stopColor="rgba(255, 255, 255, 0.04)" />
               </linearGradient>
 
               {/* Frosted Glass Body Tint Gradient with subtle Brand Emerald tone */}
@@ -83,13 +91,21 @@ export function LiquidGlassBottomNav({
               }}
             />
 
-            {/* Specular Rim Stroke */}
+            {/* Specular Rim Stroke (Light Mode) */}
             <path
               d={pathD}
               fill="none"
               stroke="url(#liquidRimGrad)"
               strokeWidth="1.2"
-              className="opacity-90 dark:opacity-40"
+              className="opacity-95 dark:hidden"
+            />
+            {/* Specular Rim Stroke (Dark Mode) */}
+            <path
+              d={pathD}
+              fill="none"
+              stroke="url(#liquidRimGradDark)"
+              strokeWidth="1.2"
+              className="hidden dark:block opacity-90"
             />
           </svg>
         </div>
@@ -102,7 +118,7 @@ export function LiquidGlassBottomNav({
               sound.playConfirmChime();
               centerAction.onClick();
             }}
-            className="w-[50px] h-[50px] rounded-full bg-gradient-to-br from-[#0F7A73] via-[#10B981] to-[#0A5954] text-white flex items-center justify-center border-2 border-white/50 shadow-[0_8px_24px_rgba(15,122,115,0.45),_inset_0_2px_2px_rgba(255,255,255,0.65)] hover:scale-105 active:scale-95 transition-all cursor-pointer group"
+            className="w-[50px] h-[50px] rounded-full bg-gradient-to-br from-[#0F7A73] via-[#10B981] to-[#0A5954] text-white flex items-center justify-center border-2 border-white/60 dark:border-emerald-300/60 shadow-[0_8px_24px_rgba(15,122,115,0.45),_inset_0_2px_2px_rgba(255,255,255,0.7)] dark:shadow-[0_0_24px_rgba(16,185,129,0.5),_inset_0_2px_2px_rgba(255,255,255,0.7)] hover:scale-105 active:scale-95 transition-all cursor-pointer group"
             title={centerAction.title || centerAction.label}
             aria-label={centerAction.label}
           >
@@ -123,14 +139,14 @@ export function LiquidGlassBottomNav({
                     className={`w-5 h-5 transition-all ${
                       isActive
                         ? 'text-[var(--brand-primary)] stroke-[2.5] scale-110 drop-shadow-[0_2px_8px_var(--brand-glow)]'
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] stroke-[1.8]'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] stroke-[2]'
                     }`}
                   />
                   <span
-                    className={`text-[9.5px] font-medium tracking-tight transition-all ${
+                    className={`text-[9.5px] tracking-tight transition-all ${
                       isActive
                         ? 'text-[var(--brand-primary)] font-bold'
-                        : 'text-[var(--text-secondary)] opacity-80'
+                        : 'text-[var(--text-secondary)] font-medium'
                     }`}
                   >
                     {item.label}
@@ -189,14 +205,14 @@ export function LiquidGlassBottomNav({
                     className={`w-5 h-5 transition-all ${
                       isActive
                         ? 'text-[var(--brand-primary)] stroke-[2.5] scale-110 drop-shadow-[0_2px_8px_var(--brand-glow)]'
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] stroke-[1.8]'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] stroke-[2]'
                     }`}
                   />
                   <span
-                    className={`text-[9.5px] font-medium tracking-tight transition-all ${
+                    className={`text-[9.5px] tracking-tight transition-all ${
                       isActive
                         ? 'text-[var(--brand-primary)] font-bold'
-                        : 'text-[var(--text-secondary)] opacity-80'
+                        : 'text-[var(--text-secondary)] font-medium'
                     }`}
                   >
                     {item.label}

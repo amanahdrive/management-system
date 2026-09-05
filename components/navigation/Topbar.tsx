@@ -91,10 +91,10 @@ export function Topbar() {
         </div>
 
         {/* Live Database Sync Telemetry */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-white/40 dark:bg-black/20 backdrop-blur-md border border-[var(--liquid-glass-border)] rounded-full text-[10px] font-mono shadow-xs">
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-white/50 dark:bg-white/5 backdrop-blur-md border border-[var(--liquid-glass-border)] rounded-full text-[10px] font-mono shadow-xs">
           <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-          <span className="text-[var(--text-muted)] uppercase tracking-wider">SYNC:</span>
-          <span className="text-[var(--text-primary)] tabular-nums">
+          <span className="text-[var(--text-muted)] uppercase tracking-wider font-semibold">SYNC:</span>
+          <span className="text-[var(--text-primary)] font-bold tabular-nums">
             {lastSyncTime ? `${lastSyncTime}` : 'ONLINE'}
           </span>
         </div>
@@ -106,7 +106,7 @@ export function Topbar() {
         <button
           onClick={handleToggleSound}
           aria-label={isMuted ? 'Aktifkan Audio Mikro' : 'Bisukan Audio Mikro'}
-          className="p-2 border border-[var(--liquid-glass-border)] bg-white/40 dark:bg-black/20 hover:bg-white/60 dark:hover:bg-black/40 backdrop-blur-md text-[var(--text-secondary)] rounded-xl shadow-xs transition-all text-xs active:scale-95"
+          className="p-2 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 backdrop-blur-md text-[var(--text-secondary)] rounded-xl shadow-xs transition-all text-xs active:scale-95"
           title={isMuted ? 'Aktifkan Suara Mikro' : 'Bisukan Suara Mikro'}
         >
           {isMuted ? <VolumeX className="w-3.5 h-3.5 text-zinc-400" /> : <Volume2 className="w-3.5 h-3.5 text-[var(--brand-primary)]" />}
@@ -117,17 +117,17 @@ export function Topbar() {
           onClick={handleRefreshDatabase}
           disabled={isRefreshing}
           aria-label="Refresh Data dan Sinkronisasi Database"
-          className="flex items-center gap-1.5 px-3 py-1.5 border border-[var(--liquid-glass-border)] bg-white/40 dark:bg-black/20 hover:bg-white/60 dark:hover:bg-black/40 backdrop-blur-md text-[11px] font-mono text-[var(--text-primary)] rounded-xl shadow-xs transition-all active:scale-95"
+          className="flex items-center gap-1.5 px-3 py-1.5 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 backdrop-blur-md text-[11px] font-mono text-[var(--text-primary)] rounded-xl shadow-xs transition-all active:scale-95"
           title="Refresh Data & Sinkronisasi Database"
         >
           <RefreshCw className={`w-3 h-3 text-[var(--brand-primary)] ${isRefreshing ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">SYNC</span>
+          <span className="hidden sm:inline font-semibold">SYNC</span>
         </button>
 
         <ThemeToggle />
 
         <div className="flex items-center gap-2.5 pl-2 border-l border-[var(--border)]">
-          <div className="w-8 h-8 bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/20 text-zinc-200 text-xs font-mono font-bold rounded-full flex items-center justify-center shadow-xs">
+          <div className="w-8 h-8 bg-gradient-to-br from-[#0F7A73] to-[#0A5954] border border-white/30 text-white text-xs font-mono font-bold rounded-full flex items-center justify-center shadow-xs">
             AD
           </div>
           <div className="hidden sm:block text-left">

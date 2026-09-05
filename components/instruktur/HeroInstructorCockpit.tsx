@@ -78,7 +78,7 @@ export function HeroInstructorCockpit({
               onRefresh();
             }}
             disabled={isRefreshing}
-            className="p-2 border border-[var(--liquid-glass-border)] bg-white/40 dark:bg-black/20 hover:bg-white/60 dark:hover:bg-black/40 text-[var(--text-secondary)] rounded-xl transition-all shadow-xs"
+            className="p-2 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 text-[var(--text-secondary)] rounded-xl transition-all shadow-xs"
             title="Refresh Jadwal"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[var(--brand-primary)]' : ''}`} />
@@ -88,7 +88,7 @@ export function HeroInstructorCockpit({
               sound.playTactileClick();
               onLogout();
             }}
-            className="px-2.5 py-1.5 border border-[var(--liquid-glass-border)] hover:border-rose-400 hover:text-rose-600 text-[var(--text-secondary)] transition-all font-mono text-[10px] uppercase rounded-xl flex items-center gap-1 shadow-xs"
+            className="px-2.5 py-1.5 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 hover:border-rose-400 hover:text-rose-600 text-[var(--text-secondary)] transition-all font-mono text-[10px] uppercase rounded-xl flex items-center gap-1 shadow-xs"
             title="Ganti Profil Instruktur"
           >
             <LogOut className="w-3 h-3" />
@@ -137,7 +137,7 @@ export function HeroInstructorCockpit({
         </div>
 
         {/* Dynamic Shift Duty Status Selector */}
-        <div className="mt-3 inline-flex items-center p-1 border border-[var(--liquid-glass-border)] bg-black/5 dark:bg-white/5 backdrop-blur-md rounded-full text-[10.5px] font-mono shadow-inner">
+        <div className="mt-3 inline-flex items-center p-1 border border-[var(--liquid-glass-border)] bg-black/5 dark:bg-black/40 backdrop-blur-md rounded-full text-[10.5px] font-mono shadow-inner">
           <button
             type="button"
             onClick={() => {
@@ -147,7 +147,7 @@ export function HeroInstructorCockpit({
             className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1.5 ${
               dutyStatus === 'ready'
                 ? 'bg-emerald-600 text-white font-bold shadow-2xs'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium'
             }`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${dutyStatus === 'ready' ? 'bg-white' : 'bg-emerald-500'}`} />
@@ -162,7 +162,7 @@ export function HeroInstructorCockpit({
             className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1.5 ${
               dutyStatus === 'teaching'
                 ? 'bg-amber-600 text-white font-bold shadow-2xs'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium'
             }`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${dutyStatus === 'teaching' ? 'bg-white' : 'bg-amber-500'}`} />
@@ -176,8 +176,8 @@ export function HeroInstructorCockpit({
             }}
             className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1.5 ${
               dutyStatus === 'break'
-                ? 'bg-slate-700 text-white font-bold shadow-2xs'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                ? 'bg-zinc-700 dark:bg-zinc-600 text-white font-bold shadow-2xs'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium'
             }`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${dutyStatus === 'break' ? 'bg-white' : 'bg-slate-400'}`} />
@@ -187,10 +187,10 @@ export function HeroInstructorCockpit({
       </div>
 
       {/* High-Precision Telemetry Metrics Strip */}
-      <div className="mt-4 border border-[var(--liquid-glass-border)] bg-white/40 dark:bg-black/20 backdrop-blur-md rounded-2xl divide-y sm:divide-y-0 sm:divide-x divide-[var(--liquid-glass-border)] grid grid-cols-1 sm:grid-cols-3 shadow-xs">
+      <div className="mt-4 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-black/30 backdrop-blur-md rounded-2xl divide-y sm:divide-y-0 sm:divide-x divide-[var(--liquid-glass-border)] grid grid-cols-1 sm:grid-cols-3 shadow-xs">
         {/* Metric 1: Sesi Hari Ini with micro-progress bar */}
         <div className="p-3">
-          <div className="flex items-center justify-between text-[10px] font-mono text-[var(--text-muted)] uppercase">
+          <div className="flex items-center justify-between text-[10px] font-mono text-[var(--text-muted)] uppercase font-semibold">
             <span>Sesi Hari Ini</span>
             <span className="font-bold text-[var(--text-primary)]">{progressPct}%</span>
           </div>
@@ -207,7 +207,7 @@ export function HeroInstructorCockpit({
 
         {/* Metric 2: Sesi Berikutnya */}
         <div className="p-3">
-          <span className="block font-mono text-[10px] uppercase text-[var(--text-muted)]">
+          <span className="block font-mono text-[10px] uppercase text-[var(--text-muted)] font-semibold">
             Sesi Berikut
           </span>
           <div className="text-lg font-mono font-bold text-[var(--brand-primary)] tabular-nums mt-0.5 flex items-center gap-1.5">
@@ -222,7 +222,7 @@ export function HeroInstructorCockpit({
         {/* Metric 3: Siswa Berikutnya & Quick Contact */}
         <div className="p-3 flex flex-col justify-between">
           <div>
-            <span className="block font-mono text-[10px] uppercase text-[var(--text-muted)]">
+            <span className="block font-mono text-[10px] uppercase text-[var(--text-muted)] font-semibold">
               Siswa Berikut
             </span>
             <span className="block font-mono text-xs font-bold text-[var(--text-primary)] truncate mt-0.5">
@@ -251,7 +251,7 @@ export function HeroInstructorCockpit({
             sound.playTactileClick();
             onOpenGajiModal();
           }}
-          className="p-3 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 text-[var(--text-primary)] rounded-2xl transition-all flex items-center justify-center gap-2 font-mono text-xs font-semibold shadow-xs active:scale-98"
+          className="p-3 border border-[var(--liquid-glass-border)] bg-white/60 dark:bg-white/5 hover:bg-white/85 dark:hover:bg-white/10 text-[var(--text-primary)] rounded-2xl transition-all flex items-center justify-center gap-2 font-mono text-xs font-semibold shadow-xs active:scale-98"
         >
           <Wallet className="w-3.5 h-3.5 text-emerald-600" />
           <span>ESTIMASI GAJI</span>
@@ -262,7 +262,7 @@ export function HeroInstructorCockpit({
             sound.playTactileClick();
             onScrollToSchedule();
           }}
-          className="p-3 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 text-[var(--text-primary)] rounded-2xl transition-all flex items-center justify-center gap-2 font-mono text-xs font-semibold shadow-xs active:scale-98"
+          className="p-3 border border-[var(--liquid-glass-border)] bg-white/60 dark:bg-white/5 hover:bg-white/85 dark:hover:bg-white/10 text-[var(--text-primary)] rounded-2xl transition-all flex items-center justify-center gap-2 font-mono text-xs font-semibold shadow-xs active:scale-98"
         >
           <Calendar className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
           <span>LIHAT JADWAL</span>

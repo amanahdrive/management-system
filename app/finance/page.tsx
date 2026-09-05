@@ -1010,8 +1010,8 @@ export default function FinancePortalPage() {
   if (!pinVerified) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg)]">
-        <div className="w-full max-w-sm card-container text-center p-6 shadow-2xl border-2 border-[var(--brand-primary)] animate-fadeIn">
-          <div className="w-14 h-14 rounded-none bg-[var(--brand-primary-light)] text-[var(--brand-primary)] flex items-center justify-center mx-auto mb-4">
+        <div className="w-full max-w-sm liquid-glass-card rounded-3xl text-center p-6 sm:p-8 shadow-2xl border border-[var(--liquid-glass-border)] animate-fadeIn">
+          <div className="w-14 h-14 rounded-2xl bg-[var(--brand-primary-light)] text-[var(--brand-primary)] flex items-center justify-center mx-auto mb-4 border border-[var(--brand-primary)]/20 shadow-xs">
             <Lock className="w-7 h-7" />
           </div>
           <h2 className="text-lg font-bold text-[var(--text-primary)]">Finance Portal — Amanah Drive</h2>
@@ -1030,7 +1030,7 @@ export default function FinancePortalPage() {
                 onChange={(e) => handlePinInputChange(e.target.value)}
                 placeholder="••••••"
                 autoFocus
-                className="w-full px-4 py-3 text-center text-3xl tracking-widest font-bold tabular-nums rounded-none border-2 border-[var(--border)] bg-[var(--bg-subtle)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
+                className="w-full px-4 py-3 text-center text-3xl tracking-widest font-bold tabular-nums rounded-2xl border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-black/30 text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[var(--brand-primary)]/20 transition-all"
               />
               {pinError && <p className="text-xs text-[var(--danger)] font-semibold mt-2">{pinError}</p>}
             </div>
@@ -1038,7 +1038,7 @@ export default function FinancePortalPage() {
             <button
               type="submit"
               disabled={pinLoading || pinInput.length !== 6}
-              className="w-full py-3 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] disabled:opacity-50 text-white font-bold rounded-none text-xs transition-colors shadow-sm"
+              className="w-full py-3 bg-gradient-to-r from-[#0F7A73] to-[#10B981] hover:brightness-110 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-all shadow-md active:scale-98"
             >
               {pinLoading ? 'Memverifikasi...' : 'Buka Portal Finance'}
             </button>
@@ -1052,17 +1052,17 @@ export default function FinancePortalPage() {
     <div className="min-h-screen bg-[var(--bg-subtle)] text-[var(--text-primary)] pb-28">
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-slate-900 text-emerald-300 text-xs font-bold rounded-none shadow-2xl border border-emerald-500/30 flex items-center gap-2 animate-fadeIn">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-emerald-950/90 backdrop-blur-md text-emerald-200 text-xs font-bold rounded-full shadow-2xl border border-emerald-500/40 flex items-center gap-2 animate-fadeIn">
           <Check className="w-3.5 h-3.5 text-emerald-400" />
           <span>{toast}</span>
         </div>
       )}
 
       {/* Mobile App Header */}
-      <header className="sticky top-0 z-30 bg-[var(--bg-elevated)]/90 backdrop-blur-md border-b border-[var(--border)] px-4 py-3">
+      <header className="sticky top-0 z-30 bg-[var(--liquid-glass-bg)] backdrop-blur-2xl border-b border-[var(--liquid-glass-border)] px-4 py-3 shadow-xs">
         <div className="max-w-md mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-none bg-[var(--brand-primary)] text-white flex items-center justify-center font-bold text-sm shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#0F7A73] to-[#0A5954] border border-white/20 text-white flex items-center justify-center font-bold text-xs shadow-xs">
               AD
             </div>
             <div>
@@ -1078,7 +1078,7 @@ export default function FinancePortalPage() {
               type="button"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="p-2 rounded-none border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition-colors"
+              className="p-2 rounded-xl border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 text-[var(--text-secondary)] transition-all active:scale-95"
               title="Perbarui Data"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[var(--brand-primary)]' : ''}`} />
@@ -1099,7 +1099,7 @@ export default function FinancePortalPage() {
                 <span className="text-[11px] font-bold tracking-wider uppercase opacity-85">
                   Total Saldo Kas Aktif
                 </span>
-                <span className="px-2 py-0.5 rounded-none text-[9.5px] font-extrabold bg-white/20 backdrop-blur-xs">
+                <span className="px-2.5 py-0.5 rounded-full text-[9.5px] font-extrabold bg-white/20 backdrop-blur-xs">
                   Realtime
                 </span>
               </div>
@@ -1117,16 +1117,16 @@ export default function FinancePortalPage() {
               <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/20 text-xs">
                 <div
                   onClick={handleOpenSetorTunai}
-                  className="bg-black/15 hover:bg-black/25 rounded-[4px] p-2.5 cursor-pointer transition-colors"
+                  className="bg-black/20 hover:bg-black/30 rounded-2xl p-3 cursor-pointer transition-all border border-white/10"
                   title="Klik untuk setor tunai ke bank"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] opacity-80 font-medium">Kas Fisik (Tunai)</span>
-                    <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded-none font-bold">Setor →</span>
+                    <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded-full font-bold">Setor →</span>
                   </div>
                   <span className="font-bold tabular-nums block mt-1">{formatRupiah(metrics.saldoTunai)}</span>
                 </div>
-                <div className="bg-black/15 rounded-[4px] p-2.5">
+                <div className="bg-black/20 rounded-2xl p-3 border border-white/10">
                   <span className="text-[10px] opacity-80 block font-medium">Bank (Non-Tunai)</span>
                   <span className="font-bold tabular-nums block mt-1">{formatRupiah(metrics.saldoNonTunai)}</span>
                 </div>
@@ -1140,7 +1140,7 @@ export default function FinancePortalPage() {
               className="w-full py-3 px-4 rounded-2xl liquid-glass-card border border-[var(--liquid-glass-border)] flex items-center justify-between text-xs font-bold text-[var(--text-primary)] hover:border-emerald-500 transition-all active:scale-98"
             >
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-none bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+                <div className="w-7 h-7 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                   <Landmark className="w-3.5 h-3.5" />
                 </div>
                 <span>Setor Tunai Kas ke Bank</span>

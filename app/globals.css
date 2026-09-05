@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
+
 /* =====================================================
    AMANAH DRIVE — ANTIGRAVITY-INSPIRED SAAS DESIGN SYSTEM
    Modern Futuristic Minimalist Specification Version 3.0
@@ -23,9 +25,9 @@
 
     /* Ground & Container Surfaces (Ultra Clean & Pure) */
     --bg:                  #FFFFFF;
-    --bg-subtle:           #FAFAFC; /* Crisp ultra-clean canvas ground */
+    --bg-subtle:           #F8FAFC; /* Crisp ultra-clean canvas ground */
     --bg-elevated:         #FFFFFF;
-    --bg-glass:            rgba(255, 255, 255, 0.82);
+    --bg-glass:            rgba(255, 255, 255, 0.85);
     --bg-overlay:          rgba(15, 23, 42, 0.03);
     --bento-bg:            #FFFFFF;
     --bento-hero-bg:       #F0FDF9; /* Light emerald ambient hero tile */
@@ -34,18 +36,18 @@
     --border:              rgba(15, 23, 42, 0.08);
     --border-strong:       rgba(15, 23, 42, 0.14);
     --border-focus:        #0F7A73;
-    --bento-border:        rgba(15, 23, 42, 0.07);
-    --bento-border-hover:  rgba(15, 122, 115, 0.3);
+    --bento-border:        rgba(15, 23, 42, 0.08);
+    --bento-border-hover:  rgba(15, 122, 115, 0.35);
 
     /* Inset Highlights & Ambient Soft Shadows */
     --bento-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.95);
     --bento-shadow:        0 1px 3px rgba(15, 23, 42, 0.03), 0 4px 16px rgba(15, 23, 42, 0.02);
     --bento-shadow-hover:  0 6px 24px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.03);
 
-    /* Text */
-    --text-primary:        #0F172A; /* Deep Slate */
-    --text-secondary:      #475569; /* Cool Slate */
-    --text-muted:          #64748B; /* Tracked uppercase eyebrows */
+    /* Text (Enhanced WCAG Contrast for Maximum Clarity) */
+    --text-primary:        #0F172A; /* Deep Slate 900 */
+    --text-secondary:      #334155; /* Slate 700 - high contrast readability */
+    --text-muted:          #64748B; /* Slate 500 - tracked eyebrows */
     --text-inverted:       #FFFFFF;
     --text-on-brand:       #FFFFFF;
 
@@ -84,11 +86,11 @@
     --radius-full:         9999px;
 
     /* Liquid Glassmorphism Tokens (Light Mode) */
-    --liquid-glass-bg:             rgba(255, 255, 255, 0.72);
-    --liquid-glass-dock-bg:        rgba(255, 255, 255, 0.68);
-    --liquid-glass-border:         rgba(255, 255, 255, 0.75);
+    --liquid-glass-bg:             rgba(255, 255, 255, 0.76);
+    --liquid-glass-dock-bg:        rgba(255, 255, 255, 0.80);
+    --liquid-glass-border:         rgba(255, 255, 255, 0.85);
     --liquid-glass-border-subtle:  rgba(15, 23, 42, 0.08);
-    --liquid-glass-highlight:      inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 1px 0 rgba(15, 23, 42, 0.03);
+    --liquid-glass-highlight:      inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 1px 0 rgba(15, 23, 42, 0.04);
     --liquid-glass-shadow:         0 16px 40px -6px rgba(15, 122, 115, 0.12), 0 4px 16px -2px rgba(15, 23, 42, 0.04);
 
     /* Transitions */
@@ -98,61 +100,72 @@
   }
 
   [data-theme="dark"],
-  .dark {
+  .dark,
+  html.dark {
     /* Brand Chroma (Luminous Emerald in Dark Console) */
     --brand-primary:       #10B981;
     --brand-primary-dark:  #059669;
-    --brand-primary-light: rgba(16, 185, 129, 0.12);
-    --brand-primary-muted: rgba(16, 185, 129, 0.22);
-    --brand-glow:          rgba(16, 185, 129, 0.25);
+    --brand-primary-light: rgba(16, 185, 129, 0.14);
+    --brand-primary-muted: rgba(16, 185, 129, 0.24);
+    --brand-glow:          rgba(16, 185, 129, 0.30);
+    --brand-navy:          #0F243E;
+    --brand-navy-dark:     #081423;
 
     /* Ground & Container Surfaces */
-    --bg:                  #12141B; /* Refined dark slate tile */
-    --bg-subtle:           #090A0F; /* Deep obsidian background */
-    --bg-elevated:         #191C26; /* Hero bento tile */
-    --bg-glass:            rgba(18, 20, 27, 0.82);
-    --bg-overlay:          rgba(255, 255, 255, 0.03);
-    --bento-bg:            #12141B;
-    --bento-hero-bg:       #131F1D;
+    --bg:                  #0E131F; /* Rich obsidian slate ground */
+    --bg-subtle:           #080B12; /* Deep void canvas ground */
+    --bg-elevated:         #151B2B; /* Hero bento tile */
+    --bg-glass:            rgba(14, 19, 31, 0.82);
+    --bg-overlay:          rgba(255, 255, 255, 0.04);
+    --bento-bg:            #0E131F;
+    --bento-hero-bg:       #0D201D; /* Subtle dark emerald tint */
 
     /* Hairline Borders */
-    --border:              rgba(255, 255, 255, 0.08);
-    --border-strong:       rgba(255, 255, 255, 0.16);
+    --border:              rgba(255, 255, 255, 0.11);
+    --border-strong:       rgba(255, 255, 255, 0.20);
     --border-focus:        #10B981;
-    --bento-border:        rgba(255, 255, 255, 0.07);
-    --bento-border-hover:  rgba(16, 185, 129, 0.35);
+    --bento-border:        rgba(255, 255, 255, 0.11);
+    --bento-border-hover:  rgba(16, 185, 129, 0.45);
 
     /* Inset Highlights & Shadows */
-    --bento-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    --bento-shadow:        0 4px 16px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
-    --bento-shadow-hover:  0 8px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.3);
+    --bento-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    --bento-shadow:        0 4px 20px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.4);
+    --bento-shadow-hover:  0 10px 32px rgba(0, 0, 0, 0.75), 0 0 20px rgba(16, 185, 129, 0.15);
 
-    /* Text */
-    --text-primary:        #F8FAFC; /* Pure bone white */
-    --text-secondary:      #94A3B8; /* Slate light */
-    --text-muted:          #64748B; /* Tracked uppercase eyebrows */
-    --text-inverted:       #090A0F;
-    --text-on-brand:       #090A0F;
+    /* Text (WCAG AAA High Contrast Readability on Dark Glass) */
+    --text-primary:        #F8FAFC; /* Pure crisp bone white 950 */
+    --text-secondary:      #CBD5E1; /* Slate 300 - crystal clear contrast */
+    --text-muted:          #94A3B8; /* Slate 400 - high visibility for eyebrows & subtitles */
+    --text-inverted:       #080B12;
+    --text-on-brand:       #080B12;
 
-    /* Semantic Colors */
+    /* Semantic Colors (Luminous on Dark Ground) */
     --success:             #34D399;
-    --success-bg:          rgba(5, 150, 105, 0.15);
-    --success-border:      rgba(52, 211, 153, 0.3);
+    --success-bg:          rgba(16, 185, 129, 0.18);
+    --success-border:      rgba(52, 211, 153, 0.35);
     --warning:             #FBBF24;
-    --warning-bg:          rgba(217, 119, 6, 0.15);
-    --warning-border:      rgba(251, 191, 36, 0.3);
+    --warning-bg:          rgba(245, 158, 11, 0.18);
+    --warning-border:      rgba(251, 191, 36, 0.35);
     --danger:              #FB7185;
-    --danger-bg:           rgba(225, 29, 72, 0.15);
-    --danger-border:       rgba(251, 113, 133, 0.3);
+    --danger-bg:           rgba(244, 63, 94, 0.18);
+    --danger-border:       rgba(251, 113, 133, 0.35);
     --info:                #38BDF8;
-    --info-bg:             rgba(2, 132, 199, 0.15);
-    --info-border:         rgba(56, 189, 248, 0.3);
+    --info-bg:             rgba(14, 165, 233, 0.18);
+    --info-border:         rgba(56, 189, 248, 0.35);
 
-    --shadow-xs:           0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-sm:           0 2px 6px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
-    --shadow-md:           0 6px 20px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
-    --shadow-lg:           0 18px 40px -8px rgba(0, 0, 0, 0.8);
-    --shadow-glow:         0 0 30px rgba(16, 185, 129, 0.25);
+    --shadow-xs:           0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-sm:           0 2px 8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    --shadow-md:           0 8px 24px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    --shadow-lg:           0 20px 48px -8px rgba(0, 0, 0, 0.85);
+    --shadow-glow:         0 0 32px rgba(16, 185, 129, 0.30);
+
+    /* Liquid Glassmorphism Tokens (Dark Mode) */
+    --liquid-glass-bg:             rgba(15, 21, 35, 0.72);
+    --liquid-glass-dock-bg:        rgba(10, 15, 26, 0.86);
+    --liquid-glass-border:         rgba(255, 255, 255, 0.14);
+    --liquid-glass-border-subtle:  rgba(255, 255, 255, 0.08);
+    --liquid-glass-highlight:      inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.16), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.6);
+    --liquid-glass-shadow:         0 20px 50px -10px rgba(0, 0, 0, 0.85), 0 0 24px -4px rgba(16, 185, 129, 0.12);
   }
 
   *, ::before, ::after {
@@ -260,7 +273,8 @@
 
 /* Liquid Glass Container & Card Architecture */
 .card-container,
-.bento-tile {
+.bento-tile,
+.liquid-glass-card {
   background-color: var(--liquid-glass-bg);
   backdrop-filter: blur(24px) saturate(190%);
   -webkit-backdrop-filter: blur(24px) saturate(190%);
@@ -274,15 +288,17 @@
 
 @media (min-width: 768px) {
   .card-container,
-  .bento-tile {
+  .bento-tile,
+  .liquid-glass-card {
     padding: 24px;
   }
 }
 
 .card-container:hover,
-.bento-tile:hover {
-  border-color: rgba(15, 122, 115, 0.35);
-  box-shadow: var(--liquid-glass-highlight), 0 20px 48px -6px rgba(15, 122, 115, 0.16);
+.bento-tile:hover,
+.liquid-glass-card:hover {
+  border-color: var(--bento-border-hover);
+  box-shadow: var(--liquid-glass-highlight), 0 20px 48px -6px rgba(15, 122, 115, 0.22);
   transform: translateY(-2px);
 }
 
@@ -426,14 +442,16 @@ pre {
 }
 
 .btn-secondary {
-  background-color: var(--bg);
+  background-color: var(--liquid-glass-bg);
   color: var(--text-primary);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-xs);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .btn-secondary:hover {
-  background-color: var(--bg-subtle);
+  background-color: var(--bg-elevated);
   border-color: var(--border-strong);
   transform: translateY(-1px);
 }
@@ -443,14 +461,16 @@ pre {
    ===================================================== */
 
 .form-input {
-  background: var(--bg);
+  background: var(--liquid-glass-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 8px 12px;
   font-size: 13px;
   color: var(--text-primary);
   width: 100%;
-  transition: border-color var(--transition-fast);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   outline: none;
 }
 
@@ -467,7 +487,7 @@ pre {
   align-items: center;
   gap: 5px;
   padding: 2px 8px;
-  border-radius: 0px !important;
+  border-radius: var(--radius-sm) !important;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.04em;

@@ -215,13 +215,13 @@ export default function InstrukturPortalPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[var(--bg-subtle)] text-[var(--text-primary)]">
         <div 
-          className="max-w-xl w-full border border-[var(--border)] bg-[var(--bg)] rounded-[6px] p-5 sm:p-8 space-y-6 shadow-2xl relative"
+          className="max-w-xl w-full liquid-glass-card border border-[var(--liquid-glass-border)] rounded-3xl p-5 sm:p-8 space-y-6 shadow-2xl relative"
         >
           {/* Header */}
-          <div className="border-b border-[var(--border)] pb-4 text-center sm:text-left flex flex-col sm:flex-row items-center sm:justify-between gap-3">
+          <div className="border-b border-[var(--liquid-glass-border)] pb-4 text-center sm:text-left flex flex-col sm:flex-row items-center sm:justify-between gap-3">
             <div>
               <div className="flex items-center justify-center sm:justify-start gap-2">
-                <span className="w-2 h-2 bg-emerald-500 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--brand-primary)] font-bold">
                   PORTAL OPERASIONAL PWA
                 </span>
@@ -248,7 +248,7 @@ export default function InstrukturPortalPage() {
                   <button
                     key={ins.id}
                     onClick={() => handleSelectInstruktur(ins.id)}
-                    className="p-3 border border-[var(--border)] bg-[var(--bg)] rounded-[6px] hover:border-[var(--brand-primary)] hover:bg-black/5 dark:hover:bg-white/5 transition-all flex items-center gap-3 text-left group"
+                    className="p-3.5 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 rounded-2xl hover:border-[var(--brand-primary)] hover:bg-white/80 dark:hover:bg-white/10 transition-all flex items-center gap-3 text-left group shadow-xs active:scale-98"
                   >
                     <div className="relative w-12 h-14 flex items-end justify-center shrink-0">
                       <Image
@@ -263,12 +263,12 @@ export default function InstrukturPortalPage() {
                       <div className="font-bold text-sm text-[var(--text-primary)] group-hover:text-[var(--brand-primary)] transition-colors truncate">
                         {ins.nama}
                       </div>
-                      <div className="font-mono text-[10px] text-[var(--text-muted)] uppercase">
+                      <div className="font-mono text-[10px] text-[var(--text-muted)] uppercase font-medium">
                         ID: {ins.id.slice(0, 8)}
                       </div>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="w-1.5 h-1.5 bg-emerald-500" />
-                        <span className="font-mono text-[9px] text-emerald-600 dark:text-emerald-400">SIAP BERTUGAS</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        <span className="font-mono text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">SIAP BERTUGAS</span>
                       </div>
                     </div>
                     <ArrowRight className="w-4 h-4 text-[var(--text-muted)] group-hover:text-[var(--brand-primary)] group-hover:translate-x-0.5 transition-all" />
@@ -278,7 +278,7 @@ export default function InstrukturPortalPage() {
             </div>
           </div>
 
-          <div className="pt-2 border-t border-[var(--border)] text-center text-[11px] font-mono text-[var(--text-muted)]">
+          <div className="pt-2 border-t border-[var(--liquid-glass-border)] text-center text-[11px] font-mono text-[var(--text-muted)]">
             Amanah Drive Management • Palembang Fleet Unit
           </div>
         </div>
