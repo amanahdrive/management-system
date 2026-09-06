@@ -15,25 +15,39 @@ import {
   DEFAULT_REKENING_LIST,
   calculateLocalKasMetrics,
 } from '@/lib/constants/finance';
+import { getPosPengeluaranList } from '@/lib/actions/pos-pengeluaran';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const [txSettled, katSettled, sisSettled, pakSettled, hutSettled, dpkSettled, rekSettled, stfSettled, ksbSettled, kndSettled, ovSettled] =
-      await Promise.allSettled([
-        getKasTransaksiList(),
-        getKasKategoriList(),
-        getSiswaList(),
-        getPaketList(),
-        getHutangList(),
-        getDpKustomList(),
-        getRekeningList(),
-        getStaffList(),
-        getStaffKasbonSummary(),
-        getKendaraanMasterList(),
-        getKasOverviewMetrics(),
-      ]);
+    const [
+      txSettled,
+      katSettled,
+      sisSettled,
+      pakSettled,
+      hutSettled,
+      dpkSettled,
+      rekSettled,
+      stfSettled,
+      ksbSettled,
+      kndSettled,
+      ovSettled,
+      posSettled,
+    ] = await Promise.allSettled([
+      getKasTransaksiList(),
+      getKasKategoriList(),
+      getSiswaList(),
+      getPaketList(),
+      getHutangList(),
+      getDpKustomList(),
+      getRekeningList(),
+      getStaffList(),
+      getStaffKasbonSummary(),
+      getKendaraanMasterList(),
+      getKasOverviewMetrics(),
+      getPosPengeluaranList({ status: 'belum_bayar' }),
+    ]);
 
     const transaksi = txSettled.status === 'fulfilled' ? txSettled.value : [];
     const kategori =
@@ -51,11 +65,12 @@ export async function GET() {
     const staff = stfSettled.status === 'fulfilled' ? stfSettled.value : [];
     const staffKasbon = ksbSettled.status === 'fulfilled' ? ksbSettled.value : [];
     const kendaraan = kndSettled.status === 'fulfilled' ? kndSettled.value : [];
+    const posPengeluaran = posSettled.status === 'fulfilled' ? posSettled.value : [];
 
     const metrics =
       ovSettled.status === 'fulfilled' && ovSettled.value?.saldoAktif !== undefined
         ? ovSettled.value
-        : calculateLocalKasMetrics(transaksi, siswa, hutang, staffKasbon);
+        : calculateLocalKasMetrics(transaksi, siswa, hutang, staffKasbon, posPengeluaran);
 
     return NextResponse.json({
       success: true,
@@ -70,6 +85,7 @@ export async function GET() {
       staff,
       staffKasbon,
       kendaraan,
+      posPengeluaran,
       timestamp: Date.now(),
     });
   } catch (err: any) {

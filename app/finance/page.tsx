@@ -322,7 +322,10 @@ export default function FinancePortalPage() {
                 : DEFAULT_REKENING_LIST;
 
             // Instant client-side calculation to guarantee 100% synchronization
-            const localMetrics = calculateLocalKasMetrics(tx, sis, hut, json.staffKasbon || []);
+            const activeMetrics =
+              json.metrics && typeof json.metrics.saldoAktif === 'number'
+                ? json.metrics
+                : calculateLocalKasMetrics(tx, sis, hut, json.staffKasbon || [], json.posPengeluaran || []);
 
             setRecentTx(tx);
             setKategoriList(kat);
@@ -331,7 +334,7 @@ export default function FinancePortalPage() {
             setHutangList(hut);
             setDpKustomList(dpk);
             setRekeningList(rek);
-            setMetrics(localMetrics);
+            setMetrics(activeMetrics);
 
             const defRek =
               rek.find((r: RekeningBank) => r.aktif && r.is_utama) ||
@@ -342,7 +345,7 @@ export default function FinancePortalPage() {
             localStorage.setItem(
               'amanah_finance_cache_v2',
               JSON.stringify({
-                metrics: localMetrics,
+                metrics: activeMetrics,
                 transaksi: tx,
                 kategori: kat,
                 siswa: sis,
@@ -389,7 +392,10 @@ export default function FinancePortalPage() {
             ? rRes.value
             : DEFAULT_REKENING_LIST;
 
-        const localMetrics = calculateLocalKasMetrics(tx, sis, hut, ksb);
+        const activeMetrics =
+          mRes.status === 'fulfilled' && mRes.value?.saldoAktif !== undefined
+            ? mRes.value
+            : calculateLocalKasMetrics(tx, sis, hut, ksb);
 
         setRecentTx(tx);
         setKategoriList(kat);
@@ -398,7 +404,7 @@ export default function FinancePortalPage() {
         setHutangList(hut);
         setDpKustomList(dpk);
         setRekeningList(rek);
-        setMetrics(localMetrics);
+        setMetrics(activeMetrics);
 
         const defRek =
           rek.find((r: RekeningBank) => r.aktif && r.is_utama) ||
@@ -408,7 +414,7 @@ export default function FinancePortalPage() {
         localStorage.setItem(
           'amanah_finance_cache_v2',
           JSON.stringify({
-            metrics: localMetrics,
+            metrics: activeMetrics,
             transaksi: tx,
             kategori: kat,
             siswa: sis,
@@ -1121,7 +1127,9 @@ export default function FinancePortalPage() {
                   {formatRupiah(metrics.saldoAktif)}
                 </div>
                 <div className="text-[11px] opacity-80 mt-0.5 font-medium">
-                  Kas Usaha Amanah Drive Palembang
+                  {(metrics.totalPosPengeluaran || 0) > 0
+                    ? `(Tunai + Bank) - Pos: ${formatRupiah(metrics.totalPosPengeluaran || 0)}`
+                    : 'Total Saldo Bersih (Tunai + Bank)'}
                 </div>
               </div>
 

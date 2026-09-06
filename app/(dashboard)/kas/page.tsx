@@ -24,6 +24,7 @@ import {
 import { getSiswaList } from '@/lib/actions/siswa';
 import { getPaketList, getStaffList, getKendaraanMasterList } from '@/lib/actions/master-data';
 import { getRekeningList } from '@/lib/actions/rekening';
+import { getPosPengeluaranList } from '@/lib/actions/pos-pengeluaran';
 import {
   DEFAULT_KAS_KATEGORI,
   DEFAULT_REKENING_LIST,
@@ -165,8 +166,12 @@ export default function KasOverviewPage() {
               Array.isArray(json.rekening) && json.rekening.length > 0
                 ? json.rekening
                 : DEFAULT_REKENING_LIST;
+            const pos = Array.isArray(json.posPengeluaran) ? json.posPengeluaran : [];
 
-            const localMetrics = calculateLocalKasMetrics(tx, sis, hut, ksb);
+            const activeMetrics =
+              json.metrics && typeof json.metrics.saldoAktif === 'number'
+                ? json.metrics
+                : calculateLocalKasMetrics(tx, sis, hut, ksb, pos);
 
             setTransaksiList(tx);
             setKategoriList(kat);
@@ -178,7 +183,7 @@ export default function KasOverviewPage() {
             setKendaraanList(knd);
             setDpKustomList(json.dpKustom || []);
             setRekeningList(rek);
-            setMetrics(localMetrics);
+            setMetrics(activeMetrics);
 
             const defRek =
               rek.find((r: RekeningBank) => r.aktif && r.is_utama) ||
@@ -188,7 +193,7 @@ export default function KasOverviewPage() {
             localStorage.setItem(
               'amanah_kas_web_cache_v2',
               JSON.stringify({
-                metrics: localMetrics,
+                metrics: activeMetrics,
                 transaksi: tx,
                 kategori: kat,
                 siswa: sis,
@@ -211,7 +216,7 @@ export default function KasOverviewPage() {
 
       // Secondary Fallback: Server Actions (Promise.allSettled)
       if (!dataLoaded) {
-        const [mRes, tRes, kRes, sRes, pRes, dpKRes, rList, hList, stfList, ksbList, kndList] = await Promise.allSettled([
+        const [mRes, tRes, kRes, sRes, pRes, dpKRes, rList, hList, stfList, ksbList, kndList, posRes] = await Promise.allSettled([
           getKasOverviewMetrics(),
           getKasTransaksiList(),
           getKasKategoriList(),
@@ -223,6 +228,7 @@ export default function KasOverviewPage() {
           getStaffList(),
           getStaffKasbonSummary(),
           getKendaraanMasterList(),
+          getPosPengeluaranList({ status: 'belum_bayar' }),
         ]);
 
         const tx = tRes.status === 'fulfilled' && Array.isArray(tRes.value) ? tRes.value : [];
@@ -233,6 +239,7 @@ export default function KasOverviewPage() {
         const knd = kndList.status === 'fulfilled' && Array.isArray(kndList.value) ? kndList.value : [];
         const pak = pRes.status === 'fulfilled' && Array.isArray(pRes.value) ? pRes.value : [];
         const dpk = dpKRes.status === 'fulfilled' && Array.isArray(dpKRes.value) ? dpKRes.value : [];
+        const pos = posRes.status === 'fulfilled' && Array.isArray(posRes.value) ? posRes.value : [];
         const kat =
           kRes.status === 'fulfilled' && Array.isArray(kRes.value) && kRes.value.length > 0
             ? kRes.value
@@ -242,7 +249,10 @@ export default function KasOverviewPage() {
             ? rList.value
             : DEFAULT_REKENING_LIST;
 
-        const localMetrics = calculateLocalKasMetrics(tx, sis, hut, ksb);
+        const activeMetrics =
+          mRes.status === 'fulfilled' && mRes.value?.saldoAktif !== undefined
+            ? mRes.value
+            : calculateLocalKasMetrics(tx, sis, hut, ksb, pos);
 
         setTransaksiList(tx);
         setKategoriList(kat);
@@ -254,7 +264,7 @@ export default function KasOverviewPage() {
         setKendaraanList(knd);
         setDpKustomList(dpk);
         setRekeningList(rek);
-        setMetrics(localMetrics);
+        setMetrics(activeMetrics);
 
         const defRek =
           rek.find((r: RekeningBank) => r.aktif && r.is_utama) ||
@@ -264,7 +274,7 @@ export default function KasOverviewPage() {
         localStorage.setItem(
           'amanah_kas_web_cache_v2',
           JSON.stringify({
-            metrics: localMetrics,
+            metrics: activeMetrics,
             transaksi: tx,
             kategori: kat,
             siswa: sis,
@@ -803,8 +813,12 @@ export default function KasOverviewPage() {
           <StatCard
             label="Total Saldo Aktual"
             value={formatRupiah(metrics.saldoAktif)}
-            icon={<Wallet className="w-5 h-5 text-emerald-600" />}
-            description="Kas Fisik + Rekening Bank"
+            icon={<Wallet className={`w-5 h-5 ${metrics.saldoAktif < 0 ? 'text-rose-600' : 'text-emerald-600'}`} />}
+            description={
+              (metrics.totalPosPengeluaran || 0) > 0
+                ? `(Tunai + Bank) - Pos: ${formatRupiah(metrics.totalPosPengeluaran || 0)}`
+                : '(Tunai + Bank) - Pos Pengeluaran'
+            }
           />
           <StatCard
             label="Saldo Tunai"

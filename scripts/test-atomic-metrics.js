@@ -39,14 +39,21 @@ async function testSingleQueryMetrics() {
         COALESCE(SUM(COALESCE(sisa_hutang, 0)), 0) AS total_hutang
       FROM hutang
       WHERE status = 'berjalan'
+    ),
+    pos_calc AS (
+      SELECT
+        COALESCE(SUM(COALESCE(nominal_estimasi, 0)), 0) AS total_pos_pengeluaran
+      FROM pos_pengeluaran
+      WHERE status = 'belum_bayar'
     )
     SELECT 
-      (k.total_masuk - k.total_keluar)::numeric AS "saldoAktif",
+      ((k.total_masuk - k.total_keluar) - COALESCE(pos.total_pos_pengeluaran, 0))::numeric AS "saldoAktif",
       k.saldo_tunai::numeric AS "saldoTunai",
       k.saldo_non_tunai::numeric AS "saldoNonTunai",
+      pos.total_pos_pengeluaran::numeric AS "totalPosPengeluaran",
       p.total_piutang::numeric AS "totalPiutang",
       h.total_hutang::numeric AS "totalHutang"
-    FROM kas_calc k, piutang_calc p, hutang_calc h;
+    FROM kas_calc k, piutang_calc p, hutang_calc h, pos_calc pos;
   `;
 
   const res = await pool.query(sql);

@@ -118,6 +118,7 @@ export interface KasOverviewMetrics {
   saldoAktif: number;
   saldoTunai: number;
   saldoNonTunai: number;
+  totalPosPengeluaran: number;
   totalPiutang: number;
   totalPiutangSiswa: number;
   totalKasbonStaff: number;
@@ -128,6 +129,7 @@ export const DEFAULT_METRICS: KasOverviewMetrics = {
   saldoAktif: 0,
   saldoTunai: 0,
   saldoNonTunai: 0,
+  totalPosPengeluaran: 0,
   totalPiutang: 0,
   totalPiutangSiswa: 0,
   totalKasbonStaff: 0,
@@ -167,7 +169,8 @@ export function calculateLocalKasMetrics(
   transactions: any[] = [],
   students: any[] = [],
   loans: any[] = [],
-  staffKasbon: any[] = []
+  staffKasbon: any[] = [],
+  posPengeluaran: any[] | number = 0
 ): KasOverviewMetrics {
   let tunai = 0;
   let nonTunai = 0;
@@ -231,10 +234,22 @@ export function calculateLocalKasMetrics(
 
   totalKasbon = Math.max(0, totalKasbon);
 
+  let totalPos = 0;
+  if (Array.isArray(posPengeluaran)) {
+    for (const p of posPengeluaran) {
+      if (p.status === 'belum_bayar') {
+        totalPos += Number(p.nominal_estimasi) || 0;
+      }
+    }
+  } else if (typeof posPengeluaran === 'number') {
+    totalPos = posPengeluaran;
+  }
+
   return {
-    saldoAktif: tunai + nonTunai,
+    saldoAktif: (tunai + nonTunai) - totalPos,
     saldoTunai: tunai,
     saldoNonTunai: nonTunai,
+    totalPosPengeluaran: totalPos,
     totalPiutang: piutangSiswa + totalKasbon,
     totalPiutangSiswa: piutangSiswa,
     totalKasbonStaff: totalKasbon,

@@ -74,22 +74,30 @@ export async function getKasOverviewMetrics() {
           COALESCE(SUM(COALESCE(sisa_hutang, 0)), 0) AS total_hutang
         FROM hutang
         WHERE status = 'berjalan'
+      ),
+      pos_calc AS (
+        SELECT
+          COALESCE(SUM(COALESCE(nominal_estimasi, 0)), 0) AS total_pos_pengeluaran
+        FROM pos_pengeluaran
+        WHERE status = 'belum_bayar'
       )
       SELECT 
-        (k.total_masuk - k.total_keluar)::numeric AS "saldoAktif",
+        ((k.total_masuk - k.total_keluar) - COALESCE(pos.total_pos_pengeluaran, 0))::numeric AS "saldoAktif",
         k.saldo_tunai::numeric AS "saldoTunai",
         k.saldo_non_tunai::numeric AS "saldoNonTunai",
+        COALESCE(pos.total_pos_pengeluaran, 0)::numeric AS "totalPosPengeluaran",
         p.total_piutang_siswa::numeric AS "totalPiutangSiswa",
         COALESCE(kb.total_kasbon_staff, 0)::numeric AS "totalKasbonStaff",
         (p.total_piutang_siswa + COALESCE(kb.total_kasbon_staff, 0))::numeric AS "totalPiutang",
         h.total_hutang::numeric AS "totalHutang"
-      FROM kas_calc k, piutang_calc p, kasbon_calc kb, hutang_calc h;
+      FROM kas_calc k, piutang_calc p, kasbon_calc kb, hutang_calc h, pos_calc pos;
     `;
 
     const row = await dbQuerySingle<{
       saldoAktif: number;
       saldoTunai: number;
       saldoNonTunai: number;
+      totalPosPengeluaran: number;
       totalPiutang: number;
       totalPiutangSiswa: number;
       totalKasbonStaff: number;
@@ -101,6 +109,7 @@ export async function getKasOverviewMetrics() {
         saldoAktif: Number((row as any).saldoAktif ?? (row as any).saldoaktif ?? (row as any).saldo_aktif ?? 0),
         saldoTunai: Number((row as any).saldoTunai ?? (row as any).saldotunai ?? (row as any).saldo_tunai ?? 0),
         saldoNonTunai: Number((row as any).saldoNonTunai ?? (row as any).saldonontunai ?? (row as any).saldo_non_tunai ?? 0),
+        totalPosPengeluaran: Number((row as any).totalPosPengeluaran ?? (row as any).totalpospengeluaran ?? (row as any).total_pos_pengeluaran ?? 0),
         totalPiutang: Number((row as any).totalPiutang ?? (row as any).totalpiutang ?? (row as any).total_piutang ?? 0),
         totalPiutangSiswa: Number((row as any).totalPiutangSiswa ?? (row as any).totalpiutangsiswa ?? (row as any).total_piutang_siswa ?? 0),
         totalKasbonStaff: Number((row as any).totalKasbonStaff ?? (row as any).totalkasbonstaff ?? (row as any).total_kasbon_staff ?? 0),
@@ -117,6 +126,7 @@ export async function getKasOverviewMetrics() {
     saldoAktif: 0,
     saldoTunai: 0,
     saldoNonTunai: 0,
+    totalPosPengeluaran: 0,
     totalPiutang: 0,
     totalHutang: 0,
   };
