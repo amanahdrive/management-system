@@ -1,6 +1,6 @@
 'use server';
 
-import { dbQuery } from '@/lib/db';
+import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheGet, cacheSet } from '@/lib/utils/cache';
 import { getTodayDateString, getJakartaDateParts } from '@/lib/utils/date';
 
@@ -62,27 +62,66 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 
   try {
     const [
-      siswaList,
-      sesiList,
-      siswaBaruCount,
+      summaryRow,
+      leadsRows,
       kasMetrics,
       sesiHariIniData,
       kendaraanList,
       trenSiswaData,
       trenKasData,
-      simData,
     ] = await Promise.all([
-      dbQuery<{ id: string; sumber: string | null; sumber_kustom_text: string | null; status_pembayaran_kode: string }>(
-        'SELECT id, COALESCE(sumber::text, \'organik\') as sumber, sumber_kustom_text, status_pembayaran_kode FROM siswa'
-      ),
-      dbQuery<{ siswa_id: string; status_sesi: string }>(
-        "SELECT siswa_id, status_sesi FROM jadwal_sesi WHERE status_sesi != 'batal'"
-      ),
-      dbQuery<{ count: string }>(
-        'SELECT count(*) FROM siswa WHERE tanggal_booking >= $1',
-        [firstDayThisMonth]
-      ),
-      dbQuery<{ pendapatan_bulan_ini: number; pengeluaran_bulan_ini: number; saldo_kas_aktif: number }>(
+      // 1. Consolidated student & session progress KPIs (replaces 4 raw table fetches)
+      dbQuerySingle<{
+        siswa_belum_dijadwalkan: number;
+        siswa_on_progress: number;
+        siswa_selesai: number;
+        siswa_baru_bulan_ini: number;
+        siswa_siap_sim: number;
+        siswa_belum_lunas: number;
+      }>(`
+        WITH siswa_calc AS (
+          SELECT
+            s.id,
+            s.status_pembayaran_kode,
+            COALESCE(s.status_sim, 'belum') AS status_sim,
+            COALESCE(p.termasuk_sim, false) AS termasuk_sim,
+            s.tanggal_booking,
+            COALESCE(ss.has_sessions, false) AS has_sessions,
+            COALESCE(ss.has_pending, false) AS has_pending
+          FROM siswa s
+          LEFT JOIN paket p ON s.paket_id = p.id
+          LEFT JOIN (
+            SELECT 
+              siswa_id, 
+              true AS has_sessions,
+              BOOL_OR(status_sesi = 'terjadwal') AS has_pending
+            FROM jadwal_sesi
+            WHERE status_sesi != 'batal'
+            GROUP BY siswa_id
+          ) ss ON s.id = ss.siswa_id
+        )
+        SELECT
+          COUNT(*) FILTER (WHERE NOT has_sessions)::int AS siswa_belum_dijadwalkan,
+          COUNT(*) FILTER (WHERE has_pending)::int AS siswa_on_progress,
+          COUNT(*) FILTER (WHERE status_pembayaran_kode = 'lunas' AND has_sessions AND NOT has_pending)::int AS siswa_selesai,
+          COUNT(*) FILTER (WHERE tanggal_booking >= $1)::int AS siswa_baru_bulan_ini,
+          COUNT(*) FILTER (WHERE termasuk_sim AND status_pembayaran_kode = 'lunas' AND status_sim != 'selesai')::int AS siswa_siap_sim,
+          COUNT(*) FILTER (WHERE status_pembayaran_kode != 'lunas')::int AS siswa_belum_lunas
+        FROM siswa_calc;
+      `, [firstDayThisMonth]),
+
+      // 2. Lead channels aggregated in SQL
+      dbQuery<{ sumber: string; sumber_kustom_text: string | null; total: number }>(`
+        SELECT 
+          COALESCE(sumber::text, 'organik') AS sumber,
+          sumber_kustom_text,
+          COUNT(*)::int AS total
+        FROM siswa
+        GROUP BY COALESCE(sumber::text, 'organik'), sumber_kustom_text;
+      `),
+
+      // 3. Cashflow metrics
+      dbQuerySingle<{ pendapatan_bulan_ini: number; pengeluaran_bulan_ini: number; saldo_kas_aktif: number }>(
         `SELECT
           COALESCE(SUM(CASE WHEN tipe = 'pemasukan' AND tanggal >= $1 THEN nominal ELSE 0 END), 0) AS pendapatan_bulan_ini,
           COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' AND tanggal >= $1 THEN nominal ELSE 0 END), 0) AS pengeluaran_bulan_ini,
@@ -90,6 +129,8 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
         FROM kas_transaksi`,
         [firstDayThisMonth]
       ),
+
+      // 4. Today's sessions
       dbQuery<{
         id: string;
         siswa_id: string;
@@ -118,9 +159,11 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
         LEFT JOIN staff st ON js.staff_id = st.id
         LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
         LEFT JOIN slot_waktu sw ON js.slot_waktu_id = sw.id
-        WHERE js.tanggal_sesi::date = $1::date
+        WHERE js.tanggal_sesi = $1
         ORDER BY sw.urutan ASC, js.created_at ASC
       `, [todayStr]),
+
+      // 5. Fleet status
       dbQuery<{ id: string; nama_kendaraan: string; plat_nomor: string; odometer_terkini: number; oli_km_terakhir: number }>(
         `SELECT k.id, k.nama_kendaraan, k.plat_nomor, 
            COALESCE(ks.odometer_terkini, 0) as odometer_terkini, 
@@ -128,49 +171,40 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
          FROM kendaraan k 
          LEFT JOIN kendaraan_status ks ON k.id = ks.kendaraan_id`
       ),
-      dbQuery<{ tanggal_booking: string }>(
-        'SELECT tanggal_booking FROM siswa WHERE tanggal_booking >= $1',
-        [sixMonthsAgoStr]
-      ),
-      dbQuery<{ bulan_key: string; pemasukan: number; pengeluaran: number }>(
-        `SELECT 
+
+      // 6. Registration trend (aggregated monthly by SQL)
+      dbQuery<{ bulan_key: string; total: number }>(`
+        SELECT 
+          TO_CHAR(tanggal_booking, 'YYYY-MM') as bulan_key,
+          COUNT(*)::int as total
+        FROM siswa 
+        WHERE tanggal_booking >= $1
+        GROUP BY TO_CHAR(tanggal_booking, 'YYYY-MM')
+        ORDER BY bulan_key ASC
+      `, [sixMonthsAgoStr]),
+
+      // 7. Cashflow trend (aggregated monthly by SQL)
+      dbQuery<{ bulan_key: string; pemasukan: number; pengeluaran: number }>(`
+        SELECT 
           TO_CHAR(tanggal, 'YYYY-MM') as bulan_key,
           COALESCE(SUM(CASE WHEN tipe = 'pemasukan' THEN nominal ELSE 0 END), 0) as pemasukan,
           COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' THEN nominal ELSE 0 END), 0) as pengeluaran
         FROM kas_transaksi 
         WHERE tanggal >= $1
         GROUP BY TO_CHAR(tanggal, 'YYYY-MM')
-        ORDER BY bulan_key ASC`,
-        [sixMonthsAgoStr]
-      ),
-      dbQuery<{ status_pembayaran_kode: string; status_sim: string; termasuk_sim: boolean }>(`
-        SELECT s.status_pembayaran_kode, COALESCE(s.status_sim, 'belum') as status_sim, p.termasuk_sim
-        FROM siswa s
-        JOIN paket p ON s.paket_id = p.id
-      `),
+        ORDER BY bulan_key ASC
+      `, [sixMonthsAgoStr]),
     ]);
 
-    const scheduledSiswaIds = new Set(sesiList.map((s) => s.siswa_id));
-    const siswaBelumDijadwalkan = siswaList.filter((s) => !scheduledSiswaIds.has(s.id)).length;
-
-    const onProgressIds = new Set(
-      sesiList.filter((s) => s.status_sesi === 'terjadwal').map((s) => s.siswa_id)
-    );
-    const siswaOnProgress = onProgressIds.size;
-
-    const siswaSelesai = siswaList.filter(
-      (s) => s.status_pembayaran_kode === 'lunas' && scheduledSiswaIds.has(s.id) && !onProgressIds.has(s.id)
-    ).length;
-
-    const totalPendapatanBulanIni = Number(kasMetrics[0]?.pendapatan_bulan_ini) || 0;
-    const totalPengeluaranBulanIni = Number(kasMetrics[0]?.pengeluaran_bulan_ini) || 0;
+    const totalPendapatanBulanIni = Number(kasMetrics?.pendapatan_bulan_ini) || 0;
+    const totalPengeluaranBulanIni = Number(kasMetrics?.pengeluaran_bulan_ini) || 0;
     const labaBersihBulanIni = totalPendapatanBulanIni - totalPengeluaranBulanIni;
-    const saldoKasAktif = Number(kasMetrics[0]?.saldo_kas_aktif) || 0;
+    const saldoKasAktif = Number(kasMetrics?.saldo_kas_aktif) || 0;
 
     let sesiTerjadwalHariIni = 0;
     let sesiSelesaiHariIni = 0;
 
-    const sesiHariIniList: SesiHariIniItem[] = sesiHariIniData.map((s) => {
+    const sesiHariIniList: SesiHariIniItem[] = sesiHariIniData.map((s: any) => {
       if (s.status_sesi === 'selesai') sesiSelesaiHariIni++;
       else if (s.status_sesi === 'terjadwal') sesiTerjadwalHariIni++;
 
@@ -193,18 +227,18 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     });
 
     const leadsMap = new Map<string, number>();
-    siswaList.forEach((s) => {
+    leadsRows.forEach((r: any) => {
       let label = 'Organik';
-      if (s.sumber === 'meta_ads') label = 'Meta Ads';
-      else if (s.sumber === 'tiktok') label = 'TikTok';
-      else if (s.sumber === 'referensi') label = 'Referensi';
-      else if (s.sumber === 'kustom') label = s.sumber_kustom_text || 'Kustom';
-      leadsMap.set(label, (leadsMap.get(label) || 0) + 1);
+      if (r.sumber === 'meta_ads') label = 'Meta Ads';
+      else if (r.sumber === 'tiktok') label = 'TikTok';
+      else if (r.sumber === 'referensi') label = 'Referensi';
+      else if (r.sumber === 'kustom') label = r.sumber_kustom_text || 'Kustom';
+      leadsMap.set(label, (leadsMap.get(label) || 0) + Number(r.total || 0));
     });
     const sumberLeads = Array.from(leadsMap.entries()).map(([name, value]) => ({ name, value }));
 
     const kendaraanPerluPerhatian: { nama: string; plat: string; alasan: string }[] = [];
-    kendaraanList.forEach((k) => {
+    kendaraanList.forEach((k: any) => {
       const odo = k.odometer_terkini || 0;
       const oli = k.oli_km_terakhir || 0;
       if (odo - oli >= 4500 && oli > 0) {
@@ -222,11 +256,9 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       monthlySiswaMap[k] = 0;
     }
-    trenSiswaData.forEach((s) => {
-      if (!s.tanggal_booking) return;
-      const k = s.tanggal_booking.slice(0, 7);
-      if (monthlySiswaMap[k] !== undefined) {
-        monthlySiswaMap[k]++;
+    trenSiswaData.forEach((s: any) => {
+      if (monthlySiswaMap[s.bulan_key] !== undefined) {
+        monthlySiswaMap[s.bulan_key] = Number(s.total || 0);
       }
     });
     const trenPendaftaran = Object.entries(monthlySiswaMap).map(([k, total]) => {
@@ -234,7 +266,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       return { bulan: monthNames[mIdx], total };
     });
 
-    const trenCashflow = trenKasData.map((t) => {
+    const trenCashflow = trenKasData.map((t: any) => {
       const mIdx = parseInt(t.bulan_key.split('-')[1], 10) - 1;
       const pem = Number(t.pemasukan) || 0;
       const peng = Number(t.pengeluaran) || 0;
@@ -246,24 +278,11 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       };
     });
 
-    // SIM Alerts & Unpaid
-    let siswaSiapSimCount = 0;
-    let siswaBelumLunasCount = 0;
-
-    simData.forEach((s) => {
-      if (s.termasuk_sim && s.status_pembayaran_kode === 'lunas' && s.status_sim !== 'selesai') {
-        siswaSiapSimCount++;
-      }
-      if (s.status_pembayaran_kode !== 'lunas') {
-        siswaBelumLunasCount++;
-      }
-    });
-
     const result: DashboardMetrics = {
-      siswaBelumDijadwalkan,
-      siswaOnProgress,
-      siswaSelesai,
-      siswaBaruBulanIni: parseInt(siswaBaruCount[0]?.count || '0', 10),
+      siswaBelumDijadwalkan: Number(summaryRow?.siswa_belum_dijadwalkan || 0),
+      siswaOnProgress: Number(summaryRow?.siswa_on_progress || 0),
+      siswaSelesai: Number(summaryRow?.siswa_selesai || 0),
+      siswaBaruBulanIni: Number(summaryRow?.siswa_baru_bulan_ini || 0),
       totalPendapatanBulanIni,
       totalPengeluaranBulanIni,
       labaBersihBulanIni,
@@ -275,8 +294,8 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       kendaraanPerluPerhatian,
       trenPendaftaran,
       trenCashflow,
-      siswaSiapSimCount,
-      siswaBelumLunasCount,
+      siswaSiapSimCount: Number(summaryRow?.siswa_siap_sim || 0),
+      siswaBelumLunasCount: Number(summaryRow?.siswa_belum_lunas || 0),
       totalArmadaAktif: kendaraanList.length,
     };
 

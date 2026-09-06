@@ -104,6 +104,10 @@ const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Se
 const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
 export async function getAnalitikData(filter?: AnalitikFilter): Promise<AnalitikData> {
+  const cacheKey = `analitik_${filter?.period || 'this_month'}_${filter?.startDate || ''}_${filter?.endDate || ''}`;
+  const cached = cacheGet<AnalitikData>(cacheKey);
+  if (cached) return cached;
+
   const todayStr = getTodayDateString();
   const dateParts = getJakartaDateParts(todayStr) || { year: new Date().getFullYear(), month: new Date().getMonth() + 1, day: new Date().getDate() };
   const currentYear = dateParts.year;
@@ -759,7 +763,7 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       });
     }
 
-    return {
+    const result: AnalitikData = {
       periodeLabel,
       startDate,
       endDate,
@@ -824,6 +828,9 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       },
       strategicInsights,
     };
+
+    cacheSet(cacheKey, result, 120);
+    return result;
   } catch (err: any) {
     console.error('Error generating analitik data:', err);
     throw err;

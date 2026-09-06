@@ -44,3 +44,5 @@ next-env.d.ts
 # documentation (internal / private docs)
 /docs/
 
+# IDE
+.cursor/

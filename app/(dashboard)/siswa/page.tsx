@@ -5,16 +5,17 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Siswa, Paket, Promosi, StatusPembayaranMaster } from '@/types/database';
-import { deleteSiswa, getSiswaList, createOrUpdateSiswa } from '@/lib/actions/siswa';
+import { deleteSiswa, getSiswaList, createOrUpdateSiswa, getSiswaSessionSummaries } from '@/lib/actions/siswa';
 import { getPaketList, getPromosiList, getStatusPembayaranMaster } from '@/lib/actions/master-data';
-import { getJadwalBySiswa } from '@/lib/actions/jadwal';
 import { formatRupiah } from '@/lib/utils/currency';
 import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
 import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
-import { Plus, Eye, Edit2, Trash2, Archive, Search, X, Calendar, Info } from 'lucide-react';
+import { Plus, Eye, Edit2, Trash2, Archive, Search, X, Calendar, Info, RefreshCw } from 'lucide-react';
+import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
+import { purgeServerCache } from '@/lib/actions/cache';
 import Link from 'next/link';
 
 export default function SiswaPage() {
@@ -56,34 +57,18 @@ export default function SiswaPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const [sData, pData, prData, stData] = await Promise.all([
+    const [sData, pData, prData, stData, sessionMap] = await Promise.all([
       getSiswaList(),
       getPaketList(),
       getPromosiList(),
       getStatusPembayaranMaster(),
+      getSiswaSessionSummaries(),
     ]);
     setSiswaList(sData);
     setPaketList(pData);
     setPromosiList(prData);
     setStatusList(stData);
-
-    // Load session summary for all lunas students (for correct archive logic)
-    const lunasStudents = sData.filter((s) => s.status_pembayaran_kode === 'lunas');
-    if (lunasStudents.length > 0) {
-      const sessionResults = await Promise.all(
-        lunasStudents.map(async (s) => {
-          const sessions = await getJadwalBySiswa(s.id);
-          const activeSessions = sessions.filter((j) => j.status_sesi !== 'batal');
-          const selesai = activeSessions.filter((j) => j.status_sesi === 'selesai').length;
-          const total = activeSessions.length > 0 ? activeSessions[0].total_sesi_paket : s.paket?.jumlah_sesi || 0;
-          const hasPending = activeSessions.some((j) => j.status_sesi === 'terjadwal');
-          return { id: s.id, selesai, total, hasPending };
-        })
-      );
-      const map: Record<string, { selesai: number; total: number; hasPending: boolean }> = {};
-      sessionResults.forEach((r) => { map[r.id] = r; });
-      setSiswaSessionMap(map);
-    }
+    setSiswaSessionMap(sessionMap);
 
     if (pData.length > 0 && !formData.paket_id) {
       const defaultPaket = pData[0];
@@ -100,6 +85,18 @@ export default function SiswaPage() {
   React.useEffect(() => {
     loadData();
   }, []);
+
+  useAppRefresh(loadData);
+
+  const handleManualSync = async () => {
+    try {
+      await purgeServerCache();
+      await loadData();
+      triggerAppRefresh();
+    } catch (e) {
+      console.error('Error syncing siswa:', e);
+    }
+  };
 
   const handleOpenAdd = () => {
     const defaultPaket = paketList[0];
@@ -421,6 +418,15 @@ export default function SiswaPage() {
         breadcrumbs={[{ label: 'Data Siswa' }]}
         actions={
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleManualSync}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-2 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] text-[var(--text-primary)] text-xs font-semibold rounded-md transition-all shadow-xs active:scale-95"
+              title="Sinkronkan data siswa dengan database terbaru"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${loading ? 'animate-spin' : ''}`} />
+              <span>{loading ? 'Menyinkronkan...' : 'Sinkronkan'}</span>
+            </button>
             <button
               onClick={() => setShowArchived(!showArchived)}
               className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-colors border ${

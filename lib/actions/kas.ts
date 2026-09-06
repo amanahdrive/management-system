@@ -11,6 +11,9 @@ import { revalidatePath } from 'next/cache';
 const METRICS_CACHE_KEY = 'kas_overview_metrics';
 
 export async function getKasOverviewMetrics() {
+  const cached = cacheGet<any>(METRICS_CACHE_KEY);
+  if (cached) return cached;
+
   try {
     const sql = `
       WITH kas_calc AS (
@@ -94,7 +97,7 @@ export async function getKasOverviewMetrics() {
     }>(sql);
 
     if (row) {
-      return {
+      const metrics = {
         saldoAktif: Number((row as any).saldoAktif ?? (row as any).saldoaktif ?? (row as any).saldo_aktif ?? 0),
         saldoTunai: Number((row as any).saldoTunai ?? (row as any).saldotunai ?? (row as any).saldo_tunai ?? 0),
         saldoNonTunai: Number((row as any).saldoNonTunai ?? (row as any).saldonontunai ?? (row as any).saldo_non_tunai ?? 0),
@@ -103,6 +106,8 @@ export async function getKasOverviewMetrics() {
         totalKasbonStaff: Number((row as any).totalKasbonStaff ?? (row as any).totalkasbonstaff ?? (row as any).total_kasbon_staff ?? 0),
         totalHutang: Number((row as any).totalHutang ?? (row as any).totalhutang ?? (row as any).total_hutang ?? 0),
       };
+      cacheSet(METRICS_CACHE_KEY, metrics, 30);
+      return metrics;
     }
   } catch (e) {
     console.error('Error fetching kas overview metrics:', e);

@@ -30,23 +30,26 @@ function resolveDatabaseUrl(): string {
 
 const DB_URL = resolveDatabaseUrl();
 
-let globalPool: Pool | null = null;
+declare global {
+  var __pgPool: Pool | undefined;
+}
 
 export function getDbPool(): Pool {
-  if (!globalPool) {
-    globalPool = new Pool({
+  if (!globalThis.__pgPool) {
+    globalThis.__pgPool = new Pool({
       connectionString: DB_URL,
       ssl: { rejectUnauthorized: false },
-      max: 10,
-      idleTimeoutMillis: 30000,
+      // Cap at 3 for serverless to never exhaust Supabase Free Tier 60 connections
+      max: process.env.NODE_ENV === 'production' ? 3 : 5,
+      idleTimeoutMillis: 10000,
       connectionTimeoutMillis: 10000,
     });
 
-    globalPool.on('error', (err) => {
+    globalThis.__pgPool.on('error', (err) => {
       console.error('Unexpected error on idle PostgreSQL client', err);
     });
   }
-  return globalPool;
+  return globalThis.__pgPool;
 }
 
 /**

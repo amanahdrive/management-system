@@ -48,7 +48,7 @@ export async function getJadwalByTanggal(
       LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
       LEFT JOIN slot_waktu sw1 ON js.slot_waktu_id = sw1.id
       LEFT JOIN slot_waktu sw2 ON js.slot_waktu_id_akhir = sw2.id
-      WHERE js.tanggal_sesi::date = $1::date ${staffFilter}
+      WHERE js.tanggal_sesi = $1 ${staffFilter}
       ORDER BY js.slot_waktu_id ASC;
     `, params);
 
@@ -57,6 +57,44 @@ export async function getJadwalByTanggal(
     console.error('Error fetching jadwal by tanggal:', e);
   }
   return [];
+}
+
+export async function getJadwalByDateRange(
+  startDate: string,
+  endDate: string,
+  staffId?: string
+): Promise<JadwalSesi[]> {
+  try {
+    const params: any[] = [startDate, endDate];
+    let staffFilter = '';
+    if (staffId && staffId !== 'semua') {
+      params.push(staffId);
+      staffFilter = `AND js.staff_id = $${params.length}`;
+    }
+
+    const rows = await dbQuery<JadwalSesi>(`
+      SELECT 
+        js.*,
+        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS instruktur,
+        CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
+        CASE WHEN sw1.id IS NOT NULL THEN to_jsonb(sw1) ELSE NULL END AS slot_waktu,
+        CASE WHEN sw2.id IS NOT NULL THEN to_jsonb(sw2) ELSE NULL END AS slot_waktu_akhir
+      FROM jadwal_sesi js
+      LEFT JOIN siswa s ON js.siswa_id = s.id
+      LEFT JOIN staff st ON js.staff_id = st.id
+      LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
+      LEFT JOIN slot_waktu sw1 ON js.slot_waktu_id = sw1.id
+      LEFT JOIN slot_waktu sw2 ON js.slot_waktu_id_akhir = sw2.id
+      WHERE js.tanggal_sesi >= $1 AND js.tanggal_sesi <= $2 ${staffFilter}
+      ORDER BY js.tanggal_sesi ASC, js.slot_waktu_id ASC;
+    `, params);
+
+    return rows;
+  } catch (e) {
+    console.error('Error fetching jadwal by date range:', e);
+    return [];
+  }
 }
 
 export async function getJadwalByBulan(
@@ -68,26 +106,11 @@ export async function getJadwalByBulan(
     const lastDay = new Date(year, monthIndex + 1, 0).getDate();
     const endDate = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-    const rows = await dbQuery<JadwalSesi>(`
-      SELECT 
-        js.*,
-        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
-        CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS instruktur,
-        CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
-        CASE WHEN sw.id IS NOT NULL THEN to_jsonb(sw) ELSE NULL END AS slot_waktu
-      FROM jadwal_sesi js
-      LEFT JOIN siswa s ON js.siswa_id = s.id
-      LEFT JOIN staff st ON js.staff_id = st.id
-      LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
-      LEFT JOIN slot_waktu sw ON js.slot_waktu_id = sw.id
-      WHERE js.tanggal_sesi >= $1 AND js.tanggal_sesi <= $2;
-    `, [startDate, endDate]);
-
-    return rows;
+    return getJadwalByDateRange(startDate, endDate);
   } catch (e) {
     console.error('Error fetching jadwal by month:', e);
+    return [];
   }
-  return [];
 }
 
 export async function getJadwalSesiById(id: string): Promise<JadwalSesi | null> {

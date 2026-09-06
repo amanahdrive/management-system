@@ -7,6 +7,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { JadwalSesi, Staff, SlotWaktu, Siswa, Kendaraan } from '@/types/database';
 import {
   getJadwalByTanggal,
+  getJadwalByDateRange,
   getJadwalByBulan,
   getJadwalConflictCheckList,
   upsertJadwalBatch,
@@ -58,6 +59,8 @@ import {
   UserCheck,
   User,
 } from 'lucide-react';
+import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
+import { purgeServerCache } from '@/lib/actions/cache';
 import Link from 'next/link';
 
 const DAY_NAMES = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
@@ -189,42 +192,8 @@ export default function JadwalPage() {
       // Single date — use targeted query
       jList = await getJadwalByTanggal(from, selectedStaff);
     } else {
-      // Range — use conflict list filtered by range + staff
-      // We reuse monthlyJadwal approach: fetch conflict list which covers 120-day window
-      // For ranges beyond that, fallback to conflict check list and filter client-side
-      jList = await getJadwalByBulan(
-        new Date(from).getFullYear(),
-        new Date(from).getMonth()
-      );
-      // Extend across multiple months if range spans them
-      const fromDate = new Date(from);
-      const toDate = new Date(to);
-      let curYear = fromDate.getFullYear();
-      let curMonth = fromDate.getMonth();
-      const extraFetches: Promise<JadwalSesi[]>[] = [];
-
-      while (curYear < toDate.getFullYear() || (curYear === toDate.getFullYear() && curMonth < toDate.getMonth())) {
-        curMonth++;
-        if (curMonth > 11) { curMonth = 0; curYear++; }
-        extraFetches.push(getJadwalByBulan(curYear, curMonth));
-      }
-
-      if (extraFetches.length > 0) {
-        const extras = await Promise.all(extraFetches);
-        extras.forEach((e) => { jList = [...jList, ...e]; });
-      }
-
-      // Deduplicate by ID
-      const seen = new Set<string>();
-      jList = jList.filter((j) => { if (seen.has(j.id)) return false; seen.add(j.id); return true; });
-
-      // Filter by date range
-      jList = jList.filter((j) => j.tanggal_sesi >= from && j.tanggal_sesi <= to);
-
-      // Filter by staff if not 'semua'
-      if (selectedStaff && selectedStaff !== 'semua') {
-        jList = jList.filter((j) => j.staff_id === selectedStaff);
-      }
+      // Direct single range query from database
+      jList = await getJadwalByDateRange(from, to, selectedStaff);
     }
 
     const [iList, sList, swList, mList, kList] = await Promise.all([
@@ -258,6 +227,18 @@ export default function JadwalPage() {
   React.useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useAppRefresh(loadData);
+
+  const handleManualSync = async () => {
+    try {
+      await purgeServerCache();
+      await loadData();
+      triggerAppRefresh();
+    } catch (e) {
+      console.error('Error syncing jadwal:', e);
+    }
+  };
 
   // Filter siswa tanpa jadwal aktif
   const allScheduledSiswaIds = React.useMemo(() => {
@@ -1044,6 +1025,16 @@ export default function JadwalPage() {
         breadcrumbs={[{ label: 'Operasional' }, { label: 'Jadwal Sesi' }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {/* 0. Sinkronkan Jadwal */}
+            <button
+              onClick={handleManualSync}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-2 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] text-[var(--text-primary)] text-xs font-semibold rounded-md transition-all shadow-xs active:scale-95"
+              title="Sinkronkan data jadwal & slot dengan database terbaru"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${loading ? 'animate-spin' : ''}`} />
+              <span>{loading ? 'Menyinkronkan...' : 'Sinkronkan'}</span>
+            </button>
             {/* 1. Copy Jadwal WA */}
             <button
               onClick={() => handleCopyWAJadwal(filterMode === 'week' ? 'mingguan' : filterMode === 'range' ? 'custom' : 'harian')}

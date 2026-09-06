@@ -1,4 +1,4 @@
-﻿'use server';
+'use server';
 
 import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheInvalidate } from '@/lib/utils/cache';
@@ -106,45 +106,30 @@ export async function getSimSiswaList(filter?: SimFilterOptions): Promise<Siswa[
  */
 export async function getSimMetricsSummary(): Promise<SimMetricsSummary> {
   try {
-    const rows = await dbQuery<{
-      status_sim: string;
-      status_pembayaran_kode: string;
-      is_archived: boolean;
+    const row = await dbQuerySingle<{
+      totalSim: number;
+      totalBelumSelesai: number;
+      totalSelesai: number;
+      totalSiapTerbit: number;
+      totalMenungguPelunasan: number;
     }>(`
-      SELECT s.status_sim, s.status_pembayaran_kode, s.is_archived
+      SELECT 
+        COUNT(*)::int AS "totalSim",
+        COUNT(*) FILTER (WHERE s.status_sim != 'selesai')::int AS "totalBelumSelesai",
+        COUNT(*) FILTER (WHERE s.status_sim = 'selesai')::int AS "totalSelesai",
+        COUNT(*) FILTER (WHERE s.status_sim != 'selesai' AND s.status_pembayaran_kode = 'lunas')::int AS "totalSiapTerbit",
+        COUNT(*) FILTER (WHERE s.status_sim != 'selesai' AND s.status_pembayaran_kode != 'lunas')::int AS "totalMenungguPelunasan"
       FROM siswa s
       JOIN paket p ON s.paket_id = p.id
-      WHERE p.termasuk_sim = TRUE
+      WHERE p.termasuk_sim = TRUE;
     `);
 
-    let totalSim = rows.length;
-    let totalBelumSelesai = 0;
-    let totalSelesai = 0;
-    let totalSiapTerbit = 0;
-    let totalMenungguPelunasan = 0;
-
-    for (const r of rows) {
-      const isSelesai = r.status_sim === 'selesai';
-      const isLunas = r.status_pembayaran_kode === 'lunas';
-
-      if (isSelesai) {
-        totalSelesai += 1;
-      } else {
-        totalBelumSelesai += 1;
-        if (isLunas) {
-          totalSiapTerbit += 1;
-        } else {
-          totalMenungguPelunasan += 1;
-        }
-      }
-    }
-
     return {
-      totalSim,
-      totalBelumSelesai,
-      totalSelesai,
-      totalSiapTerbit,
-      totalMenungguPelunasan,
+      totalSim: Number(row?.totalSim || 0),
+      totalBelumSelesai: Number(row?.totalBelumSelesai || 0),
+      totalSelesai: Number(row?.totalSelesai || 0),
+      totalSiapTerbit: Number(row?.totalSiapTerbit || 0),
+      totalMenungguPelunasan: Number(row?.totalMenungguPelunasan || 0),
     };
   } catch (e) {
     console.error('Error fetching SIM metrics:', e);

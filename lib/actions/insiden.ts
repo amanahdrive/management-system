@@ -53,6 +53,20 @@ export async function getInsidenList(filter?: InsidenFilter): Promise<Insiden[]>
       whereClauses.push(`i.tanggal_insiden <= $${params.length}`);
     }
 
+    if (filter?.search && filter.search.trim() !== '') {
+      params.push(`%${filter.search.trim()}%`);
+      const pIdx = params.length;
+      whereClauses.push(`(
+        i.kode_insiden ILIKE $${pIdx} OR
+        i.lokasi_kejadian ILIKE $${pIdx} OR
+        i.deskripsi_kejadian ILIKE $${pIdx} OR
+        k.nama_kendaraan ILIKE $${pIdx} OR
+        k.plat_nomor ILIKE $${pIdx} OR
+        st.nama ILIKE $${pIdx} OR
+        s.nama ILIKE $${pIdx}
+      )`);
+    }
+
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
     const sql = `
@@ -71,22 +85,7 @@ export async function getInsidenList(filter?: InsidenFilter): Promise<Insiden[]>
       ORDER BY i.tanggal_insiden DESC, i.created_at DESC;
     `;
 
-    let result = await dbQuery<Insiden>(sql, params);
-
-    if (filter?.search && filter.search.trim() !== '') {
-      const q = filter.search.toLowerCase().trim();
-      result = result.filter(
-        (item) =>
-          item.kode_insiden?.toLowerCase().includes(q) ||
-          item.lokasi_kejadian?.toLowerCase().includes(q) ||
-          item.deskripsi_kejadian?.toLowerCase().includes(q) ||
-          item.kendaraan?.nama_kendaraan?.toLowerCase().includes(q) ||
-          item.kendaraan?.plat_nomor?.toLowerCase().includes(q) ||
-          item.staff?.nama?.toLowerCase().includes(q) ||
-          item.siswa?.nama?.toLowerCase().includes(q)
-      );
-    }
-
+    const result = await dbQuery<Insiden>(sql, params);
     return result;
   } catch (err) {
     console.error('Unexpected error fetching insiden list:', err);

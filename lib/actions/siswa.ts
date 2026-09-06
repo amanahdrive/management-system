@@ -260,3 +260,41 @@ export async function deleteSiswa(id: string): Promise<{ success: boolean; error
     return { success: false, error: err.message };
   }
 }
+
+export interface SiswaSessionSummaryData {
+  selesai: number;
+  total: number;
+  hasPending: boolean;
+}
+
+/**
+ * Consolidated single SQL query replacing N+1 student session progress checks
+ */
+export async function getSiswaSessionSummaries(): Promise<Record<string, SiswaSessionSummaryData>> {
+  try {
+    const rows = await dbQuery<{
+      siswa_id: string;
+      total_sesi: number;
+      selesai_count: number;
+      terjadwal_count: number;
+      has_pending: boolean;
+    }>(`
+      SELECT siswa_id, total_sesi, selesai_count, terjadwal_count, has_pending
+      FROM v_siswa_session_summary;
+    `);
+
+    const map: Record<string, SiswaSessionSummaryData> = {};
+    for (const r of rows) {
+      map[r.siswa_id] = {
+        selesai: Number(r.selesai_count || 0),
+        total: Number(r.total_sesi || 10),
+        hasPending: Boolean(r.has_pending),
+      };
+    }
+    return map;
+  } catch (err) {
+    console.error('Error fetching siswa session summaries:', err);
+    return {};
+  }
+}
+

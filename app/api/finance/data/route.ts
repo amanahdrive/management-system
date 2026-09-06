@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import {
+  getKasOverviewMetrics,
   getKasTransaksiList,
   getKasKategoriList,
   getHutangList,
@@ -19,7 +20,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const [txSettled, katSettled, sisSettled, pakSettled, hutSettled, dpkSettled, rekSettled, stfSettled, ksbSettled, kndSettled] =
+    const [txSettled, katSettled, sisSettled, pakSettled, hutSettled, dpkSettled, rekSettled, stfSettled, ksbSettled, kndSettled, ovSettled] =
       await Promise.allSettled([
         getKasTransaksiList(),
         getKasKategoriList(),
@@ -31,6 +32,7 @@ export async function GET() {
         getStaffList(),
         getStaffKasbonSummary(),
         getKendaraanMasterList(),
+        getKasOverviewMetrics(),
       ]);
 
     const transaksi = txSettled.status === 'fulfilled' ? txSettled.value : [];
@@ -50,7 +52,10 @@ export async function GET() {
     const staffKasbon = ksbSettled.status === 'fulfilled' ? ksbSettled.value : [];
     const kendaraan = kndSettled.status === 'fulfilled' ? kndSettled.value : [];
 
-    const metrics = calculateLocalKasMetrics(transaksi, siswa, hutang, staffKasbon);
+    const metrics =
+      ovSettled.status === 'fulfilled' && ovSettled.value?.saldoAktif !== undefined
+        ? ovSettled.value
+        : calculateLocalKasMetrics(transaksi, siswa, hutang, staffKasbon);
 
     return NextResponse.json({
       success: true,
