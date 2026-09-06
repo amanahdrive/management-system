@@ -388,3 +388,34 @@ export interface Insiden {
   jadwal_sesi?: JadwalSesi;
 }
 
+export type PosPengeluaranSumber =
+  | 'manual'
+  | 'otomatis_sim'
+  | 'otomatis_hutang'
+  | 'otomatis_operasional';
+
+export type PosPengeluaranStatus = 'belum_bayar' | 'terbayar' | 'dibatalkan';
+
+export interface PosPengeluaran {
+  id: string;
+  nama_pos: string;
+  kategori: string;
+  nominal_estimasi: number;
+  nominal_realisasi: number;
+  is_fluktuatif: boolean;
+  sumber: PosPengeluaranSumber;
+  periode_bulan: string; // 'YYYY-MM'
+  tanggal_jatuh_tempo: string | null;
+  status: PosPengeluaranStatus;
+  kas_transaksi_id: string | null;
+  siswa_id: string | null;
+  hutang_id: string | null;
+  catatan: string | null;
+  created_at: string;
+  updated_at: string;
+  // Optional relations
+  siswa?: Siswa;
+  hutang?: Hutang;
+  kas_transaksi?: KasTransaksi;
+}
+

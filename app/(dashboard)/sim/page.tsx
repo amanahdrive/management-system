@@ -9,6 +9,8 @@ import { getPaketList } from '@/lib/actions/master-data';
 import { formatDateIndo, getTodayDateString, addDaysToDateStr } from '@/lib/utils/date';
 import { formatRupiah } from '@/lib/utils/currency';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
+import { CurrencyInput } from '@/components/shared/CurrencyInput';
+import { getModalSimSettings, saveModalSimSettings, ModalSimSettings } from '@/lib/actions/settings';
 import {
   IdCard,
   CheckCircle2,
@@ -29,6 +31,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 
 type TabView = 'active' | 'archived' | 'all';
@@ -46,6 +49,15 @@ export default function ManajemenSimPage() {
     totalMenungguPelunasan: 0,
   });
   const [loading, setLoading] = React.useState(true);
+
+  // Modal State for SIM Pricing Configuration
+  const [isSimConfigModalOpen, setIsSimConfigModalOpen] = React.useState(false);
+  const [simConfig, setSimConfig] = React.useState<ModalSimSettings>({
+    hargaDefault: 850000,
+    configPerJenis: { 'SIM A': 850000, 'SIM C': 650000, default: 850000 },
+  });
+  const [savingSimConfig, setSavingSimConfig] = React.useState(false);
+  const [simConfigSuccess, setSimConfigSuccess] = React.useState(false);
 
   // Tab View: 'active' (belum selesai), 'archived' (selesai), 'all' (semua)
   const [currentTab, setCurrentTab] = React.useState<TabView>('active');
@@ -81,7 +93,7 @@ export default function ManajemenSimPage() {
   const loadData = React.useCallback(async () => {
     setLoading(true);
     try {
-      const [students, metricsData, packages] = await Promise.all([
+      const [students, metricsData, packages, simCfg] = await Promise.all([
         getSimSiswaList({
           startDate: datePreset !== 'all' && startDate ? startDate : undefined,
           endDate: datePreset !== 'all' && endDate ? endDate : undefined,
@@ -89,16 +101,40 @@ export default function ManajemenSimPage() {
         }),
         getSimMetricsSummary(),
         getPaketList(),
+        getModalSimSettings(),
       ]);
       setSiswaList(students);
       setMetrics(metricsData);
       setPaketList(packages.filter((p) => p.termasuk_sim));
+      setSimConfig(simCfg);
     } catch (e) {
       console.error('Error loading SIM data:', e);
     } finally {
       setLoading(false);
     }
   }, [datePreset, startDate, endDate, filterPaket]);
+
+  const handleSaveSimConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSimConfig(true);
+    setSimConfigSuccess(false);
+    try {
+      const res = await saveModalSimSettings(simConfig.hargaDefault, simConfig.configPerJenis);
+      if (res.success) {
+        setSimConfigSuccess(true);
+        setTimeout(() => {
+          setIsSimConfigModalOpen(false);
+          setSimConfigSuccess(false);
+        }, 1200);
+      } else {
+        alert(res.error || 'Gagal menyimpan pengaturan modal SIM');
+      }
+    } catch (err) {
+      console.error('Error saving sim config:', err);
+    } finally {
+      setSavingSimConfig(false);
+    }
+  };
 
   React.useEffect(() => {
     loadData();
@@ -296,6 +332,25 @@ export default function ManajemenSimPage() {
       <PageHeader
         title="Manajemen SIM Siswa"
         description="Kelola penerbitan SIM, validasi status pelunasan siswa, dan arsip berkas SIM selesai terbit"
+        actions={
+          <div className="flex items-center gap-2">
+            <Link
+              href="/kas/pos"
+              className="px-3.5 py-1.5 border border-[var(--border)] bg-[var(--bg)] rounded-full text-xs font-semibold hover:bg-[var(--bg-subtle)] transition-all flex items-center gap-1.5 shadow-xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <span>POS Belanja SIM</span>
+            </Link>
+            <button
+              type="button"
+              onClick={() => setIsSimConfigModalOpen(true)}
+              className="px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
+            >
+              <SettingsIcon className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+              <span>Atur Modal SIM ({formatRupiah(simConfig.hargaDefault)})</span>
+            </button>
+          </div>
+        }
       />
 
       {/* Summary Metric Cards */}
@@ -1096,6 +1151,104 @@ export default function ManajemenSimPage() {
                 <span>Pelunasan di Detail Siswa &rarr;</span>
               </Link>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Pengaturan Modal SIM */}
+      {isSimConfigModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-md bg-[var(--bg)] rounded-2xl border border-[var(--border)] p-6 shadow-2xl space-y-4">
+            <div className="border-b border-[var(--border)] pb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600">
+                  <SettingsIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[var(--text-primary)]">
+                    Pengaturan Modal Penerbitan SIM
+                  </h3>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Biaya modal pembuatan SIM untuk POS Belanja Kas
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSimConfigModalOpen(false)}
+                className="text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSimConfig} className="space-y-4 text-xs">
+              <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl space-y-1 text-xs">
+                <span className="font-semibold text-[var(--text-primary)] block">
+                  Informasi Sinkronisasi POS:
+                </span>
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  Nominal ini otomatis digunakan sebagai nilai estimasi saat sistem meng-generate pos belanja modal penerbitan SIM bagi siswa yang telah lunas kursus.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                  Modal Standar / SIM A (Mobil) *
+                </label>
+                <CurrencyInput
+                  value={simConfig.hargaDefault}
+                  onChange={(val) =>
+                    setSimConfig((prev) => ({
+                      ...prev,
+                      hargaDefault: val,
+                      configPerJenis: { ...(prev.configPerJenis || {}), 'SIM A': val },
+                    }))
+                  }
+                  className="w-full text-base font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                  Modal SIM C (Motor - Opsional)
+                </label>
+                <CurrencyInput
+                  value={simConfig.configPerJenis?.['SIM C'] || 650000}
+                  onChange={(val) =>
+                    setSimConfig((prev) => ({
+                      ...prev,
+                      configPerJenis: { ...(prev.configPerJenis || {}), 'SIM C': val },
+                    }))
+                  }
+                  className="w-full text-base font-bold"
+                />
+              </div>
+
+              {simConfigSuccess && (
+                <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-600 font-bold text-center text-xs flex items-center justify-center gap-1.5 animate-fadeIn">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Pengaturan modal SIM berhasil disimpan!</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => setIsSimConfigModalOpen(false)}
+                  className="px-4 py-2 font-semibold rounded-xl border border-[var(--border)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)]"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingSimConfig}
+                  className="px-4 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] text-white font-bold rounded-xl shadow-sm flex items-center gap-1.5"
+                >
+                  {savingSimConfig ? 'Menyimpan...' : 'Simpan Pengaturan'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

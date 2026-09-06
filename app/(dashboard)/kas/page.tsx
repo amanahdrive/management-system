@@ -57,6 +57,7 @@ import {
   Loader2,
   Banknote,
   Car,
+  Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -794,6 +795,13 @@ export default function KasOverviewPage() {
                 <span>Setor Tunai</span>
               </button>
               <Link
+                href="/kas/pos"
+                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1 shadow-sm hover:-translate-y-0.5"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>POS Pengeluaran</span>
+              </Link>
+              <Link
                 href="/kas/cashflow"
                 className="px-3.5 py-1.5 border border-[var(--border)] bg-[var(--bg)] rounded-full text-xs font-semibold hover:bg-[var(--bg-subtle)] transition-all shadow-xs hover:-translate-y-0.5"
               >
@@ -817,16 +825,16 @@ export default function KasOverviewPage() {
           }
         />
 
-        {/* Financial Metrics Cards */}
+        {/* Financial Metrics Cards: Total Saldo Aktual - Saldo Tunai - Saldo Bank - Total Piutang - Total Hutang */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard
-            label="Total Saldo Kas Aktif"
+            label="Total Saldo Aktual"
             value={formatRupiah(metrics.saldoAktif)}
             icon={<Wallet className="w-5 h-5 text-emerald-600" />}
             description="Kas Fisik + Rekening Bank"
           />
           <StatCard
-            label="Saldo Kas Fisik (Tunai)"
+            label="Saldo Tunai"
             value={formatRupiah(metrics.saldoTunai)}
             icon={<ArrowDownRight className="w-5 h-5 text-amber-600" />}
             description="Uang tunai di brankas kantor"
@@ -834,13 +842,13 @@ export default function KasOverviewPage() {
             className="hover:border-emerald-500/50 cursor-pointer"
           />
           <StatCard
-            label="Saldo Bank (Non-Tunai)"
+            label="Saldo Bank"
             value={formatRupiah(metrics.saldoNonTunai)}
             icon={<ArrowUpRight className="w-5 h-5 text-blue-600" />}
             description="Rekening BCA/Mandiri/dll"
           />
           <StatCard
-            label="Total Piutang Beredar"
+            label="Total Piutang"
             value={formatRupiah(metrics.totalPiutang)}
             icon={<FileText className="w-5 h-5 text-amber-600" />}
             description={
@@ -850,7 +858,7 @@ export default function KasOverviewPage() {
             }
           />
           <StatCard
-            label="Sisa Hutang Perusahaan"
+            label="Total Hutang"
             value={formatRupiah(metrics.totalHutang)}
             icon={<FileText className="w-5 h-5 text-rose-600" />}
             description="Hutang vendor / leasing / operasional"

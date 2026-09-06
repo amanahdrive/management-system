@@ -8,6 +8,9 @@ import {
   saveSopTemplate,
   saveBbmPrices,
   saveInstructorSalarySettings,
+  getOperasionalSettings,
+  saveOperasionalSettings,
+  OperasionalSettings,
 } from '@/lib/actions/settings';
 import {
   sendTelegramMessageAction,
@@ -64,6 +67,9 @@ import {
   Copy,
   Star,
   Landmark,
+  Zap,
+  Wifi,
+  Droplets,
 } from 'lucide-react';
 
 const INITIAL_TELEGRAM_CONFIG: TelegramConfig = {
@@ -179,6 +185,19 @@ export default function SettingsPage() {
   const [savingSop, setSavingSop] = React.useState(false);
   const [sopSuccess, setSopSuccess] = React.useState(false);
 
+  // Operasional Pos Rutin (Token, WiFi, Air) Settings
+  const [opConfig, setOpConfig] = React.useState<OperasionalSettings>({
+    tokenNominal: 200000,
+    tokenTanggal: 5,
+    wifiNominal: 300000,
+    wifiTanggal: 10,
+    airNominal: 100000,
+    airTanggal: 20,
+    airFluktuatif: true,
+  });
+  const [savingOp, setSavingOp] = React.useState(false);
+  const [opSuccess, setOpSuccess] = React.useState(false);
+
   // PIN Protection & Change State
   const [pinEnabled, setPinEnabled] = React.useState(true);
   const [hasExistingPin, setHasExistingPin] = React.useState(true);
@@ -247,12 +266,13 @@ export default function SettingsPage() {
       setLoadingTelegram(true);
       setLoadingRekening(true);
       try {
-        const [genCfg, tgCfg, rekList, pinCfg, tgStatus] = await Promise.all([
+        const [genCfg, tgCfg, rekList, pinCfg, tgStatus, opCfg] = await Promise.all([
           getGeneralSettings(),
           getTelegramConfig(),
           getRekeningList(),
           getPinSettings(),
           checkTelegramConnection(),
+          getOperasionalSettings(),
         ]);
         if (!isMounted) return;
         setNamaPerusahaan(genCfg.namaPerusahaan);
@@ -268,6 +288,7 @@ export default function SettingsPage() {
         setRekeningList(rekList);
         setPinEnabled(pinCfg.isEnabled);
         setHasExistingPin(pinCfg.hasPin);
+        setOpConfig(opCfg);
       } catch (err) {
         console.error('Error loading settings:', err);
       } finally {
@@ -428,6 +449,20 @@ export default function SettingsPage() {
       setTimeout(() => setHonorSuccess(false), 3000);
     } else {
       alert('Gagal menyimpan tarif honor instruktur: ' + res.error);
+    }
+  };
+
+  const handleSaveOperasional = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingOp(true);
+    setOpSuccess(false);
+    const res = await saveOperasionalSettings(opConfig);
+    setSavingOp(false);
+    if (res.success) {
+      setOpSuccess(true);
+      setTimeout(() => setOpSuccess(false), 3000);
+    } else {
+      alert('Gagal menyimpan pengaturan operasional: ' + res.error);
     }
   };
 
@@ -984,6 +1019,143 @@ export default function SettingsPage() {
               )}
               <span>
                 {savingHonor ? 'Menyimpan...' : honorSuccess ? 'Tersimpan!' : 'Simpan Pengaturan Honor & Uang Makan'}
+              </span>
+            </button>
+          </form>
+        </div>
+
+        {/* Section: Pos Pengeluaran Rutin & Fluktuatif (Token, WiFi, Air) */}
+        <div className="card-container space-y-4">
+          <h3 className="font-bold text-sm text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
+            <Zap className="w-4 h-4 text-amber-500" />
+            Pos Pengeluaran Rutin & Fluktuatif Bulanan
+          </h3>
+
+          <form onSubmit={handleSaveOperasional} className="space-y-4 text-xs">
+            <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl space-y-1 text-xs">
+              <span className="font-semibold text-[var(--text-primary)] block">
+                Sinkronisasi Otomatis POS Kas:
+              </span>
+              <p className="text-[11px] text-[var(--text-secondary)]">
+                Parameter ini digunakan oleh modul POS Pengeluaran untuk meng-generate anggaran belanja rutin bulanan (Token Listrik, WiFi kantor, dan Air PDAM).
+              </p>
+            </div>
+
+            {/* Token Listrik */}
+            <div className="p-3 border border-[var(--border)] rounded-xl space-y-2 bg-[var(--bg)]">
+              <div className="flex items-center gap-1.5 font-bold text-[var(--text-primary)]">
+                <Zap className="w-3.5 h-3.5 text-amber-500" />
+                <span>1. Token Listrik Kantor</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <CurrencyInput
+                  label="Nominal Bulanan (Rp)"
+                  value={opConfig.tokenNominal}
+                  onChange={(val) => setOpConfig({ ...opConfig, tokenNominal: val })}
+                />
+                <div>
+                  <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                    Jatuh Tempo (Tgl)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={opConfig.tokenTanggal}
+                    onChange={(e) => setOpConfig({ ...opConfig, tokenTanggal: Number(e.target.value) || 1 })}
+                    className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
+                  />
+                  <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
+                    Tgl {opConfig.tokenTanggal} tiap bulan
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* WiFi Kantor */}
+            <div className="p-3 border border-[var(--border)] rounded-xl space-y-2 bg-[var(--bg)]">
+              <div className="flex items-center gap-1.5 font-bold text-[var(--text-primary)]">
+                <Wifi className="w-3.5 h-3.5 text-blue-500" />
+                <span>2. Internet WiFi Kantor</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <CurrencyInput
+                  label="Nominal Bulanan (Rp)"
+                  value={opConfig.wifiNominal}
+                  onChange={(val) => setOpConfig({ ...opConfig, wifiNominal: val })}
+                />
+                <div>
+                  <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                    Jatuh Tempo (Tgl)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={opConfig.wifiTanggal}
+                    onChange={(e) => setOpConfig({ ...opConfig, wifiTanggal: Number(e.target.value) || 1 })}
+                    className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
+                  />
+                  <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
+                    Tgl {opConfig.wifiTanggal} tiap bulan
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Air PDAM (Fluktuatif) */}
+            <div className="p-3 border border-teal-500/30 rounded-xl space-y-2 bg-teal-500/5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-bold text-teal-700 dark:text-teal-400">
+                  <Droplets className="w-3.5 h-3.5" />
+                  <span>3. Air PDAM Kantor (Fluktuatif)</span>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-teal-500/20 text-teal-700 dark:text-teal-300">
+                  Biaya Fluktuatif
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <CurrencyInput
+                  label="Estimasi Budget (Rp)"
+                  value={opConfig.airNominal}
+                  onChange={(val) => setOpConfig({ ...opConfig, airNominal: val })}
+                />
+                <div>
+                  <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
+                    Jatuh Tempo (Tgl)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={opConfig.airTanggal}
+                    onChange={(e) => setOpConfig({ ...opConfig, airTanggal: Number(e.target.value) || 1 })}
+                    className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
+                  />
+                  <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
+                    Tgl {opConfig.airTanggal} tiap bulan
+                  </span>
+                </div>
+              </div>
+              <p className="text-[10.5px] text-[var(--text-secondary)] italic">
+                * Tarif air PDAM fluktuatif mengikuti pemakaian meteran. Nilai di atas adalah plafon estimasi dan dapat disesuaikan riil saat tombol bayar diklik di POS Pengeluaran.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={savingOp}
+              className="w-full py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] disabled:opacity-50 text-white font-bold rounded-md flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+            >
+              {savingOp ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : opSuccess ? (
+                <Check className="w-3.5 h-3.5" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              <span>
+                {savingOp ? 'Menyimpan...' : opSuccess ? 'Tersimpan!' : 'Simpan Parameter Pos Operasional'}
               </span>
             </button>
           </form>
