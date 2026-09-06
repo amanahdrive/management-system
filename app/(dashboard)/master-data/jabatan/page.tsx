@@ -8,6 +8,7 @@ import { Jabatan } from '@/types/database';
 import { getJabatanList, upsertJabatan } from '@/lib/actions/master-data';
 import { Plus } from 'lucide-react';
 import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
+import { useAppRefresh } from '@/lib/utils/refresh-event';
 
 export default function MasterJabatanPage() {
   const [jabatanList, setJabatanList] = React.useState<Jabatan[]>([]);
@@ -26,6 +27,8 @@ export default function MasterJabatanPage() {
   React.useEffect(() => {
     loadData();
   }, []);
+
+  useAppRefresh(loadData);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

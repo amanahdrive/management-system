@@ -10,6 +10,7 @@ import { formatRupiah } from '@/lib/utils/currency';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
+import { useAppRefresh } from '@/lib/utils/refresh-event';
 
 export default function MasterPromosiPage() {
   const [promosiList, setPromosiList] = React.useState<Promosi[]>([]);
@@ -37,6 +38,8 @@ export default function MasterPromosiPage() {
   React.useEffect(() => {
     loadData();
   }, []);
+
+  useAppRefresh(loadData);
 
   const handleOpenAdd = () => {
     setEditing({

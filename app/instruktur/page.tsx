@@ -24,6 +24,8 @@ import { sound } from '@/lib/sound/SoundFX';
 import { HeroInstructorCockpit } from '@/components/instruktur/HeroInstructorCockpit';
 import { EstimasiGajiModal } from '@/components/instruktur/EstimasiGajiModal';
 import { FloatingInstructorNav } from '@/components/instruktur/FloatingInstructorNav';
+import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
+import { purgeServerCache } from '@/lib/actions/cache';
 import {
   Calendar,
   ChevronLeft,
@@ -124,11 +126,20 @@ export default function InstrukturPortalPage() {
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
-    await loadInstructorSchedule();
-    setIsRefreshing(false);
-    sound.playConfirmChime();
-    showToast('Data jadwal berhasil diperbarui!');
+    try {
+      await purgeServerCache();
+      await loadInstructorSchedule();
+      triggerAppRefresh();
+      sound.playConfirmChime();
+      showToast('Data jadwal berhasil disinkronkan & diperbarui!');
+    } catch (err) {
+      console.error('Error refreshing instructor schedule:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
+
+  useAppRefresh(handleManualRefresh);
 
   const handleSelectInstruktur = (id: string) => {
     sound.playTactileClick();

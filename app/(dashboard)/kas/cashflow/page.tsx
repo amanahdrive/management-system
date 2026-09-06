@@ -59,6 +59,8 @@ const BULAN_LIST = [
   { no: 12, code: '12', short: 'Des', long: 'Desember' },
 ];
 
+import { useAppRefresh } from '@/lib/utils/refresh-event';
+
 export default function CashflowPage() {
   const [transaksiList, setTransaksiList] = React.useState<KasTransaksi[]>([]);
   const [kategoriList, setKategoriList] = React.useState<any[]>([]);
@@ -112,6 +114,8 @@ export default function CashflowPage() {
   React.useEffect(() => {
     loadData();
   }, []);
+
+  useAppRefresh(loadData);
 
   // Daftar tahun transaksi kas
   const availableYears = React.useMemo(() => {

@@ -7,17 +7,25 @@ import { ColumnDef } from '@tanstack/react-table';
 import { StatusPembayaranMaster } from '@/types/database';
 import { getStatusPembayaranMaster } from '@/lib/actions/master-data';
 import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
+import { useAppRefresh } from '@/lib/utils/refresh-event';
 
 export default function MasterStatusPembayaranPage() {
   const [list, setList] = React.useState<StatusPembayaranMaster[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  React.useEffect(() => {
+  const loadData = React.useCallback(() => {
+    setLoading(true);
     getStatusPembayaranMaster().then((res) => {
       setList(res);
       setLoading(false);
     });
   }, []);
+
+  React.useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useAppRefresh(loadData);
 
   const columns: ColumnDef<StatusPembayaranMaster>[] = [
     { accessorKey: 'kode', header: 'Kode Status', sortingFn: 'alphanumeric' },

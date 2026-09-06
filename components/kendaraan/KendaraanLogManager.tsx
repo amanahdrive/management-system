@@ -44,6 +44,7 @@ import {
   Activity,
   Layers,
 } from 'lucide-react';
+import { useAppRefresh } from '@/lib/utils/refresh-event';
 
 interface KendaraanLogManagerProps {
   kendaraanList: Kendaraan[];
@@ -137,6 +138,8 @@ export function KendaraanLogManager({
   React.useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useAppRefresh(loadData);
 
   // Handle Preset Changes
   const handlePresetChange = (preset: DatePreset) => {

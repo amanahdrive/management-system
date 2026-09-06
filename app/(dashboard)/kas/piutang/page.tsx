@@ -51,6 +51,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+import { useAppRefresh } from '@/lib/utils/refresh-event';
+
 type PeriodOption = 'this_month' | 'last_month' | 'this_year' | 'all' | 'custom';
 
 export default function PiutangPage() {
@@ -115,6 +117,8 @@ export default function PiutangPage() {
   React.useEffect(() => {
     loadData();
   }, []);
+
+  useAppRefresh(loadData);
 
   // Compute Period Bounds
   const periodBounds = React.useMemo(() => {

@@ -20,6 +20,8 @@ import { KendaraanLogManager } from '@/components/kendaraan/KendaraanLogManager'
 import { Gauge, Wrench, Fuel, Sparkles, Disc, ArrowLeft, AlertOctagon } from 'lucide-react';
 import Link from 'next/link';
 
+import { useAppRefresh } from '@/lib/utils/refresh-event';
+
 export default function KendaraanDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -60,6 +62,8 @@ export default function KendaraanDetailPage() {
   React.useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useAppRefresh(loadData);
 
   if (loading || !kendaraan) {
     return <div className="h-64 card-container animate-pulse bg-black/5 dark:bg-white/5 rounded-2xl" />;

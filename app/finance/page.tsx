@@ -39,6 +39,8 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { PwaInstallModal } from '@/components/shared/PwaInstallModal';
 import { LiquidGlassBottomNav } from '@/components/navigation/LiquidGlassBottomNav';
+import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
+import { purgeServerCache } from '@/lib/actions/cache';
 import {
   TrendingUp,
   TrendingDown,
@@ -424,11 +426,20 @@ export default function FinancePortalPage() {
     }
   };
 
+  useAppRefresh(loadData);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await loadData();
-    setIsRefreshing(false);
-    showToast('Data keuangan berhasil diperbarui');
+    try {
+      await purgeServerCache();
+      await loadData();
+      triggerAppRefresh();
+      showToast('Data keuangan berhasil disinkronkan & diperbarui');
+    } catch (err) {
+      console.error('Error refreshing finance data:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const showToast = (msg: string) => {

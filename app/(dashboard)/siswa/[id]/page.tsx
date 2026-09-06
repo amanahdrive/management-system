@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+import { useAppRefresh } from '@/lib/utils/refresh-event';
+
 export default function SiswaDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -39,8 +41,9 @@ export default function SiswaDetailPage() {
   const [jadwalList, setJadwalList] = React.useState<JadwalSesi[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  React.useEffect(() => {
+  const loadData = React.useCallback(() => {
     if (id) {
+      setLoading(true);
       Promise.all([
         getSiswaById(id),
         getSiswaPaymentHistory(id),
@@ -53,6 +56,12 @@ export default function SiswaDetailPage() {
       });
     }
   }, [id]);
+
+  React.useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useAppRefresh(loadData);
 
   if (loading) {
     return <div className="h-64 card-container animate-pulse bg-black/5 dark:bg-white/5" />;

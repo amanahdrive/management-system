@@ -35,7 +35,10 @@ import {
   History,
   Sliders,
   Sparkles,
+  RefreshCw,
 } from 'lucide-react';
+import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
+import { purgeServerCache } from '@/lib/actions/cache';
 import Link from 'next/link';
 
 type PeriodOption = 'this_month' | 'last_month' | 'this_year' | 'all' | 'custom';
@@ -82,6 +85,18 @@ export default function SertifikatPage() {
   React.useEffect(() => {
     loadData();
   }, []);
+
+  useAppRefresh(loadData);
+
+  const handleManualSync = async () => {
+    try {
+      await purgeServerCache();
+      await loadData();
+      triggerAppRefresh();
+    } catch (e) {
+      console.error('Error syncing sertifikat:', e);
+    }
+  };
 
   // Compute Period Bounds
   const periodBounds = React.useMemo(() => {
@@ -309,6 +324,18 @@ export default function SertifikatPage() {
         title="Sertifikat Siswa"
         description="Penerbitan dan pencetakan sertifikat kelulusan berbasis Template Canva Resmi Amanah Drive (A4 Landscape)"
         breadcrumbs={[{ label: 'Siswa', href: '/siswa' }, { label: 'Sertifikat Siswa' }]}
+        actions={
+          <button
+            type="button"
+            onClick={handleManualSync}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full text-xs font-semibold transition-all shadow-xs active:scale-95 hover:-translate-y-0.5 text-[var(--text-primary)]"
+            title="Sinkronkan data sertifikat dengan database terbaru"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
+            <span>{loading ? 'Menyinkronkan...' : 'Sinkronkan Sertifikat'}</span>
+          </button>
+        }
       />
 
       {/* Summary Metrics */}

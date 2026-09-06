@@ -9,6 +9,7 @@ import { getKendaraanMasterList, upsertKendaraanMaster, deleteKendaraan } from '
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Plus, Car, Trash2, Edit2, Eye } from 'lucide-react';
 import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
+import { useAppRefresh } from '@/lib/utils/refresh-event';
 import Link from 'next/link';
 
 export default function MasterKendaraanPage() {
@@ -40,6 +41,8 @@ export default function MasterKendaraanPage() {
   React.useEffect(() => {
     loadData();
   }, []);
+
+  useAppRefresh(loadData);
 
   const handleOpenAdd = () => {
     setEditing({

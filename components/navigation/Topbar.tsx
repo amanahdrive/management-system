@@ -7,6 +7,8 @@ import { useUiStore } from '@/lib/store/ui-store';
 import { RefreshCw, Check, Volume2, VolumeX } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { sound } from '@/lib/sound/SoundFX';
+import { purgeServerCache } from '@/lib/actions/cache';
+import { triggerAppRefresh } from '@/lib/utils/refresh-event';
 
 export function Topbar() {
   const { sidebarOpen } = useUiStore();
@@ -48,19 +50,27 @@ export function Topbar() {
 
   const handleRefreshDatabase = async () => {
     setIsRefreshing(true);
-    router.refresh();
-    const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    const s = String(now.getSeconds()).padStart(2, '0');
-    setLastSyncTime(`${h}:${m}:${s} WIB`);
-    sound.playConfirmChime();
+    try {
+      await purgeServerCache();
+      router.refresh();
+      triggerAppRefresh();
 
-    setTimeout(() => {
-      setIsRefreshing(false);
-      setToastMessage('Database berhasil disinkronkan & diperbarui!');
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const s = String(now.getSeconds()).padStart(2, '0');
+      setLastSyncTime(`${h}:${m}:${s} WIB`);
+      sound.playConfirmChime();
+
+      setToastMessage('Database & data tampilan berhasil disinkronkan!');
       setTimeout(() => setToastMessage(null), 3000);
-    }, 600);
+    } catch (err) {
+      console.error('Error refreshing database:', err);
+    } finally {
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 500);
+    }
   };
 
   return (

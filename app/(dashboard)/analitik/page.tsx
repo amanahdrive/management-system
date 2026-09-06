@@ -23,7 +23,10 @@ import {
   Fuel,
   Printer,
   Info,
+  RefreshCw,
 } from 'lucide-react';
+import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
+import { purgeServerCache } from '@/lib/actions/cache';
 
 // Dynamic import for Recharts to avoid SSR hydration mismatches
 const AnalitikCashflowChart = dynamic(
@@ -74,6 +77,18 @@ export default function AnalitikPage() {
     loadData();
   }, [loadData]);
 
+  useAppRefresh(loadData);
+
+  const handleManualSync = async () => {
+    try {
+      await purgeServerCache();
+      await loadData();
+      triggerAppRefresh();
+    } catch (e) {
+      console.error('Error syncing analitik:', e);
+    }
+  };
+
   if (loading || !data) {
     return (
       <div className="space-y-6">
@@ -111,6 +126,16 @@ export default function AnalitikPage() {
 
         {/* Period Buttons */}
         <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            onClick={handleManualSync}
+            disabled={loading}
+            className="px-3 py-1.5 border border-[var(--border)] bg-[var(--bg)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-primary)] text-xs font-semibold rounded-none transition-all flex items-center gap-1.5 active:scale-95 shadow-2xs"
+            title="Sinkronkan data analitik dengan database terbaru"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${loading ? 'animate-spin' : ''}`} />
+            <span>{loading ? 'Menyinkronkan...' : 'Sinkronkan Analitik'}</span>
+          </button>
           <div className="flex items-center p-0.5 rounded-none bg-[var(--bg-subtle)] border border-[var(--border)] text-xs font-semibold">
             {(
               [

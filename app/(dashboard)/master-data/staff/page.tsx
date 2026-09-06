@@ -8,6 +8,7 @@ import { Staff, Jabatan } from '@/types/database';
 import { getStaffList, getJabatanList, upsertStaff } from '@/lib/actions/master-data';
 import { Plus, Edit2, Check, Calendar, Clock, Sparkles } from 'lucide-react';
 import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
+import { useAppRefresh } from '@/lib/utils/refresh-event';
 
 const HARI_OPTIONS = [
   { id: 'senin', label: 'Senin' },
@@ -59,6 +60,8 @@ export default function MasterStaffPage() {
   React.useEffect(() => {
     loadData();
   }, []);
+
+  useAppRefresh(loadData);
 
   const handleOpenAdd = () => {
     setEditingStaff({

@@ -11,6 +11,7 @@ import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { Plus, Edit2 } from 'lucide-react';
 
 import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
+import { useAppRefresh } from '@/lib/utils/refresh-event';
 
 export default function MasterPaketPage() {
   const [paketList, setPaketList] = React.useState<Paket[]>([]);
@@ -31,6 +32,8 @@ export default function MasterPaketPage() {
   React.useEffect(() => {
     loadData();
   }, []);
+
+  useAppRefresh(loadData);
 
   const handleOpenAdd = () => {
     setEditingPaket({

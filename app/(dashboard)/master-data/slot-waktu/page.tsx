@@ -8,6 +8,7 @@ import { SlotWaktu } from '@/types/database';
 import { getSlotWaktuList, upsertSlotWaktu } from '@/lib/actions/master-data';
 import { Edit2 } from 'lucide-react';
 import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
+import { useAppRefresh } from '@/lib/utils/refresh-event';
 import { TimePicker24H } from '@/components/shared/TimePicker24H';
 
 export default function MasterSlotWaktuPage() {
@@ -27,6 +28,8 @@ export default function MasterSlotWaktuPage() {
   React.useEffect(() => {
     loadData();
   }, []);
+
+  useAppRefresh(loadData);
 
   const handleOpenEdit = (slot: SlotWaktu) => {
     setEditingSlot(slot);

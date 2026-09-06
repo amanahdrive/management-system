@@ -40,6 +40,8 @@ import Link from 'next/link';
 
 type PeriodOption = 'this_month' | 'last_month' | 'this_year' | 'all' | 'custom';
 
+import { useAppRefresh } from '@/lib/utils/refresh-event';
+
 export default function HutangPage() {
   const [hutangList, setHutangList] = React.useState<Hutang[]>([]);
   const [pembayaranList, setPembayaranList] = React.useState<HutangPembayaranDetail[]>([]);
@@ -108,6 +110,8 @@ export default function HutangPage() {
   React.useEffect(() => {
     loadData();
   }, []);
+
+  useAppRefresh(loadData);
 
   // Compute Period Bounds
   const periodBounds = React.useMemo(() => {

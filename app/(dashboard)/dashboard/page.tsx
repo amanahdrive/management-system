@@ -22,7 +22,10 @@ import {
   Receipt,
   ChevronRight,
   BarChart3,
+  RefreshCw,
 } from 'lucide-react';
+import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
+import { purgeServerCache } from '@/lib/actions/cache';
 
 const DashboardCharts = dynamic(
   () => import('@/components/dashboard/DashboardCharts').then((mod) => mod.DashboardCharts),
@@ -40,6 +43,7 @@ const DashboardCharts = dynamic(
 export default function DashboardPage() {
   const [metrics, setMetrics] = React.useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [isSyncing, setIsSyncing] = React.useState(false);
   const [sesiFilter, setSesiFilter] = React.useState<'all' | 'terjadwal' | 'selesai'>('all');
 
   const loadData = React.useCallback(async () => {
@@ -57,6 +61,20 @@ export default function DashboardPage() {
   React.useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Subscribe to app-wide refresh events
+  useAppRefresh(loadData);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      await purgeServerCache();
+      await loadData();
+      triggerAppRefresh();
+    } finally {
+      setTimeout(() => setIsSyncing(false), 400);
+    }
+  };
 
   if (loading || !metrics) {
     return (
@@ -93,6 +111,16 @@ export default function DashboardPage() {
 
         {/* Quick Action Buttons */}
         <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className="px-3 py-1.5 border border-[var(--border)] bg-[var(--bg)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-primary)] text-xs font-semibold rounded-xl shadow-2xs transition-all flex items-center gap-1.5 active:scale-95"
+            title="Sinkronkan data dashboard dengan database terbaru"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Menyinkronkan...' : 'Sinkronkan Data'}</span>
+          </button>
           <Link
             href="/siswa"
             className="px-3 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-xl shadow-2xs transition-colors flex items-center gap-1.5"

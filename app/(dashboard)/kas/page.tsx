@@ -35,6 +35,8 @@ import {
 } from '@/lib/constants/finance';
 import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 import { Siswa, Paket, RekeningBank, KasTransaksi, Hutang, Staff, StaffKasbonSummary, Kendaraan } from '@/types/database';
+import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
+import { purgeServerCache } from '@/lib/actions/cache';
 import {
   Wallet,
   ArrowUpRight,
@@ -285,6 +287,18 @@ export default function KasOverviewPage() {
   React.useEffect(() => {
     loadData();
   }, []);
+
+  useAppRefresh(loadData);
+
+  const handleManualSync = async () => {
+    try {
+      await purgeServerCache();
+      await loadData();
+      triggerAppRefresh();
+    } catch (e) {
+      console.error('Error syncing kas:', e);
+    }
+  };
 
   const handleDeleteConfirm = async () => {
     if (!deletingId) return;
@@ -762,7 +776,7 @@ export default function KasOverviewPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={loadData}
+                onClick={handleManualSync}
                 disabled={loading}
                 className="px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
                 title="Muat ulang sinkronisasi data dari database"

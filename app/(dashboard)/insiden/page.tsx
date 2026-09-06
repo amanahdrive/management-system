@@ -53,7 +53,10 @@ import {
   Wrench,
   ChevronRight,
   ExternalLink,
+  RefreshCw,
 } from 'lucide-react';
+import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
+import { purgeServerCache } from '@/lib/actions/cache';
 import Link from 'next/link';
 
 const KATEGORI_OPTIONS: { value: KategoriInsidenEnum; label: string }[] = [
@@ -253,6 +256,18 @@ export default function InsidenPage() {
     loadData();
   }, [loadData]);
 
+  useAppRefresh(loadData);
+
+  const handleManualSync = async () => {
+    try {
+      await purgeServerCache();
+      await loadData();
+      triggerAppRefresh();
+    } catch (e) {
+      console.error('Error syncing insiden:', e);
+    }
+  };
+
   // Open Form for Create
   const handleOpenCreateModal = () => {
     setEditingInsiden(null);
@@ -403,13 +418,24 @@ export default function InsidenPage() {
         description="Pencatatan komprehensif insiden operasional, kecelakaan, kerusakan armada mobil, komplain siswa, dan riwayat penanganan klaim"
         breadcrumbs={[{ label: 'Operasional' }, { label: 'Data Insiden' }]}
         actions={
-          <button
-            onClick={handleOpenCreateModal}
-            className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            <span>+ Input Insiden Baru</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleManualSync}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-2 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] text-[var(--text-primary)] text-xs font-semibold rounded-xl transition-all shadow-xs active:scale-95"
+              title="Sinkronkan data insiden dengan database terbaru"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${loading ? 'animate-spin' : ''}`} />
+              <span>{loading ? 'Menyinkronkan...' : 'Sinkronkan'}</span>
+            </button>
+            <button
+              onClick={handleOpenCreateModal}
+              className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Input Insiden Baru</span>
+            </button>
+          </div>
         }
       />
 
