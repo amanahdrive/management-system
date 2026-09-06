@@ -466,28 +466,13 @@ export default function HutangPage() {
           description="Pencatatan pinjaman modal & cicilan armada kendaraan Amanah Drive dengan fitur edit, hapus, dan riwayat pembayaran"
           breadcrumbs={[{ label: 'Kas', href: '/kas' }, { label: 'Hutang' }]}
           actions={
-            <div className="flex items-center gap-2">
-              <Link
-                href="/kas/piutang"
-                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-md flex items-center gap-1.5 transition-colors"
-              >
-                <span>Piutang Siswa</span>
-              </Link>
-              <button
-                onClick={() => setIsAddModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-md transition-colors shadow-sm"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ Catat Hutang Baru</span>
-              </button>
-              <Link
-                href="/kas"
-                className="px-3 py-1.5 border border-[var(--border)] rounded-md text-xs font-medium flex items-center gap-1 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Kembali</span>
-              </Link>
-            </div>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-md transition-colors shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Catat Hutang Baru</span>
+            </button>
           }
         />
 

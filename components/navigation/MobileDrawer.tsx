@@ -3,37 +3,73 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Wallet, Database, Settings, ShieldCheck, X, AlertOctagon, IdCard, BarChart3 } from 'lucide-react';
+import {
+  Wallet,
+  Database,
+  Settings,
+  ShieldCheck,
+  X,
+  AlertOctagon,
+  IdCard,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  FileSpreadsheet,
+  Sparkles,
+  CreditCard,
+  Landmark,
+  Package,
+  Tag,
+  Users,
+  Car,
+  Clock,
+} from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
+
+const KAS_SUB_ITEMS = [
+  { label: 'Overview Kas', href: '/kas', icon: Wallet },
+  { label: 'Buku Besar (Cashflow)', href: '/kas/cashflow', icon: FileSpreadsheet },
+  { label: 'Pos Pengeluaran', href: '/kas/pos', icon: Sparkles },
+  { label: 'Manajemen Piutang', href: '/kas/piutang', icon: CreditCard },
+  { label: 'Manajemen Hutang', href: '/kas/hutang', icon: Landmark },
+];
+
+const MASTER_SUB_ITEMS = [
+  { label: 'Paket Kursus', href: '/master-data/paket', icon: Package },
+  { label: 'Promosi Campaign', href: '/master-data/promosi', icon: Tag },
+  { label: 'Staff & Instruktur', href: '/master-data/staff', icon: Users },
+  { label: 'Daftar Jabatan', href: '/master-data/jabatan', icon: ShieldCheck },
+  { label: 'Master Kendaraan', href: '/master-data/kendaraan', icon: Car },
+  { label: 'Status Pembayaran', href: '/master-data/status-pembayaran', icon: CreditCard },
+  { label: 'Slot Waktu', href: '/master-data/slot-waktu', icon: Clock },
+];
 
 export function MobileDrawer() {
   const pathname = usePathname();
   const { mobileDrawerOpen, setMobileDrawerOpen } = useUiStore();
 
-  if (!mobileDrawerOpen) return null;
+  const isKasActive = pathname.startsWith('/kas');
+  const [kasExpanded, setKasExpanded] = React.useState(isKasActive);
 
-  const EXTRA_NAV = [
-    { label: 'Pusat Analitik & Laporan', href: '/analitik', icon: BarChart3 },
-    { label: 'Manajemen SIM Siswa', href: '/sim', icon: IdCard },
-    { label: 'Data Insiden Operasional', href: '/insiden', icon: AlertOctagon },
-    { label: 'Portal Instruktur (View)', href: '/instruktur', icon: ShieldCheck },
-    { label: 'Kas & Keuangan', href: '/kas', icon: Wallet },
-    { label: 'Master Data Paket', href: '/master-data/paket', icon: Database },
-    { label: 'Master Data Promosi', href: '/master-data/promosi', icon: Database },
-    { label: 'Master Data Staff', href: '/master-data/staff', icon: Database },
-    { label: 'Master Data Jabatan', href: '/master-data/jabatan', icon: Database },
-    { label: 'Master Data Kendaraan', href: '/master-data/kendaraan', icon: Database },
-    { label: 'Master Data Status Pembayaran', href: '/master-data/status-pembayaran', icon: Database },
-    { label: 'Master Data Slot Waktu', href: '/master-data/slot-waktu', icon: Database },
-    { label: 'Pengaturan Sistem', href: '/settings', icon: Settings },
-  ];
+  const isMasterActive = pathname.startsWith('/master-data');
+  const [masterExpanded, setMasterExpanded] = React.useState(isMasterActive);
+
+  React.useEffect(() => {
+    if (isKasActive) setKasExpanded(true);
+  }, [isKasActive]);
+
+  React.useEffect(() => {
+    if (isMasterActive) setMasterExpanded(true);
+  }, [isMasterActive]);
+
+  if (!mobileDrawerOpen) return null;
 
   return (
     <div className="md:hidden fixed inset-0 z-50 bg-black/60 flex justify-end">
-      <div className="w-4/5 max-w-xs bg-[var(--bg)] h-full p-4 flex flex-col justify-between animate-in slide-in-from-right">
+      <div className="w-4/5 max-w-xs bg-[var(--bg)] h-full p-4 flex flex-col justify-between animate-in slide-in-from-right overflow-y-auto">
         <div>
           <div className="flex items-center justify-between pb-4 border-b border-[var(--border)] mb-4">
-            <h3 className="font-bold text-base text-[var(--text-primary)]">Menu Lainnya</h3>
+            <h3 className="font-bold text-base text-[var(--text-primary)]">Menu Navigasi</h3>
             <button
               onClick={() => setMobileDrawerOpen(false)}
               aria-label="Tutup Menu Navigasi"
@@ -44,30 +80,162 @@ export function MobileDrawer() {
           </div>
 
           <div className="space-y-1">
-            {EXTRA_NAV.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname.startsWith(item.href);
+            <Link
+              href="/analitik"
+              onClick={() => setMobileDrawerOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
+                pathname.startsWith('/analitik')
+                  ? 'bg-[var(--brand-primary)] text-white font-semibold'
+                  : 'text-[var(--text-primary)] hover:bg-[var(--brand-primary-light)]'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Pusat Analitik & Laporan</span>
+            </Link>
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileDrawerOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
-                    isActive
-                      ? 'bg-[var(--brand-primary)] text-white font-semibold'
-                      : 'text-[var(--text-primary)] hover:bg-[var(--brand-primary-light)]'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
+            <Link
+              href="/sim"
+              onClick={() => setMobileDrawerOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
+                pathname.startsWith('/sim')
+                  ? 'bg-[var(--brand-primary)] text-white font-semibold'
+                  : 'text-[var(--text-primary)] hover:bg-[var(--brand-primary-light)]'
+              }`}
+            >
+              <IdCard className="w-4 h-4" />
+              <span>Manajemen SIM Siswa</span>
+            </Link>
+
+            <Link
+              href="/insiden"
+              onClick={() => setMobileDrawerOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
+                pathname.startsWith('/insiden')
+                  ? 'bg-[var(--brand-primary)] text-white font-semibold'
+                  : 'text-[var(--text-primary)] hover:bg-[var(--brand-primary-light)]'
+              }`}
+            >
+              <AlertOctagon className="w-4 h-4" />
+              <span>Data Insiden Operasional</span>
+            </Link>
+
+            <Link
+              href="/instruktur"
+              onClick={() => setMobileDrawerOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
+                pathname.startsWith('/instruktur')
+                  ? 'bg-[var(--brand-primary)] text-white font-semibold'
+                  : 'text-[var(--text-primary)] hover:bg-[var(--brand-primary-light)]'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>Portal Instruktur</span>
+            </Link>
+
+            {/* Collapsible Kas & Keuangan */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setKasExpanded((prev) => !prev)}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
+                  isKasActive
+                    ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+                    : 'text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Wallet className="w-4 h-4" />
+                  <span>Kas & Keuangan</span>
+                </div>
+                {kasExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+
+              {kasExpanded && (
+                <div className="pl-6 pt-1 space-y-1 border-l-2 border-[var(--border)] ml-4 my-1">
+                  {KAS_SUB_ITEMS.map((sub) => {
+                    const SubIcon = sub.icon;
+                    const isSubActive = pathname === sub.href;
+
+                    return (
+                      <Link
+                        key={sub.href}
+                        href={sub.href}
+                        onClick={() => setMobileDrawerOpen(false)}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors ${
+                          isSubActive
+                            ? 'bg-[var(--brand-primary)] text-white font-semibold'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        <SubIcon className="w-3.5 h-3.5" />
+                        <span>{sub.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Collapsible Master Data */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setMasterExpanded((prev) => !prev)}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
+                  isMasterActive
+                    ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+                    : 'text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Database className="w-4 h-4" />
+                  <span>Master Data</span>
+                </div>
+                {masterExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+
+              {masterExpanded && (
+                <div className="pl-6 pt-1 space-y-1 border-l-2 border-[var(--border)] ml-4 my-1">
+                  {MASTER_SUB_ITEMS.map((sub) => {
+                    const SubIcon = sub.icon;
+                    const isSubActive = pathname === sub.href;
+
+                    return (
+                      <Link
+                        key={sub.href}
+                        href={sub.href}
+                        onClick={() => setMobileDrawerOpen(false)}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors ${
+                          isSubActive
+                            ? 'bg-[var(--brand-primary)] text-white font-semibold'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        <SubIcon className="w-3.5 h-3.5" />
+                        <span>{sub.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <Link
+              href="/settings"
+              onClick={() => setMobileDrawerOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
+                pathname.startsWith('/settings')
+                  ? 'bg-[var(--brand-primary)] text-white font-semibold'
+                  : 'text-[var(--text-primary)] hover:bg-[var(--brand-primary-light)]'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span>Pengaturan Sistem</span>
+            </Link>
           </div>
         </div>
 
-        <div className="pt-4 border-t border-[var(--border)] text-[10px] text-[var(--text-secondary)]">
+        <div className="pt-4 border-t border-[var(--border)] text-[10px] text-[var(--text-secondary)] mt-6">
           <p className="font-semibold text-[var(--text-primary)]">Amanah Drive Mobile</p>
           <p>Admin Internal Tool v1.0</p>
         </div>

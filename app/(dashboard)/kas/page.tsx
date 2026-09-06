@@ -780,10 +780,10 @@ export default function KasOverviewPage() {
                 onClick={handleManualSync}
                 disabled={loading}
                 className="px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
-                title="Muat ulang sinkronisasi data dari database"
+                title="Muat ulang data dari database"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
-                <span>{loading ? 'Menyinkronkan...' : 'Sinkronkan Kas'}</span>
+                <span>{loading ? 'Menyegarkan...' : 'Refresh'}</span>
               </button>
               <button
                 type="button"
@@ -794,33 +794,6 @@ export default function KasOverviewPage() {
                 <Landmark className="w-3.5 h-3.5" />
                 <span>Setor Tunai</span>
               </button>
-              <Link
-                href="/kas/pos"
-                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1 shadow-sm hover:-translate-y-0.5"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>POS Pengeluaran</span>
-              </Link>
-              <Link
-                href="/kas/cashflow"
-                className="px-3.5 py-1.5 border border-[var(--border)] bg-[var(--bg)] rounded-full text-xs font-semibold hover:bg-[var(--bg-subtle)] transition-all shadow-xs hover:-translate-y-0.5"
-              >
-                Laporan Arus Kas
-              </Link>
-              <Link
-                href="/kas/piutang"
-                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1 shadow-sm hover:-translate-y-0.5"
-              >
-                <Wallet className="w-3.5 h-3.5" />
-                <span>Manajemen Piutang</span>
-              </Link>
-              <Link
-                href="/kas/hutang"
-                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1 shadow-sm hover:-translate-y-0.5"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Hutang Perusahaan</span>
-              </Link>
             </div>
           }
         />

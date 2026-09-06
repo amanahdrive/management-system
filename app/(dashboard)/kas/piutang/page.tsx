@@ -629,23 +629,14 @@ export default function PiutangPage() {
           description="Daftar piutang tagihan siswa kursus dan piutang kasbon karyawan / instruktur"
           breadcrumbs={[{ label: 'Kas', href: '/kas' }, { label: 'Manajemen Piutang' }]}
           actions={
-            <div className="flex items-center gap-3">
-              {activeTab === 'siswa' && (
-                <ExportButton
-                  data={filteredSiswaList}
-                  columns={exportColumns}
-                  filename="amanahdrive_piutang_siswa"
-                  title="Laporan Piutang Siswa Amanah Drive"
-                />
-              )}
-              <Link
-                href="/kas"
-                className="px-3.5 py-1.5 border border-[var(--border)] rounded-full text-xs font-semibold flex items-center gap-1.5 hover:bg-[var(--bg-subtle)] transition-all shadow-xs hover:-translate-y-0.5"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Kembali ke Kas</span>
-              </Link>
-            </div>
+            activeTab === 'siswa' ? (
+              <ExportButton
+                data={filteredSiswaList}
+                columns={exportColumns}
+                filename="amanahdrive_piutang_siswa"
+                title="Laporan Piutang Siswa Amanah Drive"
+              />
+            ) : null
           }
         />
 

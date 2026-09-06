@@ -333,23 +333,14 @@ export default function ManajemenSimPage() {
         title="Manajemen SIM Siswa"
         description="Kelola penerbitan SIM, validasi status pelunasan siswa, dan arsip berkas SIM selesai terbit"
         actions={
-          <div className="flex items-center gap-2">
-            <Link
-              href="/kas/pos"
-              className="px-3.5 py-1.5 border border-[var(--border)] bg-[var(--bg)] rounded-full text-xs font-semibold hover:bg-[var(--bg-subtle)] transition-all flex items-center gap-1.5 shadow-xs"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-              <span>POS Belanja SIM</span>
-            </Link>
-            <button
-              type="button"
-              onClick={() => setIsSimConfigModalOpen(true)}
-              className="px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
-            >
-              <SettingsIcon className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
-              <span>Atur Modal SIM ({formatRupiah(simConfig.hargaDefault)})</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsSimConfigModalOpen(true)}
+            className="px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
+          >
+            <SettingsIcon className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+            <span>Atur Modal SIM ({formatRupiah(simConfig.hargaDefault)})</span>
+          </button>
         }
       />
 

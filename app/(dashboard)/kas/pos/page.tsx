@@ -281,13 +281,6 @@ export default function PosPengeluaranPage() {
           description="Rencana belanja kas, otomasi penerbitan SIM, cicilan hutang, dan operasional rutin"
           actions={
             <div className="flex items-center gap-2 flex-wrap">
-              <Link
-                href="/kas"
-                className="px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Kembali ke Kas</span>
-              </Link>
               <button
                 type="button"
                 onClick={handleGenerateOtomatis}

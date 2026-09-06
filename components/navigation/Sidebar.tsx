@@ -26,8 +26,19 @@ import {
   AlertOctagon,
   Receipt,
   Award,
+  FileSpreadsheet,
+  Sparkles,
+  Landmark,
 } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
+
+const KAS_SUB_ITEMS = [
+  { label: 'Overview Kas', href: '/kas', icon: Wallet },
+  { label: 'Buku Besar (Cashflow)', href: '/kas/cashflow', icon: FileSpreadsheet },
+  { label: 'Pos Pengeluaran', href: '/kas/pos', icon: Sparkles },
+  { label: 'Manajemen Piutang', href: '/kas/piutang', icon: CreditCard },
+  { label: 'Manajemen Hutang', href: '/kas/hutang', icon: Landmark },
+];
 
 const MASTER_SUB_ITEMS = [
   { label: 'Paket Kursus', href: '/master-data/paket', icon: Package },
@@ -46,11 +57,20 @@ export function Sidebar() {
   const isMasterActive = pathname.startsWith('/master-data');
   const [masterExpanded, setMasterExpanded] = React.useState(isMasterActive);
 
+  const isKasActive = pathname.startsWith('/kas');
+  const [kasExpanded, setKasExpanded] = React.useState(isKasActive);
+
   React.useEffect(() => {
     if (isMasterActive) {
       setMasterExpanded(true);
     }
   }, [isMasterActive]);
+
+  React.useEffect(() => {
+    if (isKasActive) {
+      setKasExpanded(true);
+    }
+  }, [isKasActive]);
 
   const handleMasterClick = () => {
     if (!sidebarOpen) {
@@ -59,6 +79,15 @@ export function Sidebar() {
       return;
     }
     setMasterExpanded((prev) => !prev);
+  };
+
+  const handleKasClick = () => {
+    if (!sidebarOpen) {
+      setSidebarOpen(true);
+      setKasExpanded(true);
+      return;
+    }
+    setKasExpanded((prev) => !prev);
   };
 
   const navItemClass = (isActive: boolean) =>
@@ -197,14 +226,53 @@ export function Sidebar() {
           {sidebarOpen && <span className="whitespace-nowrap">Data Insiden</span>}
         </Link>
 
-        <Link
-          href="/kas"
-          className={navItemClass(pathname.startsWith('/kas'))}
-          title={!sidebarOpen ? 'Kas & Keuangan' : undefined}
-        >
-          <Wallet className="w-4 h-4 min-w-[16px]" />
-          {sidebarOpen && <span className="whitespace-nowrap">Kas & Keuangan</span>}
-        </Link>
+        {/* Kas & Keuangan Dropdown Item */}
+        <div>
+          <button
+            onClick={handleKasClick}
+            className={`w-full flex items-center ${
+              sidebarOpen ? 'justify-between px-3.5' : 'justify-center px-0'
+            } py-2.5 text-xs font-medium transition-colors border-l-2 ${
+              isKasActive
+                ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+                : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
+            }`}
+            title={!sidebarOpen ? 'Kas & Keuangan' : undefined}
+          >
+            <div className="flex items-center gap-3">
+              <Wallet className="w-4 h-4 min-w-[16px]" />
+              {sidebarOpen && <span className="whitespace-nowrap">Kas & Keuangan</span>}
+            </div>
+            {sidebarOpen && (
+              kasExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+            )}
+          </button>
+
+          {/* Expanded Kas Sub Menu List */}
+          {sidebarOpen && kasExpanded && (
+            <div className="pl-4 pt-1 space-y-1 border-l border-[var(--border)] ml-5 my-1.5">
+              {KAS_SUB_ITEMS.map((sub) => {
+                const SubIcon = sub.icon;
+                const isSubActive = pathname === sub.href;
+
+                return (
+                  <Link
+                    key={sub.href}
+                    href={sub.href}
+                    className={`flex items-center gap-2.5 px-3 py-1.5 text-xs font-normal transition-all rounded-lg border-l ${
+                      isSubActive
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+                        : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <SubIcon className="w-3.5 h-3.5" />
+                    <span>{sub.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         <Link
           href="/nota"
