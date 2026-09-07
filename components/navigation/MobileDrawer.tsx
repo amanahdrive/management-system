@@ -1,9 +1,10 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  LayoutDashboard,
   Wallet,
   Database,
   Settings,
@@ -23,8 +24,26 @@ import {
   Users,
   Car,
   Clock,
+  GraduationCap,
+  Calendar,
+  Award,
+  Receipt,
+  Smartphone,
+  ExternalLink,
 } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
+
+const SISWA_SUB_ITEMS = [
+  { label: 'Data Siswa', href: '/siswa', icon: Users },
+  { label: 'Jadwal Sesi', href: '/jadwal', icon: Calendar },
+  { label: 'Manajemen SIM', href: '/sim', icon: IdCard },
+  { label: 'Sertifikat Siswa', href: '/sertifikat', icon: Award },
+];
+
+const KENDARAAN_SUB_ITEMS = [
+  { label: 'Armada Kendaraan', href: '/kendaraan', icon: Car },
+  { label: 'Data Insiden', href: '/insiden', icon: AlertOctagon },
+];
 
 const KAS_SUB_ITEMS = [
   { label: 'Overview Kas', href: '/kas', icon: Wallet },
@@ -32,6 +51,7 @@ const KAS_SUB_ITEMS = [
   { label: 'Pos Pengeluaran', href: '/kas/pos', icon: Sparkles },
   { label: 'Manajemen Piutang', href: '/kas/piutang', icon: CreditCard },
   { label: 'Manajemen Hutang', href: '/kas/hutang', icon: Landmark },
+  { label: 'Cetak Nota', href: '/nota', icon: Receipt },
 ];
 
 const MASTER_SUB_ITEMS = [
@@ -44,15 +64,42 @@ const MASTER_SUB_ITEMS = [
   { label: 'Slot Waktu', href: '/master-data/slot-waktu', icon: Clock },
 ];
 
+const PWA_SUB_ITEMS = [
+  { label: 'Portal Instruktur', href: '/instruktur', icon: ShieldCheck },
+  { label: 'PWA Finance', href: '/finance', icon: Wallet },
+];
+
 export function MobileDrawer() {
   const pathname = usePathname();
   const { mobileDrawerOpen, setMobileDrawerOpen } = useUiStore();
 
-  const isKasActive = pathname.startsWith('/kas');
+  const isSiswaActive =
+    pathname.startsWith('/siswa') ||
+    pathname.startsWith('/sim') ||
+    pathname.startsWith('/sertifikat') ||
+    pathname.startsWith('/jadwal');
+  const [siswaExpanded, setSiswaExpanded] = React.useState(isSiswaActive);
+
+  const isKendaraanActive =
+    pathname.startsWith('/kendaraan') || pathname.startsWith('/insiden');
+  const [kendaraanExpanded, setKendaraanExpanded] = React.useState(isKendaraanActive);
+
+  const isKasActive = pathname.startsWith('/kas') || pathname.startsWith('/nota');
   const [kasExpanded, setKasExpanded] = React.useState(isKasActive);
 
   const isMasterActive = pathname.startsWith('/master-data');
   const [masterExpanded, setMasterExpanded] = React.useState(isMasterActive);
+
+  const isPwaActive = pathname.startsWith('/instruktur') || pathname.startsWith('/finance');
+  const [pwaExpanded, setPwaExpanded] = React.useState(isPwaActive);
+
+  React.useEffect(() => {
+    if (isSiswaActive) setSiswaExpanded(true);
+  }, [isSiswaActive]);
+
+  React.useEffect(() => {
+    if (isKendaraanActive) setKendaraanExpanded(true);
+  }, [isKendaraanActive]);
 
   React.useEffect(() => {
     if (isKasActive) setKasExpanded(true);
@@ -61,6 +108,10 @@ export function MobileDrawer() {
   React.useEffect(() => {
     if (isMasterActive) setMasterExpanded(true);
   }, [isMasterActive]);
+
+  React.useEffect(() => {
+    if (isPwaActive) setPwaExpanded(true);
+  }, [isPwaActive]);
 
   if (!mobileDrawerOpen) return null;
 
@@ -80,6 +131,21 @@ export function MobileDrawer() {
           </div>
 
           <div className="space-y-1">
+            {/* 1. Dashboard */}
+            <Link
+              href="/dashboard"
+              onClick={() => setMobileDrawerOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
+                pathname === '/dashboard'
+                  ? 'bg-[var(--brand-primary)] text-white font-semibold'
+                  : 'text-[var(--text-primary)] hover:bg-[var(--brand-primary-light)]'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              <span>Dashboard</span>
+            </Link>
+
+            {/* 2. Analitik */}
             <Link
               href="/analitik"
               onClick={() => setMobileDrawerOpen(false)}
@@ -93,46 +159,95 @@ export function MobileDrawer() {
               <span>Pusat Analitik & Laporan</span>
             </Link>
 
-            <Link
-              href="/sim"
-              onClick={() => setMobileDrawerOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
-                pathname.startsWith('/sim')
-                  ? 'bg-[var(--brand-primary)] text-white font-semibold'
-                  : 'text-[var(--text-primary)] hover:bg-[var(--brand-primary-light)]'
-              }`}
-            >
-              <IdCard className="w-4 h-4" />
-              <span>Manajemen SIM Siswa</span>
-            </Link>
+            {/* 3. Manajemen Siswa Dropdown */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setSiswaExpanded((prev) => !prev)}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
+                  isSiswaActive
+                    ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+                    : 'text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <GraduationCap className="w-4 h-4" />
+                  <span>Manajemen Siswa</span>
+                </div>
+                {siswaExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
 
-            <Link
-              href="/insiden"
-              onClick={() => setMobileDrawerOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
-                pathname.startsWith('/insiden')
-                  ? 'bg-[var(--brand-primary)] text-white font-semibold'
-                  : 'text-[var(--text-primary)] hover:bg-[var(--brand-primary-light)]'
-              }`}
-            >
-              <AlertOctagon className="w-4 h-4" />
-              <span>Data Insiden Operasional</span>
-            </Link>
+              {siswaExpanded && (
+                <div className="pl-6 pt-1 space-y-1 border-l-2 border-[var(--border)] ml-4 my-1">
+                  {SISWA_SUB_ITEMS.map((sub) => {
+                    const SubIcon = sub.icon;
+                    const isSubActive = pathname === sub.href || pathname.startsWith(`${sub.href}/`);
 
-            <Link
-              href="/instruktur"
-              onClick={() => setMobileDrawerOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
-                pathname.startsWith('/instruktur')
-                  ? 'bg-[var(--brand-primary)] text-white font-semibold'
-                  : 'text-[var(--text-primary)] hover:bg-[var(--brand-primary-light)]'
-              }`}
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Portal Instruktur</span>
-            </Link>
+                    return (
+                      <Link
+                        key={sub.href}
+                        href={sub.href}
+                        onClick={() => setMobileDrawerOpen(false)}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors ${
+                          isSubActive
+                            ? 'bg-[var(--brand-primary)] text-white font-semibold'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        <SubIcon className="w-3.5 h-3.5" />
+                        <span>{sub.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-            {/* Collapsible Kas & Keuangan */}
+            {/* 4. Kendaraan Dropdown */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setKendaraanExpanded((prev) => !prev)}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
+                  isKendaraanActive
+                    ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+                    : 'text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Car className="w-4 h-4" />
+                  <span>Kendaraan</span>
+                </div>
+                {kendaraanExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+
+              {kendaraanExpanded && (
+                <div className="pl-6 pt-1 space-y-1 border-l-2 border-[var(--border)] ml-4 my-1">
+                  {KENDARAAN_SUB_ITEMS.map((sub) => {
+                    const SubIcon = sub.icon;
+                    const isSubActive = pathname === sub.href || pathname.startsWith(`${sub.href}/`);
+
+                    return (
+                      <Link
+                        key={sub.href}
+                        href={sub.href}
+                        onClick={() => setMobileDrawerOpen(false)}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors ${
+                          isSubActive
+                            ? 'bg-[var(--brand-primary)] text-white font-semibold'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        <SubIcon className="w-3.5 h-3.5" />
+                        <span>{sub.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 5. Kas & Keuangan Dropdown */}
             <div>
               <button
                 type="button"
@@ -176,7 +291,7 @@ export function MobileDrawer() {
               )}
             </div>
 
-            {/* Collapsible Master Data */}
+            {/* 6. Master Data Dropdown */}
             <div>
               <button
                 type="button"
@@ -220,6 +335,60 @@ export function MobileDrawer() {
               )}
             </div>
 
+            {/* 7. PWA Portals Dropdown (Isolated Browsing Context) */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setPwaExpanded((prev) => !prev)}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
+                  isPwaActive
+                    ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+                    : 'text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Smartphone className="w-4 h-4" />
+                  <span>Portal PWA</span>
+                </div>
+                {pwaExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+
+              {pwaExpanded && (
+                <div className="pl-6 pt-1 space-y-1 border-l-2 border-[var(--border)] ml-4 my-1">
+                  {PWA_SUB_ITEMS.map((sub) => {
+                    const SubIcon = sub.icon;
+                    const isSubActive = pathname === sub.href;
+
+                    return (
+                      <a
+                        key={sub.href}
+                        href={sub.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setMobileDrawerOpen(false)}
+                        className={`flex items-center justify-between px-3 py-2 rounded-md text-xs transition-colors ${
+                          isSubActive
+                            ? 'bg-[var(--brand-primary)] text-white font-semibold'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                        }`}
+                        title={`${sub.label} (Buka di window PWA mandiri)`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <SubIcon className="w-3.5 h-3.5" />
+                          <span>{sub.label}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] text-[var(--brand-primary)] font-bold font-mono">
+                          <span>PWA</span>
+                          <ExternalLink className="w-3 h-3 text-[var(--text-muted)]" />
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 8. Pengaturan */}
             <Link
               href="/settings"
               onClick={() => setMobileDrawerOpen(false)}

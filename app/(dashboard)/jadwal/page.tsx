@@ -1024,7 +1024,7 @@ export default function JadwalPage() {
       <PageHeader
         title="Jadwal Sesi Mengemudi"
         description="Kelola penugasan siswa, instruktur, mobil, dan slot waktu harian"
-        breadcrumbs={[{ label: 'Operasional' }, { label: 'Jadwal Sesi' }]}
+        breadcrumbs={[{ label: 'Manajemen Siswa' }, { label: 'Jadwal Sesi' }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {/* 0. Sinkronkan Jadwal */}

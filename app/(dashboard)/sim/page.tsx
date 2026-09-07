@@ -334,6 +334,7 @@ export default function ManajemenSimPage() {
       <PageHeader
         title="Manajemen SIM Siswa"
         description="Kelola penerbitan SIM, validasi status pelunasan siswa, dan arsip berkas SIM selesai terbit"
+        breadcrumbs={[{ label: 'Manajemen Siswa' }, { label: 'Manajemen SIM' }]}
         actions={
           <button
             type="button"

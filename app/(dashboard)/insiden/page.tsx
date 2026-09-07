@@ -416,7 +416,7 @@ export default function InsidenPage() {
       <PageHeader
         title="Pencatatan Data Insiden & Kendala"
         description="Pencatatan komprehensif insiden operasional, kecelakaan, kerusakan armada mobil, komplain siswa, dan riwayat penanganan klaim"
-        breadcrumbs={[{ label: 'Operasional' }, { label: 'Data Insiden' }]}
+        breadcrumbs={[{ label: 'Kendaraan', href: '/kendaraan' }, { label: 'Data Insiden' }]}
         actions={
           <div className="flex items-center gap-2">
             <button

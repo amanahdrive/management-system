@@ -323,7 +323,7 @@ export default function SertifikatPage() {
       <PageHeader
         title="Sertifikat Siswa"
         description="Penerbitan dan pencetakan sertifikat kelulusan berbasis Template Canva Resmi Amanah Drive (A4 Landscape)"
-        breadcrumbs={[{ label: 'Siswa', href: '/siswa' }, { label: 'Sertifikat Siswa' }]}
+        breadcrumbs={[{ label: 'Manajemen Siswa', href: '/siswa' }, { label: 'Sertifikat Siswa' }]}
         actions={
           <button
             type="button"

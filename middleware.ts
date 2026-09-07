@@ -16,6 +16,11 @@ export function middleware(request: NextRequest) {
       url.pathname = '/instruktur';
       return NextResponse.rewrite(url);
     }
+    // Block access to admin dashboard routes from instruktur subdomain
+    if (url.pathname !== '/instruktur' && !url.pathname.startsWith('/api') && !url.pathname.startsWith('/_next') && !url.pathname.startsWith('/assets')) {
+      url.pathname = '/instruktur';
+      return NextResponse.redirect(url);
+    }
   }
 
   return NextResponse.next();

@@ -614,7 +614,7 @@ export default function NotaPage() {
         <PageHeader
           title="Cetak Nota & Invoice"
           description="Daftar antrean penerbitan nota siswa, kwitansi pembayaran, dan invoice resmi Amanah Drive"
-          breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Cetak Nota' }]}
+          breadcrumbs={[{ label: 'Kas & Keuangan', href: '/kas' }, { label: 'Cetak Nota' }]}
         />
 
         {/* Floating Toast Notification */}

@@ -415,7 +415,7 @@ export default function SiswaPage() {
       <PageHeader
         title="Manajemen Data Siswa"
         description="Kelola pendaftaran siswa baru, paket kursus, promo, dan histori pembayaran"
-        breadcrumbs={[{ label: 'Data Siswa' }]}
+        breadcrumbs={[{ label: 'Manajemen Siswa' }, { label: 'Data Siswa' }]}
         actions={
           <div className="flex items-center gap-3">
             <button
