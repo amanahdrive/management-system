@@ -10,7 +10,7 @@ import { getPaketList } from '@/lib/actions/master-data';
 import { getRekeningList } from '@/lib/actions/rekening';
 import { LABEL_REKENING_DEFAULT } from '@/lib/constants/finance';
 import { formatRupiah } from '@/lib/utils/currency';
-import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
+import { getTodayDateString, formatDateIndo, getJakartaDateParts } from '@/lib/utils/date';
 import { NotaDocumentPaper } from '@/components/shared/NotaDocumentPaper';
 import {
   NotaJenis,
@@ -50,7 +50,44 @@ import {
   Layers,
   Plus,
   Trash2,
+  Calendar,
+  CalendarDays,
+  RotateCcw,
+  Filter,
 } from 'lucide-react';
+
+export type PeriodFilterType = 'all' | 'today' | 'this_week' | 'this_month' | 'last_month' | 'this_year' | 'custom';
+
+export type SortKeyType =
+  | 'date_asc'
+  | 'date_desc'
+  | 'name_asc'
+  | 'name_desc'
+  | 'nominal_desc'
+  | 'nominal_asc'
+  | 'sisa_desc'
+  | 'sisa_asc';
+
+const PERIOD_OPTIONS: { key: PeriodFilterType; label: string }[] = [
+  { key: 'all', label: 'Semua Waktu' },
+  { key: 'today', label: 'Hari Ini' },
+  { key: 'this_week', label: 'Minggu Ini' },
+  { key: 'this_month', label: 'Bulan Ini' },
+  { key: 'last_month', label: 'Bulan Lalu' },
+  { key: 'this_year', label: 'Tahun Ini' },
+  { key: 'custom', label: 'Rentang Kustom' },
+];
+
+const SORT_OPTIONS: { key: SortKeyType; label: string }[] = [
+  { key: 'date_asc', label: 'Tanggal: Terlama ke Terbaru (FIFO)' },
+  { key: 'date_desc', label: 'Tanggal: Terbaru ke Terlama (LIFO)' },
+  { key: 'name_asc', label: 'Nama Siswa: A → Z' },
+  { key: 'name_desc', label: 'Nama Siswa: Z → A' },
+  { key: 'nominal_desc', label: 'Uang Masuk: Tertinggi' },
+  { key: 'nominal_asc', label: 'Uang Masuk: Terendah' },
+  { key: 'sisa_desc', label: 'Sisa Piutang: Terbesar' },
+  { key: 'sisa_asc', label: 'Sisa Piutang: Terkecil' },
+];
 
 const JENIS_DOC_ITEMS: { value: NotaJenis; label: string; desc: string; size: string }[] = [
   {
@@ -98,7 +135,12 @@ export default function NotaPage() {
   // Filter & Search State for Queue
   const [searchQuery, setSearchQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'dp' | 'lunas'>('all');
-  const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc'); // Default ASC: terlama ke terbaru
+  const [paketFilter, setPaketFilter] = React.useState<string>('all');
+  const [periodFilter, setPeriodFilter] = React.useState<PeriodFilterType>('all');
+  const [customStartDate, setCustomStartDate] = React.useState<string>('');
+  const [customEndDate, setCustomEndDate] = React.useState<string>('');
+  const [dateFieldBasis, setDateFieldBasis] = React.useState<'dp_tanggal' | 'tanggal_booking'>('dp_tanggal');
+  const [sortKey, setSortKey] = React.useState<SortKeyType>('date_asc');
 
   // Base64 Images for bulletproof html2canvas capture (no CORS)
   const [logoBase64, setLogoBase64] = React.useState<string>('/assets/logo-amdri-landscape.png');
@@ -211,32 +253,184 @@ export default function NotaPage() {
   const totalBayarAkumulasi = dpTerbayar + nominalBayarIni;
   const sisaPiutang = Math.max(0, totalTagihanBersih - totalBayarAkumulasi);
 
-  // Students needing receipt queue (sorted from oldest to newest by default)
+  // Compute Period Bounds (Asia/Jakarta WIB)
+  const periodBounds = React.useMemo(() => {
+    const todayStr = getTodayDateString();
+    const parts = getJakartaDateParts(todayStr);
+    const curYear = parts?.year ?? new Date().getFullYear();
+    const curMonth = parts?.month ?? (new Date().getMonth() + 1);
+    const curDay = parts?.day ?? new Date().getDate();
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+
+    if (periodFilter === 'today') {
+      return { start: todayStr, end: todayStr, label: `Hari Ini (${formatDateIndo(todayStr)})` };
+    }
+
+    if (periodFilter === 'this_week') {
+      const curDate = new Date(curYear, curMonth - 1, curDay);
+      const dayOfWeek = curDate.getDay(); // 0 = Sunday, 1 = Monday
+      const diffToMonday = (dayOfWeek + 6) % 7;
+      const monday = new Date(curDate);
+      monday.setDate(curDate.getDate() - diffToMonday);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const start = `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}`;
+      const end = `${sunday.getFullYear()}-${pad(sunday.getMonth() + 1)}-${pad(sunday.getDate())}`;
+      return { start, end, label: `Minggu Ini (${formatDateIndo(start)} – ${formatDateIndo(end)})` };
+    }
+
+    if (periodFilter === 'this_month') {
+      const start = `${curYear}-${pad(curMonth)}-01`;
+      const lastDay = new Date(curYear, curMonth, 0).getDate();
+      const end = `${curYear}-${pad(curMonth)}-${pad(lastDay)}`;
+      return { start, end, label: `Bulan Ini (${pad(curMonth)}/${curYear})` };
+    }
+
+    if (periodFilter === 'last_month') {
+      const lastMonthYear = curMonth === 1 ? curYear - 1 : curYear;
+      const lastMonthNum = curMonth === 1 ? 12 : curMonth - 1;
+      const start = `${lastMonthYear}-${pad(lastMonthNum)}-01`;
+      const lastDay = new Date(lastMonthYear, lastMonthNum, 0).getDate();
+      const end = `${lastMonthYear}-${pad(lastMonthNum)}-${pad(lastDay)}`;
+      return { start, end, label: `Bulan Lalu (${pad(lastMonthNum)}/${lastMonthYear})` };
+    }
+
+    if (periodFilter === 'this_year') {
+      const start = `${curYear}-01-01`;
+      const end = `${curYear}-12-31`;
+      return { start, end, label: `Tahun ${curYear}` };
+    }
+
+    if (periodFilter === 'custom' && customStartDate && customEndDate) {
+      return { start: customStartDate, end: customEndDate, label: `${formatDateIndo(customStartDate)} – ${formatDateIndo(customEndDate)}` };
+    }
+
+    return { start: null, end: null, label: 'Semua Waktu' };
+  }, [periodFilter, customStartDate, customEndDate]);
+
+  // Filtered and Sorted Students Queue
   const studentsNeedingReceipt = React.useMemo(() => {
+    // 1. Base filter: DP or Lunas students only
     let list = siswaList.filter(
       (s) => s.status_pembayaran_kode === 'dp' || s.status_pembayaran_kode === 'lunas'
     );
 
+    // 2. Status Filter
     if (statusFilter !== 'all') {
       list = list.filter((s) => s.status_pembayaran_kode === statusFilter);
     }
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (s) =>
-          s.nama.toLowerCase().includes(q) ||
-          (s.kode_siswa || '').toLowerCase().includes(q) ||
-          (s.no_whatsapp || '').includes(q)
-      );
+    // 3. Paket Kursus Filter
+    if (paketFilter !== 'all') {
+      list = list.filter((s) => s.paket_id === paketFilter);
     }
 
+    // 4. Period Filter
+    if (periodBounds.start && periodBounds.end) {
+      list = list.filter((s) => {
+        let tglStr = '';
+        if (dateFieldBasis === 'dp_tanggal') {
+          tglStr = (s.dp_tanggal || s.tanggal_booking || s.created_at || '').slice(0, 10);
+        } else {
+          tglStr = (s.tanggal_booking || s.created_at || '').slice(0, 10);
+        }
+        if (!tglStr) return false;
+        return tglStr >= periodBounds.start! && tglStr <= periodBounds.end!;
+      });
+    }
+
+    // 5. Search Query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter((s) => {
+        const matchNama = s.nama.toLowerCase().includes(q);
+        const matchKode = (s.kode_siswa || '').toLowerCase().includes(q);
+        const matchWA = (s.no_whatsapp || '').includes(q);
+        const matchPaket = (s.paket?.nama_paket || '').toLowerCase().includes(q);
+        return matchNama || matchKode || matchWA || matchPaket;
+      });
+    }
+
+    // 6. Comprehensive Sorting
     return list.sort((a, b) => {
-      const dateA = a.dp_tanggal || a.created_at || '';
-      const dateB = b.dp_tanggal || b.created_at || '';
-      return sortOrder === 'asc' ? dateA.localeCompare(dateB) : dateB.localeCompare(dateA);
+      const dateA = a.dp_tanggal || a.tanggal_booking || a.created_at || '';
+      const dateB = b.dp_tanggal || b.tanggal_booking || b.created_at || '';
+      const hargaFinalA = Number(a.harga_final) || 0;
+      const hargaFinalB = Number(b.harga_final) || 0;
+      const dpA = Number(a.dp_nominal) || 0;
+      const dpB = Number(b.dp_nominal) || 0;
+      const masukA = a.status_pembayaran_kode === 'lunas' ? hargaFinalA : dpA;
+      const masukB = b.status_pembayaran_kode === 'lunas' ? hargaFinalB : dpB;
+      const sisaA = Math.max(0, hargaFinalA - dpA);
+      const sisaB = Math.max(0, hargaFinalB - dpB);
+
+      switch (sortKey) {
+        case 'date_asc': // Terlama ke terbaru (FIFO)
+          return dateA.localeCompare(dateB);
+        case 'date_desc': // Terbaru ke terlama (LIFO)
+          return dateB.localeCompare(dateA);
+        case 'name_asc': // Nama A - Z
+          return (a.nama || '').localeCompare(b.nama || '');
+        case 'name_desc': // Nama Z - A
+          return (b.nama || '').localeCompare(a.nama || '');
+        case 'nominal_desc': // Uang Masuk tertinggi
+          return masukB - masukA;
+        case 'nominal_asc': // Uang Masuk terendah
+          return masukA - masukB;
+        case 'sisa_desc': // Sisa piutang terbesar
+          return sisaB - sisaA;
+        case 'sisa_asc': // Sisa piutang terkecil
+          return sisaA - sisaB;
+        default:
+          return dateA.localeCompare(dateB);
+      }
     });
-  }, [siswaList, statusFilter, searchQuery, sortOrder]);
+  }, [siswaList, statusFilter, paketFilter, periodBounds, dateFieldBasis, searchQuery, sortKey]);
+
+  // Aggregate Metrics on Filtered Data
+  const filteredMetrics = React.useMemo(() => {
+    let totalPaket = 0;
+    let totalMasuk = 0;
+    let totalSisa = 0;
+    for (const s of studentsNeedingReceipt) {
+      const hargaFinal = Number(s.harga_final) || 0;
+      const dp = Number(s.dp_nominal) || 0;
+      const masuk = s.status_pembayaran_kode === 'lunas' ? hargaFinal : dp;
+      const sisa = s.status_pembayaran_kode === 'lunas' ? 0 : Math.max(0, hargaFinal - dp);
+      totalPaket += hargaFinal;
+      totalMasuk += masuk;
+      totalSisa += sisa;
+    }
+    return {
+      count: studentsNeedingReceipt.length,
+      totalPaket,
+      totalMasuk,
+      totalSisa,
+    };
+  }, [studentsNeedingReceipt]);
+
+  // Check if any filter differs from default
+  const isFilterActive =
+    periodFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    paketFilter !== 'all' ||
+    searchQuery.trim() !== '' ||
+    sortKey !== 'date_asc' ||
+    customStartDate !== '' ||
+    customEndDate !== '' ||
+    dateFieldBasis !== 'dp_tanggal';
+
+  const handleResetFilters = () => {
+    setPeriodFilter('all');
+    setCustomStartDate('');
+    setCustomEndDate('');
+    setDateFieldBasis('dp_tanggal');
+    setStatusFilter('all');
+    setPaketFilter('all');
+    setSearchQuery('');
+    setSortKey('date_asc');
+  };
 
   // Handler: Click "Cetak Nota" from Queue Row
   const handleOpenCetakNotaModal = (siswa: Siswa) => {
@@ -483,42 +677,205 @@ export default function NotaPage() {
         {/* Tab Antrean Siswa */}
         {viewMode === 'queue' && (
           <div className="space-y-4">
-            {/* Filter & Search Bar */}
-            <div className="card-container p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div className="relative flex-1 max-w-md">
-                <Search className="w-4 h-4 absolute left-3 top-2.5 text-[var(--text-secondary)]" />
-                <input
-                  type="text"
-                  placeholder="Cari nama, kode siswa, atau no WhatsApp..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
-                />
+            {/* Filter, Period & Search Card */}
+            <div className="card-container p-4 sm:p-5 space-y-4">
+              {/* Row 1: Period Presets & Date Basis */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-[var(--border)] pb-3.5">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 scrollbar-none flex-wrap">
+                  <span className="text-[11px] font-bold text-[var(--text-secondary)] flex items-center gap-1.5 shrink-0 mr-1">
+                    <CalendarDays className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                    <span>Periode:</span>
+                  </span>
+                  {PERIOD_OPTIONS.map((opt) => {
+                    const isActive = periodFilter === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => setPeriodFilter(opt.key)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                          isActive
+                            ? 'bg-[var(--brand-primary)] text-white shadow-xs scale-102'
+                            : 'bg-[var(--bg)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--brand-primary)]'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Basis Tanggal */}
+                <div className="flex items-center gap-2 text-xs shrink-0 self-start lg:self-auto">
+                  <span className="text-[11px] text-[var(--text-secondary)] font-medium">Acuan Tgl:</span>
+                  <select
+                    value={dateFieldBasis}
+                    onChange={(e: any) => setDateFieldBasis(e.target.value)}
+                    className="px-2.5 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold text-[var(--text-primary)]"
+                  >
+                    <option value="dp_tanggal">Tgl Pembayaran (DP/Lunas)</option>
+                    <option value="tanggal_booking">Tgl Pendaftaran (Booking)</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="text-[var(--text-secondary)] font-medium">Status:</span>
+              {/* Row 2: Custom Date Range Pickers (If 'custom' selected) */}
+              {periodFilter === 'custom' && (
+                <div className="p-3 rounded-2xl bg-teal-50/70 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 flex flex-wrap items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                  <span className="text-xs font-bold text-[var(--brand-primary)] flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4" />
+                    <span>Rentang Tanggal Kustom:</span>
+                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold text-[var(--text-primary)]"
+                    />
+                    <span className="text-xs text-[var(--text-secondary)] font-bold">s/d</span>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold text-[var(--text-primary)]"
+                    />
+                  </div>
+                  {(customStartDate || customEndDate) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomStartDate('');
+                        setCustomEndDate('');
+                      }}
+                      className="text-xs text-rose-600 hover:underline font-bold"
+                    >
+                      Bersihkan Tanggal
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Row 3: Search, Filters & Sorting Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
+                {/* Search Bar */}
+                <div className="md:col-span-4 relative">
+                  <Search className="w-4 h-4 absolute left-3 top-2.5 text-[var(--text-secondary)]" />
+                  <input
+                    type="text"
+                    placeholder="Cari siswa, kode SSxxx, WhatsApp..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-600 p-0.5"
+                      title="Hapus pencarian"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Status Filter */}
+                <div className="md:col-span-2">
                   <select
                     value={statusFilter}
                     onChange={(e: any) => setStatusFilter(e.target.value)}
-                    className="px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold text-[var(--text-primary)]"
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
                   >
-                    <option value="all">Semua Siswa Terbayar (DP & Lunas)</option>
+                    <option value="all">Semua Status (DP & Lunas)</option>
                     <option value="dp">Khusus DP (Uang Muka)</option>
-                    <option value="lunas">Khusus Siswa Pelunasan (Lunas)</option>
+                    <option value="lunas">Khusus Pelunasan (Lunas)</option>
                   </select>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                  className="px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] flex items-center gap-1.5"
-                  title="Klik untuk mengubah urutan"
-                >
-                  <ArrowUpDown className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
-                  <span>{sortOrder === 'asc' ? 'Terlama ke Terbaru' : 'Terbaru ke Terlama'}</span>
-                </button>
+                {/* Paket Kursus Filter */}
+                <div className="md:col-span-3">
+                  <select
+                    value={paketFilter}
+                    onChange={(e: any) => setPaketFilter(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] truncate"
+                  >
+                    <option value="all">Semua Paket Kursus</option>
+                    {paketList.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nama_paket}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Sort Dropdown & Reset */}
+                <div className="md:col-span-3 flex gap-2">
+                  <select
+                    value={sortKey}
+                    onChange={(e: any) => setSortKey(e.target.value as SortKeyType)}
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] truncate"
+                  >
+                    {SORT_OPTIONS.map((s) => (
+                      <option key={s.key} value={s.key}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  {isFilterActive && (
+                    <button
+                      type="button"
+                      onClick={handleResetFilters}
+                      className="p-2 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-950/70 flex items-center justify-center shrink-0 transition-all shadow-xs"
+                      title="Reset semua filter ke kondisi awal"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Row 4: Filter Status & Financial Summary Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-[var(--border)] text-xs text-[var(--text-secondary)]">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span>
+                    Menampilkan <strong>{studentsNeedingReceipt.length}</strong> dari{' '}
+                    <strong>{siswaList.filter((s) => s.status_pembayaran_kode === 'dp' || s.status_pembayaran_kode === 'lunas').length}</strong> siswa
+                    {periodBounds.label ? (
+                      <span className="ml-1 text-[var(--brand-primary)] font-semibold">
+                        ({periodBounds.label})
+                      </span>
+                    ) : null}
+                  </span>
+
+                  {isFilterActive && (
+                    <button
+                      type="button"
+                      onClick={handleResetFilters}
+                      className="text-xs font-bold text-rose-600 hover:underline inline-flex items-center gap-1 ml-1"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Reset Filter</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 text-xs font-semibold flex-wrap">
+                  <span className="text-[var(--text-secondary)]">
+                    Total Uang Masuk:{' '}
+                    <strong className="text-emerald-600 font-bold tabular-nums">
+                      {formatRupiah(filteredMetrics.totalMasuk)}
+                    </strong>
+                  </span>
+                  <span className="text-gray-300 dark:text-gray-700 hidden sm:inline">•</span>
+                  <span className="text-[var(--text-secondary)]">
+                    Total Sisa Piutang:{' '}
+                    <strong className="text-rose-600 font-bold tabular-nums">
+                      {formatRupiah(filteredMetrics.totalSisa)}
+                    </strong>
+                  </span>
+                </div>
               </div>
             </div>
 

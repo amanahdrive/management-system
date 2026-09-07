@@ -8,7 +8,7 @@ import { Siswa, Paket, Promosi, StatusPembayaranMaster } from '@/types/database'
 import { deleteSiswa, getSiswaList, createOrUpdateSiswa, getSiswaSessionSummaries } from '@/lib/actions/siswa';
 import { getPaketList, getPromosiList, getStatusPembayaranMaster } from '@/lib/actions/master-data';
 import { formatRupiah } from '@/lib/utils/currency';
-import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
+import { formatDateIndo, getTodayDateString, getJakartaDateParts } from '@/lib/utils/date';
 import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
@@ -535,7 +535,7 @@ export default function SiswaPage() {
             </select>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-[var(--text-muted)]">Dari</span>
             <input
               type="date"
@@ -550,6 +550,62 @@ export default function SiswaPage() {
               onChange={(e) => setFilterDateTo(e.target.value)}
               className="px-2.5 py-1.5 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
             />
+
+            {/* Quick Period Presets */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const todayStr = getTodayDateString();
+                  const parts = getJakartaDateParts(todayStr);
+                  const curYear = parts?.year ?? new Date().getFullYear();
+                  const curMonth = parts?.month ?? (new Date().getMonth() + 1);
+                  const pad = (n: number) => String(n).padStart(2, '0');
+                  const start = `${curYear}-${pad(curMonth)}-01`;
+                  const lastDay = new Date(curYear, curMonth, 0).getDate();
+                  const end = `${curYear}-${pad(curMonth)}-${pad(lastDay)}`;
+                  setFilterDateFrom(start);
+                  setFilterDateTo(end);
+                }}
+                className="px-2 py-1 rounded text-[11px] font-semibold bg-[var(--bg)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--brand-primary)] hover:border-[var(--brand-primary)] transition-colors"
+              >
+                Bulan Ini
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const todayStr = getTodayDateString();
+                  const parts = getJakartaDateParts(todayStr);
+                  const curYear = parts?.year ?? new Date().getFullYear();
+                  const curMonth = parts?.month ?? (new Date().getMonth() + 1);
+                  const lastMonthYear = curMonth === 1 ? curYear - 1 : curYear;
+                  const lastMonthNum = curMonth === 1 ? 12 : curMonth - 1;
+                  const pad = (n: number) => String(n).padStart(2, '0');
+                  const start = `${lastMonthYear}-${pad(lastMonthNum)}-01`;
+                  const lastDay = new Date(lastMonthYear, lastMonthNum, 0).getDate();
+                  const end = `${lastMonthYear}-${pad(lastMonthNum)}-${pad(lastDay)}`;
+                  setFilterDateFrom(start);
+                  setFilterDateTo(end);
+                }}
+                className="px-2 py-1 rounded text-[11px] font-semibold bg-[var(--bg)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--brand-primary)] hover:border-[var(--brand-primary)] transition-colors"
+              >
+                Bulan Lalu
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const todayStr = getTodayDateString();
+                  const parts = getJakartaDateParts(todayStr);
+                  const curYear = parts?.year ?? new Date().getFullYear();
+                  setFilterDateFrom(`${curYear}-01-01`);
+                  setFilterDateTo(`${curYear}-12-31`);
+                }}
+                className="px-2 py-1 rounded text-[11px] font-semibold bg-[var(--bg)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--brand-primary)] hover:border-[var(--brand-primary)] transition-colors"
+              >
+                Tahun Ini
+              </button>
+            </div>
+
             {(filterDateFrom || filterDateTo) && (
               <button
                 onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); }}

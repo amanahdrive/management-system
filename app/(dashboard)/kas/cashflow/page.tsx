@@ -704,8 +704,8 @@ export default function CashflowPage() {
         {/* Navigasi Periode */}
         <div className="card-container p-3 border border-[var(--border)] shadow-sm space-y-3">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            {/* Left: Dropdown Tahun (Hanya tahun yang berisi cashflow) */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Left: Dropdown Tahun & Quick Jump (Bulan Ini / Bulan Lalu) */}
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
               <label className="text-xs font-bold text-[var(--text-secondary)] flex items-center gap-1.5">
                 <Calendar className="w-4 h-4 text-[var(--brand-primary)]" />
                 <span>Tahun:</span>
@@ -723,6 +723,46 @@ export default function CashflowPage() {
                   ))}
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--brand-primary)] pointer-events-none" />
+              </div>
+
+              {/* Quick Jump Buttons */}
+              <div className="flex items-center gap-1 ml-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date();
+                    setSelectedYear(d.getFullYear());
+                    setSelectedMonth(d.getMonth() + 1);
+                  }}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                    selectedYear === now.getFullYear() && selectedMonth === now.getMonth() + 1
+                      ? 'bg-[var(--brand-primary)] text-white border-[var(--brand-primary)]'
+                      : 'bg-[var(--bg)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--brand-primary)] hover:border-[var(--brand-primary)]'
+                  }`}
+                >
+                  Bulan Ini
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date();
+                    const curY = d.getFullYear();
+                    const curM = d.getMonth() + 1;
+                    const prevY = curM === 1 ? curY - 1 : curY;
+                    const prevM = curM === 1 ? 12 : curM - 1;
+                    setSelectedYear(prevY);
+                    setSelectedMonth(prevM);
+                  }}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                    (now.getMonth() === 0
+                      ? selectedYear === now.getFullYear() - 1 && selectedMonth === 12
+                      : selectedYear === now.getFullYear() && selectedMonth === now.getMonth())
+                      ? 'bg-[var(--brand-primary)] text-white border-[var(--brand-primary)]'
+                      : 'bg-[var(--bg)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--brand-primary)] hover:border-[var(--brand-primary)]'
+                  }`}
+                >
+                  Bulan Lalu
+                </button>
               </div>
             </div>
 
