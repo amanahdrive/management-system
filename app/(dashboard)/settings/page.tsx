@@ -71,6 +71,7 @@ import {
   Wifi,
   Droplets,
   X,
+  Globe,
 } from 'lucide-react';
 
 const INITIAL_TELEGRAM_CONFIG: TelegramConfig = {
@@ -234,6 +235,24 @@ export default function SettingsPage() {
   const [telegramSaveSuccess, setTelegramSaveSuccess] = React.useState(false);
   const [testSending, setTestSending] = React.useState(false);
   const [testResult, setTestResult] = React.useState<{ success: boolean; message?: string } | null>(null);
+
+  // Webhook Management State
+  const [copiedWebhook, setCopiedWebhook] = React.useState<string | null>(null);
+  const [currentOrigin, setCurrentOrigin] = React.useState('https://management-amanahdrive.vercel.app');
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setCurrentOrigin(window.location.origin);
+    }
+  }, []);
+
+  const handleCopyWebhook = (url: string, key: string) => {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(url);
+      setCopiedWebhook(key);
+      setTimeout(() => setCopiedWebhook(null), 2000);
+    }
+  };
 
   // Rekening Bank Management State
   const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>([]);
@@ -1576,6 +1595,141 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Section 6: Webhook URL & Integrasi Gateway */}
+        <div className="card-container space-y-4 md:col-span-2 border-l-4 border-l-indigo-500 bg-indigo-50/20 dark:bg-indigo-950/10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-2">
+            <div>
+              <h3 className="font-bold text-sm text-indigo-700 dark:text-indigo-400 flex items-center gap-2">
+                <Globe className="w-4 h-4 text-indigo-500" />
+                URL Webhook & Integrasi Gateway
+              </h3>
+              <p className="text-[11px] text-[var(--text-secondary)]">
+                Daftar endpoint webhook aktif untuk menghubungkan Telegram Bot, Supabase Database Webhook, dan layanan pihak ketiga
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+              3 Endpoint Aktif
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* 1. Telegram Bot Webhook */}
+            <div className="p-3.5 bg-[var(--bg)] rounded-xl border border-[var(--border)] flex flex-col justify-between gap-3 shadow-xs">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-[var(--text-primary)]">1. Telegram Bot Webhook</span>
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300">
+                    POST / GET
+                  </span>
+                </div>
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  Menerima pesan & perintah interaktif bot (<code>/jadwal</code>, <code>/status</code>, <code>/id</code>).
+                </p>
+                <div className="p-2 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border)] font-mono text-[10.5px] text-[var(--text-primary)] break-all select-all">
+                  {`${currentOrigin}/api/webhook/telegram`}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => handleCopyWebhook(`${currentOrigin}/api/webhook/telegram`, 'telegram')}
+                  className="w-full py-1.5 px-2 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-subtle)] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors text-[var(--text-primary)]"
+                >
+                  {copiedWebhook === 'telegram' ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-600">Tersalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+                      <span>Salin URL</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Supabase Database Webhook */}
+            <div className="p-3.5 bg-[var(--bg)] rounded-xl border border-[var(--border)] flex flex-col justify-between gap-3 shadow-xs">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-[var(--text-primary)]">2. Supabase DB Webhook</span>
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    POST / GET
+                  </span>
+                </div>
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  Menerima trigger perubahan tabel (INSERT/UPDATE/DELETE) untuk pembersihan cache otomatis.
+                </p>
+                <div className="p-2 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border)] font-mono text-[10.5px] text-[var(--text-primary)] break-all select-all">
+                  {`${currentOrigin}/api/webhook/supabase`}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => handleCopyWebhook(`${currentOrigin}/api/webhook/supabase`, 'supabase')}
+                  className="w-full py-1.5 px-2 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-subtle)] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors text-[var(--text-primary)]"
+                >
+                  {copiedWebhook === 'supabase' ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-600">Tersalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+                      <span>Salin URL</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* 3. Universal Webhook Gateway */}
+            <div className="p-3.5 bg-[var(--bg)] rounded-xl border border-[var(--border)] flex flex-col justify-between gap-3 shadow-xs">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-[var(--text-primary)]">3. Universal Webhook</span>
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                    POST / GET
+                  </span>
+                </div>
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  Gateway serbaguna untuk GitHub, WhatsApp Gateway, dan verifikasi challenge URL.
+                </p>
+                <div className="p-2 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border)] font-mono text-[10.5px] text-[var(--text-primary)] break-all select-all">
+                  {`${currentOrigin}/api/webhook`}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => handleCopyWebhook(`${currentOrigin}/api/webhook`, 'universal')}
+                  className="w-full py-1.5 px-2 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-subtle)] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors text-[var(--text-primary)]"
+                >
+                  {copiedWebhook === 'universal' ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-600">Tersalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+                      <span>Salin URL</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Pembersihan & Reset Data Modular */}
