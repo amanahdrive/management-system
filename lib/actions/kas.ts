@@ -7,6 +7,7 @@ import { DEFAULT_KAS_KATEGORI } from '@/lib/constants/finance';
 import { getTodayDateString } from '@/lib/utils/date';
 import { getRekeningList } from '@/lib/actions/rekening';
 import { revalidatePath } from 'next/cache';
+import { syncKendaraanStatus } from '@/lib/actions/kendaraan';
 
 const METRICS_CACHE_KEY = 'kas_overview_metrics';
 
@@ -526,29 +527,38 @@ export async function addKasTransaksi(
       const txTanggal = cleanData.tanggal || getTodayDateString();
       const txNominal = Number(cleanData.nominal) || 0;
 
-      await dbQuery(
-        `UPDATE kendaraan_status 
-         SET 
-           bensin_tanggal_terakhir = $1,
-           bensin_nominal_terakhir = $2,
-           updated_at = NOW() 
-         WHERE kendaraan_id = $3`,
-        [txTanggal, txNominal, cleanData.kendaraan_id]
-      );
+      let jenisBbm = 'pertalite';
+      const ketLower = (cleanData.keterangan || '').toLowerCase();
+      if (ketLower.includes('pertamax')) jenisBbm = 'pertamax';
+      else if (ketLower.includes('solar') || ketLower.includes('dexlite')) jenisBbm = 'solar';
+
+      let liter: number | null = null;
+      const literMatch = ketLower.match(/(\d+(\.\d+)?)\s*l(iter)?/i);
+      if (literMatch && literMatch[1]) {
+        liter = parseFloat(literMatch[1]);
+      } else if (txNominal > 0) {
+        const hargaRow = await dbQuerySingle<{ harga_per_liter: number }>(
+          'SELECT harga_per_liter FROM harga_bbm WHERE jenis = $1',
+          [jenisBbm]
+        );
+        const price = hargaRow?.harga_per_liter || (jenisBbm === 'pertamax' ? 12950 : 10000);
+        liter = parseFloat((txNominal / price).toFixed(2));
+      }
 
       await dbQuery(
-        `INSERT INTO kendaraan_log_harian (kendaraan_id, tanggal, bbm_nominal, catatan)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO kendaraan_log_harian (kendaraan_id, tanggal, bbm_nominal, bbm_liter, bbm_jenis, catatan)
+         VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (kendaraan_id, tanggal) DO UPDATE
          SET 
            bbm_nominal = COALESCE(kendaraan_log_harian.bbm_nominal, 0) + EXCLUDED.bbm_nominal,
+           bbm_liter = COALESCE(kendaraan_log_harian.bbm_liter, 0) + EXCLUDED.bbm_liter,
+           bbm_jenis = COALESCE(EXCLUDED.bbm_jenis, kendaraan_log_harian.bbm_jenis),
            catatan = COALESCE(EXCLUDED.catatan, kendaraan_log_harian.catatan),
            updated_at = NOW()`,
-        [cleanData.kendaraan_id, txTanggal, txNominal, cleanData.keterangan || 'Pengisian BBM dari Transaksi Kas']
+        [cleanData.kendaraan_id, txTanggal, txNominal, liter, jenisBbm, cleanData.keterangan || 'Pengisian BBM dari Transaksi Kas']
       );
 
-      cacheInvalidate('master_kendaraan*');
-      cacheInvalidate('kendaraan*');
+      await syncKendaraanStatus(cleanData.kendaraan_id);
       revalidatePath('/kendaraan');
       revalidatePath(`/kendaraan/${cleanData.kendaraan_id}`);
     }
@@ -1003,21 +1013,10 @@ export async function updateKasTransaksi(
     const targetKendaraanId = cleanUpdates.kendaraan_id !== undefined ? cleanUpdates.kendaraan_id : oldTx?.kendaraan_id;
     const targetKategori = cleanUpdates.kategori || oldTx?.kategori;
     if (targetKendaraanId && (targetKategori === 'bbm' || targetKategori?.toLowerCase()?.includes('bbm'))) {
-      const txTanggal = cleanUpdates.tanggal || oldTx?.tanggal || getTodayDateString();
-      const txNominal = cleanUpdates.nominal !== undefined ? Number(cleanUpdates.nominal) : (Number(oldTx?.nominal) || 0);
-
-      await dbQuery(
-        `UPDATE kendaraan_status 
-         SET 
-           bensin_tanggal_terakhir = $1,
-           bensin_nominal_terakhir = $2,
-           updated_at = NOW() 
-         WHERE kendaraan_id = $3`,
-        [txTanggal, txNominal, targetKendaraanId]
-      );
-
-      cacheInvalidate('master_kendaraan*');
-      cacheInvalidate('kendaraan*');
+      await syncKendaraanStatus(targetKendaraanId);
+      if (oldTx?.kendaraan_id && oldTx.kendaraan_id !== targetKendaraanId) {
+        await syncKendaraanStatus(oldTx.kendaraan_id);
+      }
       revalidatePath('/kendaraan');
       revalidatePath(`/kendaraan/${targetKendaraanId}`);
     }
@@ -1043,8 +1042,8 @@ export async function updateKasTransaksi(
 
 export async function deleteKasTransaksi(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const tx = await dbQuerySingle<{ id: string; siswa_id: string; hutang_id: string; staff_id: string }>(
-      'SELECT id, siswa_id, hutang_id, staff_id FROM kas_transaksi WHERE id = $1',
+    const tx = await dbQuerySingle<{ id: string; siswa_id: string; hutang_id: string; staff_id: string; kendaraan_id: string; kategori: string }>(
+      'SELECT id, siswa_id, hutang_id, staff_id, kendaraan_id, kategori FROM kas_transaksi WHERE id = $1',
       [id]
     );
 
@@ -1056,6 +1055,11 @@ export async function deleteKasTransaksi(id: string): Promise<{ success: boolean
     }
     if (tx?.hutang_id) {
       await syncHutangPaymentState(tx.hutang_id);
+    }
+    if (tx?.kendaraan_id && (tx.kategori === 'bbm' || tx.kategori?.toLowerCase()?.includes('bbm'))) {
+      await syncKendaraanStatus(tx.kendaraan_id);
+      revalidatePath('/kendaraan');
+      revalidatePath(`/kendaraan/${tx.kendaraan_id}`);
     }
 
     cacheInvalidate('kas*');

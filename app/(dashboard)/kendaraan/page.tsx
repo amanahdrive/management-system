@@ -101,13 +101,30 @@ export default function KendaraanPage() {
                       </div>
 
                       <div className="flex items-center gap-2 col-span-2 pt-1 border-t border-[var(--border)]">
-                        <Fuel className="w-4 h-4 text-emerald-600" />
-                        <div>
-                          <span className="text-[10px] text-[var(--text-secondary)] block">BBM Terakhir</span>
-                          <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                            {k.status?.bensin_jenis_terakhir
-                              ? `${k.status.bensin_jenis_terakhir.toUpperCase()} (${k.status.bensin_liter_terakhir} L)`
-                              : '-'}
+                        <Fuel className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-[var(--text-secondary)] block">BBM Terakhir</span>
+                            {k.status?.bensin_tanggal_terakhir && (
+                              <span className="text-[10px] text-[var(--text-secondary)]">
+                                {formatDateIndo(k.status.bensin_tanggal_terakhir)}
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-semibold text-emerald-700 dark:text-emerald-400 truncate block">
+                            {k.status?.bensin_nominal_terakhir || k.status?.bensin_liter_terakhir ? (
+                              <>
+                                {k.status.bensin_jenis_terakhir
+                                  ? k.status.bensin_jenis_terakhir.toUpperCase()
+                                  : 'BBM'}
+                                {k.status.bensin_liter_terakhir ? ` (${k.status.bensin_liter_terakhir} L)` : ''}
+                                {k.status.bensin_nominal_terakhir
+                                  ? ` • Rp ${Number(k.status.bensin_nominal_terakhir).toLocaleString('id-ID')}`
+                                  : ''}
+                              </>
+                            ) : (
+                              '-'
+                            )}
                           </span>
                         </div>
                       </div>

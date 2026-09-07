@@ -208,7 +208,7 @@ export default function KendaraanDetailPage() {
             <div>
               <span className="text-[var(--text-secondary)] block">Volume Terakhir:</span>
               <span className="font-bold text-base font-mono text-[var(--brand-primary)]">
-                {kendaraan.status?.bensin_liter_terakhir || 0} Liter
+                {kendaraan.status?.bensin_liter_terakhir ? `${kendaraan.status.bensin_liter_terakhir} Liter` : '-'}
               </span>
             </div>
             <div>

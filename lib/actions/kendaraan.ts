@@ -75,6 +75,108 @@ export async function getKendaraanLogList(filter?: {
 }
 
 /**
+ * Sinkronisasi status riil armada (odometer terkini, bbm terakhir, oli, cuci)
+ * dari seluruh log harian aktual, memastikan card armada selalu akurat dan tidak tertinggal.
+ */
+export async function syncKendaraanStatus(kendaraanId: string): Promise<void> {
+  try {
+    // 1. Pastikan baris status ada untuk armada ini
+    await dbQuery(
+      `INSERT INTO kendaraan_status (kendaraan_id) VALUES ($1) ON CONFLICT (kendaraan_id) DO NOTHING`,
+      [kendaraanId]
+    );
+
+    // 2. Cari odometer tertinggi dari log harian
+    const latestOdoRes = await dbQuerySingle<{ max_odo: number }>(
+      `SELECT GREATEST(
+         MAX(COALESCE(odometer_basecamp_in, 0)),
+         MAX(COALESCE(odometer_basecamp_out, 0))
+       ) AS max_odo
+       FROM kendaraan_log_harian
+       WHERE kendaraan_id = $1`,
+      [kendaraanId]
+    );
+    const latestOdo = latestOdoRes?.max_odo ? Number(latestOdoRes.max_odo) : null;
+
+    // 3. Cari log BBM terakhir berdasarkan tanggal dan waktu pembuatan
+    const latestBbmLog = await dbQuerySingle<KendaraanLogHarian>(
+      `SELECT * FROM kendaraan_log_harian
+       WHERE kendaraan_id = $1 
+         AND ((bbm_nominal IS NOT NULL AND bbm_nominal > 0) OR (bbm_liter IS NOT NULL AND bbm_liter > 0))
+       ORDER BY tanggal DESC, created_at DESC
+       LIMIT 1`,
+      [kendaraanId]
+    );
+
+    let bbmTanggal: string | null = null;
+    let bbmNominal: number | null = null;
+    let bbmJenis: string | null = null;
+    let bbmLiter: number | null = null;
+
+    if (latestBbmLog) {
+      bbmTanggal = latestBbmLog.tanggal;
+      bbmNominal = latestBbmLog.bbm_nominal ? Number(latestBbmLog.bbm_nominal) : null;
+      bbmJenis = latestBbmLog.bbm_jenis || 'pertalite';
+      bbmLiter = latestBbmLog.bbm_liter ? Number(latestBbmLog.bbm_liter) : null;
+
+      // Jika liter belum terisi tetapi nominal ada, hitung otomatis dan simpan ke log
+      if ((!bbmLiter || bbmLiter <= 0) && bbmNominal && bbmNominal > 0) {
+        const hargaRow = await dbQuerySingle<HargaBBM>(
+          'SELECT harga_per_liter FROM harga_bbm WHERE jenis = $1',
+          [bbmJenis]
+        );
+        const price = hargaRow?.harga_per_liter || (bbmJenis === 'pertamax' ? 12950 : 10000);
+        bbmLiter = parseFloat((bbmNominal / price).toFixed(2));
+
+        await dbQuery(
+          `UPDATE kendaraan_log_harian 
+           SET bbm_liter = $1, bbm_jenis = COALESCE(bbm_jenis, $2)
+           WHERE id = $3`,
+          [bbmLiter, bbmJenis, latestBbmLog.id]
+        );
+      }
+    }
+
+    // 4. Update kendaraan_status dengan data riil terkini
+    await dbQuery(
+      `UPDATE kendaraan_status 
+       SET 
+         odometer_terkini = CASE 
+           WHEN $1::bigint IS NOT NULL THEN GREATEST(COALESCE(odometer_terkini, 0), $1::bigint)
+           ELSE odometer_terkini
+         END,
+         bensin_tanggal_terakhir = $2,
+         bensin_jenis_terakhir = $3,
+         bensin_nominal_terakhir = $4,
+         bensin_liter_terakhir = $5,
+         updated_at = NOW()
+       WHERE kendaraan_id = $6`,
+      [latestOdo, bbmTanggal, bbmJenis, bbmNominal, bbmLiter, kendaraanId]
+    );
+
+    cacheInvalidate('master_kendaraan*');
+    cacheInvalidate('kendaraan*');
+    cacheInvalidate('dashboard*');
+  } catch (err) {
+    console.error(`Error syncing status for kendaraan ${kendaraanId}:`, err);
+  }
+}
+
+/**
+ * Sinkronisasi status semua armada aktif
+ */
+export async function syncAllKendaraanStatus(): Promise<void> {
+  try {
+    const list = await dbQuery<{ id: string }>('SELECT id FROM kendaraan');
+    for (const v of list) {
+      await syncKendaraanStatus(v.id);
+    }
+  } catch (err) {
+    console.error('Error syncing all kendaraan status:', err);
+  }
+}
+
+/**
  * Menambah atau memperbarui log harian / trip armada kendaraan
  */
 export async function upsertKendaraanLog(
@@ -114,13 +216,29 @@ export async function upsertKendaraanLog(
       }
     }
 
-    const bbmLiter = log.bbm_liter !== undefined && log.bbm_liter !== null && !isNaN(Number(log.bbm_liter))
+    let bbmLiter = log.bbm_liter !== undefined && log.bbm_liter !== null && !isNaN(Number(log.bbm_liter))
       ? Number(log.bbm_liter)
       : null;
     const bbmNominal = log.bbm_nominal !== undefined && log.bbm_nominal !== null && !isNaN(Number(log.bbm_nominal))
       ? Number(log.bbm_nominal)
       : null;
-    const bbmJenis = log.bbm_jenis || null;
+    let bbmJenis = log.bbm_jenis || null;
+
+    // Otomatisasi kalkulasi liter BBM dan jenis default jika nominal diinput
+    if (bbmNominal && bbmNominal > 0) {
+      if (!bbmJenis) {
+        bbmJenis = 'pertalite';
+      }
+      if (!bbmLiter || bbmLiter <= 0) {
+        const hargaRow = await dbQuerySingle<HargaBBM>(
+          'SELECT harga_per_liter FROM harga_bbm WHERE jenis = $1',
+          [bbmJenis]
+        );
+        const price = hargaRow?.harga_per_liter || (bbmJenis === 'pertamax' ? 12950 : 10000);
+        bbmLiter = parseFloat((bbmNominal / price).toFixed(2));
+      }
+    }
+
     const tanggalAkhir = log.tanggal_akhir || null;
     const catatan = log.catatan || null;
 
@@ -191,35 +309,8 @@ export async function upsertKendaraanLog(
       savedId = res?.id;
     }
 
-    // Sync latest odometer to kendaraan_status
-    if (inKm !== null || outKm !== null) {
-      const latestKm = inKm !== null ? inKm : outKm!;
-      await dbQuery(
-        `UPDATE kendaraan_status 
-         SET odometer_terkini = GREATEST(COALESCE(odometer_terkini, 0), $1), updated_at = NOW() 
-         WHERE kendaraan_id = $2`,
-        [latestKm, log.kendaraan_id]
-      );
-    }
-
-    // Sync BBM to kendaraan_status if provided
-    if (bbmNominal || bbmLiter) {
-      await dbQuery(
-        `UPDATE kendaraan_status 
-         SET 
-           bensin_tanggal_terakhir = $1,
-           bensin_jenis_terakhir = COALESCE($2, bensin_jenis_terakhir),
-           bensin_nominal_terakhir = COALESCE($3, bensin_nominal_terakhir),
-           bensin_liter_terakhir = COALESCE($4, bensin_liter_terakhir),
-           updated_at = NOW()
-         WHERE kendaraan_id = $5`,
-        [log.tanggal, bbmJenis, bbmNominal, bbmLiter, log.kendaraan_id]
-      );
-    }
-
-    cacheInvalidate('master_kendaraan*');
-    cacheInvalidate('kendaraan*');
-    cacheInvalidate('dashboard*');
+    // Sinkronisasi status riil armada (odometer & BBM terkini)
+    await syncKendaraanStatus(log.kendaraan_id);
 
     safeRevalidatePath(`/kendaraan/${log.kendaraan_id}`);
     safeRevalidatePath('/kendaraan');
@@ -267,16 +358,7 @@ export async function quickInputBasecampIn(
       [inKm, tanggalAkhir || null, jarakTempuh, logId]
     );
 
-    await dbQuery(
-      `UPDATE kendaraan_status 
-       SET odometer_terkini = GREATEST(COALESCE(odometer_terkini, 0), $1), updated_at = NOW() 
-       WHERE kendaraan_id = $2`,
-      [inKm, existing.kendaraan_id]
-    );
-
-    cacheInvalidate('master_kendaraan*');
-    cacheInvalidate('kendaraan*');
-    cacheInvalidate('dashboard*');
+    await syncKendaraanStatus(existing.kendaraan_id);
 
     safeRevalidatePath(`/kendaraan/${existing.kendaraan_id}`);
     safeRevalidatePath('/kendaraan');
@@ -301,11 +383,8 @@ export async function deleteKendaraanLog(id: string): Promise<{ success: boolean
 
     await dbQuery('DELETE FROM kendaraan_log_harian WHERE id = $1', [id]);
 
-    cacheInvalidate('master_kendaraan*');
-    cacheInvalidate('kendaraan*');
-    cacheInvalidate('dashboard*');
-
     if (log?.kendaraan_id) {
+      await syncKendaraanStatus(log.kendaraan_id);
       safeRevalidatePath(`/kendaraan/${log.kendaraan_id}`);
     }
     safeRevalidatePath('/kendaraan');
@@ -599,13 +678,6 @@ export async function recordPengisianBBM(
   try {
     const liter = parseFloat((nominal / (hargaPerLiter || 10000)).toFixed(2));
 
-    await dbQuery(
-      `UPDATE kendaraan_status 
-       SET bensin_tanggal_terakhir = $1, bensin_jenis_terakhir = $2, bensin_nominal_terakhir = $3, bensin_liter_terakhir = $4, updated_at = NOW() 
-       WHERE kendaraan_id = $5`,
-      [tanggal, jenisBbm, nominal, liter, kendaraanId]
-    );
-
     const v = await dbQuerySingle<{ nama_kendaraan: string; plat_nomor: string }>(
       'SELECT nama_kendaraan, plat_nomor FROM kendaraan WHERE id = $1',
       [kendaraanId]
@@ -614,8 +686,8 @@ export async function recordPengisianBBM(
 
     if (catatKeKas) {
       await dbQuery(
-        `INSERT INTO kas_transaksi (tanggal, tipe, kategori, keterangan, nominal, jenis_pembayaran, pic_tipe, pic_nama, sumber_otomatis)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        `INSERT INTO kas_transaksi (tanggal, tipe, kategori, keterangan, nominal, jenis_pembayaran, pic_tipe, pic_nama, sumber_otomatis, kendaraan_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           tanggal,
           'pengeluaran',
@@ -626,11 +698,12 @@ export async function recordPengisianBBM(
           'admin',
           'Fleet Admin',
           true,
+          kendaraanId,
         ]
       );
     }
 
-    // Also record in log harian as bbm record
+    // Record in log harian as bbm record
     await dbQuery(
       `INSERT INTO kendaraan_log_harian (kendaraan_id, tanggal, bbm_liter, bbm_nominal, bbm_jenis, catatan)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -639,15 +712,15 @@ export async function recordPengisianBBM(
          bbm_liter = COALESCE(EXCLUDED.bbm_liter, kendaraan_log_harian.bbm_liter),
          bbm_nominal = COALESCE(EXCLUDED.bbm_nominal, kendaraan_log_harian.bbm_nominal),
          bbm_jenis = COALESCE(EXCLUDED.bbm_jenis, kendaraan_log_harian.bbm_jenis),
+         catatan = COALESCE(EXCLUDED.catatan, kendaraan_log_harian.catatan),
          updated_at = NOW()`,
       [kendaraanId, tanggal, liter, nominal, jenisBbm, `Pengisian BBM ${jenisBbm.toUpperCase()} ${liter}L`]
     );
 
-    cacheInvalidate('master_kendaraan*');
-    cacheInvalidate('kendaraan*');
-    cacheInvalidate('kas*');
-    cacheInvalidate('dashboard*');
+    // Sync status armada secara komprehensif
+    await syncKendaraanStatus(kendaraanId);
 
+    cacheInvalidate('kas*');
     safeRevalidatePath(`/kendaraan/${kendaraanId}`);
     safeRevalidatePath('/kendaraan');
     safeRevalidatePath('/kas');
