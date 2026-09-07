@@ -570,7 +570,7 @@ export function generatePrintableHtml(data: NotaData): string {
             data.nominalBayarIni > 0
               ? `<tr class="row-highlight">
                   <td colspan="3" style="text-align: right; padding-right: 10px; font-size: 10.5px;">
-                    ${data.jenis === 'nota_dp' ? '★ JUMLAH PEMBAYARAN DP SAAT INI:' : data.jenis === 'nota_pelunasan' ? '★ JUMLAH PEMBAYARAN PELUNASAN:' : '★ JUMLAH DIBAYARKAN SAAT INI:'}
+                    ${data.jenis === 'nota_dp' ? 'JUMLAH PEMBAYARAN DP SAAT INI:' : data.jenis === 'nota_pelunasan' ? 'JUMLAH PEMBAYARAN PELUNASAN:' : 'JUMLAH DIBAYARKAN SAAT INI:'}
                   </td>
                   <td style="text-align: right; font-size: 11px;">${formatRupiah(data.nominalBayarIni)}</td>
                 </tr>`

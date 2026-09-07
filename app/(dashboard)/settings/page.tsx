@@ -70,6 +70,7 @@ import {
   Zap,
   Wifi,
   Droplets,
+  X,
 } from 'lucide-react';
 
 const INITIAL_TELEGRAM_CONFIG: TelegramConfig = {
@@ -1691,9 +1692,9 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setShowRekeningModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+                className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
               >
-                &times;
+                <X className="w-4 h-4" />
               </button>
             </div>
 

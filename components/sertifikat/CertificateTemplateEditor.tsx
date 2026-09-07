@@ -19,6 +19,7 @@ import {
   Loader2,
   Plus,
   Trash2,
+  Lightbulb,
 } from 'lucide-react';
 
 interface CertificateTemplateEditorProps {
@@ -240,7 +241,7 @@ export function CertificateTemplateEditor({
           </div>
 
           <div className="text-[11px] text-[var(--text-secondary)] flex items-center justify-between px-1">
-            <span>💡 <em>Klik &amp; geser label pada kanvas untuk memindahkan posisi secara visual.</em></span>
+            <span className="flex items-center gap-1.5"><Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <em>Klik &amp; geser label pada kanvas untuk memindahkan posisi secara visual.</em></span>
             <span className="font-mono">Ukuran: {template.page_width} × {template.page_height} pt</span>
           </div>
         </div>

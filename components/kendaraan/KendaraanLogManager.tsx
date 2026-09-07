@@ -43,6 +43,7 @@ import {
   AlertCircle,
   Activity,
   Layers,
+  X,
 } from 'lucide-react';
 import { useAppRefresh } from '@/lib/utils/refresh-event';
 
@@ -1245,9 +1246,9 @@ export function KendaraanLogManager({
               <button
                 type="button"
                 onClick={() => setShowLogModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+                className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
               >
-                &times;
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1458,9 +1459,9 @@ export function KendaraanLogManager({
               <button
                 type="button"
                 onClick={() => setQuickBcInLog(null)}
-                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+                className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
               >
-                &times;
+                <X className="w-4 h-4" />
               </button>
             </div>
 

@@ -59,6 +59,7 @@ import {
   Banknote,
   Car,
   Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -1568,8 +1569,12 @@ export default function KasOverviewPage() {
           <div className="card-container space-y-4 lg:col-span-2">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
               <h3 className="font-bold text-base text-[var(--text-primary)]">Transaksi Kas Terbaru</h3>
-              <Link href="/kas/cashflow" className="text-xs text-[var(--brand-primary)] hover:underline font-semibold">
-                Lihat Semua Cashflow &rarr;
+              <Link
+                href="/kas/cashflow"
+                className="text-xs text-[var(--brand-primary)] hover:underline font-semibold inline-flex items-center gap-1"
+              >
+                <span>Lihat Semua Cashflow</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 

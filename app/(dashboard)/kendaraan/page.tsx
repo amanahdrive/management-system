@@ -49,9 +49,10 @@ export default function KendaraanPage() {
           </h3>
           <Link
             href="/master-data/kendaraan"
-            className="text-xs text-[var(--brand-primary)] font-semibold hover:underline"
+            className="text-xs text-[var(--brand-primary)] font-semibold hover:underline inline-flex items-center gap-1"
           >
-            Kelola Master Armada &rarr;
+            <span>Kelola Master Armada</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 

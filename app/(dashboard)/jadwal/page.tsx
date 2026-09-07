@@ -58,6 +58,8 @@ import {
   Car,
   UserCheck,
   User,
+  CornerDownRight,
+  ArrowRight,
 } from 'lucide-react';
 import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
 import { purgeServerCache } from '@/lib/actions/cache';
@@ -896,7 +898,7 @@ export default function JadwalPage() {
           <div className={`space-y-1 ${isMulti ? 'pl-2 border-l-2 border-l-teal-500 py-0.5' : ''}`}>
             <div className="flex items-center gap-1.5 flex-wrap">
               {isSubsequent && (
-                <span className="text-teal-600 dark:text-teal-400 font-extrabold text-sm">↳</span>
+                <CornerDownRight className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
               )}
               <span className="font-bold text-xs text-[var(--text-primary)]">
                 {sesi.siswa?.nama || 'Siswa Kustom'}
@@ -1220,7 +1222,7 @@ export default function JadwalPage() {
                     <div>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {sesi.sameDaySlotIndex > 1 && (
-                          <span className="text-teal-600 dark:text-teal-400 font-extrabold text-sm">↳</span>
+                          <CornerDownRight className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
                         )}
                         <span className="font-bold text-sm text-[var(--text-primary)]">
                           {sesi.siswa?.nama || 'Siswa Kustom'}
@@ -1620,8 +1622,10 @@ export default function JadwalPage() {
                   </div>
 
                   <div className="p-2.5 bg-[var(--bg)] rounded-lg border border-[var(--border)] text-[11px] space-y-1">
-                    <p className="text-[var(--text-secondary)]">
-                      Sesi {progressSesiKe}: <span className="line-through">{formatDateIndo(progressTanggal)}</span> &rarr;{' '}
+                    <p className="text-[var(--text-secondary)] flex items-center gap-1.5 flex-wrap">
+                      <span>Sesi {progressSesiKe}:</span>
+                      <span className="line-through">{formatDateIndo(progressTanggal)}</span>
+                      <ArrowRight className="w-3.5 h-3.5 text-[var(--brand-primary)] shrink-0" />
                       <span className="font-bold text-amber-600 dark:text-amber-400">
                         {formatDateIndo(addDaysToDateStr(progressTanggal, rescheduleShiftDays))}
                       </span>
@@ -1776,9 +1780,10 @@ export default function JadwalPage() {
                       <button
                         type="button"
                         onClick={() => setWaWeekAnchor(addDaysToDateStr(waWeekAnchor, -7))}
-                        className="px-2.5 py-1 rounded border border-[var(--border)] bg-[var(--bg)] font-semibold hover:bg-black/5"
+                        className="px-2.5 py-1 rounded border border-[var(--border)] bg-[var(--bg)] font-semibold hover:bg-black/5 inline-flex items-center gap-1"
                       >
-                        ◀ Minggu Lalu
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        <span>Minggu Lalu</span>
                       </button>
                       <button
                         type="button"
@@ -1790,9 +1795,10 @@ export default function JadwalPage() {
                       <button
                         type="button"
                         onClick={() => setWaWeekAnchor(addDaysToDateStr(waWeekAnchor, 7))}
-                        className="px-2.5 py-1 rounded border border-[var(--border)] bg-[var(--bg)] font-semibold hover:bg-black/5"
+                        className="px-2.5 py-1 rounded border border-[var(--border)] bg-[var(--bg)] font-semibold hover:bg-black/5 inline-flex items-center gap-1"
                       >
-                        Minggu Depan ▶
+                        <span>Minggu Depan</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>

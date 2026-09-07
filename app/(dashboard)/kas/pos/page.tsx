@@ -45,6 +45,7 @@ import {
   Calendar,
   Layers,
   ChevronRight,
+  X,
 } from 'lucide-react';
 
 export default function PosPengeluaranPage() {
@@ -664,9 +665,10 @@ export default function PosPengeluaranPage() {
                 </div>
                 <button
                   onClick={() => setPayingPos(null)}
-                  className="text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                  className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                  aria-label="Tutup"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
@@ -804,9 +806,10 @@ export default function PosPengeluaranPage() {
                 </h3>
                 <button
                   onClick={() => setIsAddModalOpen(false)}
-                  className="text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                  className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                  aria-label="Tutup"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
@@ -924,9 +927,9 @@ export default function PosPengeluaranPage() {
                 </h3>
                 <button
                   onClick={() => setEditingPos(null)}
-                  className="text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                  className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 

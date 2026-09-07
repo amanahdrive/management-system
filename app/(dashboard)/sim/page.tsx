@@ -32,6 +32,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Settings as SettingsIcon,
+  X,
+  ArrowRight,
 } from 'lucide-react';
 
 type TabView = 'active' | 'archived' | 'all';
@@ -473,8 +475,8 @@ export default function ManajemenSimPage() {
             </button>
           </div>
 
-          <div className="text-xs text-[var(--text-secondary)]">
-            Menampilkan <strong className="text-[var(--text-primary)]">{sortedStudents.length}</strong> data siswa (Urutan tanggal daftar awal &rarr; akhir)
+          <div className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
+            Menampilkan <strong className="text-[var(--text-primary)]">{sortedStudents.length}</strong> data siswa (Urutan tanggal daftar awal <ArrowRight className="w-3 h-3 inline text-[var(--brand-primary)]" /> akhir)
           </div>
         </div>
 
@@ -947,9 +949,9 @@ export default function ManajemenSimPage() {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+                className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
               >
-                &times;
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1139,7 +1141,8 @@ export default function ManajemenSimPage() {
                 className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all inline-flex items-center gap-1.5"
               >
                 <Receipt className="w-3.5 h-3.5" />
-                <span>Pelunasan di Detail Siswa &rarr;</span>
+                <span>Pelunasan di Detail Siswa</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           </div>
@@ -1167,9 +1170,9 @@ export default function ManajemenSimPage() {
               <button
                 type="button"
                 onClick={() => setIsSimConfigModalOpen(false)}
-                className="text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 

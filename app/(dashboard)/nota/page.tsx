@@ -41,6 +41,9 @@ import {
   ArrowUpDown,
   X,
   ExternalLink,
+  AlertTriangle,
+  XCircle,
+  RefreshCw,
 } from 'lucide-react';
 
 const JENIS_DOC_ITEMS: { value: NotaJenis; label: string; desc: string; size: string }[] = [
@@ -325,10 +328,10 @@ export default function NotaPage() {
     try {
       const filename = `${jenis}_${kodeSiswa || 'siswa'}_${tanggal}`;
       await downloadDocumentAsJpg(el, filename);
-      showToast('✅ Berhasil mendownload gambar Nota (JPG)!', 'success');
+      showToast('Berhasil mendownload gambar Nota (JPG)!', 'success');
     } catch (err: any) {
       console.error('Download JPG Error:', err);
-      showToast(`❌ Gagal download JPG: ${err?.message || 'Error'}`, 'error');
+      showToast(`Gagal download JPG: ${err?.message || 'Error'}`, 'error');
     } finally {
       setActionLoading(null);
     }
@@ -341,10 +344,10 @@ export default function NotaPage() {
     try {
       const filename = `${jenis}_${kodeSiswa || 'siswa'}_${tanggal}`;
       await downloadDocumentAsPdf(el, filename, isA4);
-      showToast('✅ Berhasil mendownload dokumen Nota (PDF)!', 'success');
+      showToast('Berhasil mendownload dokumen Nota (PDF)!', 'success');
     } catch (err: any) {
       console.error('Download PDF Error:', err);
-      showToast(`❌ Gagal download PDF: ${err?.message || 'Error'}`, 'error');
+      showToast(`Gagal download PDF: ${err?.message || 'Error'}`, 'error');
     } finally {
       setActionLoading(null);
     }
@@ -357,15 +360,15 @@ export default function NotaPage() {
     try {
       const res = await copyDocumentToClipboard(el);
       if (res.success) {
-        showToast('✅ Foto Nota berhasil disalin ke Clipboard! Siap langsung di-paste (Ctrl+V) ke WhatsApp.', 'success');
+        showToast('Foto Nota berhasil disalin ke Clipboard! Siap langsung di-paste (Ctrl+V) ke WhatsApp.', 'success');
       } else {
-        showToast(`⚠️ ${res.message || 'Browser membatasi clipboard'}. Mengunduh file JPG sebagai gantinya...`, 'warning');
+        showToast(`${res.message || 'Browser membatasi clipboard'}. Mengunduh file JPG sebagai gantinya...`, 'warning');
         const filename = `${jenis}_${kodeSiswa || 'siswa'}_${tanggal}`;
         await downloadDocumentAsJpg(el, filename);
       }
     } catch (err: any) {
       console.error('Copy Image Error:', err);
-      showToast(`❌ Gagal menyalin gambar: ${err?.message || 'Error'}`, 'error');
+      showToast(`Gagal menyalin gambar: ${err?.message || 'Error'}`, 'error');
     } finally {
       setActionLoading(null);
     }
@@ -376,7 +379,7 @@ export default function NotaPage() {
       printDocument(currentNotaData);
     } catch (err: any) {
       console.error('Print Error:', err);
-      showToast('❌ Gagal membuka print dialog', 'error');
+      showToast('Gagal membuka print dialog', 'error');
     }
   };
 
@@ -400,7 +403,13 @@ export default function NotaPage() {
                 : 'bg-slate-900 text-rose-300 border-rose-500/30'
             }`}
           >
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+            {toast.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+            ) : toast.type === 'warning' ? (
+              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+            ) : (
+              <XCircle className="w-4 h-4 shrink-0 text-rose-400" />
+            )}
             <span>{toast.message}</span>
           </div>
         )}
@@ -646,10 +655,10 @@ export default function NotaPage() {
                       <button
                         type="button"
                         onClick={() => setNomorDokumen(generateNomorDokumen(jenis))}
-                        className="p-1.5 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--brand-primary)] shrink-0"
+                        className="p-1.5 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--brand-primary)] shrink-0 flex items-center justify-center"
                         title="Acak nomor baru"
                       >
-                        ↻
+                        <RefreshCw className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -757,7 +766,7 @@ export default function NotaPage() {
 
                 <div className="p-3 rounded-2xl bg-teal-50/80 dark:bg-teal-950/40 border-2 border-[var(--brand-primary)]">
                   <CurrencyInput
-                    label="★ Nominal Bayar Saat Ini (Rp) *"
+                    label="Nominal Bayar Saat Ini (Rp) *"
                     value={nominalBayarIni}
                     onChange={(val) => setNominalBayarIni(val)}
                   />

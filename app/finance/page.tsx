@@ -77,6 +77,7 @@ import {
   Search,
   Filter,
   Users,
+  ArrowRight,
 } from 'lucide-react';
 
 function fmt(n: number): string {
@@ -1142,7 +1143,10 @@ export default function FinancePortalPage() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] opacity-80 font-medium">Saldo Tunai</span>
-                    <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded-full font-bold">Setor →</span>
+                    <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-0.5">
+                      <span>Setor</span>
+                      <ArrowRight className="w-2.5 h-2.5" />
+                    </span>
                   </div>
                   <span className="font-bold tabular-nums block mt-1">{formatRupiah(metrics.saldoTunai)}</span>
                 </div>
@@ -1164,7 +1168,7 @@ export default function FinancePortalPage() {
                   <Landmark className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span>Setor Tunai</span>
                 </div>
-                <span className="text-[10px] text-emerald-600 font-bold">→</span>
+                <ArrowRight className="w-3.5 h-3.5 text-emerald-600" />
               </button>
               <Link
                 href="/kas/pos"
@@ -1174,7 +1178,10 @@ export default function FinancePortalPage() {
                   <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                   <span>POS Belanja</span>
                 </div>
-                <span className="text-[10px] text-indigo-600 font-bold">Buka →</span>
+                <div className="flex items-center gap-0.5 text-[10px] text-indigo-600 font-bold">
+                  <span>Buka</span>
+                  <ArrowRight className="w-3 h-3" />
+                </div>
               </Link>
             </div>
 
@@ -1191,8 +1198,9 @@ export default function FinancePortalPage() {
                 <div className="text-sm font-extrabold text-amber-600 dark:text-amber-400 tabular-nums">
                   {formatRupiah(metrics.totalPiutang)}
                 </div>
-                <div className="text-[9.5px] text-[var(--text-secondary)]">
-                  {piutangSiswaList.length} siswa belum lunas →
+                <div className="text-[9.5px] text-[var(--text-secondary)] flex items-center gap-1">
+                  <span>{piutangSiswaList.length} siswa belum lunas</span>
+                  <ArrowRight className="w-2.5 h-2.5" />
                 </div>
               </div>
 
@@ -1207,8 +1215,9 @@ export default function FinancePortalPage() {
                 <div className="text-sm font-extrabold text-rose-600 dark:text-rose-400 tabular-nums">
                   {formatRupiah(metrics.totalHutang)}
                 </div>
-                <div className="text-[9.5px] text-[var(--text-secondary)]">
-                  {hutangList.filter((h) => h.status === 'berjalan').length} hutang berjalan →
+                <div className="text-[9.5px] text-[var(--text-secondary)] flex items-center gap-1">
+                  <span>{hutangList.filter((h) => h.status === 'berjalan').length} hutang berjalan</span>
+                  <ArrowRight className="w-2.5 h-2.5" />
                 </div>
               </div>
             </div>
@@ -1746,7 +1755,7 @@ export default function FinancePortalPage() {
                       <option value="">-- Pilih Siswa / DP Kustom --</option>
                       {formData.kategori === 'dp_siswa' && (
                         <option value="custom_dp" className="font-bold text-amber-600">
-                          ★ [+ Input DP Kustom (Tanpa Data Siswa)]
+                          [+ Input DP Kustom (Tanpa Data Siswa)]
                         </option>
                       )}
                       {formData.kategori === 'pelunasan_siswa' && dpKustomList.filter((d) => !d.isLunas).length > 0 && (

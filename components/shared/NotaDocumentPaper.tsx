@@ -156,7 +156,7 @@ export function NotaDocumentPaper({
             {notaData.nominalBayarIni > 0 && (
               <tr className="border-b-2 border-emerald-600 bg-emerald-100/70 font-extrabold text-emerald-900">
                 <td colSpan={3} className="py-2 px-3 text-right pr-4 text-xs tracking-wide">
-                  {notaData.jenis === 'nota_dp' ? '★ JUMLAH PEMBAYARAN DP SAAT INI:' : notaData.jenis === 'nota_pelunasan' ? '★ JUMLAH PEMBAYARAN PELUNASAN:' : '★ JUMLAH DIBAYARKAN SAAT INI:'}
+                  {notaData.jenis === 'nota_dp' ? 'JUMLAH PEMBAYARAN DP SAAT INI:' : notaData.jenis === 'nota_pelunasan' ? 'JUMLAH PEMBAYARAN PELUNASAN:' : 'JUMLAH DIBAYARKAN SAAT INI:'}
                 </td>
                 <td className="py-2 px-3 text-right text-xs font-black">{formatRupiah(notaData.nominalBayarIni)}</td>
               </tr>
