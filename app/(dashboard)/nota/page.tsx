@@ -15,12 +15,13 @@ import { NotaDocumentPaper } from '@/components/shared/NotaDocumentPaper';
 import {
   NotaJenis,
   NotaData,
+  InvoiceItem,
   getJenisInfo,
   generateNomorDokumen,
-  printDocument,
-  downloadDocumentAsJpg,
-  downloadDocumentAsPdf,
-  copyDocumentToClipboard,
+  executePrint,
+  downloadMultiPageJpg,
+  downloadMultiPagePdf,
+  copyPageToClipboard,
 } from '@/lib/utils/nota-generator';
 import {
   Receipt,
@@ -44,6 +45,11 @@ import {
   AlertTriangle,
   XCircle,
   RefreshCw,
+  ZoomIn,
+  ZoomOut,
+  Layers,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 
 const JENIS_DOC_ITEMS: { value: NotaJenis; label: string; desc: string; size: string }[] = [
@@ -139,6 +145,17 @@ export default function NotaPage() {
   // Action Loading & Toast Feedback
   const [actionLoading, setActionLoading] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
+
+  // Zoom & Multi-Page View State
+  const [studioZoom, setStudioZoom] = React.useState<number>(1);
+  const [studioActivePage, setStudioActivePage] = React.useState<number>(0); // 0 = all pages
+  const [studioTotalPages, setStudioTotalPages] = React.useState<number>(1);
+
+  const [modalActivePage, setModalActivePage] = React.useState<number>(0);
+  const [modalTotalPages, setModalTotalPages] = React.useState<number>(1);
+
+  // Custom Items (for Multi-Item / Extra Fees / Overflow Testing)
+  const [customItems, setCustomItems] = React.useState<InvoiceItem[]>([]);
 
   // Document Paper Ref for Capture
   const documentPaperRef = React.useRef<HTMLDivElement>(null);
@@ -313,6 +330,7 @@ export default function NotaPage() {
     picNama,
     picJabatan,
     showStempel,
+    customItems: customItems.length > 0 ? customItems : undefined,
   };
 
   const docInfo = getJenisInfo(jenis);
@@ -321,14 +339,22 @@ export default function NotaPage() {
   // Handler ekspor dokumen
   const getActiveRef = () => (isModalOpen ? modalPaperRef.current : documentPaperRef.current);
 
+  // Helper: Retrieve all rendered page sheet elements from active paper container
+  const getActivePages = (): HTMLElement[] => {
+    const container = getActiveRef();
+    if (!container) return [];
+    const pageElements = Array.from(container.querySelectorAll<HTMLElement>('.print-sheet'));
+    return pageElements.length > 0 ? pageElements : [container];
+  };
+
   const handleDownloadJpg = async () => {
-    const el = getActiveRef();
-    if (!el) return;
+    const pages = getActivePages();
+    if (pages.length === 0) return;
     setActionLoading('jpg');
     try {
       const filename = `${jenis}_${kodeSiswa || 'siswa'}_${tanggal}`;
-      await downloadDocumentAsJpg(el, filename);
-      showToast('Berhasil mendownload gambar Nota (JPG)!', 'success');
+      await downloadMultiPageJpg(pages, filename);
+      showToast(`Berhasil mendownload ${pages.length > 1 ? `${pages.length} file gambar ` : 'gambar '}Nota (JPG)!`, 'success');
     } catch (err: any) {
       console.error('Download JPG Error:', err);
       showToast(`Gagal download JPG: ${err?.message || 'Error'}`, 'error');
@@ -338,13 +364,13 @@ export default function NotaPage() {
   };
 
   const handleDownloadPdf = async () => {
-    const el = getActiveRef();
-    if (!el) return;
+    const pages = getActivePages();
+    if (pages.length === 0) return;
     setActionLoading('pdf');
     try {
       const filename = `${jenis}_${kodeSiswa || 'siswa'}_${tanggal}`;
-      await downloadDocumentAsPdf(el, filename, isA4);
-      showToast('Berhasil mendownload dokumen Nota (PDF)!', 'success');
+      await downloadMultiPagePdf(pages, filename, isA4);
+      showToast(`Berhasil mendownload dokumen ${pages.length > 1 ? `(${pages.length} Halaman) ` : ''}PDF!`, 'success');
     } catch (err: any) {
       console.error('Download PDF Error:', err);
       showToast(`Gagal download PDF: ${err?.message || 'Error'}`, 'error');
@@ -354,17 +380,22 @@ export default function NotaPage() {
   };
 
   const handleCopyClipboard = async () => {
-    const el = getActiveRef();
-    if (!el) return;
+    const pages = getActivePages();
+    if (pages.length === 0) return;
     setActionLoading('copy');
     try {
-      const res = await copyDocumentToClipboard(el);
+      const activeIdx = isModalOpen ? modalActivePage : studioActivePage;
+      const targetPage = activeIdx > 0 && activeIdx <= pages.length ? pages[activeIdx - 1] : pages[0];
+      const res = await copyPageToClipboard(targetPage);
       if (res.success) {
-        showToast('Foto Nota berhasil disalin ke Clipboard! Siap langsung di-paste (Ctrl+V) ke WhatsApp.', 'success');
+        showToast(
+          `Foto Nota ${pages.length > 1 ? `(Halaman ${activeIdx || 1}) ` : ''}berhasil disalin ke Clipboard! Siap langsung di-paste (Ctrl+V) ke WhatsApp.`,
+          'success'
+        );
       } else {
         showToast(`${res.message || 'Browser membatasi clipboard'}. Mengunduh file JPG sebagai gantinya...`, 'warning');
         const filename = `${jenis}_${kodeSiswa || 'siswa'}_${tanggal}`;
-        await downloadDocumentAsJpg(el, filename);
+        await downloadMultiPageJpg([targetPage], filename);
       }
     } catch (err: any) {
       console.error('Copy Image Error:', err);
@@ -376,7 +407,7 @@ export default function NotaPage() {
 
   const handlePrint = () => {
     try {
-      printDocument(currentNotaData);
+      executePrint();
     } catch (err: any) {
       console.error('Print Error:', err);
       showToast('Gagal membuka print dialog', 'error');
@@ -837,16 +868,173 @@ export default function NotaPage() {
                   )}
                 </div>
               </div>
+
+              {/* Custom Items Builder for Multi-Item / Extra Fees */}
+              <div className="card-container p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--brand-primary)] flex items-center gap-2">
+                    <SlidersHorizontal className="w-4 h-4" />
+                    <span>4. Tambahan Item / Rincian Kustom ({customItems.length})</span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomItems([
+                        ...customItems,
+                        {
+                          no: customItems.length + 1,
+                          uraian: `Layanan Tambahan #${customItems.length + 1}`,
+                          qty: '1',
+                          nominal: 250000,
+                        },
+                      ]);
+                    }}
+                    className="px-2.5 py-1 rounded-xl bg-[var(--brand-primary-light)] text-[var(--brand-primary)] text-xs font-bold hover:bg-[var(--brand-primary)] hover:text-white transition-colors flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Tambah Baris</span>
+                  </button>
+                </div>
+
+                {customItems.length === 0 ? (
+                  <p className="text-[11px] text-[var(--text-secondary)] italic">
+                    Secara default, rincian nota memuat paket pelatihan utama. Tambahkan baris di sini jika ingin membuat nota multi-item (misal: Sesi Tambahan, Biaya SIM, dll) atau menguji pemisahan multi-halaman.
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {customItems.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] space-y-2 text-xs"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-[10px] text-slate-500">#{idx + 1}</span>
+                          <input
+                            type="text"
+                            value={item.uraian}
+                            onChange={(e) => {
+                              const updated = [...customItems];
+                              updated[idx].uraian = e.target.value;
+                              setCustomItems(updated);
+                            }}
+                            placeholder="Deskripsi layanan / biaya"
+                            className="flex-1 px-2 py-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setCustomItems(customItems.filter((_, i) => i !== idx))}
+                            className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            value={item.qty}
+                            onChange={(e) => {
+                              const updated = [...customItems];
+                              updated[idx].qty = e.target.value;
+                              setCustomItems(updated);
+                            }}
+                            placeholder="Qty (cth: 1 Sesi)"
+                            className="px-2 py-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-xs"
+                          />
+                          <CurrencyInput
+                            value={item.nominal}
+                            onChange={(val) => {
+                              const updated = [...customItems];
+                              updated[idx].nominal = val;
+                              setCustomItems(updated);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setCustomItems([])}
+                      className="text-[10px] text-rose-600 hover:underline font-bold"
+                    >
+                      Reset ke Paket Default
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Right Column: Live Studio Preview */}
             <div className="xl:col-span-7 space-y-4">
               <div className="card-container p-4 flex flex-wrap items-center justify-between gap-3 sticky top-4 z-30 bg-[var(--bg-elevated)] shadow-md">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-bold text-[var(--text-primary)]">{docInfo.title}</span>
                   <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[var(--brand-primary-light)] text-[var(--brand-primary)] border border-[var(--brand-primary)]">
                     {docInfo.paperSize}
                   </span>
+
+                  {/* Multi-Page Indicator & Switcher */}
+                  {studioTotalPages > 1 && (
+                    <div className="flex items-center gap-1 bg-[var(--bg)] p-1 rounded-xl border border-[var(--border)] text-xs">
+                      <Layers className="w-3.5 h-3.5 text-[var(--brand-primary)] ml-1" />
+                      <button
+                        type="button"
+                        onClick={() => setStudioActivePage(0)}
+                        className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold transition-all ${
+                          studioActivePage === 0
+                            ? 'bg-[var(--brand-primary)] text-white shadow-xs'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        Semua ({studioTotalPages})
+                      </button>
+                      {Array.from({ length: studioTotalPages }).map((_, i) => (
+                        <button
+                          key={i + 1}
+                          type="button"
+                          onClick={() => setStudioActivePage(i + 1)}
+                          className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold transition-all ${
+                            studioActivePage === i + 1
+                              ? 'bg-[var(--brand-primary)] text-white shadow-xs'
+                              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                          }`}
+                        >
+                          Hal {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Zoom Controls */}
+                  <div className="flex items-center gap-1 bg-[var(--bg)] p-1 rounded-xl border border-[var(--border)] text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setStudioZoom((z) => Math.max(0.6, Number((z - 0.1).toFixed(1))))}
+                      className="p-1 rounded-lg hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      title="Perkecil"
+                    >
+                      <ZoomOut className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-[10.5px] font-mono font-bold w-10 text-center text-[var(--text-primary)]">
+                      {Math.round(studioZoom * 100)}%
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setStudioZoom((z) => Math.min(1.4, Number((z + 0.1).toFixed(1))))}
+                      className="p-1 rounded-lg hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      title="Perbesar"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5" />
+                    </button>
+                    {studioZoom !== 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setStudioZoom(1)}
+                        className="text-[9px] text-[var(--brand-primary)] font-bold px-1 hover:underline"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -898,6 +1086,9 @@ export default function NotaPage() {
                   notaData={currentNotaData}
                   logoBase64={logoBase64}
                   stampBase64={stampBase64}
+                  zoomScale={studioZoom}
+                  activePageIndex={studioActivePage > 0 ? studioActivePage : undefined}
+                  onTotalPagesChange={setStudioTotalPages}
                 />
               </div>
             </div>
@@ -935,22 +1126,56 @@ export default function NotaPage() {
 
               {/* Modal Toolbar: Format Selector & Settings */}
               <div className="px-5 py-3 border-b border-[var(--border)] bg-[var(--bg-subtle)] flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[11px] font-bold text-[var(--text-secondary)]">Format:</span>
-                  {JENIS_DOC_ITEMS.map((item) => (
-                    <button
-                      key={item.value}
-                      type="button"
-                      onClick={() => handleJenisChange(item.value)}
-                      className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all ${
-                        jenis === item.value
-                          ? 'bg-[var(--brand-primary)] text-white shadow-xs'
-                          : 'bg-[var(--bg)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                      }`}
-                    >
-                      {item.label} ({item.size.split(' ')[0]})
-                    </button>
-                  ))}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-bold text-[var(--text-secondary)]">Format:</span>
+                    {JENIS_DOC_ITEMS.map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => handleJenisChange(item.value)}
+                        className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all ${
+                          jenis === item.value
+                            ? 'bg-[var(--brand-primary)] text-white shadow-xs'
+                            : 'bg-[var(--bg)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        {item.label} ({item.size.split(' ')[0]})
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Modal Multi-Page Indicator & Switcher */}
+                  {modalTotalPages > 1 && (
+                    <div className="flex items-center gap-1 bg-[var(--bg)] p-1 rounded-xl border border-[var(--border)] text-xs">
+                      <Layers className="w-3.5 h-3.5 text-[var(--brand-primary)] ml-1" />
+                      <button
+                        type="button"
+                        onClick={() => setModalActivePage(0)}
+                        className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold transition-all ${
+                          modalActivePage === 0
+                            ? 'bg-[var(--brand-primary)] text-white shadow-xs'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        Semua ({modalTotalPages})
+                      </button>
+                      {Array.from({ length: modalTotalPages }).map((_, i) => (
+                        <button
+                          key={i + 1}
+                          type="button"
+                          onClick={() => setModalActivePage(i + 1)}
+                          className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold transition-all ${
+                            modalActivePage === i + 1
+                              ? 'bg-[var(--brand-primary)] text-white shadow-xs'
+                              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                          }`}
+                        >
+                          Hal {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -986,6 +1211,8 @@ export default function NotaPage() {
                     notaData={currentNotaData}
                     logoBase64={logoBase64}
                     stampBase64={stampBase64}
+                    activePageIndex={modalActivePage > 0 ? modalActivePage : undefined}
+                    onTotalPagesChange={setModalTotalPages}
                   />
                 </div>
               </div>
