@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
     timestamp: new Date().toISOString(),
     endpoints: {
       universal: '/api/webhook',
+      whatsapp: '/api/webhook/whatsapp',
       telegram: '/api/webhook/telegram',
       supabase: '/api/webhook/supabase',
     },

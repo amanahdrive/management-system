@@ -72,6 +72,7 @@ import {
   Droplets,
   X,
   Globe,
+  MessageSquare,
 } from 'lucide-react';
 
 const INITIAL_TELEGRAM_CONFIG: TelegramConfig = {
@@ -1609,18 +1610,59 @@ export default function SettingsPage() {
                 Daftar endpoint webhook aktif untuk menghubungkan Telegram Bot, Supabase Database Webhook, dan layanan pihak ketiga
               </p>
             </div>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
-              3 Endpoint Aktif
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              4 Endpoint Aktif
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {/* 1. Telegram Bot Webhook */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* 1. WhatsApp Gateway (Baileys Engine) */}
+            <div className="p-3.5 bg-[var(--bg)] rounded-xl border border-emerald-500/30 bg-emerald-50/10 dark:bg-emerald-950/10 flex flex-col justify-between gap-3 shadow-xs">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>1. WA Baileys Webhook</span>
+                  </span>
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    POST / GET
+                  </span>
+                </div>
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  Auto-responder siswa (<code>#jadwal</code>, <code>#tagihan</code>, <code>#sim</code>, <code>#paket</code>) & log koneksi Baileys.
+                </p>
+                <div className="p-2 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border)] font-mono text-[10.5px] text-[var(--text-primary)] break-all select-all">
+                  {`${currentOrigin}/api/webhook/whatsapp`}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => handleCopyWebhook(`${currentOrigin}/api/webhook/whatsapp`, 'whatsapp')}
+                  className="w-full py-1.5 px-2 rounded-lg border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors text-emerald-700 dark:text-emerald-300"
+                >
+                  {copiedWebhook === 'whatsapp' ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Tersalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Salin URL</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Telegram Bot Webhook */}
             <div className="p-3.5 bg-[var(--bg)] rounded-xl border border-[var(--border)] flex flex-col justify-between gap-3 shadow-xs">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-[var(--text-primary)]">1. Telegram Bot Webhook</span>
+                  <span className="font-bold text-xs text-[var(--text-primary)]">2. Telegram Bot Webhook</span>
                   <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300">
                     POST / GET
                   </span>
@@ -1654,11 +1696,11 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* 2. Supabase Database Webhook */}
+            {/* 3. Supabase Database Webhook */}
             <div className="p-3.5 bg-[var(--bg)] rounded-xl border border-[var(--border)] flex flex-col justify-between gap-3 shadow-xs">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-[var(--text-primary)]">2. Supabase DB Webhook</span>
+                  <span className="font-bold text-xs text-[var(--text-primary)]">3. Supabase DB Webhook</span>
                   <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                     POST / GET
                   </span>
@@ -1692,17 +1734,17 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* 3. Universal Webhook Gateway */}
+            {/* 4. Universal Webhook Gateway */}
             <div className="p-3.5 bg-[var(--bg)] rounded-xl border border-[var(--border)] flex flex-col justify-between gap-3 shadow-xs">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-[var(--text-primary)]">3. Universal Webhook</span>
+                  <span className="font-bold text-xs text-[var(--text-primary)]">4. Universal Webhook</span>
                   <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
                     POST / GET
                   </span>
                 </div>
                 <p className="text-[11px] text-[var(--text-secondary)]">
-                  Gateway serbaguna untuk GitHub, WhatsApp Gateway, dan verifikasi challenge URL.
+                  Gateway serbaguna untuk GitHub, external APIs, dan verifikasi challenge URL.
                 </p>
                 <div className="p-2 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border)] font-mono text-[10.5px] text-[var(--text-primary)] break-all select-all">
                   {`${currentOrigin}/api/webhook`}
