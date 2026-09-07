@@ -67,12 +67,7 @@ export function PinGateDialog({ children }: PinGateDialogProps) {
         }
       } catch (err: any) {
         console.error('Error verifying PIN:', err);
-        if (cleaned === '210100') {
-          setVerified(true);
-          setPin('');
-        } else {
-          setError('Gagal verifikasi PIN. Silakan coba lagi.');
-        }
+        setError('Gagal verifikasi PIN. Silakan coba lagi.');
       } finally {
         setLoading(false);
       }
@@ -96,25 +91,20 @@ export function PinGateDialog({ children }: PinGateDialogProps) {
       }
     } catch (err: any) {
       console.error('Error verifying PIN on submit:', err);
-      if (pin === '210100') {
-        setVerified(true);
-        setPin('');
-      } else {
-        setError('Gagal verifikasi PIN. Silakan coba lagi.');
-      }
+      setError('Gagal verifikasi PIN. Silakan coba lagi.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="pin-gate-title">
       <div className="card-container max-w-sm w-full bg-[var(--bg)] shadow-2xl text-center p-6 border-2 border-[var(--brand-primary)] animate-in fade-in zoom-in-95 duration-200">
         <div className="w-14 h-14 rounded-2xl bg-[var(--brand-primary-light)] text-[var(--brand-primary)] flex items-center justify-center mx-auto mb-4 shadow-inner">
           <Lock className="w-7 h-7" />
         </div>
 
-        <h2 className="text-xl font-bold text-[var(--text-primary)]">Verifikasi PIN Kas</h2>
+        <h2 id="pin-gate-title" className="text-xl font-bold text-[var(--text-primary)]">Verifikasi PIN Kas</h2>
         <p className="text-xs text-[var(--text-secondary)] mt-1 mb-5">
           Masukkan 6 digit PIN untuk membuka menu Kas & Cetak Nota
         </p>

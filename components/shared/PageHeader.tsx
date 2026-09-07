@@ -1,6 +1,5 @@
-'use client';
-
 import React from 'react';
+import Link from 'next/link';
 
 export interface BreadcrumbItem {
   label: string;
@@ -24,9 +23,9 @@ export function PageHeader({ title, description, breadcrumbs, actions }: PageHea
               <React.Fragment key={idx}>
                 {idx > 0 && <span className="text-[var(--text-muted)] opacity-40">/</span>}
                 {b.href ? (
-                  <a href={b.href} className="hover:text-[var(--brand-primary)] transition-colors">
+                  <Link href={b.href} className="hover:text-[var(--brand-primary)] transition-colors">
                     {b.label}
-                  </a>
+                  </Link>
                 ) : (
                   <span className="text-[var(--text-primary)]">{b.label}</span>
                 )}

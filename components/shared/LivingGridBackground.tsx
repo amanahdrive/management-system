@@ -19,7 +19,8 @@ export function LivingGridBackground() {
     if (!ctx) return;
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) {
+    const isMobile = window.innerWidth < 768 || ('ontouchstart' in window);
+    if (prefersReducedMotion || isMobile) {
       drawStaticGrid(canvas, ctx);
       return;
     }

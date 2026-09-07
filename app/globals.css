@@ -72,16 +72,16 @@
     --shadow-lg:           0 16px 36px -6px rgba(15, 23, 42, 0.08);
     --shadow-glow:         0 0 24px var(--brand-glow);
 
-    /* Geometry & Radii Hierarchy (Liquid Glass & Modern iOS / VisionOS Standard) */
-    --radius-xs:           8px;
-    --radius-sm:           10px;
-    --radius-md:           14px;
-    --radius-lg:           18px;
-    --radius-xl:           22px;
-    --radius-2xl:          26px;
-    --radius-3xl:          32px;
-    --radius-card:         20px;
-    --radius-bento:        20px;
+    /* Geometry & Radii Hierarchy — Disciplined 3-Tier System */
+    --radius-xs:           4px;
+    --radius-sm:           6px;     /* Status Badges & Small Chips */
+    --radius-md:           12px;    /* Inputs, Buttons & Controls */
+    --radius-lg:           14px;
+    --radius-xl:           16px;    /* Dialogs & Contextual Modals */
+    --radius-2xl:          16px;    /* Primary Content Cards */
+    --radius-3xl:          20px;    /* Special Docks & Navigation Containers */
+    --radius-card:         16px;
+    --radius-bento:        16px;
     --radius-pill:         9999px;
     --radius-full:         9999px;
 
@@ -271,18 +271,18 @@
    ANTIGRAVITY CONTAINER & CARD ARCHITECTURE
    ===================================================== */
 
-/* Liquid Glass Container & Card Architecture */
+/* High-Performance Clean Surface Architecture (Anti AI-Slop) */
 .card-container,
 .bento-tile,
 .liquid-glass-card {
   background-color: var(--liquid-glass-bg);
-  backdrop-filter: blur(24px) saturate(190%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
-  border: 1px solid var(--liquid-glass-border);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  padding: 22px;
-  box-shadow: var(--liquid-glass-highlight), var(--liquid-glass-shadow);
-  transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   position: relative;
 }
 
@@ -290,40 +290,36 @@
   .card-container,
   .bento-tile,
   .liquid-glass-card {
-    padding: 24px;
+    padding: 22px;
   }
 }
 
 .card-container:hover,
 .bento-tile:hover,
 .liquid-glass-card:hover {
-  border-color: var(--bento-border-hover);
-  box-shadow: var(--liquid-glass-highlight), 0 20px 48px -6px rgba(15, 122, 115, 0.22);
-  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
 }
 
 /* Bento Hero Tile (Highlighted revenue/main metrics) */
 .bento-hero {
-  background: linear-gradient(135deg, rgba(15, 122, 115, 0.08), rgba(16, 185, 129, 0.03));
-  backdrop-filter: blur(24px) saturate(190%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
-  border: 1px solid var(--liquid-glass-border);
+  background-color: var(--bento-hero-bg);
+  border: 1px solid var(--brand-primary-muted);
   border-radius: var(--radius-card);
-  padding: 22px;
-  box-shadow: var(--liquid-glass-highlight), 0 16px 40px -6px rgba(15, 122, 115, 0.14);
-  transition: all var(--transition-base);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 @media (min-width: 768px) {
   .bento-hero {
-    padding: 24px;
+    padding: 22px;
   }
 }
 
 .bento-hero:hover {
   border-color: var(--brand-primary);
-  box-shadow: var(--liquid-glass-highlight), 0 24px 56px -6px rgba(15, 122, 115, 0.25);
-  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 /* Static Container (Tables, forms) */

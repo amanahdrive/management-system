@@ -25,15 +25,25 @@ export function StatCard({
   onClick,
   className = '',
 }: StatCardProps) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
     <div
       onClick={onClick}
+      onKeyDown={onClick ? handleKeyDown : undefined}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
       className={`relative liquid-glass-card transition-all rounded-2xl shadow-xs ${
         isHero
           ? 'border-[var(--brand-primary)]'
           : 'hover:border-[var(--brand-primary)]'
       } p-5 md:p-6 flex flex-col justify-between ${
-        onClick ? 'cursor-pointer active:scale-98' : ''
+        onClick ? 'cursor-pointer active:scale-98 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:ring-offset-1' : ''
       } ${className}`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -48,7 +58,7 @@ export function StatCard({
       </div>
 
       <div className="mt-3">
-        <div className="text-xl md:text-2xl font-mono font-bold text-[var(--text-primary)] tabular-nums tracking-tight">
+        <div className="text-lg sm:text-xl md:text-2xl font-mono font-bold text-[var(--text-primary)] tabular-nums tracking-tight break-words">
           {value}
         </div>
 

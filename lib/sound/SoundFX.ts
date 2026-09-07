@@ -13,9 +13,10 @@ class SoundEngine {
   constructor() {
     if (typeof window !== 'undefined') {
       try {
-        this.isMuted = localStorage.getItem('amanah_sound_muted') === 'true';
+        const saved = localStorage.getItem('amanah_sound_muted');
+        this.isMuted = saved === null ? true : saved === 'true';
       } catch {
-        this.isMuted = false;
+        this.isMuted = true;
       }
     }
   }

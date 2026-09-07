@@ -462,29 +462,6 @@ export default function FinancePortalPage() {
     setPinLoading(true);
     setPinError(null);
 
-    // Fast-path / Fallback for Master Default PIN
-    if (cleaned === '210100') {
-      try {
-        const res = await verifyKasPin(cleaned);
-        if (res.success) {
-          setPinVerified(true);
-          localStorage.setItem('amanah_finance_pin_ok', 'true');
-          localStorage.setItem('amanah_finance_pin_time', String(Date.now()));
-          setPinLoading(false);
-          return;
-        }
-      } catch (e) {
-        console.warn('Server Action network issue, activating master pin fallback');
-      }
-
-      // If network had an issue or action ID changed, allow default PIN
-      setPinVerified(true);
-      localStorage.setItem('amanah_finance_pin_ok', 'true');
-      localStorage.setItem('amanah_finance_pin_time', String(Date.now()));
-      setPinLoading(false);
-      return;
-    }
-
     try {
       let res: { success: boolean; error?: string };
       try {
@@ -509,13 +486,7 @@ export default function FinancePortalPage() {
       }
     } catch (err: any) {
       console.error('Error verifying PIN:', err);
-      if (cleaned === '210100') {
-        setPinVerified(true);
-        localStorage.setItem('amanah_finance_pin_ok', 'true');
-        localStorage.setItem('amanah_finance_pin_time', String(Date.now()));
-      } else {
-        setPinError('Gagal verifikasi PIN. Periksa koneksi atau coba lagi.');
-      }
+      setPinError('Gagal verifikasi PIN. Periksa koneksi atau coba lagi.');
     } finally {
       setPinLoading(false);
     }
@@ -1068,7 +1039,7 @@ export default function FinancePortalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-subtle)] text-[var(--text-primary)] pb-28">
+    <div className="min-h-screen bg-[var(--bg-subtle)] text-[var(--text-primary)] pb-32">
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-emerald-950/90 backdrop-blur-md text-emerald-200 text-xs font-bold rounded-full shadow-2xl border border-emerald-500/40 flex items-center gap-2 animate-fadeIn">

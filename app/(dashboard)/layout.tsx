@@ -16,7 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Topbar />
 
       <main
-        className={`pt-20 pb-20 md:pb-8 px-4 md:px-6 transition-all duration-300 ${
+        className={`pt-20 pb-32 md:pb-8 px-4 md:px-6 transition-all duration-300 ${
           sidebarOpen ? 'md:ml-64' : 'md:ml-20'
         }`}
       >

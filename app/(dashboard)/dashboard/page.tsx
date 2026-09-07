@@ -33,8 +33,8 @@ const DashboardCharts = dynamic(
     ssr: false,
     loading: () => (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="h-64 rounded-none bg-black/5 dark:bg-white/5 animate-pulse border border-[var(--border)]" />
-        <div className="h-64 rounded-none bg-black/5 dark:bg-white/5 animate-pulse border border-[var(--border)]" />
+        <div className="h-64 rounded-2xl bg-black/5 dark:bg-white/5 animate-pulse border border-[var(--border)]" />
+        <div className="h-64 rounded-2xl bg-black/5 dark:bg-white/5 animate-pulse border border-[var(--border)]" />
       </div>
     ),
   }
@@ -79,13 +79,13 @@ export default function DashboardPage() {
   if (loading || !metrics) {
     return (
       <div className="space-y-6">
-        <div className="h-12 rounded-none bg-black/5 dark:bg-white/5 animate-pulse border border-[var(--border)]" />
+        <div className="h-12 rounded-2xl bg-black/5 dark:bg-white/5 animate-pulse border border-[var(--border)]" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 rounded-none bg-black/5 dark:bg-white/5 animate-pulse border border-[var(--border)]" />
+            <div key={i} className="h-24 rounded-2xl bg-black/5 dark:bg-white/5 animate-pulse border border-[var(--border)]" />
           ))}
         </div>
-        <div className="h-96 rounded-none bg-black/5 dark:bg-white/5 animate-pulse border border-[var(--border)]" />
+        <div className="h-96 rounded-2xl bg-black/5 dark:bg-white/5 animate-pulse border border-[var(--border)]" />
       </div>
     );
   }
@@ -104,7 +104,7 @@ export default function DashboardPage() {
           <h1 className="text-lg sm:text-xl font-bold text-[var(--text-primary)] tracking-tight">
             Dashboard Operasional
           </h1>
-          <span className="px-2 py-0.5 bg-[var(--bg-subtle)] text-[var(--text-secondary)] font-mono text-[10px] border border-[var(--border)]">
+          <span className="px-2.5 py-0.5 bg-[var(--bg-subtle)] text-[var(--text-secondary)] font-mono text-[10px] rounded-full border border-[var(--border)]">
             {formatHariTanggalIndo(todayStr)}
           </span>
         </div>
@@ -342,7 +342,7 @@ export default function DashboardPage() {
         {/* Right Col (1 Col): Urgent Alerts & Shortcuts */}
         <div className="space-y-4">
           {/* Action Alerts Box */}
-          <div className="p-4 border border-[var(--border)] bg-[var(--bg)] space-y-3">
+          <div className="p-4 liquid-glass-card rounded-2xl shadow-xs space-y-3">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
               <span className="text-xs font-bold text-[var(--text-primary)] font-mono uppercase tracking-wider">
                 Status Operasional

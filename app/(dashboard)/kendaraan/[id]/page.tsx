@@ -17,7 +17,7 @@ import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { KendaraanLogManager } from '@/components/kendaraan/KendaraanLogManager';
-import { Gauge, Wrench, Fuel, Sparkles, Disc, ArrowLeft, AlertOctagon } from 'lucide-react';
+import { Gauge, Wrench, Fuel, Sparkles, Disc, ArrowLeft, AlertOctagon, X } from 'lucide-react';
 import Link from 'next/link';
 
 import { useAppRefresh } from '@/lib/utils/refresh-event';
@@ -62,6 +62,15 @@ export default function KendaraanDetailPage() {
   React.useEffect(() => {
     loadData();
   }, [loadData]);
+
+  React.useEffect(() => {
+    if (!modalType) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setModalType(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [modalType]);
 
   useAppRefresh(loadData);
 
@@ -123,41 +132,41 @@ export default function KendaraanDetailPage() {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <button
           onClick={() => setModalType('oli')}
-          className="p-3 card-container hover:border-amber-500 flex flex-col items-center gap-1.5 text-center text-xs font-bold text-amber-700 dark:text-amber-400 transition-all active:scale-95"
+          className="p-3.5 liquid-glass-card rounded-2xl hover:border-[var(--brand-primary)] flex flex-col items-center gap-1.5 text-center text-xs font-bold text-amber-700 dark:text-amber-400 transition-all active:scale-95 shadow-2xs"
         >
-          <Wrench className="w-5 h-5" />
+          <Wrench className="w-5 h-5 text-amber-600" />
           <span>Update Servis Oli</span>
         </button>
 
         <button
           onClick={() => setModalType('ban')}
-          className="p-3 card-container hover:border-blue-500 flex flex-col items-center gap-1.5 text-center text-xs font-bold text-blue-700 dark:text-blue-400 transition-all active:scale-95"
+          className="p-3.5 liquid-glass-card rounded-2xl hover:border-[var(--brand-primary)] flex flex-col items-center gap-1.5 text-center text-xs font-bold text-blue-700 dark:text-blue-400 transition-all active:scale-95 shadow-2xs"
         >
-          <Disc className="w-5 h-5" />
+          <Disc className="w-5 h-5 text-blue-600" />
           <span>Ganti Ban</span>
         </button>
 
         <button
           onClick={() => setModalType('cuci')}
-          className="p-3 card-container hover:border-cyan-500 flex flex-col items-center gap-1.5 text-center text-xs font-bold text-cyan-700 dark:text-cyan-400 transition-all active:scale-95"
+          className="p-3.5 liquid-glass-card rounded-2xl hover:border-[var(--brand-primary)] flex flex-col items-center gap-1.5 text-center text-xs font-bold text-cyan-700 dark:text-cyan-400 transition-all active:scale-95 shadow-2xs"
         >
-          <Sparkles className="w-5 h-5" />
+          <Sparkles className="w-5 h-5 text-cyan-600" />
           <span>Update Cuci</span>
         </button>
 
         <button
           onClick={() => setModalType('bbm')}
-          className="p-3 card-container hover:border-emerald-500 flex flex-col items-center gap-1.5 text-center text-xs font-bold text-emerald-700 dark:text-emerald-400 transition-all active:scale-95"
+          className="p-3.5 liquid-glass-card rounded-2xl hover:border-[var(--brand-primary)] flex flex-col items-center gap-1.5 text-center text-xs font-bold text-emerald-700 dark:text-emerald-400 transition-all active:scale-95 shadow-2xs"
         >
-          <Fuel className="w-5 h-5" />
+          <Fuel className="w-5 h-5 text-emerald-600" />
           <span>Isi BBM Mobil</span>
         </button>
 
         <Link
           href="/insiden"
-          className="p-3 card-container hover:border-rose-500 flex flex-col items-center gap-1.5 text-center text-xs font-bold text-rose-700 dark:text-rose-400 transition-all active:scale-95"
+          className="p-3.5 liquid-glass-card rounded-2xl hover:border-[var(--brand-primary)] flex flex-col items-center gap-1.5 text-center text-xs font-bold text-rose-700 dark:text-rose-400 transition-all active:scale-95 shadow-2xs"
         >
-          <AlertOctagon className="w-5 h-5" />
+          <AlertOctagon className="w-5 h-5 text-rose-600" />
           <span>Log Insiden</span>
         </Link>
       </div>
@@ -234,11 +243,29 @@ export default function KendaraanDetailPage() {
 
       {/* Modal Dialogs */}
       {modalType && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn">
-          <div className="card-container max-w-sm w-full bg-[var(--bg)] shadow-2xl space-y-4 p-5">
-            <h3 className="text-base font-bold text-[var(--text-primary)] capitalize">
-              Input {modalType} — {kendaraan.plat_nomor}
-            </h3>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="kendaraan-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setModalType(null);
+          }}
+        >
+          <div className="card-container max-w-sm w-full bg-[var(--bg)] shadow-2xl space-y-4 p-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
+              <h3 id="kendaraan-modal-title" className="text-base font-bold text-[var(--text-primary)] capitalize">
+                Input {modalType} — {kendaraan.plat_nomor}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setModalType(null)}
+                className="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                aria-label="Tutup dialog"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
             <DatePickerWIB label="Tanggal" value={tanggal} onChange={setTanggal} />
 

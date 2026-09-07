@@ -39,7 +39,7 @@ export function LiquidGlassBottomNav({
   const pathD = `M 26,0 L 148,0 C 164,0 174,26 190,26 C 206,26 216,0 232,0 L 354,0 A 26,26 0 0,1 380,26 L 380,42 A 26,26 0 0,1 354,68 L 26,68 A 26,26 0 0,1 0,42 L 0,26 A 26,26 0 0,1 26,0 Z`;
 
   return (
-    <div className="fixed bottom-4 inset-x-0 z-40 flex justify-center px-3 pointer-events-none select-none">
+    <div className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] inset-x-0 z-40 flex justify-center px-3 pointer-events-none select-none">
       <div className="pointer-events-auto relative w-full max-w-[384px] h-[68px]">
         {/* 1. Backdrop Blur & Frosted Glass SVG Container */}
         <div className="absolute inset-0 filter drop-shadow-[0_16px_36px_rgba(0,0,0,0.18)] dark:drop-shadow-[0_20px_48px_rgba(0,0,0,0.6)]">
@@ -167,11 +167,12 @@ export function LiquidGlassBottomNav({
                   <Link
                     key={item.id}
                     href={item.href}
+                    aria-label={item.label}
                     onClick={() => {
                       sound.playMechanicalTick();
                       item.onClick?.();
                     }}
-                    className="flex items-center justify-center active:scale-95 transition-transform"
+                    className="flex items-center justify-center min-h-[44px] min-w-[52px] active:scale-95 transition-transform"
                   >
                     {content}
                   </Link>
@@ -182,11 +183,12 @@ export function LiquidGlassBottomNav({
                 <button
                   key={item.id}
                   type="button"
+                  aria-label={item.label}
                   onClick={() => {
                     sound.playMechanicalTick();
                     item.onClick?.();
                   }}
-                  className="flex items-center justify-center active:scale-95 transition-transform"
+                  className="flex items-center justify-center min-h-[44px] min-w-[52px] active:scale-95 transition-transform"
                 >
                   {content}
                 </button>
@@ -233,11 +235,12 @@ export function LiquidGlassBottomNav({
                   <Link
                     key={item.id}
                     href={item.href}
+                    aria-label={item.label}
                     onClick={() => {
                       sound.playMechanicalTick();
                       item.onClick?.();
                     }}
-                    className="flex items-center justify-center active:scale-95 transition-transform"
+                    className="flex items-center justify-center min-h-[44px] min-w-[52px] active:scale-95 transition-transform"
                   >
                     {content}
                   </Link>
@@ -248,11 +251,12 @@ export function LiquidGlassBottomNav({
                 <button
                   key={item.id}
                   type="button"
+                  aria-label={item.label}
                   onClick={() => {
                     sound.playMechanicalTick();
                     item.onClick?.();
                   }}
-                  className="flex items-center justify-center active:scale-95 transition-transform"
+                  className="flex items-center justify-center min-h-[44px] min-w-[52px] active:scale-95 transition-transform"
                 >
                   {content}
                 </button>

@@ -24,8 +24,7 @@ export const viewport: Viewport = {
   themeColor: '#0F7A73',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  viewportFit: 'cover',
 };
 
 import { PwaHistoryIsolation } from '@/components/shared/PwaHistoryIsolation';

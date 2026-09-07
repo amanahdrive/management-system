@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import Link from 'next/link';
@@ -113,11 +113,29 @@ export function MobileDrawer() {
     if (isPwaActive) setPwaExpanded(true);
   }, [isPwaActive]);
 
+  React.useEffect(() => {
+    if (!mobileDrawerOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileDrawerOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mobileDrawerOpen, setMobileDrawerOpen]);
+
   if (!mobileDrawerOpen) return null;
 
   return (
-    <div className="md:hidden fixed inset-0 z-50 bg-black/60 flex justify-end">
-      <div className="w-4/5 max-w-xs bg-[var(--bg)] h-full p-4 flex flex-col justify-between animate-in slide-in-from-right overflow-y-auto">
+    <div
+      className="md:hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200"
+      onClick={() => setMobileDrawerOpen(false)}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Menu Navigasi Mobile"
+    >
+      <div
+        className="w-4/5 max-w-xs bg-[var(--bg)] h-full p-4 flex flex-col justify-between animate-in slide-in-from-right duration-250 overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div>
           <div className="flex items-center justify-between pb-4 border-b border-[var(--border)] mb-4">
             <h3 className="font-bold text-base text-[var(--text-primary)]">Menu Navigasi</h3>

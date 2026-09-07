@@ -24,7 +24,26 @@ export function BottomNav() {
     { id: 'menu', label: 'Menu', icon: Menu, onClick: toggleMobileDrawer },
   ];
 
-  const activeId = pathname === '/dashboard' ? 'dashboard' : pathname.startsWith('/siswa') ? 'siswa' : pathname.startsWith('/jadwal') ? 'jadwal' : '';
+  const isSiswaSection = pathname.startsWith('/siswa') || pathname.startsWith('/sim') || pathname.startsWith('/sertifikat');
+  const isJadwalSection = pathname.startsWith('/jadwal');
+  const isMenuSection =
+    pathname.startsWith('/kas') ||
+    pathname.startsWith('/kendaraan') ||
+    pathname.startsWith('/insiden') ||
+    pathname.startsWith('/nota') ||
+    pathname.startsWith('/master-data') ||
+    pathname.startsWith('/settings') ||
+    pathname.startsWith('/analitik');
+
+  const activeId = pathname === '/dashboard'
+    ? 'dashboard'
+    : isSiswaSection
+    ? 'siswa'
+    : isJadwalSection
+    ? 'jadwal'
+    : isMenuSection
+    ? 'menu'
+    : '';
 
   return (
     <div className="md:hidden">

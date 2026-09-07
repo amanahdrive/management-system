@@ -194,10 +194,10 @@ export function DataTable<TData, TValue>({
               {renderMobileCard ? (
                 renderMobileCard(row.original)
               ) : (
-                <div className="card-container p-3.5 space-y-1.5 text-xs">
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3.5 space-y-2 text-xs shadow-2xs">
                   {row.getVisibleCells().map((cell) => (
-                    <div key={cell.id} className="flex justify-between border-b border-[var(--border)] pb-1 last:border-0 last:pb-0">
-                      <span className="eyebrow-label text-[9.5px]">
+                    <div key={cell.id} className="flex justify-between items-center border-b border-[var(--border)]/60 pb-1.5 last:border-0 last:pb-0 gap-2">
+                      <span className="eyebrow-label text-[9.5px] shrink-0">
                         {String(cell.column.columnDef.header || cell.column.id)}:
                       </span>
                       <span className="text-[var(--text-primary)] font-semibold tabular-num text-right">
@@ -210,7 +210,7 @@ export function DataTable<TData, TValue>({
             </React.Fragment>
           ))
         ) : (
-          <div className="card-container text-center text-xs text-[var(--text-muted)] py-6 font-medium">
+          <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-subtle)] text-center text-xs text-[var(--text-muted)] py-8 font-medium">
             Tidak ada data yang sesuai.
           </div>
         )}
@@ -231,7 +231,7 @@ export function DataTable<TData, TValue>({
             <select
               value={pageSize}
               onChange={(e) => table.setPageSize(Number(e.target.value))}
-              className="px-2 py-1 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)] text-xs focus:outline-none focus:border-[var(--brand-primary)] cursor-pointer"
+              className="px-2 py-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)] text-xs focus:outline-none focus:border-[var(--brand-primary)] cursor-pointer"
             >
               {pageSizeOptions.map((opt) => (
                 <option key={opt} value={opt}>
@@ -251,7 +251,7 @@ export function DataTable<TData, TValue>({
             disabled={!table.getCanPreviousPage()}
             aria-label="Halaman Pertama"
             title="Halaman Pertama"
-            className="p-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-25 disabled:cursor-not-allowed transition-all shadow-2xs"
+            className="min-w-[34px] min-h-[34px] flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-25 disabled:cursor-not-allowed transition-all shadow-2xs"
           >
             <ChevronsLeft className="w-3.5 h-3.5 text-[var(--text-primary)]" />
           </button>
@@ -263,13 +263,13 @@ export function DataTable<TData, TValue>({
             disabled={!table.getCanPreviousPage()}
             aria-label="Halaman Sebelumnya"
             title="Halaman Sebelumnya"
-            className="p-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-25 disabled:cursor-not-allowed transition-all shadow-2xs"
+            className="min-w-[34px] min-h-[34px] flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-25 disabled:cursor-not-allowed transition-all shadow-2xs"
           >
             <ChevronLeft className="w-3.5 h-3.5 text-[var(--text-primary)]" />
           </button>
 
           {/* Numbered Page Buttons */}
-          <div className="flex items-center gap-1 px-1">
+          <div className="flex items-center gap-1 px-0.5">
             {getPaginationItems().map((item, idx) => {
               if (item === 'ellipsis') {
                 return (
@@ -285,7 +285,7 @@ export function DataTable<TData, TValue>({
                   key={`page-${item}`}
                   type="button"
                   onClick={() => table.setPageIndex(item)}
-                  className={`min-w-[28px] h-7 px-2 text-xs rounded-lg font-bold transition-all ${
+                  className={`min-w-[34px] h-[34px] px-2 text-xs rounded-lg font-bold flex items-center justify-center transition-all ${
                     isCurrent
                       ? 'bg-[var(--brand-primary)] text-white shadow-xs'
                       : 'border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] text-[var(--text-primary)]'
@@ -304,7 +304,7 @@ export function DataTable<TData, TValue>({
             disabled={!table.getCanNextPage()}
             aria-label="Halaman Berikutnya"
             title="Halaman Berikutnya"
-            className="p-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-25 disabled:cursor-not-allowed transition-all shadow-2xs"
+            className="min-w-[34px] min-h-[34px] flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-25 disabled:cursor-not-allowed transition-all shadow-2xs"
           >
             <ChevronRight className="w-3.5 h-3.5 text-[var(--text-primary)]" />
           </button>
@@ -316,7 +316,7 @@ export function DataTable<TData, TValue>({
             disabled={!table.getCanNextPage()}
             aria-label="Halaman Terakhir"
             title="Halaman Terakhir"
-            className="p-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-25 disabled:cursor-not-allowed transition-all shadow-2xs"
+            className="min-w-[34px] min-h-[34px] flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] disabled:opacity-25 disabled:cursor-not-allowed transition-all shadow-2xs"
           >
             <ChevronsRight className="w-3.5 h-3.5 text-[var(--text-primary)]" />
           </button>

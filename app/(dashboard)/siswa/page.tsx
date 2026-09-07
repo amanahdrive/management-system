@@ -86,6 +86,15 @@ export default function SiswaPage() {
     loadData();
   }, []);
 
+  React.useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsModalOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen]);
+
   useAppRefresh(loadData);
 
   const handleManualSync = async () => {
@@ -629,11 +638,29 @@ export default function SiswaPage() {
 
       {/* Modal Form Tambah / Edit Data Diri Siswa */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card-container max-w-xl w-full bg-[var(--bg)] shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-[var(--text-primary)] border-b border-[var(--border)] pb-2">
-              {formData.id ? `Update Data Diri Siswa (${formData.kode_siswa})` : 'Pendaftaran Siswa Baru'}
-            </h3>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="siswa-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsModalOpen(false);
+          }}
+        >
+          <div className="card-container max-w-xl w-full bg-[var(--bg)] shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <h3 id="siswa-modal-title" className="text-base sm:text-lg font-bold text-[var(--text-primary)]">
+                {formData.id ? `Update Data Diri Siswa (${formData.kode_siswa})` : 'Pendaftaran Siswa Baru'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                aria-label="Tutup dialog"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -780,17 +807,17 @@ export default function SiswaPage() {
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border)]">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 pt-4 border-t border-[var(--border)]">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-medium border border-[var(--border)] rounded-md"
+                  className="min-h-[44px] px-4 py-2 text-xs font-semibold border border-[var(--border)] rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors active:scale-98"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold bg-[var(--brand-primary)] text-white rounded-md"
+                  className="min-h-[44px] px-5 py-2 text-xs font-semibold bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white rounded-xl shadow-xs transition-colors active:scale-98"
                 >
                   {formData.id ? 'Simpan Perubahan Data Diri' : 'Daftarkan Siswa'}
                 </button>
