@@ -1141,33 +1141,19 @@ export default function FinancePortalPage() {
                 </div>
                 <ArrowRight className="w-3.5 h-3.5 text-emerald-600" />
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setFormData({
-                    tanggal: TODAY,
-                    tipe: 'pengeluaran',
-                    kategori: 'operasional',
-                    keterangan: '',
-                    nominal: 0,
-                    jenis_pembayaran: 'tunai',
-                    pic_tipe: 'finance',
-                    pic_nama: 'Lia (Finance)',
-                    siswa_id: '',
-                    sumber_otomatis: false,
-                  });
-                  setShowAddForm(true);
-                }}
+              <Link
+                href="/kas/pos"
                 className="w-full py-2.5 px-3 rounded-2xl liquid-glass-card border border-[var(--liquid-glass-border)] flex items-center justify-between text-xs font-bold text-[var(--text-primary)] hover:border-indigo-500 transition-all active:scale-98"
               >
                 <div className="flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                  <span>Catat Biaya</span>
+                  <span>Pos Pengeluaran</span>
                 </div>
                 <div className="flex items-center gap-0.5 text-[10px] text-indigo-600 font-bold">
-                  <Plus className="w-3 h-3" />
+                  <span>Buka</span>
+                  <ArrowRight className="w-3 h-3" />
                 </div>
-              </button>
+              </Link>
             </div>
 
             {/* Quick Metrics Grid: Total Piutang & Total Hutang */}
