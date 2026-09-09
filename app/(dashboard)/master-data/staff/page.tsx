@@ -56,6 +56,7 @@ export default function MasterStaffPage() {
   const [gajiOperasional, setGajiOperasional] = React.useState(50000);
   const [gajiPribadi, setGajiPribadi] = React.useState(70000);
   const [uangMakanHarian, setUangMakanHarian] = React.useState(15000);
+  const [minSlotUangMakan, setMinSlotUangMakan] = React.useState(2);
   const [isHonorModalOpen, setIsHonorModalOpen] = React.useState(false);
   const [savingHonor, setSavingHonor] = React.useState(false);
   const [honorSuccess, setHonorSuccess] = React.useState(false);
@@ -73,6 +74,7 @@ export default function MasterStaffPage() {
       setGajiOperasional(genCfg.gajiInstrukturOperasional);
       setGajiPribadi(genCfg.gajiInstrukturPribadi);
       setUangMakanHarian(genCfg.uangMakanInstrukturHarian);
+      setMinSlotUangMakan(genCfg.minSlotUangMakan || 2);
     }
     setLoading(false);
   };
@@ -81,7 +83,12 @@ export default function MasterStaffPage() {
     e.preventDefault();
     setSavingHonor(true);
     setHonorSuccess(false);
-    const res = await saveInstructorSalarySettings(gajiOperasional, gajiPribadi, uangMakanHarian);
+    const res = await saveInstructorSalarySettings(
+      gajiOperasional,
+      gajiPribadi,
+      uangMakanHarian,
+      minSlotUangMakan
+    );
     setSavingHonor(false);
     if (res.success) {
       setHonorSuccess(true);
@@ -611,7 +618,7 @@ export default function MasterStaffPage() {
                     onChange={setGajiOperasional}
                   />
                   <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
-                    Fee mengajar per sesi saat instruktur menggunakan mobil armada operasional
+                    Fee per sesi dengan armada operasional
                   </span>
                 </div>
 
@@ -622,18 +629,38 @@ export default function MasterStaffPage() {
                     onChange={setGajiPribadi}
                   />
                   <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
-                    Fee mengajar per sesi saat menggunakan mobil pribadi/sendiri
+                    Fee per sesi dengan mobil pribadi
                   </span>
                 </div>
 
                 <div>
                   <CurrencyInput
-                    label="Uang Makan Harian Instruktur"
+                    label="Uang Makan Harian"
                     value={uangMakanHarian}
                     onChange={setUangMakanHarian}
                   />
                   <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
-                    Uang makan per hari aktif instruktur bertugas
+                    Nominal uang makan per hari aktif bertugas
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                    Syarat Minimal Slot / Hari untuk Uang Makan
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={minSlotUangMakan}
+                      onChange={(e) => setMinSlotUangMakan(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-20 px-3 py-2 border border-[var(--border)] rounded-xl bg-[var(--bg)] font-mono text-sm font-bold text-center"
+                    />
+                    <span className="text-xs font-mono text-[var(--text-secondary)]">Slot / Hari (Default: 2)</span>
+                  </div>
+                  <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
+                    Uang makan hanya diperoleh jika menyelesaikan minimal {minSlotUangMakan} slot dalam 1 hari
                   </span>
                 </div>
               </div>

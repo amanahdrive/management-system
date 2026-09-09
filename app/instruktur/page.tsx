@@ -872,7 +872,7 @@ export default function InstrukturPortalPage() {
                   {formatRupiah(weeklyRecap?.uangMakanTotal || 0)}
                 </div>
                 <div className="text-[10px] font-mono text-[var(--text-secondary)]">
-                  {weeklyRecap?.activeDaysCount || 0} hari aktif × {formatRupiah(weeklyRecap?.rates.uangMakanHarian || 15000)}
+                  {weeklyRecap?.qualifyingDaysCount || 0} hari (min. {weeklyRecap?.rates.minSlotUangMakan || 2} slot) × {formatRupiah(weeklyRecap?.rates.uangMakanHarian || 15000)}
                 </div>
               </div>
             </div>

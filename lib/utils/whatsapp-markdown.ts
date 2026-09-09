@@ -7,6 +7,7 @@ export interface RecapRates {
   feeOperasional: number;
   feePribadi: number;
   uangMakanHarian: number;
+  minSlotUangMakan?: number;
 }
 
 export interface InstrukturJadwalGroup {
@@ -239,10 +240,11 @@ export function generateWhatsAppRangeScheduleMarkdown(
     slotSelesai: number;
     operasionalCount: number;
     pribadiCount: number;
-    activeDates: Set<string>;
+    dailySlotsMap: Map<string, number>;
   }
 
   const summaryMap = new Map<string, InstSummary>();
+  const minSlotUangMakan = rates.minSlotUangMakan || 2;
 
   daysData.forEach((day) => {
     day.groups.forEach((g) => {
@@ -254,7 +256,7 @@ export function generateWhatsAppRangeScheduleMarkdown(
           slotSelesai: 0,
           operasionalCount: 0,
           pribadiCount: 0,
-          activeDates: new Set<string>(),
+          dailySlotsMap: new Map<string, number>(),
         });
       }
       const item = summaryMap.get(instNama)!;
@@ -265,7 +267,8 @@ export function generateWhatsAppRangeScheduleMarkdown(
           const isDouble = Boolean(
             s.slot_waktu_id_akhir && s.slot_waktu_id_akhir !== s.slot_waktu_id
           );
-          item.slotSelesai += isDouble ? 2 : 1;
+          const slotDelta = isDouble ? 2 : 1;
+          item.slotSelesai += slotDelta;
 
           if (s.tipe_kendaraan === 'pribadi' || s.jenis_mobil === 'mobil_sendiri') {
             item.pribadiCount += 1;
@@ -274,7 +277,10 @@ export function generateWhatsAppRangeScheduleMarkdown(
           }
 
           if (day.tanggal) {
-            item.activeDates.add(day.tanggal);
+            item.dailySlotsMap.set(
+              day.tanggal,
+              (item.dailySlotsMap.get(day.tanggal) || 0) + slotDelta
+            );
           }
         }
       });
@@ -301,21 +307,29 @@ export function generateWhatsAppRangeScheduleMarkdown(
     const feeOperasional = inst.operasionalCount * rates.feeOperasional;
     const feePribadi = inst.pribadiCount * rates.feePribadi;
     const totalFee = feeOperasional + feePribadi;
-    const activeDays = inst.activeDates.size;
-    const uangMakan = activeDays * rates.uangMakanHarian;
+    
+    let qualifyingDays = 0;
+    inst.dailySlotsMap.forEach((slots) => {
+      if (slots >= minSlotUangMakan) qualifyingDays += 1;
+    });
+    const uangMakan = qualifyingDays * rates.uangMakanHarian;
     const totalGaji = totalFee + uangMakan;
 
     body += `• Total Slot Selesai: *${inst.slotSelesai} Slot* (${inst.sesiSelesai} Sesi)\n`;
     body += `• Total Fee Sesi: *${formatRupiah(totalFee)}*\n`;
-    body += `• Total Uang Makan: *${formatRupiah(uangMakan)}* (${activeDays} Hari Tugas)\n`;
+    body += `• Total Uang Makan: *${formatRupiah(uangMakan)}* (${qualifyingDays} Hari Memenuhi Syarat)\n`;
     body += `👉 *TOTAL GAJI & HONOR: ${formatRupiah(totalGaji)}*\n`;
   } else {
     sortedSummaries.forEach((inst) => {
       const feeOperasional = inst.operasionalCount * rates.feeOperasional;
       const feePribadi = inst.pribadiCount * rates.feePribadi;
       const totalFee = feeOperasional + feePribadi;
-      const activeDays = inst.activeDates.size;
-      const uangMakan = activeDays * rates.uangMakanHarian;
+      
+      let qualifyingDays = 0;
+      inst.dailySlotsMap.forEach((slots) => {
+        if (slots >= minSlotUangMakan) qualifyingDays += 1;
+      });
+      const uangMakan = qualifyingDays * rates.uangMakanHarian;
       const totalGaji = totalFee + uangMakan;
 
       totalGrandSlotSelesai += inst.slotSelesai;
@@ -327,7 +341,7 @@ export function generateWhatsAppRangeScheduleMarkdown(
       body += `*${inst.nama.toUpperCase()}*:\n`;
       body += `  • Slot Selesai: *${inst.slotSelesai} Slot* (${inst.sesiSelesai} Sesi)\n`;
       body += `  • Fee Sesi: ${formatRupiah(totalFee)}\n`;
-      body += `  • Uang Makan: ${formatRupiah(uangMakan)} (${activeDays} Hari)\n`;
+      body += `  • Uang Makan: ${formatRupiah(uangMakan)} (${qualifyingDays} Hari)\n`;
       body += `  • Subtotal Gaji: *${formatRupiah(totalGaji)}*\n\n`;
     });
 
@@ -402,13 +416,14 @@ export function generateWhatsAppRecapMarkdown(
     let slotCount = 0;
     let operasionalSesiCount = 0;
     let pribadiSesiCount = 0;
-    const activeDatesSet = new Set<string>();
+    const dailySlotsMap = new Map<string, number>();
     const siswaNamesSet = new Set<string>();
 
     selesaiSesi.forEach((s) => {
       // Slot calculation: if multi-slot (e.g. slot 1 & 2), calculate 2 slots, else 1
       const isDoubleSlot = Boolean(s.slot_waktu_id_akhir && s.slot_waktu_id_akhir !== s.slot_waktu_id);
-      slotCount += isDoubleSlot ? 2 : 1;
+      const slotDelta = isDoubleSlot ? 2 : 1;
+      slotCount += slotDelta;
 
       if (s.tipe_kendaraan === 'pribadi' || s.jenis_mobil === 'mobil_sendiri') {
         pribadiSesiCount += 1;
@@ -417,7 +432,10 @@ export function generateWhatsAppRecapMarkdown(
       }
 
       if (s.tanggal_sesi) {
-        activeDatesSet.add(s.tanggal_sesi);
+        dailySlotsMap.set(
+          s.tanggal_sesi,
+          (dailySlotsMap.get(s.tanggal_sesi) || 0) + slotDelta
+        );
       }
 
       if (s.siswa?.nama) {
@@ -425,13 +443,19 @@ export function generateWhatsAppRecapMarkdown(
       }
     });
 
-    const activeDays = activeDatesSet.size;
+    const activeDays = dailySlotsMap.size;
+    const minSlot = rates.minSlotUangMakan || 2;
+    let qualifyingDays = 0;
+    dailySlotsMap.forEach((slots) => {
+      if (slots >= minSlot) qualifyingDays += 1;
+    });
+
     const totalSesi = selesaiSesi.length;
     const siswaListArray = Array.from(siswaNamesSet);
 
     const feeOperasional = operasionalSesiCount * rates.feeOperasional;
     const feePribadi = pribadiSesiCount * rates.feePribadi;
-    const uangMakan = activeDays * rates.uangMakanHarian;
+    const uangMakan = qualifyingDays * rates.uangMakanHarian;
     const totalHonorInstruktur = feeOperasional + feePribadi + uangMakan;
 
     grandTotalSesi += totalSesi;
@@ -450,7 +474,7 @@ export function generateWhatsAppRecapMarkdown(
       return;
     }
 
-    body += `• Hari Bertugas Aktif: *${activeDays} Hari*\n`;
+    body += `• Hari Bertugas: *${activeDays} Hari* (${qualifyingDays} Hari Uang Makan)\n`;
     body += `• Total Slot Selesai: *${slotCount} Slot* (${totalSesi} Sesi)\n`;
     if (pribadiSesiCount > 0) {
       body += `  - Mobil Operasional: ${operasionalSesiCount} Sesi\n`;
@@ -469,8 +493,8 @@ export function generateWhatsAppRecapMarkdown(
     if (pribadiSesiCount > 0) {
       body += `  - Fee Mobil Pribadi: ${formatRupiah(feePribadi)} (${pribadiSesiCount} sesi x ${formatRupiah(rates.feePribadi)})\n`;
     }
-    if (activeDays > 0) {
-      body += `  - Uang Makan: ${formatRupiah(uangMakan)} (${activeDays} hari x ${formatRupiah(rates.uangMakanHarian)})\n`;
+    if (qualifyingDays > 0) {
+      body += `  - Uang Makan: ${formatRupiah(uangMakan)} (${qualifyingDays} hari x ${formatRupiah(rates.uangMakanHarian)})\n`;
     }
     body += `  👉 *Total: ${formatRupiah(totalHonorInstruktur)}*\n\n`;
   });

@@ -3097,9 +3097,9 @@ export default function JadwalPage() {
       {/* CONFIRM DELETE DIALOG */}
       <ConfirmDialog
         isOpen={!!deletingId}
-        title="Hapus Jadwal Sesi Siswa"
-        description="Apakah Anda yakin ingin menghapus jadwal sesi siswa ini? Tindakan ini akan membersihkan seluruh data sesi siswa tersebut dari kalender dan database secara permanen."
-        confirmText="Hapus Jadwal"
+        title="Hapus Jadwal Sesi"
+        description="Apakah Anda yakin ingin menghapus jadwal sesi ini secara permanen?"
+        confirmText="Hapus"
         isDanger={true}
         onConfirm={async () => {
           if (deletingId) {

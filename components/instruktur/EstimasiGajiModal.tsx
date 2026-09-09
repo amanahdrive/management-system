@@ -236,7 +236,7 @@ export function EstimasiGajiModal({
                         {formatRupiah(rekapMingguan?.uangMakanTotal || 0)}
                       </div>
                       <span className="font-mono text-[9.5px] text-[var(--text-secondary)] block">
-                        {rekapMingguan?.activeDaysCount || 0} Hari @ {formatRupiah(rekapMingguan?.rates.uangMakanHarian || 15000)}
+                        {rekapMingguan?.qualifyingDaysCount || 0} Hari (min. {rekapMingguan?.rates.minSlotUangMakan || 2} slot) @ {formatRupiah(rekapMingguan?.rates.uangMakanHarian || 15000)}
                       </span>
                     </div>
                   </div>

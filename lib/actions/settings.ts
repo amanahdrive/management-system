@@ -21,6 +21,7 @@ export interface GeneralSettings {
   gajiInstrukturOperasional: number;
   gajiInstrukturPribadi: number;
   uangMakanInstrukturHarian: number;
+  minSlotUangMakan: number;
 }
 
 const DEFAULT_WA_TEMPLATE =
@@ -64,6 +65,9 @@ export async function getGeneralSettings(): Promise<GeneralSettings> {
       uangMakanInstrukturHarian: map['uang_makan_instruktur_harian']
         ? Number(map['uang_makan_instruktur_harian'])
         : 15000,
+      minSlotUangMakan: map['min_slot_uang_makan']
+        ? Number(map['min_slot_uang_makan'])
+        : 2,
     };
 
     cacheSet(CACHE_KEY, result, 60);
@@ -79,6 +83,7 @@ export async function getGeneralSettings(): Promise<GeneralSettings> {
       gajiInstrukturOperasional: 50000,
       gajiInstrukturPribadi: 70000,
       uangMakanInstrukturHarian: 15000,
+      minSlotUangMakan: 2,
     };
   }
 }
@@ -163,29 +168,36 @@ export async function saveBbmPrices(
 export async function saveInstructorSalarySettings(
   gajiOperasional: number,
   gajiPribadi: number,
-  uangMakanHarian: number
+  uangMakanHarian: number,
+  minSlotUangMakan: number = 2
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await upsertSetting(
       'gaji_instruktur_operasional',
       gajiOperasional.toString(),
-      'Fee mengajar instruktur per sesi (Mobil Operasional)'
+      'Fee mengajar per sesi armada operasional'
     );
     await upsertSetting(
       'gaji_instruktur_pribadi',
       gajiPribadi.toString(),
-      'Fee mengajar instruktur per sesi (Mobil Pribadi)'
+      'Fee mengajar per sesi mobil pribadi/sendiri'
     );
     await upsertSetting(
       'uang_makan_instruktur_harian',
       uangMakanHarian.toString(),
-      'Uang makan harian instruktur per hari aktif mengajar'
+      'Uang makan harian instruktur'
+    );
+    await upsertSetting(
+      'min_slot_uang_makan',
+      minSlotUangMakan.toString(),
+      'Minimal slot selesai per hari untuk memperoleh uang makan'
     );
 
     safeRevalidatePath('/settings');
     safeRevalidatePath('/jadwal');
     safeRevalidatePath('/instruktur');
     safeRevalidatePath('/dashboard');
+    safeRevalidatePath('/analitik');
     return { success: true };
   } catch (err: any) {
     console.error('Error saving instructor salary settings:', err);

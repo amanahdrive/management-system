@@ -706,6 +706,7 @@ export async function generateWhatsAppWeeklyScheduleText(
       feeOperasional: settings.gajiInstrukturOperasional || 50000,
       feePribadi: settings.gajiInstrukturPribadi || 70000,
       uangMakanHarian: settings.uangMakanInstrukturHarian || 15000,
+      minSlotUangMakan: settings.minSlotUangMakan || 2,
     };
 
     return generateWhatsAppRangeScheduleMarkdown(
@@ -794,6 +795,7 @@ export async function generateWhatsAppCustomRangeText(
       feeOperasional: settings.gajiInstrukturOperasional || 50000,
       feePribadi: settings.gajiInstrukturPribadi || 70000,
       uangMakanHarian: settings.uangMakanInstrukturHarian || 15000,
+      minSlotUangMakan: settings.minSlotUangMakan || 2,
     };
 
     return generateWhatsAppRangeScheduleMarkdown(
@@ -854,6 +856,7 @@ export async function generateWhatsAppRecapText(
       feeOperasional: settings.gajiInstrukturOperasional || 50000,
       feePribadi: settings.gajiInstrukturPribadi || 70000,
       uangMakanHarian: settings.uangMakanInstrukturHarian || 15000,
+      minSlotUangMakan: settings.minSlotUangMakan || 2,
     };
 
     const groupMap = new Map<string, { nama: string; list: JadwalSesi[] }>();
@@ -900,10 +903,12 @@ export interface RekapMingguanInstrukturResult {
   operasionalCount: number;
   pribadiCount: number;
   activeDaysCount: number;
+  qualifyingDaysCount: number;
   rates: {
     feeOperasional: number;
     feePribadi: number;
     uangMakanHarian: number;
+    minSlotUangMakan: number;
   };
   feeOperasionalTotal: number;
   feePribadiTotal: number;
@@ -922,10 +927,12 @@ export async function getRekapMingguanInstruktur(
 ): Promise<RekapMingguanInstrukturResult> {
   const { startSunday, endSaturday } = getWeekSundayToSaturday(anchorDateStr);
   const settings = await getGeneralSettings();
+  const minSlotUangMakan = settings.minSlotUangMakan || 2;
   const rates = {
     feeOperasional: settings.gajiInstrukturOperasional || 50000,
     feePribadi: settings.gajiInstrukturPribadi || 70000,
     uangMakanHarian: settings.uangMakanInstrukturHarian || 15000,
+    minSlotUangMakan,
   };
 
   const defaultResult: RekapMingguanInstrukturResult = {
@@ -937,6 +944,7 @@ export async function getRekapMingguanInstruktur(
     operasionalCount: 0,
     pribadiCount: 0,
     activeDaysCount: 0,
+    qualifyingDaysCount: 0,
     rates,
     feeOperasionalTotal: 0,
     feePribadiTotal: 0,
@@ -970,14 +978,15 @@ export async function getRekapMingguanInstruktur(
       [staffId, startSunday, endSaturday]
     );
 
-    const activeDatesSet = new Set<string>();
+    const dailySlotsMap = new Map<string, number>();
     let totalSlot = 0;
     let operasionalCount = 0;
     let pribadiCount = 0;
 
     rows.forEach((s) => {
       const isDouble = Boolean(s.slot_waktu_id_akhir && s.slot_waktu_id_akhir !== s.slot_waktu_id);
-      totalSlot += isDouble ? 2 : 1;
+      const slotDelta = isDouble ? 2 : 1;
+      totalSlot += slotDelta;
 
       if (s.tipe_kendaraan === 'pribadi' || s.jenis_mobil === 'mobil_sendiri') {
         pribadiCount += 1;
@@ -986,14 +995,21 @@ export async function getRekapMingguanInstruktur(
       }
 
       if (s.tanggal_sesi) {
-        activeDatesSet.add(s.tanggal_sesi);
+        dailySlotsMap.set(s.tanggal_sesi, (dailySlotsMap.get(s.tanggal_sesi) || 0) + slotDelta);
       }
     });
 
-    const activeDaysCount = activeDatesSet.size;
+    const activeDaysCount = dailySlotsMap.size;
+    let qualifyingDaysCount = 0;
+    dailySlotsMap.forEach((slots) => {
+      if (slots >= minSlotUangMakan) {
+        qualifyingDaysCount += 1;
+      }
+    });
+
     const feeOperasionalTotal = operasionalCount * rates.feeOperasional;
     const feePribadiTotal = pribadiCount * rates.feePribadi;
-    const uangMakanTotal = activeDaysCount * rates.uangMakanHarian;
+    const uangMakanTotal = qualifyingDaysCount * rates.uangMakanHarian;
     const totalGajiMingguan = feeOperasionalTotal + feePribadiTotal + uangMakanTotal;
 
     return {
@@ -1005,6 +1021,7 @@ export async function getRekapMingguanInstruktur(
       operasionalCount,
       pribadiCount,
       activeDaysCount,
+      qualifyingDaysCount,
       rates,
       feeOperasionalTotal,
       feePribadiTotal,

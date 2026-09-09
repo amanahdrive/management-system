@@ -193,6 +193,7 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
   const feeMobilOps = settings.gajiInstrukturOperasional || 50000;
   const feeMobilPribadi = settings.gajiInstrukturPribadi || 70000;
   const uangMakanPerHari = settings.uangMakanInstrukturHarian || 15000;
+  const minSlotUangMakan = settings.minSlotUangMakan || 2;
 
   try {
     // 1. Fetch Students
@@ -227,6 +228,7 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       tipe_kendaraan: string | null;
       tanggal_sesi: string;
       slot_waktu_id: string | null;
+      slot_waktu_id_akhir: string | null;
       status_sesi: string;
       nama_staff: string;
       nama_kendaraan: string | null;
@@ -234,7 +236,7 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
     }>(`
       SELECT 
         js.id, js.siswa_id, js.staff_id, js.kendaraan_id, js.tipe_kendaraan,
-        js.tanggal_sesi, js.slot_waktu_id, js.status_sesi,
+        js.tanggal_sesi, js.slot_waktu_id, js.slot_waktu_id_akhir, js.status_sesi,
         st.nama as nama_staff,
         k.nama_kendaraan, k.plat_nomor
       FROM jadwal_sesi js
@@ -447,6 +449,7 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       sesiMobilPribadi: number;
       siswaSet: Set<string>;
       hariSet: Set<string>;
+      dailySlotsMap: Map<string, number>;
     }> = {};
 
     staffList.forEach((st) => {
@@ -460,6 +463,7 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
         sesiMobilPribadi: 0,
         siswaSet: new Set(),
         hariSet: new Set(),
+        dailySlotsMap: new Map(),
       };
     });
 
@@ -474,6 +478,12 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
           } else {
             item.sesiMobilOps++;
           }
+          const isDouble = Boolean(ses.slot_waktu_id_akhir && ses.slot_waktu_id_akhir !== ses.slot_waktu_id);
+          const slotDelta = isDouble ? 2 : 1;
+          if (ses.tanggal_sesi) {
+            const dateKey = ses.tanggal_sesi.slice(0, 10);
+            item.dailySlotsMap.set(dateKey, (item.dailySlotsMap.get(dateKey) || 0) + slotDelta);
+          }
         } else if (ses.status_sesi === 'batal') {
           item.sesiBatal++;
         }
@@ -484,7 +494,11 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
 
     const instrukturLeaderboard = Object.values(instrukturMap).map((ins) => {
       const estimasiHonorSesi = (ins.sesiMobilOps * feeMobilOps) + (ins.sesiMobilPribadi * feeMobilPribadi);
-      const estimasiUangMakan = ins.hariSet.size * uangMakanPerHari;
+      let qualifyingDays = 0;
+      ins.dailySlotsMap.forEach((slots) => {
+        if (slots >= minSlotUangMakan) qualifyingDays += 1;
+      });
+      const estimasiUangMakan = qualifyingDays * uangMakanPerHari;
       const totalEstimasiGaji = estimasiHonorSesi + estimasiUangMakan;
 
       return {
@@ -497,6 +511,7 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
         sesiMobilPribadi: ins.sesiMobilPribadi,
         totalSiswa: ins.siswaSet.size,
         hariAktif: ins.hariSet.size,
+        qualifyingDays,
         completionRate: ins.totalSesi > 0 ? Math.round((ins.sesiSelesai / ins.totalSesi) * 100) : 0,
         estimasiHonorSesi,
         estimasiUangMakan,
