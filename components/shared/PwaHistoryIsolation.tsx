@@ -34,8 +34,20 @@ export function PwaHistoryIsolation() {
 
         const href = target.getAttribute('href') || '';
 
-        // Pengecualian: Izinkan navigasi ke POS Pengeluaran dari Portal Finance
-        if (href === '/kas/pos' || href.startsWith('/kas/pos/') || href.startsWith('/kas/pos?')) {
+        // Pengecualian: Izinkan seluruh rute Kas & Keuangan serta Nota jika diakses dari Portal Finance
+        const isFromFinance = window.location.pathname.startsWith('/finance');
+        if (isFromFinance) {
+          if (
+            href === '/kas' ||
+            href.startsWith('/kas/') ||
+            href.startsWith('/kas?') ||
+            href === '/nota' ||
+            href.startsWith('/nota/') ||
+            href.startsWith('/nota?')
+          ) {
+            return;
+          }
+        } else if (href === '/kas/pos' || href.startsWith('/kas/pos/') || href.startsWith('/kas/pos?')) {
           return;
         }
 
