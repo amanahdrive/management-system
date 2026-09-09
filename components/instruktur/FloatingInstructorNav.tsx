@@ -2,22 +2,20 @@
 
 import React from 'react';
 import { LiquidGlassBottomNav, LiquidNavItem } from '@/components/navigation/LiquidGlassBottomNav';
-import { Camera, Calendar, Users, Wallet, UserCheck } from 'lucide-react';
+import { Calendar, Users, Wallet, UserCheck } from 'lucide-react';
 
 interface FloatingInstructorNavProps {
   currentTab: 'jadwal' | 'siswa' | 'gaji' | 'profil';
   onSelectTab: (tab: 'jadwal' | 'siswa' | 'gaji' | 'profil') => void;
   todaySessionsCount: number;
-  onQuickAction?: () => void;
 }
 
 export function FloatingInstructorNav({
   currentTab,
   onSelectTab,
   todaySessionsCount,
-  onQuickAction,
 }: FloatingInstructorNavProps) {
-  const leftItems: [LiquidNavItem, LiquidNavItem] = [
+  const navItems: LiquidNavItem[] = [
     {
       id: 'jadwal',
       label: 'Jadwal',
@@ -31,9 +29,6 @@ export function FloatingInstructorNav({
       icon: Users,
       onClick: () => onSelectTab('siswa'),
     },
-  ];
-
-  const rightItems: [LiquidNavItem, LiquidNavItem] = [
     {
       id: 'gaji',
       label: 'Komisi',
@@ -50,15 +45,8 @@ export function FloatingInstructorNav({
 
   return (
     <LiquidGlassBottomNav
-      leftItems={leftItems}
-      rightItems={rightItems}
+      items={navItems}
       activeId={currentTab}
-      centerAction={{
-        icon: Camera,
-        label: 'Presensi Sesi',
-        title: 'Presensi / Mulai Sesi',
-        onClick: onQuickAction || (() => onSelectTab('jadwal')),
-      }}
     />
   );
 }
