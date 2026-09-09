@@ -1,0 +1,4 @@
+{
+  "name": "amanah-drive",
+  "description": "Workspace plugin containing project-scoped MCP servers for Amanah Drive (Supabase, GitHub, Vercel, Chrome DevTools)"
+}

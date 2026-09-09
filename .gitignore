@@ -46,3 +46,6 @@ next-env.d.ts
 
 # IDE
 .cursor/
+
+# private workspace mcp configs
+.agents/plugins/*/mcp_config.json
