@@ -16,6 +16,7 @@ import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { Plus, Eye, Edit2, Trash2, Archive, Search, X, Calendar, Info, RefreshCw } from 'lucide-react';
 import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
 import { purgeServerCache } from '@/lib/actions/cache';
+import { formatCarOptionsLabel } from '@/lib/utils/vehicle';
 import Link from 'next/link';
 
 export default function SiswaPage() {
@@ -733,11 +734,14 @@ export default function SiswaPage() {
                     onChange={(e) => handlePaketChange(e.target.value)}
                     className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
                   >
-                    {paketList.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nama_paket} ({p.jumlah_sesi} Sesi) - {formatRupiah(p.harga_promo || p.harga_normal)}
-                      </option>
-                    ))}
+                    {paketList.map((p) => {
+                      const carLabel = formatCarOptionsLabel(p.jenis_mobil);
+                      return (
+                        <option key={p.id} value={p.id}>
+                          {p.nama_paket} ({p.jumlah_sesi} Sesi • {carLabel}) - {formatRupiah(p.harga_promo || p.harga_normal)}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 

@@ -12,6 +12,11 @@ import { Plus, Edit2 } from 'lucide-react';
 
 import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
 import { useAppRefresh } from '@/lib/utils/refresh-event';
+import {
+  CAR_OPTIONS_CONFIG,
+  normalizePaketJenisMobil,
+  preparePaketJenisMobilPayload,
+} from '@/lib/utils/vehicle';
 
 export default function MasterPaketPage() {
   const [paketList, setPaketList] = React.useState<Paket[]>([]);
@@ -50,15 +55,60 @@ export default function MasterPaketPage() {
   };
 
   const handleOpenEdit = (paket: Paket) => {
-    setEditingPaket(paket);
+    setEditingPaket({
+      ...paket,
+      jenis_mobil: normalizePaketJenisMobil(paket.jenis_mobil as any) as any,
+    });
     setIsModalOpen(true);
+  };
+
+  const handleToggleCarOption = (id: string) => {
+    if (!editingPaket) return;
+    const current = (editingPaket.jenis_mobil as string[]) || [];
+    const exists = current.includes(id);
+    const updated = exists ? current.filter((k) => k !== id) : [...current, id];
+    setEditingPaket({
+      ...editingPaket,
+      jenis_mobil: updated as any,
+    });
+  };
+
+  const isAllCarOptionsSelected =
+    CAR_OPTIONS_CONFIG.every((opt) =>
+      ((editingPaket?.jenis_mobil as string[]) || []).includes(opt.id)
+    );
+
+  const handleToggleAllCarOptions = () => {
+    if (!editingPaket) return;
+    if (isAllCarOptionsSelected) {
+      setEditingPaket({
+        ...editingPaket,
+        jenis_mobil: [],
+      });
+    } else {
+      setEditingPaket({
+        ...editingPaket,
+        jenis_mobil: CAR_OPTIONS_CONFIG.map((opt) => opt.id) as any,
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingPaket?.nama_paket) return;
 
-    await upsertPaket(editingPaket);
+    const selectedOptions = (editingPaket.jenis_mobil as string[]) || [];
+    if (selectedOptions.length === 0) {
+      alert('Pilih minimal 1 opsi mobil yang berlaku untuk paket ini!');
+      return;
+    }
+
+    const payloadJenisMobil = preparePaketJenisMobilPayload(selectedOptions);
+
+    await upsertPaket({
+      ...editingPaket,
+      jenis_mobil: payloadJenisMobil as any,
+    });
     setIsModalOpen(false);
     loadData();
   };
@@ -120,7 +170,56 @@ export default function MasterPaketPage() {
       header: 'Opsi Mobil',
       accessorFn: (row) => (row.jenis_mobil || []).join(', '),
       sortingFn: 'text',
-      cell: ({ row }) => (row.original.jenis_mobil || []).join(', '),
+      cell: ({ row }) => {
+        const jm = row.original.jenis_mobil || [];
+        const hasManual = jm.includes('manual');
+        const hasMatic = jm.includes('matic');
+        const hasSendiriManual = jm.includes('mobil_sendiri_manual' as any);
+        const hasSendiriMatic = jm.includes('mobil_sendiri_matic' as any);
+        const hasLegacySendiri = jm.includes('mobil_sendiri');
+
+        const isAllSelected =
+          hasManual &&
+          hasMatic &&
+          (hasSendiriManual || hasLegacySendiri) &&
+          (hasSendiriMatic || hasLegacySendiri);
+
+        if (isAllSelected) {
+          return (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+              Semua Opsi Mobil
+            </span>
+          );
+        }
+
+        return (
+          <div className="flex flex-wrap gap-1 max-w-[260px]">
+            {hasManual && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
+                Manual (Amanah)
+              </span>
+            )}
+            {hasMatic && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20">
+                Matic (Amanah)
+              </span>
+            )}
+            {(hasSendiriManual || (hasLegacySendiri && !hasSendiriMatic)) && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20">
+                Mobil Sendiri (Manual)
+              </span>
+            )}
+            {(hasSendiriMatic || (hasLegacySendiri && !hasSendiriManual)) && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                Mobil Sendiri (Matic)
+              </span>
+            )}
+            {jm.length === 0 && (
+              <span className="text-xs text-[var(--text-muted)]">-</span>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: 'actions',
@@ -167,15 +266,15 @@ export default function MasterPaketPage() {
       {/* Modal Form Tambah/Edit */}
       {isModalOpen && editingPaket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card-container max-w-md w-full bg-[var(--bg)] shadow-lg space-y-4">
+          <div className="card-container max-w-lg w-full bg-[var(--bg)] shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-[var(--text-primary)]">
               {editingPaket.id ? 'Edit Paket' : 'Tambah Paket Baru'}
             </h3>
 
-            <form onSubmit={handleSubmit} className="space-y-3">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Nama Paket
+                  Nama Paket *
                 </label>
                 <input
                   type="text"
@@ -184,6 +283,7 @@ export default function MasterPaketPage() {
                   onChange={(e) =>
                     setEditingPaket({ ...editingPaket, nama_paket: e.target.value })
                   }
+                  placeholder="Contoh: Basic (5x) Manual"
                   className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
                 />
               </div>
@@ -191,7 +291,7 @@ export default function MasterPaketPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Jumlah Sesi
+                    Jumlah Sesi *
                   </label>
                   <input
                     type="number"
@@ -205,43 +305,97 @@ export default function MasterPaketPage() {
                 </div>
 
                 <div className="flex items-center pt-5">
-                  <label className="flex items-center gap-2 text-xs font-medium text-[var(--text-primary)] cursor-pointer">
+                  <label className="flex items-center gap-2 text-xs font-medium text-[var(--text-primary)] cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={editingPaket.termasuk_sim || false}
                       onChange={(e) =>
                         setEditingPaket({ ...editingPaket, termasuk_sim: e.target.checked })
                       }
-                      className="rounded border-gray-300 text-[var(--brand-primary)]"
+                      className="w-4 h-4 rounded border-gray-300 text-[var(--brand-primary)]"
                     />
                     <span>Termasuk SIM</span>
                   </label>
                 </div>
               </div>
 
-              <CurrencyInput
-                label="Harga Normal"
-                value={editingPaket.harga_normal}
-                onChange={(val) => setEditingPaket({ ...editingPaket, harga_normal: val })}
-              />
+              {/* Opsi Mobil yang Berlaku */}
+              <div className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-xs font-bold text-[var(--text-primary)] block">
+                      Opsi Mobil yang Berlaku *
+                    </label>
+                    <span className="text-[10px] text-[var(--text-secondary)] block">
+                      Pilih tipe mobil yang berlaku untuk harga paket ini
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleToggleAllCarOptions}
+                    className="px-2 py-1 text-[11px] font-bold text-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/10 rounded-lg transition-colors"
+                  >
+                    {isAllCarOptionsSelected ? 'Batal Semua' : 'Centang Semua'}
+                  </button>
+                </div>
 
-              <CurrencyInput
-                label="Harga Promo (Opsional)"
-                value={editingPaket.harga_promo}
-                onChange={(val) => setEditingPaket({ ...editingPaket, harga_promo: val || null })}
-              />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  {CAR_OPTIONS_CONFIG.map((opt) => {
+                    const isChecked = ((editingPaket.jenis_mobil as string[]) || []).includes(opt.id);
+                    return (
+                      <label
+                        key={opt.id}
+                        className={`flex items-start gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
+                          isChecked
+                            ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/5 shadow-2xs font-semibold'
+                            : 'border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] opacity-75'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleToggleCarOption(opt.id)}
+                          className="w-4 h-4 mt-0.5 rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
+                        />
+                        <div className="space-y-0.5 leading-tight">
+                          <span className="font-bold text-[var(--text-primary)] block">
+                            {opt.label}
+                          </span>
+                          <span className="text-[10px] text-[var(--text-secondary)] block">
+                            {opt.sublabel}
+                          </span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border)]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <CurrencyInput
+                  label="Harga Normal"
+                  value={editingPaket.harga_normal}
+                  onChange={(val) => setEditingPaket({ ...editingPaket, harga_normal: val })}
+                />
+
+                <CurrencyInput
+                  label="Harga Promo (Opsional)"
+                  value={editingPaket.harga_promo}
+                  onChange={(val) => setEditingPaket({ ...editingPaket, harga_promo: val || null })}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border)]">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-medium border border-[var(--border)] rounded-md"
+                  className="px-4 py-2 text-xs font-semibold border border-[var(--border)] rounded-xl hover:bg-[var(--bg-subtle)] transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold bg-[var(--brand-primary)] text-white rounded-md"
+                  className="px-5 py-2 text-xs font-bold bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white rounded-xl shadow-xs transition-colors"
                 >
                   Simpan Paket
                 </button>

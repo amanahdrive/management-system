@@ -23,6 +23,7 @@ import {
 } from '@/lib/actions/kas';
 import { getSiswaList } from '@/lib/actions/siswa';
 import { getPaketList, getStaffList, getKendaraanMasterList } from '@/lib/actions/master-data';
+import { formatCarOptionsLabel } from '@/lib/utils/vehicle';
 import { getRekeningList } from '@/lib/actions/rekening';
 import { getPosPengeluaranList } from '@/lib/actions/pos-pengeluaran';
 import {
@@ -1043,11 +1044,14 @@ export default function KasOverviewPage() {
                             onChange={(e) => handleCustomPaketChange(e.target.value)}
                             className="w-full px-2.5 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)]"
                           >
-                            {paketList.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.nama_paket} ({formatRupiah(p.harga_promo || p.harga_normal)})
-                              </option>
-                            ))}
+                            {paketList.map((p) => {
+                              const carLabel = formatCarOptionsLabel(p.jenis_mobil);
+                              return (
+                                <option key={p.id} value={p.id}>
+                                  {p.nama_paket} ({carLabel}) - {formatRupiah(p.harga_promo || p.harga_normal)}
+                                </option>
+                              );
+                            })}
                           </select>
                         </div>
 

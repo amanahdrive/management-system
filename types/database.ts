@@ -7,7 +7,12 @@ export type TipePotonganEnum = 'persen' | 'nominal';
 
 export type TipeTransmisiEnum = 'manual' | 'matic';
 
-export type JenisMobilEnum = 'manual' | 'matic' | 'mobil_sendiri';
+export type JenisMobilEnum =
+  | 'manual'
+  | 'matic'
+  | 'mobil_sendiri'
+  | 'mobil_sendiri_manual'
+  | 'mobil_sendiri_matic';
 
 export type StatusPembelianEnum = 'baru' | 'second';
 
