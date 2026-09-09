@@ -3061,9 +3061,6 @@ export default function JadwalPage() {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs leading-relaxed font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   placeholder="Tuliskan format teks SOP atau instruksi SOP sesi..."
                 />
-                <p className="text-[10.5px] text-[var(--text-secondary)] mt-1.5">
-                  Teks SOP ini akan disertakan secara otomatis saat meng-copy format penugasan sesi harian instruktur via WhatsApp.
-                </p>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border)]">

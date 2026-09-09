@@ -23,7 +23,6 @@ import {
   Save,
   CheckCircle2,
   Building2,
-  Info,
 } from 'lucide-react';
 
 export default function RekeningBankPage() {
@@ -194,16 +193,6 @@ export default function RekeningBankPage() {
           }
         />
 
-        {/* Info Banner */}
-        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-900 dark:text-emerald-200 flex items-start gap-3">
-          <Info className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-          <div className="text-xs space-y-1">
-            <p className="font-bold">Informasi Integrasi Rekening Bank:</p>
-            <p className="text-[11px] leading-relaxed text-emerald-800 dark:text-emerald-300">
-              Rekening yang berstatus <strong>Aktif</strong> otomatis muncul sebagai opsi metode pembayaran non-tunai di form transaksi Kas, POS Pengeluaran, PWA Finance, serta tercantum pada kop pembayaran Cetak Nota/Invoice resmi. Rekening <strong>Utama</strong> akan dipilih secara default.
-            </p>
-          </div>
-        </div>
 
         {/* Card Grid */}
         <div className="card-container space-y-4">

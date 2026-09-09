@@ -220,12 +220,6 @@ export default function KendaraanPage() {
             </div>
 
             <form onSubmit={handleSaveBbm} className="space-y-4 text-xs">
-              <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl space-y-1">
-                <p className="text-[11px] text-[var(--text-secondary)]">
-                  Harga ini digunakan sebagai acuan perhitungan otomatis pengeluaran BBM saat instruktur atau staf menginput liter pada catatan log armada.
-                </p>
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[var(--text-secondary)] mb-1 font-semibold">

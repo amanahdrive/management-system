@@ -41,8 +41,6 @@ import {
   FileText,
   DollarSign,
   AlertCircle,
-  HelpCircle,
-  Info,
   Calendar,
   Layers,
   ChevronRight,
@@ -732,18 +730,6 @@ export default function PosPengeluaranPage() {
                 </button>
               </div>
 
-              {payingPos.is_fluktuatif && (
-                <div className="p-3 bg-teal-500/10 border border-teal-500/20 rounded-xl text-xs text-teal-700 dark:text-teal-300 space-y-1">
-                  <div className="font-bold flex items-center gap-1.5">
-                    <Info className="w-3.5 h-3.5" />
-                    <span>Biaya Fluktuatif (Air PDAM)</span>
-                  </div>
-                  <p className="text-[11px] opacity-90">
-                    Estimasi awal adalah {formatRupiah(payingPos.nominal_estimasi)}. Anda dapat menyesuaikan nominal di bawah ini sesuai jumlah tagihan riil pada invoice/meteran.
-                  </p>
-                </div>
-              )}
-
               <form onSubmit={handleSavePay} className="space-y-3.5 text-xs">
                 <div>
                   <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
@@ -1116,15 +1102,6 @@ export default function PosPengeluaranPage() {
               </div>
 
               <form onSubmit={handleSaveOperasional} className="p-5 space-y-4 overflow-y-auto flex-1">
-                <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl space-y-1 text-xs">
-                  <span className="font-semibold text-[var(--text-primary)] block">
-                    Sinkronisasi Otomatis POS Kas:
-                  </span>
-                  <p className="text-[11px] text-[var(--text-secondary)]">
-                    Nilai default ini digunakan oleh tombol &quot;Sinkronkan Pos Otomatis&quot; saat meng-generate pos rutin bulanan (Token Listrik, WiFi kantor, dan Air PDAM).
-                  </p>
-                </div>
-
                 {/* Token Listrik */}
                 <div className="p-3 border border-[var(--border)] rounded-xl space-y-2 bg-[var(--bg)]">
                   <div className="flex items-center gap-1.5 font-bold text-xs text-[var(--text-primary)]">

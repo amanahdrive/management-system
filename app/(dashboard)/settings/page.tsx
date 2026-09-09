@@ -556,12 +556,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
-            {pinEnabled
-              ? 'Proteksi PIN aktif: Halaman Kas, Cashflow, Hutang, Piutang, dan Cetak Nota dilindungi kode otorisasi 6 digit.'
-              : 'Proteksi PIN dinonaktifkan: Seluruh staf dapat membuka menu Keuangan dan Cetak Nota secara langsung tanpa memasukkan kode PIN.'}
-          </p>
-
           {pinError && (
             <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-[var(--danger)] text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -789,10 +783,6 @@ export default function SettingsPage() {
                     <span>{telegramStatus.error}</span>
                   </div>
                 )}
-
-                <div className="p-2.5 rounded-xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-900/40 text-[11px] text-sky-900 dark:text-sky-200 leading-relaxed">
-                  Kredensial Telegram dikelola secara aman melalui <strong>Environment Variables Vercel</strong> (<code>TELEGRAM_BOT_TOKEN</code> & <code>TELEGRAM_CHAT_ID</code>). Kredensial aktif langsung di server dan tidak perlu diinput manual ke database.
-                </div>
               </div>
 
               {/* Switches & Schedule Grid */}
@@ -934,9 +924,6 @@ export default function SettingsPage() {
                 <Globe className="w-4 h-4 text-indigo-500" />
                 URL Webhook & Integrasi Gateway
               </h3>
-              <p className="text-[11px] text-[var(--text-secondary)]">
-                Daftar endpoint webhook aktif untuk menghubungkan Telegram Bot, Supabase Database Webhook, dan layanan pihak ketiga
-              </p>
             </div>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>

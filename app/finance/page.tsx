@@ -2551,7 +2551,7 @@ export default function FinancePortalPage() {
               </div>
 
               {/* Opsi Catat ke Buku Kas */}
-              <div className="p-2.5 rounded-none border border-[var(--border)] bg-[var(--bg-subtle)] space-y-1">
+              <div className="p-2.5 rounded-none border border-[var(--border)] bg-[var(--bg-subtle)]">
                 <label className="flex items-center gap-2 cursor-pointer font-semibold text-xs text-[var(--text-primary)] select-none">
                   <input
                     type="checkbox"
@@ -2561,11 +2561,6 @@ export default function FinancePortalPage() {
                   />
                   <span>Catat ke buku kas dan keuangan</span>
                 </label>
-                <p className="text-[10px] text-[var(--text-secondary)] pl-6">
-                  {pelunasanCatatKeKas
-                    ? 'Mencatat mutasi masuk ke buku kas dan memperbarui sisa piutang siswa.'
-                    : 'Hanya memperbarui status piutang siswa tanpa menambah catatan di buku kas.'}
-                </p>
               </div>
 
               {pelunasanCatatKeKas && (

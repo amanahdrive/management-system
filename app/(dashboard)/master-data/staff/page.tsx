@@ -617,9 +617,6 @@ export default function MasterStaffPage() {
                     value={gajiOperasional}
                     onChange={setGajiOperasional}
                   />
-                  <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
-                    Fee per sesi dengan armada operasional
-                  </span>
                 </div>
 
                 <div>
@@ -628,9 +625,6 @@ export default function MasterStaffPage() {
                     value={gajiPribadi}
                     onChange={setGajiPribadi}
                   />
-                  <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
-                    Fee per sesi dengan mobil pribadi
-                  </span>
                 </div>
 
                 <div>
@@ -639,9 +633,6 @@ export default function MasterStaffPage() {
                     value={uangMakanHarian}
                     onChange={setUangMakanHarian}
                   />
-                  <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
-                    Nominal uang makan per hari aktif bertugas
-                  </span>
                 </div>
 
                 <div>
@@ -659,9 +650,6 @@ export default function MasterStaffPage() {
                     />
                     <span className="text-xs font-mono text-[var(--text-secondary)]">Slot / Hari (Default: 2)</span>
                   </div>
-                  <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
-                    Uang makan hanya diperoleh jika menyelesaikan minimal {minSlotUangMakan} slot dalam 1 hari
-                  </span>
                 </div>
               </div>
 

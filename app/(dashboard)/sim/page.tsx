@@ -1243,15 +1243,6 @@ export default function ManajemenSimPage() {
             </div>
 
             <form onSubmit={handleSaveSimConfig} className="space-y-4 text-xs">
-              <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl space-y-1 text-xs">
-                <span className="font-semibold text-[var(--text-primary)] block">
-                  Informasi Sinkronisasi POS:
-                </span>
-                <p className="text-[11px] text-[var(--text-secondary)]">
-                  Nominal ini otomatis digunakan sebagai nilai estimasi saat sistem meng-generate pos belanja modal penerbitan SIM bagi siswa yang telah lunas kursus.
-                </p>
-              </div>
-
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
                   Modal Standar / SIM A (Mobil) *

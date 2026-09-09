@@ -22,7 +22,6 @@ import {
   Layers,
   Fuel,
   Printer,
-  Info,
   RefreshCw,
 } from 'lucide-react';
 import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
@@ -206,10 +205,6 @@ export default function AnalitikPage() {
                 }
               }}
             />
-          </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] font-medium">
-            <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            <span>Rentang kustom menampilkan grafik harian untuk rentang maksimal 6 bulan (180 hari).</span>
           </div>
         </div>
       )}
