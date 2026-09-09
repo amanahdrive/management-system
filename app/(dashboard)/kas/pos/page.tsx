@@ -319,8 +319,20 @@ export default function PosPengeluaranPage() {
         <PageHeader
           title="POS Pengeluaran & Alokasi Anggaran"
           description="Rencana belanja kas, otomasi penerbitan SIM, cicilan hutang, dan operasional rutin"
+          breadcrumbs={[
+            { label: 'Portal Finance', href: '/finance' },
+            { label: 'Kas & Keuangan', href: '/kas' },
+            { label: 'POS Pengeluaran' },
+          ]}
           actions={
             <div className="flex items-center gap-2 flex-wrap">
+              <Link
+                href="/finance"
+                className="px-3.5 py-1.5 bg-[var(--bg-card)] hover:bg-[var(--bg)] border border-[var(--border)] text-[var(--text-primary)] rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Portal Finance</span>
+              </Link>
               <button
                 type="button"
                 onClick={() => setIsOpModalOpen(true)}

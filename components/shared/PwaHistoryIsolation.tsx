@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect } from 'react';
 
@@ -33,6 +33,12 @@ export function PwaHistoryIsolation() {
         if (!target) return;
 
         const href = target.getAttribute('href') || '';
+
+        // Pengecualian: Izinkan navigasi ke POS Pengeluaran dari Portal Finance
+        if (href === '/kas/pos' || href.startsWith('/kas/pos/') || href.startsWith('/kas/pos?')) {
+          return;
+        }
+
         const adminRoutes = [
           '/dashboard',
           '/kas',

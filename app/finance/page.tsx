@@ -42,6 +42,7 @@ import { PwaInstallModal } from '@/components/shared/PwaInstallModal';
 import { LiquidGlassBottomNav } from '@/components/navigation/LiquidGlassBottomNav';
 import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
 import { purgeServerCache } from '@/lib/actions/cache';
+import { usePinStore } from '@/lib/store/pin-store';
 import {
   TrendingUp,
   TrendingDown,
@@ -224,6 +225,7 @@ export default function FinancePortalPage() {
         const TWELVE_HOURS = 12 * 60 * 60 * 1000;
         if (elapsed < TWELVE_HOURS) {
           setPinVerified(true);
+          usePinStore.getState().setVerified(true);
         }
       }
 
@@ -232,6 +234,7 @@ export default function FinancePortalPage() {
         if (!pinCfg.isEnabled) {
           // PIN protection is turned OFF in settings -> bypass gate immediately
           setPinVerified(true);
+          usePinStore.getState().setVerified(true);
         }
       } catch (err) {
         console.error('Error checking PIN settings:', err);
@@ -478,6 +481,7 @@ export default function FinancePortalPage() {
 
       if (res.success) {
         setPinVerified(true);
+        usePinStore.getState().setVerified(true);
         localStorage.setItem('amanah_finance_pin_ok', 'true');
         localStorage.setItem('amanah_finance_pin_time', String(Date.now()));
       } else {
