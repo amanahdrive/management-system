@@ -5,12 +5,6 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import {
   getGeneralSettings,
   saveCompanyProfile,
-  saveSopTemplate,
-  saveBbmPrices,
-  saveInstructorSalarySettings,
-  getOperasionalSettings,
-  saveOperasionalSettings,
-  OperasionalSettings,
 } from '@/lib/actions/settings';
 import {
   sendTelegramMessageAction,
@@ -20,19 +14,11 @@ import {
   TelegramConfig,
   TelegramConnectionStatus,
 } from '@/lib/actions/telegram';
-import {
-  getRekeningList,
-  addRekening,
-  updateRekening,
-  deleteRekening,
-} from '@/lib/actions/rekening';
-import { RekeningBank } from '@/types/database';
 import { getPinSettings, verifyKasPin, updateKasPin, toggleKasPin, setInitialKasPin } from '@/lib/actions/kas-pin';
 import { usePinStore } from '@/lib/store/pin-store';
 import { resetModularData, ResetModuleKey } from '@/lib/actions/reset-system';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { TimePicker24H } from '@/components/shared/TimePicker24H';
-import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import {
   Send,
   KeyRound,
@@ -41,7 +27,6 @@ import {
   ShieldCheck,
   ShieldOff,
   Building,
-  Fuel,
   Bell,
   CheckCircle2,
   AlertCircle,
@@ -63,13 +48,7 @@ import {
   Flame,
   CreditCard,
   Plus,
-  Edit3,
   Copy,
-  Star,
-  Landmark,
-  Zap,
-  Wifi,
-  Droplets,
   X,
   Globe,
   MessageSquare,
@@ -159,47 +138,10 @@ export default function SettingsPage() {
   // Settings Form State
   const [namaPerusahaan, setNamaPerusahaan] = React.useState('Amanah Drive');
   const [kota, setKota] = React.useState('Palembang');
-  const [waTemplate, setWaTemplate] = React.useState(
-    '• Minta share lokasi kepada klien sebelum berangkat.\n' +
-      '• Laporan keluar Basecamp beserta foto odometer.\n' +
-      '• Laporan saat sesi dimulai.\n' +
-      '• Laporan saat sesi selesai.\n' +
-      '• Laporan kembali ke Basecamp beserta foto odometer.'
-  );
 
-  // BBM Prices
-  const [pertalitePrice, setPertalitePrice] = React.useState(10000);
-  const [pertamaxPrice, setPertamaxPrice] = React.useState(16300);
-
-  // Instructor Fee & Meal Allowance Settings
-  const [gajiOperasional, setGajiOperasional] = React.useState(50000);
-  const [gajiPribadi, setGajiPribadi] = React.useState(70000);
-  const [uangMakanHarian, setUangMakanHarian] = React.useState(15000);
-  const [savingHonor, setSavingHonor] = React.useState(false);
-  const [honorSuccess, setHonorSuccess] = React.useState(false);
-
-  // Saving states for individual sections
+  // Saving states for profile
   const [savingProfile, setSavingProfile] = React.useState(false);
   const [profileSuccess, setProfileSuccess] = React.useState(false);
-
-  const [savingBbm, setSavingBbm] = React.useState(false);
-  const [bbmSuccess, setBbmSuccess] = React.useState(false);
-
-  const [savingSop, setSavingSop] = React.useState(false);
-  const [sopSuccess, setSopSuccess] = React.useState(false);
-
-  // Operasional Pos Rutin (Token, WiFi, Air) Settings
-  const [opConfig, setOpConfig] = React.useState<OperasionalSettings>({
-    tokenNominal: 200000,
-    tokenTanggal: 5,
-    wifiNominal: 300000,
-    wifiTanggal: 10,
-    airNominal: 100000,
-    airTanggal: 20,
-    airFluktuatif: true,
-  });
-  const [savingOp, setSavingOp] = React.useState(false);
-  const [opSuccess, setOpSuccess] = React.useState(false);
 
   // PIN Protection & Change State
   const [pinEnabled, setPinEnabled] = React.useState(true);
@@ -255,22 +197,6 @@ export default function SettingsPage() {
     }
   };
 
-  // Rekening Bank Management State
-  const [rekeningList, setRekeningList] = React.useState<RekeningBank[]>([]);
-  const [loadingRekening, setLoadingRekening] = React.useState(true);
-  const [showRekeningModal, setShowRekeningModal] = React.useState(false);
-  const [editingRekening, setEditingRekening] = React.useState<RekeningBank | null>(null);
-  const [formRekening, setFormRekening] = React.useState({
-    nama_bank: 'BCA',
-    nomor_rekening: '',
-    atas_nama: '',
-    aktif: true,
-    is_utama: false,
-    keterangan: '',
-  });
-  const [savingRekening, setSavingRekening] = React.useState(false);
-  const [copiedRekeningId, setCopiedRekeningId] = React.useState<string | null>(null);
-
   // Modular Reset State
   const [activeResetModule, setActiveResetModule] = React.useState<{
     key: ResetModuleKey;
@@ -285,37 +211,25 @@ export default function SettingsPage() {
     let isMounted = true;
     async function loadAllSettings() {
       setLoadingTelegram(true);
-      setLoadingRekening(true);
       try {
-        const [genCfg, tgCfg, rekList, pinCfg, tgStatus, opCfg] = await Promise.all([
+        const [genCfg, tgCfg, pinCfg, tgStatus] = await Promise.all([
           getGeneralSettings(),
           getTelegramConfig(),
-          getRekeningList(),
           getPinSettings(),
           checkTelegramConnection(),
-          getOperasionalSettings(),
         ]);
         if (!isMounted) return;
         setNamaPerusahaan(genCfg.namaPerusahaan);
         setKota(genCfg.kotaOperasional);
-        setWaTemplate(genCfg.waTemplate);
-        setPertalitePrice(genCfg.pertalitePrice);
-        setPertamaxPrice(genCfg.pertamaxPrice);
-        setGajiOperasional(genCfg.gajiInstrukturOperasional);
-        setGajiPribadi(genCfg.gajiInstrukturPribadi);
-        setUangMakanHarian(genCfg.uangMakanInstrukturHarian);
         setTelegramConfig(tgCfg);
         setTelegramStatus(tgStatus);
-        setRekeningList(rekList);
         setPinEnabled(pinCfg.isEnabled);
         setHasExistingPin(pinCfg.hasPin);
-        setOpConfig(opCfg);
       } catch (err) {
         console.error('Error loading settings:', err);
       } finally {
         if (isMounted) {
           setLoadingTelegram(false);
-          setLoadingRekening(false);
         }
       }
     }
@@ -324,112 +238,6 @@ export default function SettingsPage() {
       isMounted = false;
     };
   }, []);
-
-  const handleOpenAddRekening = () => {
-    setEditingRekening(null);
-    setFormRekening({
-      nama_bank: 'BCA',
-      nomor_rekening: '',
-      atas_nama: namaPerusahaan || 'Amanah Drive',
-      aktif: true,
-      is_utama: rekeningList.length === 0,
-      keterangan: '',
-    });
-    setShowRekeningModal(true);
-  };
-
-  const handleOpenEditRekening = (rek: RekeningBank) => {
-    setEditingRekening(rek);
-    setFormRekening({
-      nama_bank: rek.nama_bank,
-      nomor_rekening: rek.nomor_rekening,
-      atas_nama: rek.atas_nama,
-      aktif: rek.aktif,
-      is_utama: rek.is_utama || false,
-      keterangan: rek.keterangan || '',
-    });
-    setShowRekeningModal(true);
-  };
-
-  const handleSaveRekening = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formRekening.nama_bank || !formRekening.nomor_rekening || !formRekening.atas_nama) {
-      alert('Nama Bank, Nomor Rekening, dan Atas Nama wajib diisi!');
-      return;
-    }
-    setSavingRekening(true);
-
-    try {
-      if (editingRekening) {
-        const res = await updateRekening(editingRekening.id, {
-          nama_bank: formRekening.nama_bank,
-          nomor_rekening: formRekening.nomor_rekening,
-          atas_nama: formRekening.atas_nama,
-          aktif: formRekening.aktif,
-          is_utama: formRekening.is_utama,
-          keterangan: formRekening.keterangan,
-        });
-        if (res.success) {
-          const updated = await getRekeningList();
-          setRekeningList(updated);
-          setShowRekeningModal(false);
-        } else {
-          alert('Gagal mengubah rekening: ' + (res.error || 'Terjadi kesalahan'));
-        }
-      } else {
-        const res = await addRekening({
-          nama_bank: formRekening.nama_bank,
-          nomor_rekening: formRekening.nomor_rekening,
-          atas_nama: formRekening.atas_nama,
-          aktif: formRekening.aktif,
-          is_utama: formRekening.is_utama,
-          keterangan: formRekening.keterangan,
-        });
-        if (res.success) {
-          const updated = await getRekeningList();
-          setRekeningList(updated);
-          setShowRekeningModal(false);
-        } else {
-          alert('Gagal menambah rekening: ' + (res.error || 'Terjadi kesalahan'));
-        }
-      }
-    } catch (err: any) {
-      console.error('Error saving rekening:', err);
-      alert('Terjadi kesalahan sistem saat menyimpan rekening: ' + (err?.message || 'Error'));
-    } finally {
-      setSavingRekening(false);
-    }
-  };
-
-  const handleDeleteRekening = async (id: string, nama: string) => {
-    if (!confirm(`Hapus rekening ${nama}?`)) return;
-    try {
-      const res = await deleteRekening(id);
-      if (res.success) {
-        const updated = await getRekeningList();
-        setRekeningList(updated);
-      } else {
-        alert('Gagal menghapus rekening: ' + res.error);
-      }
-    } catch (err: any) {
-      console.error('Error deleting rekening:', err);
-      alert('Terjadi kesalahan saat menghapus rekening');
-    }
-  };
-
-  const handleToggleAktifRekening = async (rek: RekeningBank) => {
-    const res = await updateRekening(rek.id, { aktif: !rek.aktif });
-    if (res.success) {
-      const updated = await getRekeningList();
-      setRekeningList(updated);
-    }
-  };
-
-  const handleCopyRekening = (id: string, noRek: string) => {
-    navigator.clipboard.writeText(noRek);
-    setCopiedRekeningId(id);
-    setTimeout(() => setCopiedRekeningId(null), 2000);
-  };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -442,62 +250,6 @@ export default function SettingsPage() {
       setTimeout(() => setProfileSuccess(false), 3000);
     } else {
       alert('Gagal menyimpan profil: ' + res.error);
-    }
-  };
-
-  const handleSaveBbm = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingBbm(true);
-    setBbmSuccess(false);
-    const res = await saveBbmPrices(pertalitePrice, pertamaxPrice);
-    setSavingBbm(false);
-    if (res.success) {
-      setBbmSuccess(true);
-      setTimeout(() => setBbmSuccess(false), 3000);
-    } else {
-      alert('Gagal menyimpan harga BBM: ' + res.error);
-    }
-  };
-
-  const handleSaveHonor = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingHonor(true);
-    setHonorSuccess(false);
-    const res = await saveInstructorSalarySettings(gajiOperasional, gajiPribadi, uangMakanHarian);
-    setSavingHonor(false);
-    if (res.success) {
-      setHonorSuccess(true);
-      setTimeout(() => setHonorSuccess(false), 3000);
-    } else {
-      alert('Gagal menyimpan tarif honor instruktur: ' + res.error);
-    }
-  };
-
-  const handleSaveOperasional = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingOp(true);
-    setOpSuccess(false);
-    const res = await saveOperasionalSettings(opConfig);
-    setSavingOp(false);
-    if (res.success) {
-      setOpSuccess(true);
-      setTimeout(() => setOpSuccess(false), 3000);
-    } else {
-      alert('Gagal menyimpan pengaturan operasional: ' + res.error);
-    }
-  };
-
-  const handleSaveSopTemplate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingSop(true);
-    setSopSuccess(false);
-    const res = await saveSopTemplate(waTemplate);
-    setSavingSop(false);
-    if (res.success) {
-      setSopSuccess(true);
-      setTimeout(() => setSopSuccess(false), 3000);
-    } else {
-      alert('Gagal menyimpan template SOP: ' + res.error);
     }
   };
 
@@ -936,431 +688,7 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* Section 3: Parameter BBM */}
-        <div className="card-container space-y-4">
-          <h3 className="font-bold text-sm text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
-            <Fuel className="w-4 h-4 text-emerald-500" />
-            Parameter Harga BBM
-          </h3>
-
-          <form onSubmit={handleSaveBbm} className="space-y-3 text-xs">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Pertalite (Rp/Liter)</label>
-                <input
-                  type="number"
-                  value={pertalitePrice}
-                  onChange={(e) => setPertalitePrice(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Pertamax (Rp/Liter)</label>
-                <input
-                  type="number"
-                  value={pertamaxPrice}
-                  onChange={(e) => setPertamaxPrice(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)]"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={savingBbm}
-              className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-md flex items-center justify-center gap-1.5 transition-colors"
-            >
-              {savingBbm ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : bbmSuccess ? (
-                <Check className="w-3.5 h-3.5" />
-              ) : (
-                <Save className="w-3.5 h-3.5" />
-              )}
-              <span>{savingBbm ? 'Menyimpan...' : bbmSuccess ? 'Tersimpan!' : 'Simpan Harga BBM'}</span>
-            </button>
-          </form>
-        </div>
-
-        {/* Section 4: Tarif Honor & Uang Makan Instruktur */}
-        <div className="card-container space-y-4">
-          <h3 className="font-bold text-sm text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
-            <Banknote className="w-4 h-4 text-[var(--brand-primary)]" />
-            Tarif Honor & Uang Makan Instruktur
-          </h3>
-
-          <form onSubmit={handleSaveHonor} className="space-y-3 text-xs">
-            <div className="space-y-3">
-              <div>
-                <CurrencyInput
-                  label="Honor Sesi (Mobil Operasional)"
-                  value={gajiOperasional}
-                  onChange={setGajiOperasional}
-                />
-                <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
-                  Fee mengajar per sesi saat instruktur menggunakan mobil armada operasional
-                </span>
-              </div>
-
-              <div>
-                <CurrencyInput
-                  label="Honor Sesi (Mobil Pribadi / Siswa)"
-                  value={gajiPribadi}
-                  onChange={setGajiPribadi}
-                />
-                <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
-                  Fee mengajar per sesi saat menggunakan mobil pribadi/sendiri
-                </span>
-              </div>
-
-              <div>
-                <CurrencyInput
-                  label="Uang Makan Harian Instruktur"
-                  value={uangMakanHarian}
-                  onChange={setUangMakanHarian}
-                />
-                <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
-                  Uang makan per hari aktif instruktur bertugas
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={savingHonor}
-              className="w-full py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] disabled:opacity-50 text-white font-bold rounded-md flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-            >
-              {savingHonor ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : honorSuccess ? (
-                <Check className="w-3.5 h-3.5" />
-              ) : (
-                <Save className="w-3.5 h-3.5" />
-              )}
-              <span>
-                {savingHonor ? 'Menyimpan...' : honorSuccess ? 'Tersimpan!' : 'Simpan Pengaturan Honor & Uang Makan'}
-              </span>
-            </button>
-          </form>
-        </div>
-
-        {/* Section: Pos Pengeluaran Rutin & Fluktuatif (Token, WiFi, Air) */}
-        <div className="card-container space-y-4">
-          <h3 className="font-bold text-sm text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
-            <Zap className="w-4 h-4 text-amber-500" />
-            Pos Pengeluaran Rutin & Fluktuatif Bulanan
-          </h3>
-
-          <form onSubmit={handleSaveOperasional} className="space-y-4 text-xs">
-            <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl space-y-1 text-xs">
-              <span className="font-semibold text-[var(--text-primary)] block">
-                Sinkronisasi Otomatis POS Kas:
-              </span>
-              <p className="text-[11px] text-[var(--text-secondary)]">
-                Parameter ini digunakan oleh modul POS Pengeluaran untuk meng-generate anggaran belanja rutin bulanan (Token Listrik, WiFi kantor, dan Air PDAM).
-              </p>
-            </div>
-
-            {/* Token Listrik */}
-            <div className="p-3 border border-[var(--border)] rounded-xl space-y-2 bg-[var(--bg)]">
-              <div className="flex items-center gap-1.5 font-bold text-[var(--text-primary)]">
-                <Zap className="w-3.5 h-3.5 text-amber-500" />
-                <span>1. Token Listrik Kantor</span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <CurrencyInput
-                  label="Nominal Bulanan (Rp)"
-                  value={opConfig.tokenNominal}
-                  onChange={(val) => setOpConfig({ ...opConfig, tokenNominal: val })}
-                />
-                <div>
-                  <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                    Jatuh Tempo (Tgl)
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={31}
-                    value={opConfig.tokenTanggal}
-                    onChange={(e) => setOpConfig({ ...opConfig, tokenTanggal: Number(e.target.value) || 1 })}
-                    className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
-                  />
-                  <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
-                    Tgl {opConfig.tokenTanggal} tiap bulan
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* WiFi Kantor */}
-            <div className="p-3 border border-[var(--border)] rounded-xl space-y-2 bg-[var(--bg)]">
-              <div className="flex items-center gap-1.5 font-bold text-[var(--text-primary)]">
-                <Wifi className="w-3.5 h-3.5 text-blue-500" />
-                <span>2. Internet WiFi Kantor</span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <CurrencyInput
-                  label="Nominal Bulanan (Rp)"
-                  value={opConfig.wifiNominal}
-                  onChange={(val) => setOpConfig({ ...opConfig, wifiNominal: val })}
-                />
-                <div>
-                  <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                    Jatuh Tempo (Tgl)
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={31}
-                    value={opConfig.wifiTanggal}
-                    onChange={(e) => setOpConfig({ ...opConfig, wifiTanggal: Number(e.target.value) || 1 })}
-                    className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
-                  />
-                  <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
-                    Tgl {opConfig.wifiTanggal} tiap bulan
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Air PDAM (Fluktuatif) */}
-            <div className="p-3 border border-teal-500/30 rounded-xl space-y-2 bg-teal-500/5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 font-bold text-teal-700 dark:text-teal-400">
-                  <Droplets className="w-3.5 h-3.5" />
-                  <span>3. Air PDAM Kantor (Fluktuatif)</span>
-                </div>
-                <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-teal-500/20 text-teal-700 dark:text-teal-300">
-                  Biaya Fluktuatif
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <CurrencyInput
-                  label="Estimasi Budget (Rp)"
-                  value={opConfig.airNominal}
-                  onChange={(val) => setOpConfig({ ...opConfig, airNominal: val })}
-                />
-                <div>
-                  <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                    Jatuh Tempo (Tgl)
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={31}
-                    value={opConfig.airTanggal}
-                    onChange={(e) => setOpConfig({ ...opConfig, airTanggal: Number(e.target.value) || 1 })}
-                    className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
-                  />
-                  <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
-                    Tgl {opConfig.airTanggal} tiap bulan
-                  </span>
-                </div>
-              </div>
-              <p className="text-[10.5px] text-[var(--text-secondary)] italic">
-                * Tarif air PDAM fluktuatif mengikuti pemakaian meteran. Nilai di atas adalah plafon estimasi dan dapat disesuaikan riil saat tombol bayar diklik di POS Pengeluaran.
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              disabled={savingOp}
-              className="w-full py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] disabled:opacity-50 text-white font-bold rounded-md flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-            >
-              {savingOp ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : opSuccess ? (
-                <Check className="w-3.5 h-3.5" />
-              ) : (
-                <Save className="w-3.5 h-3.5" />
-              )}
-              <span>
-                {savingOp ? 'Menyimpan...' : opSuccess ? 'Tersimpan!' : 'Simpan Parameter Pos Operasional'}
-              </span>
-            </button>
-          </form>
-        </div>
-
-        {/* Section 5: WhatsApp Template */}
-        <div className="card-container space-y-4">
-          <h3 className="font-bold text-sm text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center gap-2">
-            <Send className="w-4 h-4 text-emerald-600" />
-            Template Standar Operasional Sesi
-          </h3>
-
-          <form onSubmit={handleSaveSopTemplate} className="space-y-3 text-xs">
-            <div>
-              <textarea
-                rows={5}
-                value={waTemplate}
-                onChange={(e) => setWaTemplate(e.target.value)}
-                className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] text-[11px] leading-relaxed font-medium"
-                placeholder="Tuliskan format teks SOP atau instruksi SOP sesi..."
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={savingSop}
-              className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-md flex items-center justify-center gap-1.5 transition-colors"
-            >
-              {savingSop ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : sopSuccess ? (
-                <Check className="w-3.5 h-3.5" />
-              ) : (
-                <Save className="w-3.5 h-3.5" />
-              )}
-              <span>{savingSop ? 'Menyimpan...' : sopSuccess ? 'Tersimpan!' : 'Simpan Template SOP'}</span>
-            </button>
-          </form>
-        </div>
-
-        {/* Kelola Rekening Bank Perusahaan */}
-        <div className="card-container space-y-4 md:col-span-2 border-l-4 border-l-emerald-600 bg-emerald-50/20 dark:bg-emerald-950/10">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-2">
-            <div>
-              <h3 className="font-bold text-sm text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-                <Landmark className="w-4 h-4 text-emerald-600" />
-                Kelola Rekening Bank Perusahaan
-              </h3>
-              <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                Daftar rekening bank resmi untuk pilihan pembayaran uang masuk non-tunai (transfer bank) pada Kas & Keuangan, PWA Finance, dan Invoice/Nota.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleOpenAddRekening}
-              className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors shrink-0 shadow-xs active:scale-95"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Tambah Rekening</span>
-            </button>
-          </div>
-
-          {loadingRekening ? (
-            <div className="py-8 flex items-center justify-center gap-2 text-xs text-[var(--text-secondary)]">
-              <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
-              <span>Memuat data rekening...</span>
-            </div>
-          ) : rekeningList.length === 0 ? (
-            <div className="py-6 text-center text-xs text-[var(--text-secondary)]">
-              Belum ada rekening bank yang tersimpan. Klik tombol <strong>+ Tambah Rekening</strong> untuk menambahkan rekening pertama.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {rekeningList.map((rek) => (
-                <div
-                  key={rek.id}
-                  className={`p-3.5 rounded-xl border flex flex-col justify-between gap-3 transition-all relative ${
-                    rek.aktif
-                      ? 'bg-[var(--bg)] border-[var(--border)] shadow-xs hover:border-emerald-500'
-                      : 'bg-gray-100 dark:bg-gray-900/40 border-gray-200 dark:border-gray-800 opacity-60'
-                  }`}
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-extrabold text-[11px] uppercase tracking-wider">
-                        {rek.nama_bank}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        {rek.is_utama && (
-                          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 text-[10px] font-bold flex items-center gap-0.5">
-                            <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
-                            Utama
-                          </span>
-                        )}
-                        <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                            rek.aktif
-                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-                              : 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
-                          }`}
-                        >
-                          {rek.aktif ? 'Aktif' : 'Non-aktif'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-[var(--text-secondary)] font-medium">Nomor Rekening</span>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyRekening(rek.id, rek.nomor_rekening)}
-                          className="text-[10px] text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-0.5"
-                          title="Salin No Rekening"
-                        >
-                          {copiedRekeningId === rek.id ? (
-                            <span className="text-emerald-700 dark:text-emerald-400 font-bold">Disalin!</span>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3" />
-                              <span>Salin</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      <div className="text-sm font-bold font-mono tracking-wider text-[var(--text-primary)] mt-0.5">
-                        {rek.nomor_rekening}
-                      </div>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] text-[var(--text-secondary)] font-medium">Atas Nama</span>
-                      <div className="text-xs font-semibold text-[var(--text-primary)] truncate">
-                        {rek.atas_nama}
-                      </div>
-                    </div>
-
-                    {rek.keterangan && (
-                      <p className="text-[10px] text-[var(--text-secondary)] italic border-t border-[var(--border)] pt-1.5">
-                        {rek.keterangan}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between gap-1 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleAktifRekening(rek)}
-                      className={`text-[11px] font-semibold px-2 py-1 rounded transition-colors ${
-                        rek.aktif
-                          ? 'text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800'
-                          : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
-                      }`}
-                    >
-                      {rek.aktif ? 'Nonaktifkan' : 'Aktifkan'}
-                    </button>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEditRekening(rek)}
-                        className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded transition-colors"
-                        title="Edit Rekening"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteRekening(rek.id, `${rek.nama_bank} - ${rek.nomor_rekening}`)}
-                        className="p-1 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors"
-                        title="Hapus Rekening"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Section 5: Konfigurasi Notifikasi Otomasi Telegram */}
+        {/* Section: Konfigurasi Notifikasi Otomasi Telegram */}
         <div className="card-container space-y-4 md:col-span-2 border-l-4 border-l-sky-500 bg-sky-50/20 dark:bg-sky-950/10">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-2">
             <h3 className="font-bold text-sm text-sky-700 dark:text-sky-400 flex items-center gap-2">
@@ -1876,136 +1204,7 @@ export default function SettingsPage() {
         isDanger
       />
 
-      {/* Tambah / Edit Rekening Modal */}
-      {showRekeningModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-          <div className="w-full max-w-md bg-[var(--bg)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
-              <h3 className="font-bold text-sm text-[var(--text-primary)] flex items-center gap-2">
-                <Landmark className="w-4 h-4 text-emerald-600" />
-                <span>{editingRekening ? 'Edit Rekening Bank' : 'Tambah Rekening Bank Baru'}</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowRekeningModal(false)}
-                className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            <form onSubmit={handleSaveRekening} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                  Nama Bank *
-                </label>
-                <select
-                  value={formRekening.nama_bank}
-                  onChange={(e) => setFormRekening({ ...formRekening, nama_bank: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
-                >
-                  <option value="BCA">BCA (Bank Central Asia)</option>
-                  <option value="Mandiri">Bank Mandiri</option>
-                  <option value="BRI">BRI (Bank Rakyat Indonesia)</option>
-                  <option value="BNI">BNI (Bank Negara Indonesia)</option>
-                  <option value="BSI">BSI (Bank Syariah Indonesia)</option>
-                  <option value="CIMB Niaga">CIMB Niaga</option>
-                  <option value="Permata">Bank Permata</option>
-                  <option value="Danamon">Bank Danamon</option>
-                  <option value="BTN">BTN</option>
-                  <option value="BJB">Bank BJB</option>
-                  <option value="Lainnya">Lainnya / Bank Daerah</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                  Nomor Rekening *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Contoh: 8535441234"
-                  value={formRekening.nomor_rekening}
-                  onChange={(e) => setFormRekening({ ...formRekening, nomor_rekening: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-mono font-bold tracking-wider text-[var(--text-primary)]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                  Atas Nama (A.n) *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Contoh: PT Amanah Drive Palembang"
-                  value={formRekening.atas_nama}
-                  onChange={(e) => setFormRekening({ ...formRekening, atas_nama: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                  Keterangan / Catatan (Opsional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Contoh: Rekening Utama Penerimaan Kursus"
-                  value={formRekening.keterangan}
-                  onChange={(e) => setFormRekening({ ...formRekening, keterangan: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
-                />
-              </div>
-
-              <div className="space-y-2 pt-1 border-t border-[var(--border)]">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formRekening.is_utama}
-                    onChange={(e) => setFormRekening({ ...formRekening, is_utama: e.target.checked })}
-                    className="w-4 h-4 rounded text-emerald-600"
-                  />
-                  <span className="text-xs font-semibold text-[var(--text-primary)]">
-                    Jadikan Rekening Utama (Default Pilihan Pertama)
-                  </span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formRekening.aktif}
-                    onChange={(e) => setFormRekening({ ...formRekening, aktif: e.target.checked })}
-                    className="w-4 h-4 rounded text-emerald-600"
-                  />
-                  <span className="text-xs font-semibold text-[var(--text-primary)]">
-                    Status Rekening Aktif
-                  </span>
-                </label>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border)]">
-                <button
-                  type="button"
-                  onClick={() => setShowRekeningModal(false)}
-                  className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] transition-colors"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingRekening}
-                  className="px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white flex items-center gap-1.5 transition-colors shadow-xs"
-                >
-                  {savingRekening ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                  <span>{savingRekening ? 'Menyimpan...' : 'Simpan Rekening'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
       {/* Modal Konfirmasi Nonaktifkan PIN */}
       {showDisablePinModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">

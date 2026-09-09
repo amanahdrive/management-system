@@ -62,9 +62,13 @@ import {
   CornerDownRight,
   ArrowRight,
   SlidersHorizontal,
+  Send,
+  Save,
+  Loader2,
 } from 'lucide-react';
 import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
 import { purgeServerCache } from '@/lib/actions/cache';
+import { getGeneralSettings, saveSopTemplate } from '@/lib/actions/settings';
 import Link from 'next/link';
 
 const DAY_NAMES = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
@@ -164,6 +168,18 @@ export default function JadwalPage() {
   });
   const [sessionDates, setSessionDates] = React.useState<string[]>([]);
 
+  // Template Standar Operasional Sesi (SOP)
+  const [waTemplate, setWaTemplate] = React.useState(
+    '• Minta share lokasi kepada klien sebelum berangkat.\n' +
+      '• Laporan keluar Basecamp beserta foto odometer.\n' +
+      '• Laporan saat sesi dimulai.\n' +
+      '• Laporan saat sesi selesai.\n' +
+      '• Laporan kembali ke Basecamp beserta foto odometer.'
+  );
+  const [isSopModalOpen, setIsSopModalOpen] = React.useState(false);
+  const [savingSop, setSavingSop] = React.useState(false);
+  const [sopSuccess, setSopSuccess] = React.useState(false);
+
   // Hitung rentang tanggal efektif dari filterMode
   const getEffectiveDateRange = React.useCallback((): { from: string; to: string } => {
     const today = new Date();
@@ -241,6 +257,32 @@ export default function JadwalPage() {
   React.useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Load SOP template
+  React.useEffect(() => {
+    getGeneralSettings().then((cfg) => {
+      if (cfg?.waTemplate) {
+        setWaTemplate(cfg.waTemplate);
+      }
+    });
+  }, []);
+
+  const handleSaveSopTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSop(true);
+    setSopSuccess(false);
+    const res = await saveSopTemplate(waTemplate);
+    setSavingSop(false);
+    if (res.success) {
+      setSopSuccess(true);
+      setTimeout(() => {
+        setSopSuccess(false);
+        setIsSopModalOpen(false);
+      }, 1200);
+    } else {
+      alert('Gagal menyimpan template SOP: ' + res.error);
+    }
+  };
 
   useAppRefresh(loadData);
 
@@ -1156,6 +1198,17 @@ export default function JadwalPage() {
               <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${loading ? 'animate-spin' : ''}`} />
               <span>{loading ? 'Menyinkronkan...' : 'Sinkronkan'}</span>
             </button>
+
+            {/* SOP Sesi */}
+            <button
+              onClick={() => setIsSopModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] text-[var(--text-primary)] text-xs font-semibold rounded-md transition-all shadow-xs active:scale-95"
+              title="Template Standar Operasional Sesi (SOP) Instruktur"
+            >
+              <Send className="w-3.5 h-3.5 text-emerald-600" />
+              <span>SOP Sesi</span>
+            </button>
+
             {/* 1. Copy Jadwal WA */}
             <button
               onClick={() => handleCopyWAJadwal(filterMode === 'week' ? 'mingguan' : filterMode === 'range' ? 'custom' : 'harian')}
@@ -2966,6 +3019,74 @@ export default function JadwalPage() {
                   ) : (
                     <span>Terapkan pada {selectedSesiIds.length} Sesi</span>
                   )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL TEMPLATE SOP SESI */}
+      {isSopModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-lg bg-[var(--bg)] border border-[var(--border)] rounded-2xl shadow-xl overflow-hidden animate-scaleIn">
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--bg-subtle)]">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600">
+                  <Send className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-[var(--text-primary)]">Template Standar Operasional Sesi (SOP)</h3>
+                  <p className="text-[11px] text-[var(--text-secondary)]">Standar pelaporan & protokol mengajar yang dikirimkan ke instruktur</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSopModalOpen(false)}
+                className="p-1 rounded-lg text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSopTemplate} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">
+                  Isi SOP / Petunjuk Operasional Sesi
+                </label>
+                <textarea
+                  rows={7}
+                  value={waTemplate}
+                  onChange={(e) => setWaTemplate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs leading-relaxed font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  placeholder="Tuliskan format teks SOP atau instruksi SOP sesi..."
+                />
+                <p className="text-[10.5px] text-[var(--text-secondary)] mt-1.5">
+                  Teks SOP ini akan disertakan secara otomatis saat meng-copy format penugasan sesi harian instruktur via WhatsApp.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => setIsSopModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingSop}
+                  className="px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white flex items-center gap-1.5 transition-colors shadow-xs"
+                >
+                  {savingSop ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : sopSuccess ? (
+                    <Check className="w-3.5 h-3.5" />
+                  ) : (
+                    <Save className="w-3.5 h-3.5" />
+                  )}
+                  <span>{savingSop ? 'Menyimpan...' : sopSuccess ? 'Tersimpan!' : 'Simpan Template SOP'}</span>
                 </button>
               </div>
             </form>

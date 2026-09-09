@@ -6,9 +6,12 @@ import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Staff, Jabatan } from '@/types/database';
 import { getStaffList, getJabatanList, upsertStaff } from '@/lib/actions/master-data';
-import { Plus, Edit2, Check, Calendar, Clock, Sparkles } from 'lucide-react';
+import { Plus, Edit2, Check, Calendar, Clock, Sparkles, Banknote, Loader2, Save } from 'lucide-react';
 import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
 import { useAppRefresh } from '@/lib/utils/refresh-event';
+import { CurrencyInput } from '@/components/shared/CurrencyInput';
+import { getGeneralSettings, saveInstructorSalarySettings } from '@/lib/actions/settings';
+import { formatRupiah } from '@/lib/utils/currency';
 
 const HARI_OPTIONS = [
   { id: 'senin', label: 'Senin' },
@@ -49,12 +52,46 @@ export default function MasterStaffPage() {
   const [selectedJabatanIds, setSelectedJabatanIds] = React.useState<string[]>([]);
   const [jadwalKetersediaan, setJadwalKetersediaan] = React.useState<Record<string, string[]>>(DEFAULT_JADWAL_KETERSEDIAAN);
 
+  // Tarif Honor & Uang Makan Instruktur
+  const [gajiOperasional, setGajiOperasional] = React.useState(50000);
+  const [gajiPribadi, setGajiPribadi] = React.useState(70000);
+  const [uangMakanHarian, setUangMakanHarian] = React.useState(15000);
+  const [isHonorModalOpen, setIsHonorModalOpen] = React.useState(false);
+  const [savingHonor, setSavingHonor] = React.useState(false);
+  const [honorSuccess, setHonorSuccess] = React.useState(false);
+
   const loadData = async () => {
     setLoading(true);
-    const [stRes, jRes] = await Promise.all([getStaffList(), getJabatanList()]);
+    const [stRes, jRes, genCfg] = await Promise.all([
+      getStaffList(),
+      getJabatanList(),
+      getGeneralSettings(),
+    ]);
     setStaffList(stRes);
     setJabatanList(jRes);
+    if (genCfg) {
+      setGajiOperasional(genCfg.gajiInstrukturOperasional);
+      setGajiPribadi(genCfg.gajiInstrukturPribadi);
+      setUangMakanHarian(genCfg.uangMakanInstrukturHarian);
+    }
     setLoading(false);
+  };
+
+  const handleSaveHonor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingHonor(true);
+    setHonorSuccess(false);
+    const res = await saveInstructorSalarySettings(gajiOperasional, gajiPribadi, uangMakanHarian);
+    setSavingHonor(false);
+    if (res.success) {
+      setHonorSuccess(true);
+      setTimeout(() => {
+        setHonorSuccess(false);
+        setIsHonorModalOpen(false);
+      }, 1200);
+    } else {
+      alert('Gagal menyimpan tarif honor instruktur: ' + res.error);
+    }
   };
 
   React.useEffect(() => {
@@ -249,13 +286,24 @@ export default function MasterStaffPage() {
         description="Kelola seluruh personil Amanah Drive dan penugasan jabatannya"
         breadcrumbs={[{ label: 'Master Data' }, { label: 'Staff' }]}
         actions={
-          <button
-            onClick={handleOpenAdd}
-            className="flex items-center gap-2 px-3 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-md transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tambah Staff</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsHonorModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-[var(--brand-primary-light)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white text-xs font-semibold rounded-md transition-colors border border-[var(--brand-primary)]/20"
+              title="Atur tarif honor sesi dan uang makan instruktur"
+            >
+              <Banknote className="w-4 h-4" />
+              <span>Tarif Honor ({formatRupiah(gajiOperasional)} / {formatRupiah(gajiPribadi)})</span>
+            </button>
+            <button
+              onClick={handleOpenAdd}
+              className="flex items-center gap-2 px-3 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-md transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Tambah Staff</span>
+            </button>
+          </div>
         }
       />
 
@@ -499,6 +547,93 @@ export default function MasterStaffPage() {
                   className="px-4 py-2 text-xs font-semibold bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white rounded-md disabled:opacity-50 transition-colors"
                 >
                   Simpan Data Staff
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Tarif Honor & Uang Makan Instruktur */}
+      {isHonorModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-md bg-[var(--bg)] border border-[var(--border)] rounded-2xl shadow-xl overflow-hidden animate-scaleIn">
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--bg-subtle)]">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]">
+                  <Banknote className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-[var(--text-primary)]">Tarif Honor & Uang Makan</h3>
+                  <p className="text-[11px] text-[var(--text-secondary)]">Parameter perhitungan gaji & fee mengajar instruktur</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsHonorModalOpen(false)}
+                className="p-1 rounded-lg text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveHonor} className="p-5 space-y-4">
+              <div className="space-y-3 text-xs">
+                <div>
+                  <CurrencyInput
+                    label="Honor Sesi (Mobil Operasional)"
+                    value={gajiOperasional}
+                    onChange={setGajiOperasional}
+                  />
+                  <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
+                    Fee mengajar per sesi saat instruktur menggunakan mobil armada operasional
+                  </span>
+                </div>
+
+                <div>
+                  <CurrencyInput
+                    label="Honor Sesi (Mobil Pribadi / Siswa)"
+                    value={gajiPribadi}
+                    onChange={setGajiPribadi}
+                  />
+                  <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
+                    Fee mengajar per sesi saat menggunakan mobil pribadi/sendiri
+                  </span>
+                </div>
+
+                <div>
+                  <CurrencyInput
+                    label="Uang Makan Harian Instruktur"
+                    value={uangMakanHarian}
+                    onChange={setUangMakanHarian}
+                  />
+                  <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
+                    Uang makan per hari aktif instruktur bertugas
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => setIsHonorModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingHonor}
+                  className="px-4 py-2 text-xs font-bold rounded-lg bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] disabled:opacity-50 text-white flex items-center gap-1.5 transition-colors shadow-xs"
+                >
+                  {savingHonor ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : honorSuccess ? (
+                    <Check className="w-3.5 h-3.5" />
+                  ) : (
+                    <Save className="w-3.5 h-3.5" />
+                  )}
+                  <span>{savingHonor ? 'Menyimpan...' : honorSuccess ? 'Tersimpan!' : 'Simpan Tarif'}</span>
                 </button>
               </div>
             </form>

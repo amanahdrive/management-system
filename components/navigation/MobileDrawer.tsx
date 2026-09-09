@@ -30,6 +30,7 @@ import {
   Receipt,
   Smartphone,
   ExternalLink,
+  Building2,
 } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
 
@@ -51,6 +52,7 @@ const KAS_SUB_ITEMS = [
   { label: 'Pos Pengeluaran', href: '/kas/pos', icon: Sparkles },
   { label: 'Manajemen Piutang', href: '/kas/piutang', icon: CreditCard },
   { label: 'Manajemen Hutang', href: '/kas/hutang', icon: Landmark },
+  { label: 'Rekening Bank', href: '/kas/rekening', icon: Building2 },
   { label: 'Cetak Nota', href: '/nota', icon: Receipt },
 ];
 

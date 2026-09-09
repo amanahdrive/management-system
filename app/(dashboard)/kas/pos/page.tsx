@@ -21,6 +21,7 @@ import {
   PosPengeluaranSummary,
 } from '@/lib/actions/pos-pengeluaran';
 import { getRekeningList } from '@/lib/actions/rekening';
+import { getOperasionalSettings, saveOperasionalSettings, OperasionalSettings } from '@/lib/actions/settings';
 import { PosPengeluaran, RekeningBank } from '@/types/database';
 import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
 import {
@@ -46,6 +47,11 @@ import {
   Layers,
   ChevronRight,
   X,
+  Wifi,
+  Droplets,
+  Save,
+  Loader2,
+  Check,
 } from 'lucide-react';
 
 export default function PosPengeluaranPage() {
@@ -106,10 +112,24 @@ export default function PosPengeluaranPage() {
   // Delete Confirm State
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
+  // Operasional Pos Rutin (Token, WiFi, Air) Settings
+  const [opConfig, setOpConfig] = React.useState<OperasionalSettings>({
+    tokenNominal: 200000,
+    tokenTanggal: 5,
+    wifiNominal: 300000,
+    wifiTanggal: 10,
+    airNominal: 100000,
+    airTanggal: 20,
+    airFluktuatif: true,
+  });
+  const [isOpModalOpen, setIsOpModalOpen] = React.useState(false);
+  const [savingOp, setSavingOp] = React.useState(false);
+  const [opSuccess, setOpSuccess] = React.useState(false);
+
   const loadData = React.useCallback(async () => {
     setLoading(true);
     try {
-      const [list, sum, rek] = await Promise.all([
+      const [list, sum, rek, opCfg] = await Promise.all([
         getPosPengeluaranList({
           periodeBulan: selectedMonth,
           status: filterStatus === 'all' ? undefined : filterStatus,
@@ -117,16 +137,35 @@ export default function PosPengeluaranPage() {
         }),
         getPosPengeluaranSummary(selectedMonth),
         getRekeningList(),
+        getOperasionalSettings(),
       ]);
       setPosList(list);
       setSummary(sum);
       setRekeningList(rek);
+      if (opCfg) setOpConfig(opCfg);
     } catch (err) {
       console.error('Error loading pos pengeluaran:', err);
     } finally {
       setLoading(false);
     }
   }, [selectedMonth, filterStatus, filterSumber]);
+
+  const handleSaveOperasional = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingOp(true);
+    setOpSuccess(false);
+    const res = await saveOperasionalSettings(opConfig);
+    setSavingOp(false);
+    if (res.success) {
+      setOpSuccess(true);
+      setTimeout(() => {
+        setOpSuccess(false);
+        setIsOpModalOpen(false);
+      }, 1200);
+    } else {
+      alert('Gagal menyimpan parameter operasional: ' + res.error);
+    }
+  };
 
   React.useEffect(() => {
     loadData();
@@ -282,6 +321,15 @@ export default function PosPengeluaranPage() {
           description="Rencana belanja kas, otomasi penerbitan SIM, cicilan hutang, dan operasional rutin"
           actions={
             <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setIsOpModalOpen(true)}
+                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm hover:-translate-y-0.5"
+                title="Atur parameter pos rutin bulanan (Token Listrik, WiFi kantor, dan Air PDAM)"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>Atur Pos Rutin Bulanan</span>
+              </button>
               <button
                 type="button"
                 onClick={handleGenerateOtomatis}
@@ -1025,6 +1073,168 @@ export default function PosPengeluaranPage() {
                     className="px-4 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] text-white rounded-xl font-bold shadow-sm"
                   >
                     {isSavingEdit ? 'Menyimpan...' : 'Simpan Perubahan'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Atur Pos Rutin Bulanan */}
+        {isOpModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fadeIn">
+            <div className="w-full max-w-lg bg-[var(--bg)] border border-[var(--border)] rounded-2xl shadow-xl overflow-hidden animate-scaleIn max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--bg-subtle)] shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600">
+                    <Zap className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-[var(--text-primary)]">Pos Rutin & Fluktuatif Bulanan</h3>
+                    <p className="text-[11px] text-[var(--text-secondary)]">Parameter sinkronisasi otomatis POS pengeluaran rutin</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsOpModalOpen(false)}
+                  className="p-1 rounded-lg text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveOperasional} className="p-5 space-y-4 overflow-y-auto flex-1">
+                <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl space-y-1 text-xs">
+                  <span className="font-semibold text-[var(--text-primary)] block">
+                    Sinkronisasi Otomatis POS Kas:
+                  </span>
+                  <p className="text-[11px] text-[var(--text-secondary)]">
+                    Nilai default ini digunakan oleh tombol &quot;Sinkronkan Pos Otomatis&quot; saat meng-generate pos rutin bulanan (Token Listrik, WiFi kantor, dan Air PDAM).
+                  </p>
+                </div>
+
+                {/* Token Listrik */}
+                <div className="p-3 border border-[var(--border)] rounded-xl space-y-2 bg-[var(--bg)]">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-[var(--text-primary)]">
+                    <Zap className="w-3.5 h-3.5 text-amber-500" />
+                    <span>1. Token Listrik Kantor</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <CurrencyInput
+                      label="Nominal Bulanan (Rp)"
+                      value={opConfig.tokenNominal}
+                      onChange={(val) => setOpConfig({ ...opConfig, tokenNominal: val })}
+                    />
+                    <div>
+                      <label className="block text-xs text-[var(--text-secondary)] mb-1 font-semibold">
+                        Jatuh Tempo (Tgl)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={opConfig.tokenTanggal}
+                        onChange={(e) => setOpConfig({ ...opConfig, tokenTanggal: Number(e.target.value) || 1 })}
+                        className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
+                      />
+                      <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
+                        Tgl {opConfig.tokenTanggal} tiap bulan
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* WiFi Kantor */}
+                <div className="p-3 border border-[var(--border)] rounded-xl space-y-2 bg-[var(--bg)]">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-[var(--text-primary)]">
+                    <Wifi className="w-3.5 h-3.5 text-blue-500" />
+                    <span>2. Internet WiFi Kantor</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <CurrencyInput
+                      label="Nominal Bulanan (Rp)"
+                      value={opConfig.wifiNominal}
+                      onChange={(val) => setOpConfig({ ...opConfig, wifiNominal: val })}
+                    />
+                    <div>
+                      <label className="block text-xs text-[var(--text-secondary)] mb-1 font-semibold">
+                        Jatuh Tempo (Tgl)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={opConfig.wifiTanggal}
+                        onChange={(e) => setOpConfig({ ...opConfig, wifiTanggal: Number(e.target.value) || 1 })}
+                        className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
+                      />
+                      <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
+                        Tgl {opConfig.wifiTanggal} tiap bulan
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Air PDAM */}
+                <div className="p-3 border border-teal-500/30 rounded-xl space-y-2 bg-teal-500/5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-teal-700 dark:text-teal-400">
+                      <Droplets className="w-3.5 h-3.5" />
+                      <span>3. Air PDAM Kantor (Fluktuatif)</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-teal-500/20 text-teal-700 dark:text-teal-300">
+                      Biaya Fluktuatif
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <CurrencyInput
+                      label="Estimasi Budget (Rp)"
+                      value={opConfig.airNominal}
+                      onChange={(val) => setOpConfig({ ...opConfig, airNominal: val })}
+                    />
+                    <div>
+                      <label className="block text-xs text-[var(--text-secondary)] mb-1 font-semibold">
+                        Jatuh Tempo (Tgl)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={opConfig.airTanggal}
+                        onChange={(e) => setOpConfig({ ...opConfig, airTanggal: Number(e.target.value) || 1 })}
+                        className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-xs"
+                      />
+                      <span className="text-[10px] text-[var(--text-secondary)] mt-0.5 block">
+                        Tgl {opConfig.airTanggal} tiap bulan
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-[var(--text-secondary)] italic">
+                    * Tarif air PDAM fluktuatif mengikuti pemakaian meteran. Nilai di atas adalah plafon estimasi.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border)] shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsOpModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingOp}
+                    className="px-4 py-2 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white flex items-center gap-1.5 transition-colors shadow-xs"
+                  >
+                    {savingOp ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : opSuccess ? (
+                      <Check className="w-3.5 h-3.5" />
+                    ) : (
+                      <Save className="w-3.5 h-3.5" />
+                    )}
+                    <span>{savingOp ? 'Menyimpan...' : opSuccess ? 'Tersimpan!' : 'Simpan Parameter'}</span>
                   </button>
                 </div>
               </form>
