@@ -102,6 +102,7 @@ export default function MasterStaffPage() {
 
   const handleOpenAdd = () => {
     setEditingStaff({
+      kode_staff: '',
       nama: '',
       no_whatsapp: '',
       alamat: 'Palembang',
@@ -201,6 +202,16 @@ export default function MasterStaffPage() {
   };
 
   const columns: ColumnDef<Staff>[] = [
+    {
+      accessorKey: 'kode_staff',
+      header: 'ID Staff',
+      sortingFn: 'text',
+      cell: ({ row }) => (
+        <span className="font-mono text-xs font-bold text-[var(--brand-primary)] bg-[var(--brand-primary-light)] px-2.5 py-0.5 rounded-full">
+          {row.original.kode_staff || '-'}
+        </span>
+      ),
+    },
     {
       accessorKey: 'nama',
       header: 'Nama Staff',
@@ -326,17 +337,31 @@ export default function MasterStaffPage() {
             </h3>
 
             <form onSubmit={handleSubmit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Nama Lengkap *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editingStaff.nama || ''}
-                  onChange={(e) => setEditingStaff({ ...editingStaff, nama: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    Nama Lengkap *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingStaff.nama || ''}
+                    onChange={(e) => setEditingStaff({ ...editingStaff, nama: e.target.value })}
+                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    ID Staff (e.g. AM-001)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="AM-001"
+                    value={editingStaff.kode_staff || ''}
+                    onChange={(e) => setEditingStaff({ ...editingStaff, kode_staff: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-mono font-bold"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

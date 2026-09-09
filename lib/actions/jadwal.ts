@@ -12,7 +12,12 @@ import {
   InstrukturJadwalGroup,
   sortSesiBySlotUrutan,
 } from '../utils/whatsapp-markdown';
-import { addDaysToDateStr, getTodayDateString } from '../utils/date';
+import {
+  addDaysToDateStr,
+  getTodayDateString,
+  getWeekSundayToSaturday,
+  formatDateIndo,
+} from '../utils/date';
 
 function safeRevalidatePath(path: string) {
   try {
@@ -87,7 +92,7 @@ export async function getJadwalByDateRange(
       LEFT JOIN slot_waktu sw1 ON js.slot_waktu_id = sw1.id
       LEFT JOIN slot_waktu sw2 ON js.slot_waktu_id_akhir = sw2.id
       WHERE js.tanggal_sesi >= $1 AND js.tanggal_sesi <= $2 ${staffFilter}
-      ORDER BY js.tanggal_sesi ASC, js.slot_waktu_id ASC;
+      ORDER BY js.tanggal_sesi ASC, sw1.urutan ASC, js.nomor_sesi_ke ASC;
     `, params);
 
     return rows;
@@ -840,7 +845,7 @@ export async function generateWhatsAppRecapText(
       LEFT JOIN slot_waktu sw1 ON js.slot_waktu_id = sw1.id
       LEFT JOIN slot_waktu sw2 ON js.slot_waktu_id_akhir = sw2.id
       WHERE js.tanggal_sesi >= $1 AND js.tanggal_sesi <= $2 ${staffFilter}
-      ORDER BY js.tanggal_sesi ASC, js.slot_waktu_id ASC;
+      ORDER BY js.tanggal_sesi ASC, sw1.urutan ASC, js.nomor_sesi_ke ASC;
     `, params);
 
     // Fetch instructor fee & meal allowance settings
@@ -883,5 +888,132 @@ export async function generateWhatsAppRecapText(
   } catch (err: any) {
     console.error('Error generating WhatsApp recap text:', err);
     return 'Terjadi kesalahan saat membuat format rekap WhatsApp';
+  }
+}
+
+export interface RekapMingguanInstrukturResult {
+  startSunday: string;
+  endSaturday: string;
+  periodeLabel: string;
+  totalSesi: number;
+  totalSlot: number;
+  operasionalCount: number;
+  pribadiCount: number;
+  activeDaysCount: number;
+  rates: {
+    feeOperasional: number;
+    feePribadi: number;
+    uangMakanHarian: number;
+  };
+  feeOperasionalTotal: number;
+  feePribadiTotal: number;
+  uangMakanTotal: number;
+  totalGajiMingguan: number;
+  completedList: JadwalSesi[];
+}
+
+/**
+ * Menghitung rekapitulasi mingguan instruktur (siklus Minggu s/d Sabtu)
+ * beserta estimasi honor, uang makan harian, dan rincian sesi.
+ */
+export async function getRekapMingguanInstruktur(
+  staffId: string,
+  anchorDateStr: string = getTodayDateString()
+): Promise<RekapMingguanInstrukturResult> {
+  const { startSunday, endSaturday } = getWeekSundayToSaturday(anchorDateStr);
+  const settings = await getGeneralSettings();
+  const rates = {
+    feeOperasional: settings.gajiInstrukturOperasional || 50000,
+    feePribadi: settings.gajiInstrukturPribadi || 70000,
+    uangMakanHarian: settings.uangMakanInstrukturHarian || 15000,
+  };
+
+  const defaultResult: RekapMingguanInstrukturResult = {
+    startSunday,
+    endSaturday,
+    periodeLabel: `${formatDateIndo(startSunday)} s/d ${formatDateIndo(endSaturday)}`,
+    totalSesi: 0,
+    totalSlot: 0,
+    operasionalCount: 0,
+    pribadiCount: 0,
+    activeDaysCount: 0,
+    rates,
+    feeOperasionalTotal: 0,
+    feePribadiTotal: 0,
+    uangMakanTotal: 0,
+    totalGajiMingguan: 0,
+    completedList: [],
+  };
+
+  if (!staffId) return defaultResult;
+
+  try {
+    const rows = await dbQuery<JadwalSesi>(
+      `SELECT 
+        js.*,
+        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS instruktur,
+        CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
+        CASE WHEN sw1.id IS NOT NULL THEN to_jsonb(sw1) ELSE NULL END AS slot_waktu,
+        CASE WHEN sw2.id IS NOT NULL THEN to_jsonb(sw2) ELSE NULL END AS slot_waktu_akhir
+      FROM jadwal_sesi js
+      LEFT JOIN siswa s ON js.siswa_id = s.id
+      LEFT JOIN staff st ON js.staff_id = st.id
+      LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
+      LEFT JOIN slot_waktu sw1 ON js.slot_waktu_id = sw1.id
+      LEFT JOIN slot_waktu sw2 ON js.slot_waktu_id_akhir = sw2.id
+      WHERE js.staff_id = $1 
+        AND js.tanggal_sesi >= $2 
+        AND js.tanggal_sesi <= $3 
+        AND js.status_sesi = 'selesai'
+      ORDER BY js.tanggal_sesi ASC, sw1.urutan ASC, js.nomor_sesi_ke ASC;`,
+      [staffId, startSunday, endSaturday]
+    );
+
+    const activeDatesSet = new Set<string>();
+    let totalSlot = 0;
+    let operasionalCount = 0;
+    let pribadiCount = 0;
+
+    rows.forEach((s) => {
+      const isDouble = Boolean(s.slot_waktu_id_akhir && s.slot_waktu_id_akhir !== s.slot_waktu_id);
+      totalSlot += isDouble ? 2 : 1;
+
+      if (s.tipe_kendaraan === 'pribadi' || s.jenis_mobil === 'mobil_sendiri') {
+        pribadiCount += 1;
+      } else {
+        operasionalCount += 1;
+      }
+
+      if (s.tanggal_sesi) {
+        activeDatesSet.add(s.tanggal_sesi);
+      }
+    });
+
+    const activeDaysCount = activeDatesSet.size;
+    const feeOperasionalTotal = operasionalCount * rates.feeOperasional;
+    const feePribadiTotal = pribadiCount * rates.feePribadi;
+    const uangMakanTotal = activeDaysCount * rates.uangMakanHarian;
+    const totalGajiMingguan = feeOperasionalTotal + feePribadiTotal + uangMakanTotal;
+
+    return {
+      startSunday,
+      endSaturday,
+      periodeLabel: `${formatDateIndo(startSunday)} s/d ${formatDateIndo(endSaturday)}`,
+      totalSesi: rows.length,
+      totalSlot,
+      operasionalCount,
+      pribadiCount,
+      activeDaysCount,
+      rates,
+      feeOperasionalTotal,
+      feePribadiTotal,
+      uangMakanTotal,
+      totalGajiMingguan,
+      completedList: rows,
+    };
+  } catch (err) {
+    console.error('Error fetching rekap mingguan instruktur:', err);
+    return defaultResult;
   }
 }

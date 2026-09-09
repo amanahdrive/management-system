@@ -103,6 +103,7 @@ export interface Jabatan {
 
 export interface Staff {
   id: string;
+  kode_staff?: string;
   nama: string;
   foto_url: string | null;
   tahun_bergabung: number;

@@ -43,7 +43,14 @@ export function HeroInstructorCockpit({
   onLogout,
 }: HeroInstructorCockpitProps) {
   const photoPath = staff.foto_url || `/staff_models/${staff.nama}.png`;
-  const [dutyStatus, setDutyStatus] = React.useState<'ready' | 'teaching' | 'break'>('ready');
+  // Greeting based on current time
+  const getGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 11) return 'Selamat Pagi';
+    if (h < 15) return 'Selamat Siang';
+    if (h < 18) return 'Selamat Sore';
+    return 'Selamat Malam';
+  };
 
   // Percentage for today's sessions
   const progressPct = totalToday > 0 ? Math.round((completedToday / totalToday) * 100) : 0;
@@ -59,15 +66,15 @@ export function HeroInstructorCockpit({
         aria-hidden="true"
       />
 
-      {/* Top Telemetry Header */}
+      {/* Top Greeting Header */}
       <div className="relative flex items-center justify-between border-b border-[var(--border)] pb-3">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--brand-primary)] font-bold">
-            COCKPIT INSTRUKTUR • FLEET SYSTEM
+          <span className="font-brand font-bold text-xs sm:text-sm text-[var(--text-primary)]">
+            {getGreeting()}, {staff.nama}
           </span>
         </div>
 
@@ -126,63 +133,14 @@ export function HeroInstructorCockpit({
           </span>
         </div>
 
-        {/* Instructor Meta Tag */}
+        {/* Instructor Meta Tag with Official Staff ID */}
         <div className="flex items-center gap-2 mt-1">
           <span className="font-mono text-[10px] px-3 py-1 rounded-full border border-[var(--brand-primary)]/30 bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold uppercase shadow-xs">
             INSTRUKTUR LAPANGAN
           </span>
-          <span className="font-mono text-[10px] text-[var(--text-muted)]">
-            ID: {staff.id.slice(0, 8).toUpperCase()}
+          <span className="font-mono text-[11px] font-bold text-[var(--brand-primary)] bg-[var(--bg)] px-2.5 py-0.5 rounded-full border border-[var(--border)]">
+            ID: {staff.kode_staff || staff.id.slice(0, 8).toUpperCase()}
           </span>
-        </div>
-
-        {/* Dynamic Shift Duty Status Selector */}
-        <div className="mt-3 inline-flex items-center p-1 border border-[var(--liquid-glass-border)] bg-black/5 dark:bg-black/40 backdrop-blur-md rounded-full text-[10.5px] font-mono shadow-inner">
-          <button
-            type="button"
-            onClick={() => {
-              sound.playTactileClick();
-              setDutyStatus('ready');
-            }}
-            className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1.5 ${
-              dutyStatus === 'ready'
-                ? 'bg-emerald-600 text-white font-bold shadow-2xs'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium'
-            }`}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${dutyStatus === 'ready' ? 'bg-white' : 'bg-emerald-500'}`} />
-            <span>Siap Sesi</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              sound.playTactileClick();
-              setDutyStatus('teaching');
-            }}
-            className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1.5 ${
-              dutyStatus === 'teaching'
-                ? 'bg-amber-600 text-white font-bold shadow-2xs'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium'
-            }`}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${dutyStatus === 'teaching' ? 'bg-white' : 'bg-amber-500'}`} />
-            <span>Di Jalan</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              sound.playTactileClick();
-              setDutyStatus('break');
-            }}
-            className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1.5 ${
-              dutyStatus === 'break'
-                ? 'bg-zinc-700 dark:bg-zinc-600 text-white font-bold shadow-2xs'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium'
-            }`}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${dutyStatus === 'break' ? 'bg-white' : 'bg-slate-400'}`} />
-            <span>Istirahat</span>
-          </button>
         </div>
       </div>
 
@@ -244,17 +202,17 @@ export function HeroInstructorCockpit({
         </div>
       </div>
 
-      {/* Rapid Action Buttons Matrix */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
+      {/* Rapid Action Buttons Matrix (Clean & Functional) */}
+      <div className="grid grid-cols-3 gap-2 mt-3">
         <button
           onClick={() => {
             sound.playTactileClick();
             onOpenGajiModal();
           }}
-          className="p-3 border border-[var(--liquid-glass-border)] bg-white/60 dark:bg-white/5 hover:bg-white/85 dark:hover:bg-white/10 text-[var(--text-primary)] rounded-2xl transition-all flex items-center justify-center gap-2 font-mono text-xs font-semibold shadow-xs active:scale-98"
+          className="p-3 border border-[var(--liquid-glass-border)] bg-white/60 dark:bg-white/5 hover:bg-white/85 dark:hover:bg-white/10 text-[var(--text-primary)] rounded-2xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 font-mono text-xs font-semibold shadow-xs active:scale-98"
         >
-          <Wallet className="w-3.5 h-3.5 text-emerald-600" />
-          <span>ESTIMASI GAJI</span>
+          <Wallet className="w-4 h-4 text-emerald-600" />
+          <span className="text-[11px] sm:text-xs">ESTIMASI GAJI</span>
         </button>
 
         <button
@@ -262,10 +220,10 @@ export function HeroInstructorCockpit({
             sound.playTactileClick();
             onScrollToSchedule();
           }}
-          className="p-3 border border-[var(--liquid-glass-border)] bg-white/60 dark:bg-white/5 hover:bg-white/85 dark:hover:bg-white/10 text-[var(--text-primary)] rounded-2xl transition-all flex items-center justify-center gap-2 font-mono text-xs font-semibold shadow-xs active:scale-98"
+          className="p-3 border border-[var(--liquid-glass-border)] bg-white/60 dark:bg-white/5 hover:bg-white/85 dark:hover:bg-white/10 text-[var(--text-primary)] rounded-2xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 font-mono text-xs font-semibold shadow-xs active:scale-98"
         >
-          <Calendar className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
-          <span>LIHAT JADWAL</span>
+          <Calendar className="w-4 h-4 text-[var(--brand-primary)]" />
+          <span className="text-[11px] sm:text-xs">LIHAT JADWAL</span>
         </button>
 
         <button
@@ -273,10 +231,11 @@ export function HeroInstructorCockpit({
             sound.playConfirmChime();
             onRefresh();
           }}
-          className="col-span-2 sm:col-span-1 p-3 bg-gradient-to-r from-[#0F7A73] to-[#10B981] hover:brightness-110 text-white rounded-2xl transition-all flex items-center justify-center gap-2 font-mono text-xs font-semibold shadow-md active:scale-98"
+          disabled={isRefreshing}
+          className="p-3 border border-[var(--liquid-glass-border)] bg-white/60 dark:bg-white/5 hover:bg-white/85 dark:hover:bg-white/10 text-[var(--text-primary)] rounded-2xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 font-mono text-xs font-semibold shadow-xs active:scale-98"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-          <span>PRESENSI CEPAT</span>
+          <RefreshCw className={`w-4 h-4 text-emerald-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span className="text-[11px] sm:text-xs">SINKRONISASI</span>
         </button>
       </div>
     </div>
