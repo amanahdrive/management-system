@@ -40,6 +40,58 @@ type TabView = 'active' | 'archived' | 'all';
 type DatePreset = 'all' | 'month' | '30days' | 'custom';
 type SortField = 'tanggal_booking' | 'nama' | 'paket' | 'status_pembayaran' | 'status_sim' | 'tanggal_selesai_sim';
 
+/**
+ * Membangun URL WhatsApp Web dengan nomor telepon tervalidasi dan template pesan pengingat jadwal pembuatan SIM
+ */
+function getSimReminderWaUrl(siswa: Siswa): string {
+  if (!siswa.no_whatsapp) return '#';
+  let num = siswa.no_whatsapp.replace(/\D/g, '');
+  if (num.startsWith('0')) {
+    num = '62' + num.substring(1);
+  } else if (!num.startsWith('62') && num.startsWith('8')) {
+    num = '62' + num;
+  }
+
+  const nama = siswa.nama || 'Siswa';
+  const kode = siswa.kode_siswa ? ` (${siswa.kode_siswa})` : '';
+  const namaPaket = siswa.paket?.nama_paket || 'Paket Kursus + SIM';
+  const jadwalTgl = siswa.tanggal_selesai_sim
+    ? formatDateIndo(siswa.tanggal_selesai_sim)
+    : siswa.catatan_sim
+    ? siswa.catatan_sim
+    : 'Segera dijadwalkan bersama tim Amanah Drive';
+
+  const statusBayar =
+    siswa.status_pembayaran_kode === 'lunas'
+      ? 'LUNAS (Siap Diproses)'
+      : siswa.status_pembayaran_kode === 'dp'
+      ? `DP (Sisa Tagihan: ${formatRupiah(siswa.harga_final - (siswa.dp_nominal || 0))})`
+      : 'Belum Lunas (Mohon selesaikan administrasi)';
+
+  const message = `Halo Kak *${nama}*${kode},
+
+Kami dari tim administrasi *Amanah Drive* ingin menginformasikan dan mengingatkan terkait agenda jadwal pembuatan & pengurusan SIM Kakak:
+
+📋 *Detail Informasi SIM:*
+• Nama Siswa: *${nama}*
+• Paket: ${namaPaket}
+• Jadwal SIM: *${jadwalTgl}*
+• Status Administrasi: *${statusBayar}*
+
+📌 *Persiapan yang wajib dibawa:*
+1. KTP Asli & Fotokopi KTP (2 rangkap)
+2. Memakai baju berkerah rapi (bukan kaos oblong / tanpa lengan)
+3. Bersepatu rapi / tertutup
+4. Hadir tepat waktu sesuai instruksi tim kami
+
+Mohon konfirmasi ketersediaan & kehadiran Kakak dengan membalas pesan ini ya. Jika ada pertanyaan atau kendala jadwal, silakan langsung hubungi kami.
+
+Terima kasih banyak dan semoga lancar! 🙏🚗
+_Admin Amanah Drive_`;
+
+  return `https://web.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(message)}`;
+}
+
 export default function ManajemenSimPage() {
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
   const [paketList, setPaketList] = React.useState<Paket[]>([]);
@@ -688,18 +740,19 @@ export default function ManajemenSimPage() {
                             >
                               {s.nama}
                             </Link>
-                            <div className="flex items-center gap-1 text-[10px] text-[var(--text-secondary)]">
+                            <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-secondary)] mt-0.5">
                               <span>{s.kode_siswa}</span>
                               {s.no_whatsapp && (
                                 <>
                                   <span>•</span>
                                   <a
-                                    href={`https://wa.me/${s.no_whatsapp.replace(/[^0-9]/g, '')}`}
+                                    href={getSimReminderWaUrl(s)}
                                     target="_blank"
-                                    rel="noreferrer"
-                                    className="text-emerald-600 font-semibold hover:underline inline-flex items-center gap-0.5"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 hover:text-emerald-800 border border-emerald-200 dark:border-emerald-800 font-semibold text-[10px] transition-all shadow-2xs group"
+                                    title="Kirim pengingat jadwal pembuatan SIM via WhatsApp Web"
                                   >
-                                    <MessageCircle className="w-2.5 h-2.5" />
+                                    <MessageCircle className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
                                     <span>{s.no_whatsapp}</span>
                                   </a>
                                 </>
@@ -788,6 +841,18 @@ export default function ManajemenSimPage() {
                       {/* Aksi */}
                       <td className="p-3 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {s.no_whatsapp && (
+                            <a
+                              href={getSimReminderWaUrl(s)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1 text-[var(--text-secondary)] hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg transition-colors"
+                              title="Kirim Pengingat Jadwal SIM via WhatsApp Web"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                            </a>
+                          )}
+
                           <button
                             type="button"
                             onClick={() => handleOpenChangeStatus(s)}
