@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import { ThemeToggle } from '../shared/ThemeToggle';
 import { useUiStore } from '@/lib/store/ui-store';
@@ -17,6 +18,16 @@ export function Topbar() {
   const [lastSyncTime, setLastSyncTime] = React.useState<string>('');
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   const [isMuted, setIsMuted] = React.useState(false);
+  const [isFinanceMode, setIsFinanceMode] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsFinanceMode(
+        sessionStorage.getItem('amanah_finance_mode') === 'true' ||
+        localStorage.getItem('amanah_finance_mode') === 'true'
+      );
+    }
+  }, []);
 
   React.useEffect(() => {
     setIsMuted(sound.getMuted());
@@ -90,14 +101,18 @@ export function Topbar() {
       {/* Left: Mobile Brand & Database Sync Status */}
       <div className="flex items-center gap-3">
         <div className="md:hidden flex items-center gap-2">
-          <Image
-            src="/assets/logo-amdri-symbol.png"
-            alt="Logo"
-            width={24}
-            height={24}
-            className="object-contain"
-          />
-          <span className="font-brand font-bold text-sm text-[var(--brand-primary)]">Amanah Drive</span>
+          <Link href={isFinanceMode ? '/finance' : '/dashboard'} className="flex items-center gap-2">
+            <Image
+              src="/assets/logo-amdri-symbol.png"
+              alt="Logo"
+              width={24}
+              height={24}
+              className="object-contain"
+            />
+            <span className="font-brand font-bold text-sm text-[var(--brand-primary)]">
+              {isFinanceMode ? 'Amanah Finance' : 'Amanah Drive'}
+            </span>
+          </Link>
         </div>
 
         {/* Live Database Sync Telemetry */}
@@ -138,11 +153,15 @@ export function Topbar() {
 
         <div className="flex items-center gap-2.5 pl-2 border-l border-[var(--border)]">
           <div className="w-8 h-8 bg-gradient-to-br from-[#0F7A73] to-[#0A5954] border border-white/30 text-white text-xs font-mono font-bold rounded-full flex items-center justify-center shadow-xs">
-            AD
+            {isFinanceMode ? 'AF' : 'AD'}
           </div>
           <div className="hidden sm:block text-left">
-            <div className="text-xs font-semibold text-[var(--text-primary)] leading-tight">Admin Console</div>
-            <div className="text-[9px] font-mono text-[var(--text-muted)] uppercase tracking-wider">Palembang Ops</div>
+            <div className="text-xs font-semibold text-[var(--text-primary)] leading-tight">
+              {isFinanceMode ? 'Amanah Finance' : 'Admin Console'}
+            </div>
+            <div className="text-[9px] font-mono text-[var(--text-muted)] uppercase tracking-wider">
+              {isFinanceMode ? 'Kas & Keuangan' : 'Palembang Ops'}
+            </div>
           </div>
         </div>
       </div>

@@ -4,7 +4,7 @@
   "short_name": "Finance",
   "description": "Aplikasi pencatatan kas dan saldo keuangan Amanah Drive Palembang",
   "start_url": "/finance",
-  "scope": "/finance",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#071413",

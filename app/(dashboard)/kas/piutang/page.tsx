@@ -925,8 +925,7 @@ export default function PiutangPage() {
                             <span>Pilih Rekening Tujuan / Penerima *</span>
                           </label>
                           <Link
-                            href="/settings"
-                            target="_blank"
+                            href="/kas/rekening"
                             className="text-[10px] text-blue-600 hover:text-blue-700 font-semibold underline"
                           >
                             Kelola Rekening

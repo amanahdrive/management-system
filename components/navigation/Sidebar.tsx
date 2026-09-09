@@ -96,6 +96,17 @@ export function Sidebar() {
   const isPwaActive = pathname.startsWith('/instruktur') || pathname.startsWith('/finance');
   const [pwaExpanded, setPwaExpanded] = React.useState(isPwaActive);
 
+  const [isFinanceMode, setIsFinanceMode] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsFinanceMode(
+        sessionStorage.getItem('amanah_finance_mode') === 'true' ||
+        localStorage.getItem('amanah_finance_mode') === 'true'
+      );
+    }
+  }, []);
+
   React.useEffect(() => {
     if (isSiswaActive) setSiswaExpanded(true);
   }, [isSiswaActive]);
@@ -193,7 +204,7 @@ export function Sidebar() {
       >
         {sidebarOpen ? (
           <>
-            <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
+            <Link href={isFinanceMode ? '/finance' : '/dashboard'} className="flex items-center gap-2.5 min-w-0">
               <Image
                 src="/assets/logo-amdri-symbol.png"
                 alt="Amanah Drive Symbol"
@@ -202,7 +213,7 @@ export function Sidebar() {
                 className="object-contain shrink-0"
               />
               <span className="font-brand font-bold text-base text-[var(--brand-primary)] tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
-                Amanah Drive
+                {isFinanceMode ? 'Amanah Finance' : 'Amanah Drive'}
               </span>
             </Link>
             <button
@@ -234,15 +245,54 @@ export function Sidebar() {
 
       {/* Navigation Links */}
       <nav className="flex-1 py-4 px-2.5 space-y-1 overflow-y-auto">
-        {/* 1. Dashboard */}
-        <Link
-          href="/dashboard"
-          className={navItemClass(pathname === '/dashboard')}
-          title={!sidebarOpen ? 'Dashboard' : undefined}
-        >
-          <LayoutDashboard className="w-4 h-4 min-w-[16px]" />
-          {sidebarOpen && <span className="whitespace-nowrap">Dashboard</span>}
-        </Link>
+        {isFinanceMode ? (
+          <>
+            {/* 1. Portal Finance (Beranda) */}
+            <Link
+              href="/finance"
+              className={navItemClass(pathname === '/finance')}
+              title={!sidebarOpen ? 'Portal Finance' : undefined}
+            >
+              <Wallet className="w-4 h-4 min-w-[16px]" />
+              {sidebarOpen && <span className="whitespace-nowrap font-bold">Portal Finance</span>}
+            </Link>
+
+            <div className="pt-3 pb-1 px-3">
+              {sidebarOpen && (
+                <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">
+                  Kas & Keuangan
+                </p>
+              )}
+            </div>
+
+            {/* Submenu Kas & Keuangan */}
+            {KAS_SUB_ITEMS.map((sub) => {
+              const SubIcon = sub.icon;
+              const isSubActive = pathname === sub.href;
+              return (
+                <Link
+                  key={sub.href}
+                  href={sub.href}
+                  className={navItemClass(isSubActive)}
+                  title={!sidebarOpen ? sub.label : undefined}
+                >
+                  <SubIcon className="w-4 h-4 min-w-[16px]" />
+                  {sidebarOpen && <span className="whitespace-nowrap">{sub.label}</span>}
+                </Link>
+              );
+            })}
+          </>
+        ) : (
+          <>
+            {/* 1. Dashboard */}
+            <Link
+              href="/dashboard"
+              className={navItemClass(pathname === '/dashboard')}
+              title={!sidebarOpen ? 'Dashboard' : undefined}
+            >
+              <LayoutDashboard className="w-4 h-4 min-w-[16px]" />
+              {sidebarOpen && <span className="whitespace-nowrap">Dashboard</span>}
+            </Link>
 
         {/* 2. Analitik */}
         <Link
@@ -477,13 +527,17 @@ export function Sidebar() {
           <Settings className="w-4 h-4 min-w-[16px]" />
           {sidebarOpen && <span className="whitespace-nowrap">Pengaturan</span>}
         </Link>
+          </>
+        )}
       </nav>
 
       {/* Footer Info */}
       {sidebarOpen && (
         <div className="p-4 border-t border-[var(--liquid-glass-border)] text-[11px] text-[var(--text-muted)]">
-          <p className="font-semibold text-[var(--text-primary)]">Amanah Drive Console</p>
-          <p>Palembang, Sumatera Selatan</p>
+          <p className="font-semibold text-[var(--text-primary)]">
+            {isFinanceMode ? 'Amanah Finance App' : 'Amanah Drive Console'}
+          </p>
+          <p>{isFinanceMode ? 'Modul Kas & Keuangan' : 'Palembang, Sumatera Selatan'}</p>
         </div>
       )}
     </aside>

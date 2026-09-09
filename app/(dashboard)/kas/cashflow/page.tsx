@@ -1295,8 +1295,7 @@ export default function CashflowPage() {
                         <span>Pilih Rekening Bank (Non-Tunai)</span>
                       </label>
                       <Link
-                        href="/settings"
-                        target="_blank"
+                        href="/kas/rekening"
                         className="text-[10px] text-blue-600 hover:text-blue-700 font-semibold underline"
                       >
                         Kelola Rekening
