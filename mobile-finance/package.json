@@ -1,0 +1,44 @@
+{
+  "name": "amanah-finance",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "tsc --noEmit",
+    "update:preview": "eas update --branch preview",
+    "update:prod": "eas update --branch production"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-navigation/bottom-tabs": "^7.2.0",
+    "@react-navigation/native": "^7.0.14",
+    "@react-navigation/native-stack": "^7.2.0",
+    "@tanstack/react-query": "^5.66.0",
+    "date-fns": "^4.1.0",
+    "expo": "~52.0.30",
+    "expo-application": "~6.0.2",
+    "expo-constants": "~17.0.5",
+    "expo-device": "~7.0.2",
+    "expo-file-system": "~18.0.8",
+    "expo-image-picker": "~16.0.5",
+    "expo-local-authentication": "~15.0.2",
+    "expo-notifications": "~0.29.13",
+    "expo-status-bar": "~2.0.1",
+    "expo-task-manager": "~12.0.3",
+    "expo-updates": "~0.26.12",
+    "lucide-react-native": "^0.475.0",
+    "react": "18.3.1",
+    "react-native": "0.76.6",
+    "react-native-safe-area-context": "5.0.0",
+    "react-native-screens": "~4.4.0",
+    "react-native-svg": "15.8.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/react": "~18.3.12",
+    "typescript": "^5.3.3"
+  },
+  "private": true
+}
