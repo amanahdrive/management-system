@@ -13,6 +13,7 @@ import {
   upsertJadwalBatch,
   upsertJadwalSesi,
   updateSesiProgress,
+  bulkUpdateJadwalSesi,
   rescheduleSesiShiftCascade,
   deleteJadwalSesi,
   generateWhatsAppScheduleText,
@@ -60,6 +61,7 @@ import {
   User,
   CornerDownRight,
   ArrowRight,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
 import { purgeServerCache } from '@/lib/actions/cache';
@@ -139,6 +141,16 @@ export default function JadwalPage() {
   const [progressSlotWaktuId, setProgressSlotWaktuId] = React.useState<string>('');
   const [isReschedulingProgress, setIsReschedulingProgress] = React.useState<boolean>(false);
   const [rescheduleShiftDays, setRescheduleShiftDays] = React.useState<number>(1);
+
+  // Bulk Progress Update State
+  const [selectedSesiIds, setSelectedSesiIds] = React.useState<string[]>([]);
+  const [isBulkProgressUpdating, setIsBulkProgressUpdating] = React.useState(false);
+  const [isBulkProgressModalOpen, setIsBulkProgressModalOpen] = React.useState(false);
+  const [bulkProgressForm, setBulkProgressForm] = React.useState({
+    status_sesi: 'selesai' as 'terjadwal' | 'selesai' | 'batal',
+    staff_id: '',
+    catatan_sesi: '',
+  });
 
   // Modal Tambah Jadwal Baru State
   const [isModalOpen, setIsModalOpen] = React.useState(false);
@@ -715,6 +727,82 @@ export default function JadwalPage() {
     }
   };
 
+  // Bulk Progress Handlers
+  const handleToggleSelectAll = () => {
+    if (selectedSesiIds.length === displayJadwalList.length) {
+      setSelectedSesiIds([]);
+    } else {
+      setSelectedSesiIds(displayJadwalList.map((s) => s.id));
+    }
+  };
+
+  const handleToggleSelectRow = (id: string) => {
+    setSelectedSesiIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkQuickStatus = async (status: 'selesai' | 'terjadwal' | 'batal') => {
+    if (selectedSesiIds.length === 0) return;
+    const statusLabel = status === 'selesai' ? 'Selesai' : status === 'terjadwal' ? 'Terjadwal' : 'Batal';
+    if (!confirm(`Perbarui status ${selectedSesiIds.length} sesi menjadi "${statusLabel}"?`)) return;
+
+    setIsBulkProgressUpdating(true);
+    try {
+      const res = await bulkUpdateJadwalSesi(selectedSesiIds, { status_sesi: status });
+      if (res.success) {
+        setSelectedSesiIds([]);
+        await loadData();
+        triggerAppRefresh();
+      } else {
+        alert('Gagal bulk update progress: ' + res.error);
+      }
+    } catch (e: any) {
+      console.error('Error in bulk update progress:', e);
+      alert('Gagal bulk update: ' + e.message);
+    } finally {
+      setIsBulkProgressUpdating(false);
+    }
+  };
+
+  const handleSaveBulkProgressModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedSesiIds.length === 0) return;
+
+    setIsBulkProgressUpdating(true);
+    try {
+      const updates: any = {
+        status_sesi: bulkProgressForm.status_sesi,
+      };
+      if (bulkProgressForm.staff_id) {
+        updates.staff_id = bulkProgressForm.staff_id;
+      }
+      if (bulkProgressForm.catatan_sesi) {
+        updates.catatan_sesi = bulkProgressForm.catatan_sesi;
+      }
+
+      const res = await bulkUpdateJadwalSesi(selectedSesiIds, updates);
+      if (res.success) {
+        setIsBulkProgressModalOpen(false);
+        setSelectedSesiIds([]);
+        setBulkProgressForm({
+          status_sesi: 'selesai',
+          staff_id: '',
+          catatan_sesi: '',
+        });
+        await loadData();
+        triggerAppRefresh();
+      } else {
+        alert('Gagal bulk update progress: ' + res.error);
+      }
+    } catch (e: any) {
+      console.error('Error in bulk update progress modal:', e);
+      alert('Gagal bulk update: ' + e.message);
+    } finally {
+      setIsBulkProgressUpdating(false);
+    }
+  };
+
   const handleCopyWAJadwal = (mode: 'harian' | 'mingguan' | 'custom' = 'harian') => {
     setWaCopyMode(mode);
     setWaDateTarget(selectedTanggal);
@@ -828,6 +916,37 @@ export default function JadwalPage() {
   const isCustomPaket = selectedSiswaObj?.paket?.is_custom === true;
 
   const columns: ColumnDef<any>[] = [
+    {
+      id: 'select',
+      header: () => (
+        <div className="flex items-center justify-center w-6">
+          <input
+            type="checkbox"
+            checked={displayJadwalList.length > 0 && selectedSesiIds.length === displayJadwalList.length}
+            ref={(el) => {
+              if (el) {
+                el.indeterminate = selectedSesiIds.length > 0 && selectedSesiIds.length < displayJadwalList.length;
+              }
+            }}
+            onChange={handleToggleSelectAll}
+            className="w-4 h-4 rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
+            aria-label="Pilih semua sesi"
+          />
+        </div>
+      ),
+      cell: ({ row }) => (
+        <div className="flex items-center justify-center w-6" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={selectedSesiIds.includes(row.original.id)}
+            onChange={() => handleToggleSelectRow(row.original.id)}
+            className="w-4 h-4 rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
+            aria-label={`Pilih sesi ${row.original.nomor_sesi_ke}`}
+          />
+        </div>
+      ),
+      enableSorting: false,
+    },
     {
       accessorKey: 'tanggal_sesi',
       header: 'Tanggal Sesi',
@@ -1190,6 +1309,72 @@ export default function JadwalPage() {
         </div>
       </div>
 
+      {/* Bulk Progress Action Bar */}
+      {selectedSesiIds.length > 0 && (
+        <div className="p-3.5 bg-[var(--bg)] border-2 border-[var(--brand-primary)] rounded-2xl shadow-lg flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[var(--brand-primary)] animate-pulse" />
+            <span className="text-xs font-bold text-[var(--text-primary)]">
+              {selectedSesiIds.length} Sesi Terpilih
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedSesiIds([])}
+              className="text-xs text-[var(--text-secondary)] hover:text-rose-600 underline font-medium ml-1"
+            >
+              Batal Pilih
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-semibold text-[var(--text-secondary)]">Bulk Update Progress:</span>
+            <button
+              type="button"
+              disabled={isBulkProgressUpdating}
+              onClick={() => handleBulkQuickStatus('selesai')}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-2xs flex items-center gap-1.5 transition-all active:scale-95"
+              title="Ubah semua sesi terpilih menjadi Selesai"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Selesai</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={isBulkProgressUpdating}
+              onClick={() => handleBulkQuickStatus('terjadwal')}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-2xs flex items-center gap-1.5 transition-all active:scale-95"
+              title="Ubah semua sesi terpilih menjadi Terjadwal"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Terjadwal</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={isBulkProgressUpdating}
+              onClick={() => handleBulkQuickStatus('batal')}
+              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-2xs flex items-center gap-1.5 transition-all active:scale-95"
+              title="Ubah semua sesi terpilih menjadi Batal"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              <span>Batal</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={isBulkProgressUpdating}
+              onClick={() => setIsBulkProgressModalOpen(true)}
+              className="px-3 py-1.5 border border-[var(--border)] bg-[var(--bg-subtle)] hover:bg-[var(--brand-primary-light)] text-[var(--brand-primary)] text-xs font-bold rounded-xl shadow-2xs flex items-center gap-1.5 transition-all active:scale-95"
+              title="Opsi Update Masal Lengkap"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Opsi Masal Lainnya...</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <div className="card-container">
         {loading ? (
@@ -1201,6 +1386,7 @@ export default function JadwalPage() {
             searchKey="jadwal"
             renderMobileCard={(sesi: any) => {
               const isMulti = sesi.isMultiSlotDay;
+              const isSelected = selectedSesiIds.includes(sesi.id);
               const isConflict =
                 sesi.staff_id && sesi.slot_waktu_id && sesi.status_sesi === 'terjadwal'
                   ? getSlotValidationStatus(
@@ -1214,16 +1400,26 @@ export default function JadwalPage() {
 
               return (
                 <div
-                  className={`card-container space-y-2.5 text-xs ${
+                  className={`card-container space-y-2.5 text-xs transition-all ${
+                    isSelected ? 'ring-2 ring-[var(--brand-primary)] bg-[var(--brand-primary-light)]/10' : ''
+                  } ${
                     isMulti ? 'border-l-4 border-l-teal-500 bg-teal-50/10 dark:bg-teal-950/10' : ''
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2 border-b border-[var(--border)] pb-2">
-                    <div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {sesi.sameDaySlotIndex > 1 && (
-                          <CornerDownRight className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
-                        )}
+                    <div className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleSelectRow(sesi.id)}
+                        className="w-4 h-4 rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer mt-0.5"
+                        aria-label={`Pilih sesi ${sesi.nomor_sesi_ke}`}
+                      />
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {sesi.sameDaySlotIndex > 1 && (
+                            <CornerDownRight className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                          )}
                         <span className="font-bold text-sm text-[var(--text-primary)]">
                           {sesi.siswa?.nama || 'Siswa Kustom'}
                         </span>
@@ -1233,8 +1429,9 @@ export default function JadwalPage() {
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-[var(--text-secondary)] font-semibold tabular-num mt-0.5">
-                        {sesi.siswa?.kode_siswa || '-'} • {formatDateIndo(sesi.tanggal_sesi)}
+                        <div className="text-[11px] text-[var(--text-secondary)] font-semibold tabular-num mt-0.5">
+                          {sesi.siswa?.kode_siswa || '-'} • {formatDateIndo(sesi.tanggal_sesi)}
+                        </div>
                       </div>
                     </div>
                     <span
@@ -2631,6 +2828,147 @@ export default function JadwalPage() {
                 );
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* BULK PROGRESS UPDATE MODAL */}
+      {isBulkProgressModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="bulk-progress-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsBulkProgressModalOpen(false);
+          }}
+        >
+          <div className="card-container max-w-md w-full bg-[var(--bg)] shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <div>
+                <h3 id="bulk-progress-title" className="font-bold text-base text-[var(--text-primary)] flex items-center gap-2">
+                  <SlidersHorizontal className="w-4 h-4 text-[var(--brand-primary)]" />
+                  <span>Bulk Update Progress Sesi</span>
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                  Memperbarui {selectedSesiIds.length} sesi mengemudi yang dipilih sekaligus
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBulkProgressModalOpen(false)}
+                className="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                aria-label="Tutup dialog"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBulkProgressModal} className="space-y-4 text-xs">
+              {/* Status Sesi Target */}
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
+                  Status Sesi Baru *
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBulkProgressForm((prev) => ({ ...prev, status_sesi: 'selesai' }))}
+                    className={`py-2 px-3 rounded-xl font-bold border text-xs flex items-center justify-center gap-1.5 transition-all ${
+                      bulkProgressForm.status_sesi === 'selesai'
+                        ? 'border-emerald-600 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 shadow-xs'
+                        : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Selesai</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBulkProgressForm((prev) => ({ ...prev, status_sesi: 'terjadwal' }))}
+                    className={`py-2 px-3 rounded-xl font-bold border text-xs flex items-center justify-center gap-1.5 transition-all ${
+                      bulkProgressForm.status_sesi === 'terjadwal'
+                        ? 'border-amber-600 bg-amber-500/15 text-amber-700 dark:text-amber-300 shadow-xs'
+                        : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Terjadwal</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBulkProgressForm((prev) => ({ ...prev, status_sesi: 'batal' }))}
+                    className={`py-2 px-3 rounded-xl font-bold border text-xs flex items-center justify-center gap-1.5 transition-all ${
+                      bulkProgressForm.status_sesi === 'batal'
+                        ? 'border-rose-600 bg-rose-500/15 text-rose-700 dark:text-rose-300 shadow-xs'
+                        : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]'
+                    }`}
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    <span>Batal</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Instruktur Penugasan (Opsional) */}
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                  Alihkan Instruktur (Opsional)
+                </label>
+                <select
+                  value={bulkProgressForm.staff_id}
+                  onChange={(e) => setBulkProgressForm((prev) => ({ ...prev, staff_id: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs text-[var(--text-primary)]"
+                >
+                  <option value="">-- Tetap Gunakan Instruktur Masing-Masing --</option>
+                  {instrukturList.map((ins) => (
+                    <option key={ins.id} value={ins.id}>
+                      {ins.nama}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                  Biarkan kosong jika tidak ingin mengubah instruktur yang bertugas.
+                </p>
+              </div>
+
+              {/* Catatan Sesi Masal (Opsional) */}
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                  Catatan Sesi Masal (Opsional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={bulkProgressForm.catatan_sesi}
+                  onChange={(e) => setBulkProgressForm((prev) => ({ ...prev, catatan_sesi: e.target.value }))}
+                  placeholder="Contoh: Selesai tepat waktu / Latihan parkir mundur..."
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs text-[var(--text-primary)]"
+                />
+              </div>
+
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pt-3 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkProgressModalOpen(false)}
+                  className="min-h-[40px] px-4 py-2 border border-[var(--border)] rounded-xl font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isBulkProgressUpdating}
+                  className="min-h-[40px] px-5 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white font-bold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 active:scale-98"
+                >
+                  {isBulkProgressUpdating ? (
+                    <span>Menyimpan...</span>
+                  ) : (
+                    <span>Terapkan pada {selectedSesiIds.length} Sesi</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

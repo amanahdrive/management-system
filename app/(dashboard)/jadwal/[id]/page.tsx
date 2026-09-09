@@ -11,6 +11,7 @@ import {
   deleteJadwalSesi,
   getJadwalConflictCheckList,
   bulkUpdateJadwalSesi,
+  updateJadwalBatchSpecific,
 } from '@/lib/actions/jadwal';
 import { getInstrukturList, getSlotWaktuList, getKendaraanMasterList } from '@/lib/actions/master-data';
 import { formatDateIndo } from '@/lib/utils/date';
@@ -37,6 +38,8 @@ import {
   X,
   Car,
   UserCheck,
+  RotateCcw,
+  Edit3,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -64,9 +67,10 @@ export default function JadwalDetailPage() {
   const [conflictList, setConflictList] = React.useState<JadwalSesi[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  // Edit State per Sesi ID
-  const [editingSesiId, setEditingSesiId] = React.useState<string | null>(null);
-  const [editFormData, setEditFormData] = React.useState<Partial<JadwalSesi>>({});
+  // Multi-Session In-Memory Edit State (Staged Batch Editing)
+  const [openEditSesiIds, setOpenEditSesiIds] = React.useState<Record<string, boolean>>({});
+  const [pendingSessionEdits, setPendingSessionEdits] = React.useState<Record<string, Partial<JadwalSesi>>>({});
+  const [isBatchSaving, setIsBatchSaving] = React.useState(false);
 
   // Bulk Edit State
   const [selectedSessionIds, setSelectedSessionIds] = React.useState<string[]>([]);
@@ -121,49 +125,149 @@ export default function JadwalDetailPage() {
     loadData();
   }, [loadData]);
 
-  const handleStartEdit = (sesi: JadwalSesi) => {
-    setEditingSesiId(sesi.id);
-    const validAkhir = isSlotRangeValid(sesi.slot_waktu_id, sesi.slot_waktu_id_akhir, slotList)
-      ? sesi.slot_waktu_id_akhir
-      : null;
-    const isPribadi = sesi.tipe_kendaraan === 'pribadi' || sesi.jenis_mobil === 'mobil_sendiri';
-    setEditFormData({
-      id: sesi.id,
-      tanggal_sesi: sesi.tanggal_sesi,
-      slot_waktu_id: sesi.slot_waktu_id,
-      slot_waktu_id_akhir: validAkhir,
-      staff_id: sesi.staff_id,
-      tipe_kendaraan: isPribadi ? 'pribadi' : 'operasional',
-      kendaraan_id: isPribadi ? null : (sesi.kendaraan_id || kendaraanList[0]?.id || null),
-      status_sesi: sesi.status_sesi,
-      catatan_sesi: sesi.catatan_sesi || '',
+  const getSessionWorkingData = React.useCallback(
+    (sesi: JadwalSesi): JadwalSesi => {
+      const draft = pendingSessionEdits[sesi.id];
+      if (!draft) return sesi;
+      return {
+        ...sesi,
+        ...draft,
+      } as JadwalSesi;
+    },
+    [pendingSessionEdits]
+  );
+
+  const isSessionModified = React.useCallback(
+    (sesiId: string): boolean => {
+      const draft = pendingSessionEdits[sesiId];
+      if (!draft) return false;
+      const original = allSesi.find((s) => s.id === sesiId);
+      if (!original) return false;
+
+      if (draft.tanggal_sesi !== undefined && draft.tanggal_sesi !== original.tanggal_sesi) return true;
+      if (draft.slot_waktu_id !== undefined && draft.slot_waktu_id !== original.slot_waktu_id) return true;
+      if (draft.slot_waktu_id_akhir !== undefined && draft.slot_waktu_id_akhir !== original.slot_waktu_id_akhir) return true;
+      if (draft.staff_id !== undefined && draft.staff_id !== original.staff_id) return true;
+      if (draft.tipe_kendaraan !== undefined && draft.tipe_kendaraan !== original.tipe_kendaraan) return true;
+      if (draft.kendaraan_id !== undefined && draft.kendaraan_id !== original.kendaraan_id) return true;
+      if (draft.jenis_mobil !== undefined && draft.jenis_mobil !== original.jenis_mobil) return true;
+      if (draft.status_sesi !== undefined && draft.status_sesi !== original.status_sesi) return true;
+      if (draft.catatan_sesi !== undefined && (draft.catatan_sesi || '') !== (original.catatan_sesi || '')) return true;
+
+      return false;
+    },
+    [allSesi, pendingSessionEdits]
+  );
+
+  const changedSessionIds = React.useMemo(() => {
+    return allSesi.filter((s) => isSessionModified(s.id)).map((s) => s.id);
+  }, [allSesi, isSessionModified]);
+
+  const hasChanges = changedSessionIds.length > 0;
+
+  const handleToggleEditCard = (sesi: JadwalSesi) => {
+    setOpenEditSesiIds((prev) => {
+      const willOpen = !prev[sesi.id];
+      if (willOpen && !pendingSessionEdits[sesi.id]) {
+        const validAkhir = isSlotRangeValid(sesi.slot_waktu_id, sesi.slot_waktu_id_akhir, slotList)
+          ? sesi.slot_waktu_id_akhir
+          : null;
+        const isPribadi = sesi.tipe_kendaraan === 'pribadi' || sesi.jenis_mobil === 'mobil_sendiri';
+        setPendingSessionEdits((edits) => ({
+          ...edits,
+          [sesi.id]: {
+            id: sesi.id,
+            tanggal_sesi: sesi.tanggal_sesi,
+            slot_waktu_id: sesi.slot_waktu_id,
+            slot_waktu_id_akhir: validAkhir,
+            staff_id: sesi.staff_id,
+            tipe_kendaraan: isPribadi ? 'pribadi' : 'operasional',
+            kendaraan_id: isPribadi ? null : (sesi.kendaraan_id || kendaraanList[0]?.id || null),
+            jenis_mobil: isPribadi ? 'mobil_sendiri' : (sesi.jenis_mobil || 'manual'),
+            status_sesi: sesi.status_sesi,
+            catatan_sesi: sesi.catatan_sesi || '',
+          },
+        }));
+      }
+      return { ...prev, [sesi.id]: willOpen };
     });
   };
 
-  const handleSaveSesi = async (sesiId: string) => {
-    const validAkhir = isSlotRangeValid(
-      editFormData.slot_waktu_id,
-      editFormData.slot_waktu_id_akhir,
-      slotList
-    )
-      ? editFormData.slot_waktu_id_akhir
-      : null;
+  const handleFieldChange = (sesiId: string, field: string, value: any) => {
+    setPendingSessionEdits((prev) => {
+      const currentDraft = prev[sesiId] || {};
+      return {
+        ...prev,
+        [sesiId]: {
+          ...currentDraft,
+          id: sesiId,
+          [field]: value,
+        },
+      };
+    });
+  };
 
-    const isMobilPribadi = editFormData.tipe_kendaraan === 'pribadi';
-    const payload = {
-      ...editFormData,
-      tipe_kendaraan: isMobilPribadi ? ('pribadi' as const) : ('operasional' as const),
-      kendaraan_id: isMobilPribadi ? null : (editFormData.kendaraan_id || null),
-      jenis_mobil: isMobilPribadi ? 'mobil_sendiri' : (editFormData.jenis_mobil || 'manual'),
-      slot_waktu_id_akhir: validAkhir,
-      id: sesiId,
-    };
-    const res = await upsertJadwalSesi(payload);
-    if (res.success) {
-      setEditingSesiId(null);
-      loadData();
-    } else {
-      alert('Gagal menyimpan perubahan: ' + res.error);
+  const handleResetSingleSesi = (sesiId: string) => {
+    setPendingSessionEdits((prev) => {
+      const next = { ...prev };
+      delete next[sesiId];
+      return next;
+    });
+    setOpenEditSesiIds((prev) => ({ ...prev, [sesiId]: false }));
+  };
+
+  const handleResetAllChanges = () => {
+    if (confirm('Batalkan seluruh perubahan yang belum disimpan?')) {
+      setPendingSessionEdits({});
+      setOpenEditSesiIds({});
+    }
+  };
+
+  const handleSaveAllChanges = async () => {
+    if (!hasChanges || isBatchSaving) return;
+
+    const updatesToSave: Partial<JadwalSesi>[] = changedSessionIds.map((sesiId) => {
+      const draft = pendingSessionEdits[sesiId] || {};
+      const original = allSesi.find((s) => s.id === sesiId);
+      const isMobilPribadi = (draft.tipe_kendaraan ?? original?.tipe_kendaraan) === 'pribadi';
+
+      const validAkhir = isSlotRangeValid(
+        draft.slot_waktu_id || original?.slot_waktu_id,
+        draft.slot_waktu_id_akhir !== undefined ? draft.slot_waktu_id_akhir : original?.slot_waktu_id_akhir,
+        slotList
+      )
+        ? (draft.slot_waktu_id_akhir !== undefined ? draft.slot_waktu_id_akhir : original?.slot_waktu_id_akhir)
+        : null;
+
+      return {
+        id: sesiId,
+        tanggal_sesi: draft.tanggal_sesi !== undefined ? draft.tanggal_sesi : original?.tanggal_sesi,
+        slot_waktu_id: draft.slot_waktu_id !== undefined ? draft.slot_waktu_id : original?.slot_waktu_id,
+        slot_waktu_id_akhir: validAkhir,
+        staff_id: draft.staff_id !== undefined ? draft.staff_id : original?.staff_id,
+        tipe_kendaraan: isMobilPribadi ? ('pribadi' as const) : ('operasional' as const),
+        kendaraan_id: isMobilPribadi ? null : (draft.kendaraan_id !== undefined ? draft.kendaraan_id : original?.kendaraan_id),
+        jenis_mobil: isMobilPribadi ? 'mobil_sendiri' : (draft.jenis_mobil || original?.jenis_mobil || 'manual'),
+        status_sesi: draft.status_sesi !== undefined ? draft.status_sesi : original?.status_sesi,
+        catatan_sesi: draft.catatan_sesi !== undefined ? draft.catatan_sesi : original?.catatan_sesi,
+      };
+    });
+
+    setIsBatchSaving(true);
+    try {
+      const res = await updateJadwalBatchSpecific(updatesToSave, mainSesi?.siswa_id);
+      if (res.success) {
+        setPendingSessionEdits({});
+        setOpenEditSesiIds({});
+        await loadData();
+      } else {
+        alert('Gagal menyimpan perubahan: ' + res.error);
+      }
+    } catch (e: any) {
+      console.error('Error in handleSaveAllChanges:', e);
+      alert('Gagal menyimpan perubahan: ' + e.message);
+    } finally {
+      setIsBatchSaving(false);
     }
   };
 
@@ -347,8 +451,52 @@ export default function JadwalDetailPage() {
         description={`Mengelola seluruh riwayat sesi mengemudi untuk siswa ${mainSesi.siswa?.nama} (${mainSesi.siswa?.kode_siswa})`}
         breadcrumbs={[{ label: 'Jadwal Sesi', href: '/jadwal' }, { label: 'Detail Siswa' }]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {hasChanges && (
+              <button
+                type="button"
+                onClick={handleResetAllChanges}
+                disabled={isBatchSaving}
+                className="flex items-center gap-1.5 px-3 py-2 border border-zinc-300 dark:border-zinc-700 bg-[var(--bg)] text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold rounded-md transition-colors"
+                title="Batalkan semua perubahan sesi yang belum disimpan"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Batal Semua</span>
+              </button>
+            )}
+
             <button
+              type="button"
+              onClick={handleSaveAllChanges}
+              disabled={!hasChanges || isBatchSaving}
+              className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-md shadow-sm transition-all ${
+                !hasChanges
+                  ? 'bg-zinc-200 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500 border border-zinc-300 dark:border-zinc-700 cursor-not-allowed'
+                  : 'bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white ring-2 ring-emerald-400/50 shadow-emerald-500/20 shadow-md cursor-pointer animate-pulse'
+              }`}
+              title={
+                hasChanges
+                  ? `Simpan ${changedSessionIds.length} sesi yang telah diubah ke database`
+                  : 'Ubah salah satu sesi untuk mengaktifkan tombol simpan'
+              }
+            >
+              {isBatchSaving ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Menyimpan...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5" />
+                  <span>
+                    Simpan Perubahan {hasChanges ? `(${changedSessionIds.length} Sesi)` : ''}
+                  </span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
               onClick={handleAddSessionRow}
               className="flex items-center gap-1.5 px-3 py-2 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-md transition-colors"
             >
@@ -356,6 +504,7 @@ export default function JadwalDetailPage() {
               <span>Tambah Sesi Ekstra</span>
             </button>
             <button
+              type="button"
               onClick={() => router.push('/jadwal')}
               className="flex items-center gap-1.5 px-3 py-2 border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] text-xs font-semibold rounded-md transition-colors"
             >
@@ -365,6 +514,37 @@ export default function JadwalDetailPage() {
           </div>
         }
       />
+
+      {/* Staged Changes Alert Banner */}
+      {hasChanges && (
+        <div className="sticky top-16 z-30 flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-500/60 shadow-lg text-xs animate-in slide-in-from-top duration-200">
+          <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-200">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>
+              Terdapat <strong>{changedSessionIds.length} sesi</strong> yang telah diubah (tersimpan sementara di draft). Klik <strong>Simpan Perubahan</strong> untuk mengupdate sekaligus ke database.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleResetAllChanges}
+              disabled={isBatchSaving}
+              className="px-3 py-1.5 border border-emerald-300 dark:border-emerald-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:bg-emerald-50 font-semibold rounded-md text-xs transition-colors"
+            >
+              Batal Semua
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveAllChanges}
+              disabled={isBatchSaving}
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-md shadow-sm text-xs transition-all active:scale-[0.98]"
+            >
+              {isBatchSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              <span>Simpan Sekarang ({changedSessionIds.length})</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left Card: Student Info */}
@@ -485,16 +665,18 @@ export default function JadwalDetailPage() {
           </div>
 
           <div className="space-y-4">
-            {allSesi.map((sesi, index) => {
-              const isEditing = editingSesiId === sesi.id;
+            {allSesi.map((sesi) => {
+              const workingData = getSessionWorkingData(sesi);
+              const isOpen = Boolean(openEditSesiIds[sesi.id]);
+              const isModified = isSessionModified(sesi.id);
               const isSelected = selectedSessionIds.includes(sesi.id);
 
-              // Deteksi bentrok: hanya berlaku untuk sesi berstatus 'terjadwal' dan bertabrakan dengan sesi 'terjadwal' lain
+              // Deteksi bentrok: menggunakan workingData agar realtime merespons perubahan draft
               const checkConflict = (() => {
-                if (!sesi.staff_id || !sesi.slot_waktu_id || sesi.status_sesi !== 'terjadwal') return null;
-                const dayIdx = getDayIndexFromDateStr(sesi.tanggal_sesi);
+                if (!workingData.staff_id || !workingData.slot_waktu_id || workingData.status_sesi !== 'terjadwal') return null;
+                const dayIdx = getDayIndexFromDateStr(workingData.tanggal_sesi);
                 const dayNameEng = DAY_NAMES[dayIdx];
-                const ins = instrukturList.find((i) => i.id === sesi.staff_id);
+                const ins = instrukturList.find((i) => i.id === workingData.staff_id);
 
                 if (!ins) return null;
 
@@ -503,14 +685,14 @@ export default function JadwalDetailPage() {
                   return { type: 'off', msg: `${ins.nama} libur hari ${DAY_NAMES_INDO[dayIdx]}` };
                 }
 
-                // Check slot conflict: hanya jika ada sesi lain yang berstatus 'terjadwal'
+                // Check slot conflict: terhadap sesi lain yang berstatus 'terjadwal'
                 const conflict = conflictList.find((j) => {
                   if (j.id === sesi.id) return false; // exclude self
-                  if (j.tanggal_sesi !== sesi.tanggal_sesi) return false;
+                  if (j.tanggal_sesi !== workingData.tanggal_sesi) return false;
                   if (j.status_sesi !== 'terjadwal') return false;
-                  if (j.staff_id !== sesi.staff_id) return false;
+                  if (j.staff_id !== workingData.staff_id) return false;
                   const jSlots = getSessionOccupiedSlotIds(j.slot_waktu_id, j.slot_waktu_id_akhir, slotList);
-                  const mySlots = getSessionOccupiedSlotIds(sesi.slot_waktu_id, sesi.slot_waktu_id_akhir, slotList);
+                  const mySlots = getSessionOccupiedSlotIds(workingData.slot_waktu_id, workingData.slot_waktu_id_akhir, slotList);
                   return mySlots.some((s) => jSlots.includes(s));
                 });
 
@@ -520,21 +702,29 @@ export default function JadwalDetailPage() {
                 return null;
               })();
 
+              const activeSlot = slotList.find((s) => s.id === workingData.slot_waktu_id) || sesi.slot_waktu;
+              const activeSlotAkhir = slotList.find((s) => s.id === workingData.slot_waktu_id_akhir) || sesi.slot_waktu_akhir;
+              const activeIns = instrukturList.find((i) => i.id === workingData.staff_id) || sesi.instruktur;
+              const activeKendaraan = kendaraanList.find((k) => k.id === workingData.kendaraan_id) || sesi.kendaraan;
+              const isPribadi = workingData.tipe_kendaraan === 'pribadi' || workingData.jenis_mobil === 'mobil_sendiri';
+
               return (
                 <div
                   key={sesi.id}
                   className={`p-4 border rounded-lg transition-all space-y-3 ${
                     isSelected ? 'ring-2 ring-[var(--brand-primary)] shadow-sm ' : ''
                   }${
-                    isEditing
-                      ? 'border-2 border-[var(--brand-primary)] bg-[var(--brand-primary-light)]/20'
+                    isOpen
+                      ? 'border-2 border-[var(--brand-primary)] bg-[var(--brand-primary-light)]/15 shadow-sm'
+                      : isModified
+                      ? 'border-2 border-amber-400 dark:border-amber-700 bg-amber-50/20 dark:bg-amber-950/20 shadow-xs'
                       : checkConflict?.type === 'conflict'
                       ? 'border-rose-300 dark:border-rose-800 bg-rose-50/20 dark:bg-rose-950/10'
                       : checkConflict?.type === 'off'
                       ? 'border-amber-300 dark:border-amber-800 bg-amber-50/20 dark:bg-amber-950/10'
-                      : sesi.status_sesi === 'selesai'
+                      : workingData.status_sesi === 'selesai'
                       ? 'border-emerald-200 dark:border-emerald-950/60 bg-emerald-50/10'
-                      : sesi.status_sesi === 'batal'
+                      : workingData.status_sesi === 'batal'
                       ? 'border-rose-200 dark:border-rose-950/60 bg-rose-50/10'
                       : isSelected
                       ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]/10'
@@ -554,80 +744,94 @@ export default function JadwalDetailPage() {
                       <span className="font-extrabold text-sm text-[var(--brand-primary)] bg-[var(--brand-primary-light)] px-2 py-0.5 rounded">
                         Sesi {sesi.nomor_sesi_ke}
                       </span>
-                      {!isEditing && (
-                        <span className="text-[var(--text-secondary)] font-medium">
-                          • {formatDateIndo(sesi.tanggal_sesi)} • {formatSlotLabel(sesi.slot_waktu, sesi.slot_waktu_akhir)}
+                      {isModified && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                          Ada Perubahan (Draft)
                         </span>
                       )}
+                      <span className="text-[var(--text-secondary)] font-medium">
+                        • {formatDateIndo(workingData.tanggal_sesi)} • {formatSlotLabel(activeSlot, activeSlotAkhir)}
+                      </span>
+
                       {/* Conflict warning badge */}
-                      {!isEditing && checkConflict && (
+                      {checkConflict && (
                         <button
-                          onClick={() => handleStartEdit(sesi)}
+                          type="button"
+                          onClick={() => !isOpen && handleToggleEditCard(sesi)}
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
                             checkConflict.type === 'conflict'
                               ? 'bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-950/50 dark:text-rose-400 dark:border-rose-800 hover:bg-rose-200'
                               : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 hover:bg-amber-200'
                           }`}
-                          title="Klik untuk ubah tanggal/slot sesi ini"
+                          title="Klik untuk ubah sesi ini"
                         >
                           <AlertTriangle className="w-2.5 h-2.5" />
-                          {checkConflict.msg}
-                          {' '}— Perbaiki
+                          {checkConflict.msg} — Perbaiki
                         </button>
                       )}
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      {isEditing ? (
-                        <>
-                          <button
-                            onClick={() => handleSaveSesi(sesi.id)}
-                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold flex items-center gap-1 transition-colors"
-                          >
-                            <Save className="w-3.5 h-3.5" />
-                            <span>Simpan</span>
-                          </button>
-                          <button
-                            onClick={() => setEditingSesiId(null)}
-                            className="px-2.5 py-1 border border-[var(--border)] hover:bg-black/5 rounded font-semibold text-[var(--text-primary)]"
-                          >
-                            Batal
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => handleStartEdit(sesi)}
-                            className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded font-semibold transition-colors"
-                          >
-                            Ubah Sesi
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSesi(sesi.id)}
-                            className="p-1 text-[var(--danger)] hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded"
-                            title="Hapus Sesi"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </>
+                      {isModified && (
+                        <button
+                          type="button"
+                          onClick={() => handleResetSingleSesi(sesi.id)}
+                          className="px-2 py-1 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded font-semibold text-xs flex items-center gap-1 transition-colors"
+                          title="Batalkan perubahan sesi ini dan kembalikan ke data database"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Reset</span>
+                        </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleEditCard(sesi)}
+                        className={`px-2.5 py-1 rounded font-semibold text-xs flex items-center gap-1 transition-colors ${
+                          isOpen
+                            ? 'border border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] text-[var(--text-primary)]'
+                            : isModified
+                            ? 'bg-amber-600 hover:bg-amber-700 text-white font-bold'
+                            : 'bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white'
+                        }`}
+                      >
+                        {isOpen ? (
+                          <>
+                            <X className="w-3 h-3" />
+                            <span>Tutup Form</span>
+                          </>
+                        ) : (
+                          <>
+                            <Edit3 className="w-3 h-3" />
+                            <span>{isModified ? 'Edit Draft' : 'Ubah Sesi'}</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSesi(sesi.id)}
+                        className="p-1 text-[var(--danger)] hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded transition-colors"
+                        title="Hapus Sesi"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
 
                   {/* Read-Only Mode Info */}
-                  {!isEditing && (
+                  {!isOpen && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 text-xs text-[var(--text-primary)] pt-1 border-t border-[var(--border)]/40">
                       <div>
                         <span className="text-[var(--text-secondary)] font-medium">Instruktur:</span>{' '}
-                        <span className="font-semibold">{sesi.instruktur?.nama || '-'}</span>
+                        <span className="font-semibold">{activeIns?.nama || '-'}</span>
                       </div>
                       <div>
                         <span className="text-[var(--text-secondary)] font-medium">Kendaraan:</span>{' '}
                         <span className="font-semibold">
-                          {sesi.tipe_kendaraan === 'pribadi' || sesi.jenis_mobil === 'mobil_sendiri' ? (
+                          {isPribadi ? (
                             <span className="text-purple-600 dark:text-purple-400 font-bold">Mobil Pribadi / Siswa</span>
-                          ) : sesi.kendaraan ? (
-                            <span>{sesi.kendaraan.nama_kendaraan} ({sesi.kendaraan.plat_nomor})</span>
+                          ) : activeKendaraan ? (
+                            <span>{activeKendaraan.nama_kendaraan} ({activeKendaraan.plat_nomor})</span>
                           ) : (
                             <span>Mobil Operasional</span>
                           )}
@@ -636,35 +840,35 @@ export default function JadwalDetailPage() {
                       <div>
                         <span className="text-[var(--text-secondary)] font-medium">Status Sesi:</span>{' '}
                         <span
-                          className={`inline-block px-1.5 py-0.2 text-[10px] font-bold rounded text-white ${
-                            sesi.status_sesi === 'selesai'
+                          className={`inline-block px-1.5 py-0.5 text-[10px] font-bold rounded text-white ${
+                            workingData.status_sesi === 'selesai'
                               ? 'bg-emerald-600'
-                              : sesi.status_sesi === 'batal'
+                              : workingData.status_sesi === 'batal'
                               ? 'bg-rose-600'
                               : 'bg-amber-600'
                           }`}
                         >
-                          {sesi.status_sesi.toUpperCase()}
+                          {workingData.status_sesi.toUpperCase()}
                         </span>
                       </div>
                       <div>
                         <span className="text-[var(--text-secondary)] font-medium">Catatan:</span>{' '}
                         <span className="italic text-[var(--text-secondary)] truncate block">
-                          {sesi.catatan_sesi || 'tidak ada catatan'}
+                          {workingData.catatan_sesi || 'tidak ada catatan'}
                         </span>
                       </div>
                     </div>
                   )}
 
                   {/* Editing Mode Fields */}
-                  {isEditing && (
-                    <div className="space-y-3 pt-2 border-t border-[var(--brand-primary)]/20 text-xs">
+                  {isOpen && (
+                    <div className="space-y-3 pt-2 border-t border-[var(--brand-primary)]/20 text-xs animate-in fade-in duration-150">
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                         <div>
                           <DatePickerWIB
                             label="Pilih Tanggal Sesi"
-                            value={editFormData.tanggal_sesi || ''}
-                            onChange={(val) => setEditFormData((prev) => ({ ...prev, tanggal_sesi: val }))}
+                            value={workingData.tanggal_sesi || ''}
+                            onChange={(val) => handleFieldChange(sesi.id, 'tanggal_sesi', val)}
                           />
                         </div>
 
@@ -673,8 +877,8 @@ export default function JadwalDetailPage() {
                             Slot Mulai
                           </label>
                           <select
-                            value={editFormData.slot_waktu_id || ''}
-                            onChange={(e) => setEditFormData((prev) => ({ ...prev, slot_waktu_id: e.target.value }))}
+                            value={workingData.slot_waktu_id || ''}
+                            onChange={(e) => handleFieldChange(sesi.id, 'slot_waktu_id', e.target.value)}
                             className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
                           >
                             {slotList.map((sw) => (
@@ -690,14 +894,14 @@ export default function JadwalDetailPage() {
                             Slot Akhir (Opsional)
                           </label>
                           <select
-                            value={editFormData.slot_waktu_id_akhir || ''}
-                            onChange={(e) => setEditFormData((prev) => ({ ...prev, slot_waktu_id_akhir: e.target.value || null }))}
+                            value={workingData.slot_waktu_id_akhir || ''}
+                            onChange={(e) => handleFieldChange(sesi.id, 'slot_waktu_id_akhir', e.target.value || null)}
                             className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
                           >
                             <option value="">-- Hanya 1 Slot (Standar) --</option>
                             {slotList
                               .filter((sw) => {
-                                const startSlot = slotList.find((s) => s.id === editFormData.slot_waktu_id);
+                                const startSlot = slotList.find((s) => s.id === workingData.slot_waktu_id);
                                 return startSlot ? (sw.urutan ?? 0) > (startSlot.urutan ?? 0) : false;
                               })
                               .map((sw) => (
@@ -713,8 +917,8 @@ export default function JadwalDetailPage() {
                             Instruktur Bertugas
                           </label>
                           <select
-                            value={editFormData.staff_id || ''}
-                            onChange={(e) => setEditFormData((prev) => ({ ...prev, staff_id: e.target.value }))}
+                            value={workingData.staff_id || ''}
+                            onChange={(e) => handleFieldChange(sesi.id, 'staff_id', e.target.value)}
                             className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
                           >
                             {instrukturList.map((ins) => (
@@ -735,7 +939,7 @@ export default function JadwalDetailPage() {
                           <div className="flex items-center gap-2">
                             <label
                               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
-                                (editFormData.tipe_kendaraan || 'operasional') === 'operasional'
+                                !isPribadi
                                   ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                                   : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
                               }`}
@@ -744,14 +948,13 @@ export default function JadwalDetailPage() {
                                 type="radio"
                                 name={`tipe_kendaraan_${sesi.id}`}
                                 value="operasional"
-                                checked={(editFormData.tipe_kendaraan || 'operasional') === 'operasional'}
-                                onChange={() =>
-                                  setEditFormData((prev) => ({
-                                    ...prev,
-                                    tipe_kendaraan: 'operasional',
-                                    kendaraan_id: prev.kendaraan_id || kendaraanList[0]?.id || null,
-                                  }))
-                                }
+                                checked={!isPribadi}
+                                onChange={() => {
+                                  handleFieldChange(sesi.id, 'tipe_kendaraan', 'operasional');
+                                  if (!workingData.kendaraan_id) {
+                                    handleFieldChange(sesi.id, 'kendaraan_id', kendaraanList[0]?.id || null);
+                                  }
+                                }}
                                 className="sr-only"
                               />
                               <Car className="w-3.5 h-3.5" />
@@ -760,7 +963,7 @@ export default function JadwalDetailPage() {
 
                             <label
                               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
-                                editFormData.tipe_kendaraan === 'pribadi'
+                                isPribadi
                                   ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300'
                                   : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
                               }`}
@@ -769,14 +972,12 @@ export default function JadwalDetailPage() {
                                 type="radio"
                                 name={`tipe_kendaraan_${sesi.id}`}
                                 value="pribadi"
-                                checked={editFormData.tipe_kendaraan === 'pribadi'}
-                                onChange={() =>
-                                  setEditFormData((prev) => ({
-                                    ...prev,
-                                    tipe_kendaraan: 'pribadi',
-                                    kendaraan_id: null,
-                                  }))
-                                }
+                                checked={isPribadi}
+                                onChange={() => {
+                                  handleFieldChange(sesi.id, 'tipe_kendaraan', 'pribadi');
+                                  handleFieldChange(sesi.id, 'kendaraan_id', null);
+                                  handleFieldChange(sesi.id, 'jenis_mobil', 'mobil_sendiri');
+                                }}
                                 className="sr-only"
                               />
                               <UserCheck className="w-3.5 h-3.5" />
@@ -785,14 +986,14 @@ export default function JadwalDetailPage() {
                           </div>
                         </div>
 
-                        {(editFormData.tipe_kendaraan || 'operasional') === 'operasional' && (
+                        {!isPribadi && (
                           <div>
                             <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
                               Armada Mobil Operasional
                             </label>
                             <select
-                              value={editFormData.kendaraan_id || ''}
-                              onChange={(e) => setEditFormData((prev) => ({ ...prev, kendaraan_id: e.target.value }))}
+                              value={workingData.kendaraan_id || ''}
+                              onChange={(e) => handleFieldChange(sesi.id, 'kendaraan_id', e.target.value)}
                               className="w-full px-3 py-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
                             >
                               {kendaraanList.map((k) => (
@@ -812,8 +1013,8 @@ export default function JadwalDetailPage() {
                           </label>
                           <input
                             type="text"
-                            value={editFormData.catatan_sesi || ''}
-                            onChange={(e) => setEditFormData((prev) => ({ ...prev, catatan_sesi: e.target.value }))}
+                            value={workingData.catatan_sesi || ''}
+                            onChange={(e) => handleFieldChange(sesi.id, 'catatan_sesi', e.target.value)}
                             placeholder="Materi pelajaran..."
                             className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
                           />
@@ -824,14 +1025,38 @@ export default function JadwalDetailPage() {
                             Status Sesi
                           </label>
                           <select
-                            value={editFormData.status_sesi || 'terjadwal'}
-                            onChange={(e) => setEditFormData((prev) => ({ ...prev, status_sesi: e.target.value as any }))}
+                            value={workingData.status_sesi || 'terjadwal'}
+                            onChange={(e) => handleFieldChange(sesi.id, 'status_sesi', e.target.value as any)}
                             className="w-full px-3 py-2 rounded-md border border-[var(--border)] bg-[var(--bg)] font-bold text-[var(--text-primary)]"
                           >
                             <option value="terjadwal">TERJADWAL</option>
                             <option value="selesai">SELESAI</option>
                             <option value="batal">BATAL</option>
                           </select>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--border)]/60">
+                        <p className="text-[11px] text-[var(--text-secondary)] italic">
+                          * Perubahan sesi ini tersimpan di memori browser. Klik tombol <strong>Simpan Perubahan</strong> di atas untuk menyimpan ke database.
+                        </p>
+                        <div className="flex items-center gap-2">
+                          {isModified && (
+                            <button
+                              type="button"
+                              onClick={() => handleResetSingleSesi(sesi.id)}
+                              className="px-2.5 py-1 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded font-semibold text-xs transition-colors"
+                            >
+                              Batalkan Sesi Ini
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleEditCard(sesi)}
+                            className="px-3 py-1 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white rounded font-semibold text-xs transition-colors"
+                          >
+                            Selesai Mengedit Sesi Ini
+                          </button>
                         </div>
                       </div>
                     </div>

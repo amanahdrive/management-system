@@ -390,6 +390,65 @@ export async function bulkUpdateJadwalSesi(
   }
 }
 
+export async function updateJadwalBatchSpecific(
+  updates: Partial<JadwalSesi>[],
+  siswaId?: string
+): Promise<{ success: boolean; error?: string; count?: number }> {
+  try {
+    if (!updates || updates.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    for (const item of updates) {
+      if (!item.id) continue;
+      const {
+        siswa,
+        instruktur,
+        slot_waktu,
+        kendaraan,
+        slot_waktu_akhir,
+        id,
+        created_at,
+        updated_at,
+        ...clean
+      } = item as any;
+
+      const keys = Object.keys(clean).filter((k) => clean[k] !== undefined);
+      if (keys.length === 0) continue;
+
+      const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+      const values = keys.map((k) => clean[k]);
+      values.push(id);
+
+      await dbQuery(
+        `UPDATE jadwal_sesi SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length}`,
+        values
+      );
+    }
+
+    cacheInvalidate('dashboard*');
+    cacheInvalidate('jadwal*');
+    cacheInvalidate('siswa*');
+    cacheInvalidate('staff*');
+    cacheInvalidate('analitik*');
+
+    safeRevalidatePath('/jadwal');
+    if (siswaId) {
+      safeRevalidatePath(`/jadwal/${siswaId}`);
+      safeRevalidatePath(`/siswa/${siswaId}`);
+    }
+    safeRevalidatePath('/instruktur');
+    safeRevalidatePath('/dashboard');
+    safeRevalidatePath('/siswa');
+    safeRevalidatePath('/analitik');
+
+    return { success: true, count: updates.length };
+  } catch (err: any) {
+    console.error('Error in updateJadwalBatchSpecific:', err);
+    return { success: false, error: err.message || 'Gagal memperbarui jadwal sesi' };
+  }
+}
+
 export async function updateSesiProgress(
   siswaId: string,
   nomorSesiKe: number,
