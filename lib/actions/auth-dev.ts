@@ -153,8 +153,9 @@ export async function loginDeveloperAction(formData: {
 
     const { ip, userAgent } = await getRequestMetadata();
 
-    // 3. Create Session Token (30 days validity)
-    const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
+    // 3. Create Session Token (Strict 5 minutes timeout for developer security)
+    const SESSION_DURATION_SECONDS = 5 * 60; // 5 minutes
+    const SESSION_DURATION_MS = SESSION_DURATION_SECONDS * 1000;
     const exp = Date.now() + SESSION_DURATION_MS;
     const tokenPayload: TokenPayload = {
       id: userRow.id,
@@ -167,14 +168,14 @@ export async function loginDeveloperAction(formData: {
 
     const token = createSignedToken(tokenPayload);
 
-    // 4. Set Secure HTTP-only Cookie (30 days)
+    // 4. Set Secure HTTP-only Cookie (Strict 5 minutes)
     const cookieStore = await cookies();
     cookieStore.set({
       name: SESSION_COOKIE_NAME,
       value: token,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 30 * 24 * 60 * 60,
+      maxAge: SESSION_DURATION_SECONDS,
       path: '/',
       sameSite: 'lax',
     });
@@ -245,13 +246,13 @@ export async function getDeveloperSession(): Promise<SessionResult> {
       return { isAuthenticated: false, user: null };
     }
 
-    // Sliding Expiration: Automatically extend cookie session when accessed if < 20 days remaining
+    // Sliding Expiration: Automatically extend 5-minute lease while actively accessing audit log
     try {
       const remainingMs = payload.exp - Date.now();
-      if (remainingMs < 20 * 24 * 60 * 60 * 1000) {
+      if (remainingMs > 0) {
         const renewedPayload: TokenPayload = {
           ...payload,
-          exp: Date.now() + 30 * 24 * 60 * 60 * 1000,
+          exp: Date.now() + 5 * 60 * 1000,
         };
         const renewedToken = createSignedToken(renewedPayload);
         cookieStore.set({
@@ -259,7 +260,7 @@ export async function getDeveloperSession(): Promise<SessionResult> {
           value: renewedToken,
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
-          maxAge: 30 * 24 * 60 * 60,
+          maxAge: 5 * 60,
           path: '/',
           sameSite: 'lax',
         });

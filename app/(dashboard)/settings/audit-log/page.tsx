@@ -172,6 +172,27 @@ export default function AuditLogPage() {
     checkSession();
   }, [checkSession]);
 
+  // Watchdog: Auto-Lock when user switches tabs or navigates away for >5 minutes
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkSession();
+      }
+    };
+
+    const interval = setInterval(() => {
+      checkSession();
+    }, 30000); // Check every 30 seconds
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentUser, checkSession]);
+
   // Load system logs and metrics when authenticated
   const fetchAuditData = useCallback(async () => {
     if (!currentUser) return;
@@ -546,7 +567,10 @@ export default function AuditLogPage() {
                 <span>{greeting}, {currentUser.nama || 'Alfi'}</span>
                 <ExternalLink className="w-3 h-3 text-[var(--text-muted)] opacity-60 group-hover:opacity-100 transition-opacity" />
               </span>
-              <span className="text-[10px] text-[var(--text-muted)]">Riwayat Sesi Login</span>
+              <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1">
+                <span>Riwayat Sesi Login</span>
+                <span className="text-[9px] px-1 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 font-semibold border border-amber-200 dark:border-amber-800">5 Mnt Lock</span>
+              </span>
             </div>
           </button>
 
@@ -1133,6 +1157,10 @@ export default function AuditLogPage() {
                     <span className="px-1.5 py-0.2 rounded text-[10px] uppercase font-bold bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                       Developer
                     </span>
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Auto-Lock 5 Menit
+                    </span>
                   </h3>
                   <p className="text-[11px] text-[var(--text-muted)]">
                     Catatan autentikasi sesi pengembang, alamat IP, dan aktivitas keluar/masuk.
@@ -1207,8 +1235,8 @@ export default function AuditLogPage() {
             {/* Modal Footer */}
             <div className="px-5 py-3 border-t border-[var(--border)] flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
               <span className="text-[11px] text-[var(--text-muted)] flex items-center gap-1.5">
-                <Laptop className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                <span>Sesi aktif 30 hari dengan auto-renew (sliding expiration).</span>
+                <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>Keamanan Ketat: Sesi aktif 5 menit (Otomatis Auto-Lock saat ditinggal / pindah menu &gt; 5 menit).</span>
               </span>
               <button
                 onClick={() => setShowAuthHistoryModal(false)}
