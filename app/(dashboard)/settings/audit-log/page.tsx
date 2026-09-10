@@ -34,6 +34,10 @@ import {
   SlidersHorizontal,
   ExternalLink,
   Laptop,
+  Cpu,
+  UserCheck,
+  Bot,
+  Zap,
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import {
@@ -121,6 +125,7 @@ export default function AuditLogPage() {
   // Filter States
   const [modulFilter, setModulFilter] = useState('all');
   const [aksiFilter, setAksiFilter] = useState('all');
+  const [sumberFilter, setSumberFilter] = useState<'all' | 'system' | 'manual'>('all');
   const [urgensiFilter, setUrgensiFilter] = useState('all');
   const [periodPreset, setPeriodPreset] = useState<'today' | 'yesterday' | '7days' | 'month' | 'year' | 'all' | 'custom'>('all');
   const [startDate, setStartDate] = useState('');
@@ -175,6 +180,7 @@ export default function AuditLogPage() {
       const filter: AuditLogFilter = {
         modul: modulFilter,
         aksi: aksiFilter,
+        sumber: sumberFilter,
         tingkatUrgensi: urgensiFilter,
         period: periodPreset,
         startDate: periodPreset === 'custom' ? startDate : undefined,
@@ -198,7 +204,7 @@ export default function AuditLogPage() {
     } finally {
       setLoadingLogs(false);
     }
-  }, [currentUser, modulFilter, aksiFilter, urgensiFilter, periodPreset, startDate, endDate, activeSearch, page, limit]);
+  }, [currentUser, modulFilter, aksiFilter, sumberFilter, urgensiFilter, periodPreset, startDate, endDate, activeSearch, page, limit]);
 
   useEffect(() => {
     if (currentUser) {
@@ -263,6 +269,7 @@ export default function AuditLogPage() {
   const handleResetFilters = () => {
     setModulFilter('all');
     setAksiFilter('all');
+    setSumberFilter('all');
     setUrgensiFilter('all');
     setPeriodPreset('all');
     setStartDate('');
@@ -346,6 +353,39 @@ export default function AuditLogPage() {
     return (
       <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${info.color}`}>
         {info.label}
+      </span>
+    );
+  };
+
+  // Helper to distinguish Automated System from Manual Operator
+  const isSystemAutomated = (actorUsername: string, actorRole: string) => {
+    const lowerName = (actorUsername || '').toLowerCase();
+    const lowerRole = (actorRole || '').toLowerCase();
+    return (
+      lowerRole === 'system' ||
+      lowerName.includes('system') ||
+      lowerName.includes('sistem') ||
+      lowerName.includes('trigger') ||
+      lowerName.includes('cron') ||
+      lowerName.includes('bot') ||
+      lowerName.includes('otomatis')
+    );
+  };
+
+  const getExecutionBadge = (actorUsername: string, actorRole: string) => {
+    const isAuto = isSystemAutomated(actorUsername, actorRole);
+    if (isAuto) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-100 text-cyan-800 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800 shadow-2xs">
+          <Cpu className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
+          <span>Otomatis Sistem</span>
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-2xs">
+        <UserCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+        <span>Perubahan Manual</span>
       </span>
     );
   };
@@ -633,7 +673,7 @@ export default function AuditLogPage() {
         </div>
 
         {/* Dropdowns & Filters Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 text-xs">
           {/* Modul Filter */}
           <div>
             <label className="block text-[var(--text-muted)] font-semibold mb-1">Modul Sistem</label>
@@ -669,6 +709,23 @@ export default function AuditLogPage() {
                   {a.label}
                 </option>
               ))}
+            </select>
+          </div>
+
+          {/* Tipe Eksekusi Filter (Otomatis Sistem vs Manual Operator) */}
+          <div>
+            <label className="block text-[var(--text-muted)] font-semibold mb-1">Tipe Eksekusi</label>
+            <select
+              value={sumberFilter}
+              onChange={(e) => {
+                setSumberFilter(e.target.value as any);
+                setPage(1);
+              }}
+              className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] font-medium outline-none"
+            >
+              <option value="all">Semua Tipe Eksekusi</option>
+              <option value="system">⚡ Otomatis Sistem</option>
+              <option value="manual">👤 Perubahan Manual</option>
             </select>
           </div>
 
@@ -835,16 +892,12 @@ export default function AuditLogPage() {
                         </div>
                       </td>
 
-                      {/* Actor */}
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          <User className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                          <span className="font-semibold text-[var(--text-primary)]">
-                            {log.actor_username}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-[var(--text-muted)] uppercase pl-5">
-                          {log.actor_role}
+                      {/* Actor & Execution Source */}
+                      <td className="py-3 px-3 whitespace-nowrap space-y-1">
+                        <div>{getExecutionBadge(log.actor_username, log.actor_role)}</div>
+                        <div className="flex items-center gap-1 text-[11px] text-[var(--text-secondary)] font-medium">
+                          <User className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
+                          <span className="truncate max-w-[130px]" title={log.actor_username}>{log.actor_username}</span>
                         </div>
                       </td>
 
@@ -935,9 +988,10 @@ export default function AuditLogPage() {
             {/* Modal Header */}
             <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
               <div className="space-y-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {getModulBadge(selectedLog.modul)}
                   {getAksiBadge(selectedLog.aksi)}
+                  {getExecutionBadge(selectedLog.actor_username, selectedLog.actor_role)}
                   <span className="text-[11px] text-[var(--text-muted)] font-mono">
                     ID: {selectedLog.id.slice(0, 8)}...
                   </span>
@@ -960,11 +1014,14 @@ export default function AuditLogPage() {
               <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-[var(--border)] text-[var(--text-secondary)]">
                 <div className="font-semibold text-[var(--text-primary)] mb-0.5">Deskripsi Perubahan:</div>
                 <p>{selectedLog.deskripsi}</p>
-                <div className="mt-2.5 pt-2 border-t border-[var(--border)] flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[var(--text-muted)]">
-                  <span>Waktu: <strong>{formatTimestamp(selectedLog.created_at)}</strong></span>
-                  <span>Aktor: <strong>{selectedLog.actor_username} ({selectedLog.actor_role})</strong></span>
+                <div className="mt-2.5 pt-2 border-t border-[var(--border)] flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-[var(--text-muted)]">
+                  <span>Waktu: <strong className="text-[var(--text-primary)]">{formatTimestamp(selectedLog.created_at)}</strong></span>
+                  <span>Tipe: <strong className={isSystemAutomated(selectedLog.actor_username, selectedLog.actor_role) ? 'text-cyan-700 dark:text-cyan-400 font-bold' : 'text-emerald-700 dark:text-emerald-400 font-bold'}>
+                    {isSystemAutomated(selectedLog.actor_username, selectedLog.actor_role) ? '⚡ Otomatis Sistem (Trigger DB)' : '👤 Perubahan Manual'}
+                  </strong></span>
+                  <span>Aktor: <strong className="text-[var(--text-primary)]">{selectedLog.actor_username}</strong></span>
                   {selectedLog.entitas_id && (
-                    <span>Entitas: <strong>{selectedLog.entitas_tipe} #{selectedLog.entitas_id.slice(0, 8)}</strong></span>
+                    <span>Entitas: <strong className="text-[var(--text-primary)]">{selectedLog.entitas_tipe} #{selectedLog.entitas_id.slice(0, 8)}</strong></span>
                   )}
                 </div>
               </div>

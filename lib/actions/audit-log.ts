@@ -33,6 +33,7 @@ export interface AuditLogItem {
 export interface AuditLogFilter {
   modul?: string;
   aksi?: string;
+  sumber?: 'all' | 'system' | 'manual';
   tingkatUrgensi?: string;
   period?: 'today' | 'yesterday' | '7days' | 'month' | 'year' | 'all' | 'custom';
   startDate?: string;
@@ -92,6 +93,25 @@ export async function getAuditLogsList(
     if (filter.tingkatUrgensi && filter.tingkatUrgensi !== 'all') {
       conditions.push(`tingkat_urgensi = $${pIdx++}`);
       params.push(filter.tingkatUrgensi);
+    }
+
+    // Filter: Sumber (Otomatis Sistem vs Manual Operator)
+    if (filter.sumber === 'system') {
+      conditions.push(`(
+        actor_username ILIKE '%System%' OR
+        actor_username ILIKE '%Sistem%' OR
+        actor_username ILIKE '%Trigger%' OR
+        actor_username ILIKE '%Cron%' OR
+        actor_role = 'system'
+      )`);
+    } else if (filter.sumber === 'manual') {
+      conditions.push(`(
+        actor_username NOT ILIKE '%System%' AND
+        actor_username NOT ILIKE '%Sistem%' AND
+        actor_username NOT ILIKE '%Trigger%' AND
+        actor_username NOT ILIKE '%Cron%' AND
+        actor_role != 'system'
+      )`);
     }
 
     // Filter: Periode Tanggal (WIB timezone handling)
