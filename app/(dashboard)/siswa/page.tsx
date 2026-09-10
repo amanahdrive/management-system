@@ -239,12 +239,46 @@ export default function SiswaPage() {
   }, [siswaList, siswaSessionMap, showArchived, filterStatus, filterPaket, filterSumber, filterNama, filterDateFrom, filterDateTo, filterDateField]);
 
   const exportColumns: ExportColumn[] = [
-    { header: 'Kode Siswa', key: 'kode_siswa', width: 15 },
-    { header: 'Nama Siswa', key: 'nama', width: 25 },
-    { header: 'No. WhatsApp', key: 'no_whatsapp', width: 18 },
-    { header: 'Tgl Booking', key: 'tanggal_booking', width: 15 },
-    { header: 'Harga Final', key: 'harga_final', width: 18, isCurrency: true },
-    { header: 'Status Pembayaran', key: 'status_pembayaran_kode', width: 18 },
+    { header: 'Kode Siswa', key: 'kode_siswa', width: 14, align: 'center' },
+    { header: 'Nama Lengkap Siswa', key: 'nama', width: 26 },
+    { header: 'No. WhatsApp', key: 'no_whatsapp', width: 18, align: 'center' },
+    {
+      header: 'Paket Kursus',
+      key: 'paket_id',
+      width: 22,
+      formatter: (_v, row) => row.paket?.nama_paket || 'Paket Kustom',
+    },
+    {
+      header: 'Opsi Kendaraan',
+      key: 'jenis_mobil',
+      width: 20,
+      align: 'center',
+      formatter: (_v, row) => formatCarOptionsLabel(row.paket?.jenis_mobil || row.jenis_mobil),
+    },
+    { header: 'Tgl Pendaftaran', key: 'tanggal_booking', width: 16, align: 'center', formatter: (v) => formatDateIndo(v) },
+    {
+      header: 'Progress Sesi',
+      key: 'progress',
+      width: 15,
+      align: 'center',
+      formatter: (_v, row) => `${siswaSessionMap[row.id] || 0} / ${row.paket?.jumlah_sesi || 10} Sesi`,
+    },
+    { header: 'Total Harga', key: 'harga_final', width: 18, isCurrency: true },
+    { header: 'DP Terbayar', key: 'dp_nominal', width: 18, isCurrency: true, formatter: (v) => v || 0 },
+    {
+      header: 'Status Pembayaran',
+      key: 'status_pembayaran_kode',
+      width: 18,
+      align: 'center',
+      formatter: (v) => (v === 'lunas' ? 'Lunas' : v === 'dp' ? 'DP (Uang Muka)' : 'Belum Bayar'),
+    },
+    {
+      header: 'Status Kursus',
+      key: 'status_kursus',
+      width: 16,
+      align: 'center',
+      formatter: (v) => (v ? String(v).toUpperCase() : 'AKTIF'),
+    },
   ];
 
   const columns: ColumnDef<Siswa>[] = [
@@ -451,8 +485,22 @@ export default function SiswaPage() {
             <ExportButton
               data={filteredData}
               columns={exportColumns}
-              filename="amanahdrive_siswa"
-              title="Laporan Data Siswa Amanah Drive"
+              filename={showArchived ? 'amanahdrive_siswa_arsip' : 'amanahdrive_siswa_aktif'}
+              title={showArchived ? 'REKAPITULASI ARSIP DATA SISWA SELESAI' : 'REKAPITULASI DATA SISWA AKTIF KURSUS'}
+              subtitle="Laporan Administrasi & Pendaftaran Siswa Kursus Mengemudi"
+              periodLabel={filterDateFrom && filterDateTo ? `${filterDateFrom} s/d ${filterDateTo}` : 'Semua Periode Pendaftaran'}
+              summaryMetrics={[
+                { label: 'Total Siswa', value: `${filteredData.length} Orang` },
+                {
+                  label: 'Total Nilai Kursus',
+                  value: filteredData.reduce((sum, s) => sum + (s.harga_final || 0), 0),
+                },
+                {
+                  label: 'Total Uang Muka (DP)',
+                  value: filteredData.reduce((sum, s) => sum + (s.dp_nominal || 0), 0),
+                },
+              ]}
+              orientation="landscape"
             />
             <button
               onClick={handleOpenAdd}

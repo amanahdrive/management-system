@@ -23,6 +23,7 @@ import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { StatCard } from '@/components/shared/StatCard';
+import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import {
   Plus,
   CreditCard,
@@ -458,6 +459,62 @@ export default function HutangPage() {
     },
   ];
 
+  const exportHutangColumns: ExportColumn[] = [
+    { header: 'Nama Hutang / Kewajiban', key: 'nama_hutang', width: 26 },
+    {
+      header: 'Jenis Pinjaman',
+      key: 'jenis',
+      width: 18,
+      align: 'center',
+      formatter: (v) => String(v || 'Lainnya').toUpperCase(),
+    },
+    {
+      header: 'Tanggal Mulai',
+      key: 'tanggal_mulai',
+      width: 16,
+      align: 'center',
+      formatter: (v) => formatDateIndo(v),
+    },
+    { header: 'Total Pinjaman', key: 'total_hutang', width: 20, isCurrency: true },
+    { header: 'Cicilan / Bulan', key: 'cicilan_per_bulan', width: 18, isCurrency: true },
+    {
+      header: 'Jatuh Tempo',
+      key: 'jatuh_tempo_bulanan',
+      width: 14,
+      align: 'center',
+      formatter: (v) => `Tgl ${v || 1}`,
+    },
+    { header: 'Sisa Hutang Berjalan', key: 'sisa_hutang', width: 20, isCurrency: true },
+    {
+      header: 'Status Hutang',
+      key: 'status',
+      width: 16,
+      align: 'center',
+      formatter: (v) => String(v || '').toUpperCase(),
+    },
+  ];
+
+  const exportCicilanColumns: ExportColumn[] = [
+    {
+      header: 'Tanggal Bayar',
+      key: 'tanggal_bayar',
+      width: 16,
+      align: 'center',
+      formatter: (v) => formatDateIndo(v),
+    },
+    { header: 'Nama Hutang', key: 'nama_hutang', width: 26 },
+    { header: 'Nominal Cicilan', key: 'nominal', width: 20, isCurrency: true },
+    {
+      header: 'Metode Pembayaran',
+      key: 'jenis_pembayaran',
+      width: 18,
+      align: 'center',
+      formatter: (v) => (v === 'tunai' ? 'Tunai (Kas)' : 'Non-Tunai (Bank)'),
+    },
+    { header: 'PIC Transaksi', key: 'pic_nama', width: 18, align: 'center', formatter: (v) => v || 'Finance' },
+    { header: 'Keterangan', key: 'keterangan', width: 25, formatter: (v) => v || '-' },
+  ];
+
   return (
     <PinGateDialog>
       <div className="space-y-6">
@@ -466,13 +523,44 @@ export default function HutangPage() {
           description="Pencatatan pinjaman modal & cicilan armada kendaraan Amanah Drive dengan fitur edit, hapus, dan riwayat pembayaran"
           breadcrumbs={[{ label: 'Kas', href: '/kas' }, { label: 'Hutang' }]}
           actions={
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-md transition-colors shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>+ Catat Hutang Baru</span>
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              {activeTab === 'hutang' ? (
+                <ExportButton
+                  data={filteredHutangList}
+                  columns={exportHutangColumns}
+                  filename={`amanahdrive_hutang_${period}`}
+                  title="REKAPITULASI BUKU HUTANG PERUSAHAAN"
+                  subtitle="Laporan Pinjaman Modal & Kewajiban Leasing Kendaraan"
+                  periodLabel={periodBounds.label}
+                  summaryMetrics={[
+                    { label: 'Total Hutang Tercatat', value: totalHutangKeseluruhan },
+                    { label: 'Sisa Hutang Berjalan', value: totalSisaHutang },
+                  ]}
+                  orientation="landscape"
+                />
+              ) : (
+                <ExportButton
+                  data={filteredPembayaranList}
+                  columns={exportCicilanColumns}
+                  filename={`amanahdrive_riwayat_cicilan_${period}`}
+                  title="REKAPITULASI RIWAYAT PEMBAYARAN CICILAN"
+                  subtitle="Laporan Pembayaran Angsuran & Cicilan Hutang"
+                  periodLabel={periodBounds.label}
+                  summaryMetrics={[
+                    { label: 'Total Cicilan Terbayar', value: totalCicilanTerbayar },
+                    { label: 'Total Transaksi Cicilan', value: `${filteredPembayaranList.length} Kali` },
+                  ]}
+                  orientation="landscape"
+                />
+              )}
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-full transition-colors shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Catat Hutang Baru</span>
+              </button>
+            </div>
           }
         />
 

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { JadwalSesi, Staff, SlotWaktu, Siswa, Kendaraan } from '@/types/database';
@@ -1180,6 +1181,80 @@ export default function JadwalPage() {
   const daysInMonth = new Date(calCurrentYear, calCurrentMonth + 1, 0).getDate();
   const firstDayIndex = new Date(calCurrentYear, calCurrentMonth, 1).getDay();
 
+  const exportJadwalColumns: ExportColumn[] = [
+    {
+      header: 'Tanggal Sesi',
+      key: 'tanggal_sesi',
+      width: 16,
+      align: 'center',
+      formatter: (v) => formatDateIndo(v),
+    },
+    {
+      header: 'Slot Waktu',
+      key: 'slot_waktu',
+      width: 18,
+      align: 'center',
+      formatter: (_v, row) =>
+        row.slot_waktu
+          ? `${row.slot_waktu.label || `Slot ${row.slot_waktu.urutan}`} (${row.slot_waktu.jam_mulai?.slice(0, 5)} - ${row.slot_waktu.jam_selesai?.slice(0, 5)})`
+          : '-',
+    },
+    {
+      header: 'Nama Siswa',
+      key: 'siswa',
+      width: 25,
+      formatter: (_v, row) => row.siswa?.nama || 'Siswa Kustom',
+    },
+    {
+      header: 'Kode Siswa',
+      key: 'kode_siswa',
+      width: 14,
+      align: 'center',
+      formatter: (_v, row) => row.siswa?.kode_siswa || '-',
+    },
+    {
+      header: 'Instruktur',
+      key: 'instruktur',
+      width: 18,
+      align: 'center',
+      formatter: (_v, row) => row.instruktur?.nama || '-',
+    },
+    {
+      header: 'Armada Mobil',
+      key: 'kendaraan',
+      width: 20,
+      align: 'center',
+      formatter: (_v, row) =>
+        row.kendaraan
+          ? `${row.kendaraan.nama_kendaraan} (${row.kendaraan.plat_nomor})`
+          : row.tipe_kendaraan === 'pribadi'
+          ? 'Mobil Pribadi Siswa'
+          : '-',
+    },
+    {
+      header: 'Transmisi',
+      key: 'jenis_mobil',
+      width: 14,
+      align: 'center',
+      formatter: (v) => String(v || '').toUpperCase(),
+    },
+    {
+      header: 'Sesi Ke',
+      key: 'sesi_ke',
+      width: 14,
+      align: 'center',
+      formatter: (v, row) => `Sesi ${v || 1} / ${row.total_sesi_paket || 10}`,
+    },
+    {
+      header: 'Status Sesi',
+      key: 'status_sesi',
+      width: 16,
+      align: 'center',
+      formatter: (v) => String(v || 'terjadwal').toUpperCase(),
+    },
+    { header: 'Catatan', key: 'catatan_sesi', width: 25, formatter: (v) => v || '-' },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -1188,6 +1263,27 @@ export default function JadwalPage() {
         breadcrumbs={[{ label: 'Manajemen Siswa' }, { label: 'Jadwal Sesi' }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {/* Export Excel & PDF */}
+            <ExportButton
+              data={displayJadwalList}
+              columns={exportJadwalColumns}
+              filename="amanahdrive_agenda_jadwal"
+              title="AGENDA JADWAL SESI KURSUS MENGEMUDI"
+              subtitle="Rekapitulasi Pelaksanaan Sesi Siswa & Instruktur"
+              summaryMetrics={[
+                { label: 'Total Sesi', value: `${displayJadwalList.length} Sesi` },
+                {
+                  label: 'Terjadwal',
+                  value: `${displayJadwalList.filter((j) => j.status_sesi === 'terjadwal').length} Sesi`,
+                },
+                {
+                  label: 'Selesai',
+                  value: `${displayJadwalList.filter((j) => j.status_sesi === 'selesai').length} Sesi`,
+                },
+              ]}
+              orientation="landscape"
+            />
+
             {/* 0. Sinkronkan Jadwal */}
             <button
               onClick={handleManualSync}

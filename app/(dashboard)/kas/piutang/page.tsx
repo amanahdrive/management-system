@@ -373,13 +373,70 @@ export default function PiutangPage() {
   const totalSeluruhPiutang = totalPiutangSiswa + totalKasbonStaff;
   const staffBerpiutangCount = filteredStaffKasbonList.filter((s) => s.sisa_kasbon > 0).length;
 
-  const exportColumns: ExportColumn[] = [
-    { header: 'Kode Siswa', key: 'kode_siswa', width: 15 },
+  const exportSiswaColumns: ExportColumn[] = [
+    { header: 'Kode Siswa', key: 'kode_siswa', width: 14, align: 'center' },
     { header: 'Nama Siswa', key: 'nama', width: 25 },
-    { header: 'Tanggal Daftar', key: 'tanggal_booking', width: 15 },
-    { header: 'No. WhatsApp', key: 'no_whatsapp', width: 18 },
-    { header: 'Total Harga', key: 'harga_final', width: 18, isCurrency: true },
-    { header: 'Status Pembayaran', key: 'status_pembayaran_kode', width: 18 },
+    { header: 'No. WhatsApp', key: 'no_whatsapp', width: 18, align: 'center' },
+    {
+      header: 'Paket Kursus',
+      key: 'paket_id',
+      width: 22,
+      formatter: (_v, row) => row.paket?.nama_paket || 'Paket Kustom',
+    },
+    {
+      header: 'Tanggal Daftar',
+      key: 'tanggal_booking',
+      width: 16,
+      align: 'center',
+      formatter: (v) => formatDateIndo(v),
+    },
+    { header: 'Total Biaya Paket', key: 'harga_final', width: 18, isCurrency: true },
+    { header: 'DP Terbayar', key: 'dp_nominal', width: 18, isCurrency: true, formatter: (v) => v || 0 },
+    {
+      header: 'Sisa Piutang',
+      key: 'sisa_tagihan',
+      width: 18,
+      isCurrency: true,
+      formatter: (_v, row) => {
+        if (row.status_pembayaran_kode === 'dp') {
+          return Math.max(0, row.harga_final - (row.dp_nominal || 0));
+        }
+        if (row.status_pembayaran_kode === 'belum_bayar') {
+          return row.harga_final;
+        }
+        return 0;
+      },
+    },
+    {
+      header: 'Status Pembayaran',
+      key: 'status_pembayaran_kode',
+      width: 18,
+      align: 'center',
+      formatter: (v) => (v === 'lunas' ? 'Lunas' : v === 'dp' ? 'DP (Belum Lunas)' : 'Belum Bayar'),
+    },
+  ];
+
+  const exportKasbonColumns: ExportColumn[] = [
+    { header: 'Kode Staff', key: 'kode_staff', width: 14, align: 'center', formatter: (v) => v || '-' },
+    { header: 'Nama Karyawan', key: 'nama', width: 25 },
+    { header: 'Jabatan', key: 'jabatan', width: 18, align: 'center', formatter: (v) => v || 'Staff' },
+    { header: 'No. HP / WA', key: 'no_hp', width: 18, align: 'center', formatter: (v) => v || '-' },
+    { header: 'Total Kasbon Diberikan', key: 'total_kasbon', width: 20, isCurrency: true, formatter: (v) => v || 0 },
+    {
+      header: 'Sudah Terbayar / Potong',
+      key: 'total_terbayar',
+      width: 20,
+      isCurrency: true,
+      formatter: (_v, row) => Math.max(0, (row.total_kasbon || 0) - (row.sisa_kasbon || 0)),
+    },
+    { header: 'Sisa Kasbon Berjalan', key: 'sisa_kasbon', width: 20, isCurrency: true, formatter: (v) => v || 0 },
+    {
+      header: 'Status Kasbon',
+      key: 'status',
+      width: 16,
+      align: 'center',
+      formatter: (_v, row) => (row.sisa_kasbon > 0 ? 'BERJALAN' : 'LUNAS'),
+    },
   ];
 
   const columns: ColumnDef<Siswa>[] = [
@@ -632,11 +689,35 @@ export default function PiutangPage() {
             activeTab === 'siswa' ? (
               <ExportButton
                 data={filteredSiswaList}
-                columns={exportColumns}
-                filename="amanahdrive_piutang_siswa"
-                title="Laporan Piutang Siswa Amanah Drive"
+                columns={exportSiswaColumns}
+                filename={`amanahdrive_piutang_siswa_${period}`}
+                title="REKAPITULASI PIUTANG TAGIHAN SISWA"
+                subtitle="Laporan Tagihan Belum Lunas Siswa Kursus Mengemudi"
+                periodLabel={periodBounds.label}
+                summaryMetrics={[
+                  { label: 'Total Piutang Siswa', value: totalPiutangSiswa },
+                  {
+                    label: 'Siswa Belum Lunas',
+                    value: `${filteredSiswaList.filter((s) => s.status_pembayaran_kode !== 'lunas').length} Siswa`,
+                  },
+                ]}
+                orientation="landscape"
               />
-            ) : null
+            ) : (
+              <ExportButton
+                data={filteredStaffKasbonList}
+                columns={exportKasbonColumns}
+                filename={`amanahdrive_piutang_kasbon_${period}`}
+                title="REKAPITULASI PIUTANG KASBON KARYAWAN"
+                subtitle="Laporan Saldo Kasbon Karyawan & Instruktur"
+                periodLabel={periodBounds.label}
+                summaryMetrics={[
+                  { label: 'Total Sisa Kasbon', value: totalKasbonStaff },
+                  { label: 'Karyawan Memiliki Kasbon', value: `${staffBerpiutangCount} Orang` },
+                ]}
+                orientation="landscape"
+              />
+            )
           }
         />
 

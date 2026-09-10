@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatCard } from '@/components/shared/StatCard';
+import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { PinGateDialog } from '@/components/shared/PinGateDialog';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
@@ -311,6 +312,61 @@ export default function PosPengeluaranPage() {
     }
   };
 
+  const exportPosColumns: ExportColumn[] = [
+    { header: 'Nama Pos Belanja', key: 'nama_pos', width: 26 },
+    {
+      header: 'Kategori',
+      key: 'kategori',
+      width: 18,
+      align: 'center',
+      formatter: (v) => String(v || 'Operasional').toUpperCase(),
+    },
+    {
+      header: 'Sumber Alokasi',
+      key: 'sumber',
+      width: 20,
+      align: 'center',
+      formatter: (v) =>
+        v === 'otomatis_sim'
+          ? 'SIM Siap Terbit'
+          : v === 'otomatis_hutang'
+          ? 'Cicilan Hutang'
+          : v === 'otomatis_operasional'
+          ? 'Operasional Kantor'
+          : 'Pos Manual',
+    },
+    {
+      header: 'Jatuh Tempo',
+      key: 'tanggal_jatuh_tempo',
+      width: 16,
+      align: 'center',
+      formatter: (v) => (v ? formatDateIndo(v) : '-'),
+    },
+    { header: 'Estimasi Anggaran', key: 'nominal_estimasi', width: 20, isCurrency: true },
+    {
+      header: 'Realisasi Bayar',
+      key: 'nominal_realisasi',
+      width: 20,
+      isCurrency: true,
+      formatter: (v) => v || 0,
+    },
+    {
+      header: 'Status Pembayaran',
+      key: 'status',
+      width: 16,
+      align: 'center',
+      formatter: (v) => (v === 'terbayar' ? 'TERBAYAR' : 'BELUM BAYAR'),
+    },
+    {
+      header: 'Tanggal Bayar',
+      key: 'tanggal_bayar',
+      width: 16,
+      align: 'center',
+      formatter: (v) => (v ? formatDateIndo(v) : '-'),
+    },
+    { header: 'Catatan / PIC', key: 'catatan', width: 25, formatter: (v) => v || '-' },
+  ];
+
   return (
     <PinGateDialog>
       <div className="space-y-6">
@@ -331,6 +387,21 @@ export default function PosPengeluaranPage() {
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Portal Finance</span>
               </Link>
+              <ExportButton
+                data={posList}
+                columns={exportPosColumns}
+                filename={`amanahdrive_pos_pengeluaran_${selectedMonth}`}
+                title="REKAPITULASI POS PENGELUARAN & ALOKASI BELANJA"
+                subtitle="Daftar Rencana dan Realisasi Belanja Operasional Bulanan"
+                periodLabel={selectedMonth}
+                summaryMetrics={[
+                  { label: 'Total Pos Belanja', value: `${summary.totalPos} Pos` },
+                  { label: 'Total Estimasi', value: summary.totalEstimasi },
+                  { label: 'Realisasi Bayar', value: summary.totalRealisasi },
+                  { label: 'Sisa Belum Bayar', value: summary.totalSisaBelumBayar },
+                ]}
+                orientation="landscape"
+              />
               <button
                 type="button"
                 onClick={() => setIsOpModalOpen(true)}

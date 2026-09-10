@@ -14,6 +14,7 @@ import { formatDateIndo, getTodayDateString, addDaysToDateStr } from '@/lib/util
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import {
   ResponsiveContainer,
   BarChart,
@@ -619,6 +620,72 @@ export function KendaraanLogManager({
     return null;
   }, [formOutKm, formInKm, formKendaraanId, formTanggalAwal, editingLog, logs]);
 
+  const exportKendaraanLogColumns: ExportColumn<any>[] = [
+    {
+      header: 'Tanggal',
+      accessor: 'tanggal',
+      format: (val) => formatDateIndo(val),
+      pdfWidth: '13%',
+    },
+    {
+      header: 'Armada / Mobil',
+      accessor: (item) => {
+        const k = kendaraanList.find((v) => v.id === item.kendaraan_id);
+        return k ? `${k.nama_kendaraan} (${k.plat_nomor})` : '-';
+      },
+      pdfWidth: '18%',
+    },
+    {
+      header: 'Odo BC Out',
+      accessor: (item) =>
+        item.odometer_basecamp_out !== null && item.odometer_basecamp_out !== undefined
+          ? `${item.odometer_basecamp_out.toLocaleString('id-ID')} km`
+          : '-',
+      align: 'right',
+      pdfWidth: '12%',
+    },
+    {
+      header: 'Odo BC In',
+      accessor: (item) =>
+        item.odometer_basecamp_in !== null && item.odometer_basecamp_in !== undefined
+          ? `${item.odometer_basecamp_in.toLocaleString('id-ID')} km`
+          : '-',
+      align: 'right',
+      pdfWidth: '12%',
+    },
+    {
+      header: 'Jarak Tempuh',
+      accessor: (item) =>
+        item.isInitialBaseline
+          ? '0 km (Start)'
+          : `${(item.effectiveJarak || 0).toLocaleString('id-ID')} km`,
+      align: 'right',
+      pdfWidth: '12%',
+    },
+    {
+      header: 'BBM Liter',
+      accessor: (item) =>
+        item.bbm_liter && Number(item.bbm_liter) > 0
+          ? `${Number(item.bbm_liter).toFixed(1)} L (${item.bbm_jenis || 'BBM'})`
+          : '-',
+      align: 'right',
+      pdfWidth: '12%',
+    },
+    {
+      header: 'Biaya BBM',
+      accessor: (item) => Number(item.bbm_nominal || 0),
+      format: 'currency',
+      isCurrency: true,
+      align: 'right',
+      pdfWidth: '13%',
+    },
+    {
+      header: 'Catatan',
+      accessor: (item) => item.catatan || '-',
+      pdfWidth: '18%',
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header & Quick Action */}
@@ -633,14 +700,33 @@ export function KendaraanLogManager({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleOpenAddLog}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>+ Catat Log Armada / BC Out</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ExportButton
+            data={filteredLogs}
+            columns={exportKendaraanLogColumns}
+            filename={`log-odometer-armada-${getTodayDateString()}`}
+            sheetName="Log Armada"
+            documentTitle="LAPORAN MONITORING ODOMETER & BBM ARMADA"
+            documentSubtitle="Rekapitulasi perjalanan basecamp out/in, akumulasi jarak tempuh, dan pengeluaran bahan bakar"
+            documentNumber={`ODO/${getTodayDateString().replace(/-/g, '')}`}
+            periodLabel={startDate && endDate ? `${formatDateIndo(startDate)} s/d ${formatDateIndo(endDate)}` : `Per ${formatDateIndo(getTodayDateString())}`}
+            summaryMetrics={[
+              { label: 'Total Jarak Tempuh', value: `${metrics.totalJarakKm.toLocaleString('id-ID')} km` },
+              { label: 'Konsumsi BBM', value: `${metrics.totalLiterBbm} Liter` },
+              { label: 'Total Biaya BBM', value: formatRupiah(metrics.totalBiayaBbm) },
+              { label: 'Rasio Rata-rata', value: `${metrics.rasioEfisiensi} km/L` },
+            ]}
+            orientation="landscape"
+          />
+          <button
+            type="button"
+            onClick={handleOpenAddLog}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ Catat Log Armada / BC Out</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter & Search Toolbar */}

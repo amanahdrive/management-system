@@ -451,15 +451,32 @@ export default function CashflowPage() {
       // Headers
       const headers = ['No', 'Tanggal', 'Uraian Transaksi', 'Kategori', 'Jenis', 'PIC', 'Pemasukan (Rp)', 'Pengeluaran (Rp)', 'Saldo Berjalan (Rp)'];
       const headerRow = worksheet.addRow(headers);
+      headerRow.height = 26;
       headerRow.font = { name: 'Inter', bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
       headerRow.fill = {
         type: 'pattern',
         pattern: 'solid',
         fgColor: { argb: 'FF0F7A73' },
       };
 
-      worksheet.getColumn(1).width = 6;
-      worksheet.getColumn(2).width = 14;
+      // Native Excel AutoFilter on all headers
+      worksheet.autoFilter = {
+        from: { row: 4, column: 1 },
+        to: { row: 4, column: headers.length },
+      };
+
+      // Freeze header row
+      worksheet.views = [
+        {
+          state: 'frozen',
+          ySplit: 4,
+          activeCell: 'A5',
+        },
+      ];
+
+      worksheet.getColumn(1).width = 7;
+      worksheet.getColumn(2).width = 15;
       worksheet.getColumn(3).width = 38;
       worksheet.getColumn(4).width = 18;
       worksheet.getColumn(5).width = 14;
@@ -471,11 +488,15 @@ export default function CashflowPage() {
       // Saldo Awal Row (only when not filtered)
       if (!isFilterActive) {
         const awalRow = worksheet.addRow(['-', formatDateIndo(monthStartStr), `[SALDO AWAL KAS BULAN ${activeMonthName.toUpperCase()}]`, 'SALDO AWAL', '-', 'SYSTEM', 0, 0, saldoAwalBulan]);
-        awalRow.font = { name: 'Inter', italic: true, bold: true, size: 10 };
+        awalRow.height = 20;
+        awalRow.font = { name: 'Inter', italic: true, bold: true, size: 9.5 };
+        awalRow.getCell(7).numFmt = '"Rp "#,##0';
+        awalRow.getCell(8).numFmt = '"Rp "#,##0';
+        awalRow.getCell(9).numFmt = '"Rp "#,##0';
       }
 
       // Data Rows
-      dataSource.forEach((tx) => {
+      dataSource.forEach((tx, rIdx) => {
         const isMasuk = tx.tipe === 'pemasukan';
         const row = worksheet.addRow([
           tx.rowNumber,
@@ -488,11 +509,39 @@ export default function CashflowPage() {
           !isMasuk ? tx.nominal : 0,
           tx.runningBalance,
         ]);
-        row.font = { name: 'Inter', size: 10 };
+        row.height = 20;
+        row.font = { name: 'Inter', size: 9.5 };
+
+        // Borders & Alignment
+        for (let c = 1; c <= headers.length; c++) {
+          const cell = row.getCell(c);
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          };
+          if (rIdx % 2 !== 0) {
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF8FAFC' },
+            };
+          }
+        }
+
+        row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell(5).alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell(6).alignment = { vertical: 'middle', horizontal: 'center' };
 
         row.getCell(7).numFmt = '"Rp "#,##0';
         row.getCell(8).numFmt = '"Rp "#,##0';
         row.getCell(9).numFmt = '"Rp "#,##0';
+        row.getCell(7).alignment = { vertical: 'middle', horizontal: 'right' };
+        row.getCell(8).alignment = { vertical: 'middle', horizontal: 'right' };
+        row.getCell(9).alignment = { vertical: 'middle', horizontal: 'right' };
       });
 
       // Total Row
@@ -501,12 +550,21 @@ export default function CashflowPage() {
         : 'TOTAL MUTASI & SALDO AKHIR';
 
       const totalRow = worksheet.addRow(['', '', totalRowLabel, '', '', '', effMasuk, effKeluar, isFilterActive ? (effMasuk - effKeluar) : effSaldoAkhir]);
-      totalRow.font = { name: 'Inter', bold: true, size: 10 };
+      totalRow.height = 24;
+      totalRow.font = { name: 'Inter', bold: true, size: 10, color: { argb: 'FF0F7A73' } };
       totalRow.fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: 'FFE6F6F4' },
+        fgColor: { argb: 'FFE6F4F1' },
       };
+      for (let c = 1; c <= headers.length; c++) {
+        totalRow.getCell(c).border = {
+          top: { style: 'thin', color: { argb: 'FF0F7A73' } },
+          bottom: { style: 'double', color: { argb: 'FF0F7A73' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        };
+      }
       totalRow.getCell(7).numFmt = '"Rp "#,##0';
       totalRow.getCell(8).numFmt = '"Rp "#,##0';
       totalRow.getCell(9).numFmt = '"Rp "#,##0';

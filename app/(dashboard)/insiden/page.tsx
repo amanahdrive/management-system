@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import {
   Insiden,
   Kendaraan,
@@ -411,6 +412,60 @@ export default function InsidenPage() {
     }, 2500);
   };
 
+  const exportInsidenColumns: ExportColumn<Insiden>[] = [
+    {
+      header: 'Tgl & Waktu',
+      accessor: (item) => `${formatDateIndo(item.tanggal_insiden)} ${item.jam_insiden || ''}`,
+      pdfWidth: '14%',
+    },
+    {
+      header: 'Kategori',
+      accessor: (item) => KATEGORI_OPTIONS.find((k) => k.value === item.kategori)?.label || item.kategori,
+      pdfWidth: '15%',
+    },
+    {
+      header: 'Keparahan',
+      accessor: (item) => KEPARAHAN_CONFIG[item.tingkat_keparahan]?.label || item.tingkat_keparahan,
+      pdfWidth: '10%',
+    },
+    {
+      header: 'Armada / Nopol',
+      accessor: (item) => {
+        const k = kendaraanList.find((v) => v.id === item.kendaraan_id);
+        return k ? `${k.nama_kendaraan} (${k.plat_nomor})` : '-';
+      },
+      pdfWidth: '13%',
+    },
+    {
+      header: 'Instruktur / PIC',
+      accessor: (item) => staffList.find((s) => s.id === item.staff_id)?.nama || '-',
+      pdfWidth: '12%',
+    },
+    {
+      header: 'Lokasi & Keterangan',
+      accessor: (item) => `${item.lokasi_kejadian}: ${item.deskripsi_kejadian}`,
+      pdfWidth: '20%',
+    },
+    {
+      header: 'Status',
+      accessor: (item) => STATUS_CONFIG[item.status_penanganan]?.label || item.status_penanganan,
+      pdfWidth: '11%',
+    },
+    {
+      header: 'Penanggung',
+      accessor: (item) => PENANGGUNG_OPTIONS.find((p) => p.value === item.penanggung_biaya)?.label || item.penanggung_biaya,
+      pdfWidth: '12%',
+    },
+    {
+      header: 'Biaya',
+      accessor: (item) => Number(item.biaya_aktual || item.estimasi_biaya || 0),
+      format: 'currency',
+      isCurrency: true,
+      align: 'right',
+      pdfWidth: '13%',
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -418,7 +473,24 @@ export default function InsidenPage() {
         description="Pencatatan komprehensif insiden operasional, kecelakaan, kerusakan armada mobil, komplain siswa, dan riwayat penanganan klaim"
         breadcrumbs={[{ label: 'Kendaraan', href: '/kendaraan' }, { label: 'Data Insiden' }]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <ExportButton
+              data={insidenList}
+              columns={exportInsidenColumns}
+              filename={`laporan-insiden-${getTodayDateString()}`}
+              sheetName="Laporan Insiden"
+              documentTitle="LAPORAN INSIDEN & KENDALA OPERASIONAL"
+              documentSubtitle="Rekapitulasi riwayat kecelakaan, kerusakan armada, penanganan, dan pembebanan biaya"
+              documentNumber={`INS/${getTodayDateString().replace(/-/g, '')}`}
+              periodLabel={startDate && endDate ? `${formatDateIndo(startDate)} s/d ${formatDateIndo(endDate)}` : `Per ${formatDateIndo(getTodayDateString())}`}
+              summaryMetrics={[
+                { label: 'Total Insiden', value: `${stats.totalInsiden} Kasus` },
+                { label: 'Dalam Penanganan', value: `${stats.dalamPenanganan} Kasus` },
+                { label: 'Kasus Selesai', value: `${stats.selesai} Kasus` },
+                { label: 'Total Biaya Aktual', value: formatRupiah(stats.totalBiayaAktual) },
+              ]}
+              orientation="landscape"
+            />
             <button
               onClick={handleManualSync}
               disabled={loading}

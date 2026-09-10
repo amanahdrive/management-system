@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { Siswa, Paket } from '@/types/database';
 import { getSimSiswaList, getSimMetricsSummary, updateStatusSim, SimMetricsSummary } from '@/lib/actions/sim';
 import { getPaketList } from '@/lib/actions/master-data';
@@ -381,6 +382,47 @@ export default function ManajemenSimPage() {
     return pages;
   }, [safePageIndex, pageCount]);
 
+  const exportSimColumns: ExportColumn[] = [
+    { header: 'Kode Siswa', key: 'kode_siswa', width: 14, align: 'center' },
+    { header: 'Nama Siswa', key: 'nama', width: 25 },
+    { header: 'No. WhatsApp', key: 'no_whatsapp', width: 18, align: 'center' },
+    {
+      header: 'Paket Kursus',
+      key: 'paket_id',
+      width: 22,
+      formatter: (_v, row) => row.paket?.nama_paket || 'Paket SIM',
+    },
+    {
+      header: 'Tanggal Daftar',
+      key: 'tanggal_booking',
+      width: 16,
+      align: 'center',
+      formatter: (v) => formatDateIndo(v),
+    },
+    {
+      header: 'Status Pembayaran',
+      key: 'status_pembayaran_kode',
+      width: 18,
+      align: 'center',
+      formatter: (v) => (v === 'lunas' ? 'Lunas' : v === 'dp' ? 'DP' : 'Belum Bayar'),
+    },
+    {
+      header: 'Status Penerbitan SIM',
+      key: 'status_sim',
+      width: 20,
+      align: 'center',
+      formatter: (v) => (v === 'selesai' ? 'SELESAI TERBIT' : 'MENUNGGU / PROSES'),
+    },
+    {
+      header: 'Tanggal Selesai SIM',
+      key: 'tanggal_selesai_sim',
+      width: 18,
+      align: 'center',
+      formatter: (v) => (v ? formatDateIndo(v) : '-'),
+    },
+    { header: 'Catatan SIM', key: 'catatan_sim', width: 25, formatter: (v) => v || '-' },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -388,14 +430,30 @@ export default function ManajemenSimPage() {
         description="Kelola penerbitan SIM, validasi status pelunasan siswa, dan arsip berkas SIM selesai terbit"
         breadcrumbs={[{ label: 'Manajemen Siswa' }, { label: 'Manajemen SIM' }]}
         actions={
-          <button
-            type="button"
-            onClick={() => setIsSimConfigModalOpen(true)}
-            className="px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
-          >
-            <SettingsIcon className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
-            <span>Atur Modal SIM ({formatRupiah(simConfig.hargaDefault)})</span>
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <ExportButton
+              data={sortedStudents}
+              columns={exportSimColumns}
+              filename={`amanahdrive_layanan_sim_${currentTab}`}
+              title="REKAPITULASI PENERBITAN SIM SISWA"
+              subtitle="Laporan Administrasi & Status Berkas SIM Siswa Amanah Drive"
+              summaryMetrics={[
+                { label: 'Total Siswa SIM', value: `${metrics.totalSim} Orang` },
+                { label: 'SIM Selesai Terbit', value: `${metrics.totalSelesai} Berkas` },
+                { label: 'Belum Selesai', value: `${metrics.totalBelumSelesai} Berkas` },
+                { label: 'Siap Terbit (Lunas)', value: `${metrics.totalSiapTerbit} Berkas` },
+              ]}
+              orientation="landscape"
+            />
+            <button
+              type="button"
+              onClick={() => setIsSimConfigModalOpen(true)}
+              className="px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
+            >
+              <SettingsIcon className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+              <span>Atur Modal SIM ({formatRupiah(simConfig.hargaDefault)})</span>
+            </button>
+          </div>
         }
       />
 

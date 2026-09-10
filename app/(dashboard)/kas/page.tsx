@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { StatCard } from '@/components/shared/StatCard';
 import { PinGateDialog } from '@/components/shared/PinGateDialog';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
@@ -779,6 +780,60 @@ export default function KasOverviewPage() {
     loadData();
   };
 
+  const exportKasColumns: ExportColumn<any>[] = [
+    {
+      header: 'Tanggal',
+      accessor: 'tanggal',
+      format: (val) => formatDateIndo(val),
+      pdfWidth: '13%',
+    },
+    {
+      header: 'Keterangan',
+      accessor: (item) => {
+        const { cleanKeterangan } = parseKeteranganDanRekening(
+          item.keterangan,
+          item.rekening_id,
+          rekeningList
+        );
+        return cleanKeterangan;
+      },
+      pdfWidth: '28%',
+    },
+    {
+      header: 'Kategori',
+      accessor: (item) => formatKategoriLabel(item.kategori),
+      pdfWidth: '15%',
+    },
+    {
+      header: 'Tipe',
+      accessor: (item) => (item.tipe === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran'),
+      pdfWidth: '10%',
+    },
+    {
+      header: 'Metode',
+      accessor: (item) => {
+        const isTunai = (item.jenis_pembayaran || 'tunai') === 'tunai';
+        if (isTunai) return 'Tunai';
+        const rek = rekeningList.find((r) => r.id === item.rekening_id);
+        return rek ? `Bank (${rek.nama_bank})` : 'Non-Tunai';
+      },
+      pdfWidth: '12%',
+    },
+    {
+      header: 'PIC',
+      accessor: (item) => item.pic_nama || '-',
+      pdfWidth: '10%',
+    },
+    {
+      header: 'Nominal',
+      accessor: 'nominal',
+      format: 'currency',
+      isCurrency: true,
+      align: 'right',
+      pdfWidth: '12%',
+    },
+  ];
+
   return (
     <PinGateDialog>
       <div className="space-y-6">
@@ -787,6 +842,23 @@ export default function KasOverviewPage() {
           description="Pencatatan kas masuk/keluar, piutang siswa, dan hutang perusahaan"
           actions={
             <div className="flex items-center gap-2 flex-wrap">
+              <ExportButton
+                data={transaksiList}
+                columns={exportKasColumns}
+                filename={`buku-kas-transaksi-${getTodayDateString()}`}
+                sheetName="Buku Kas"
+                documentTitle="LAPORAN BUKU KAS & MUTASI KEUANGAN"
+                documentSubtitle="Catatan mutasi pemasukan dan pengeluaran kas operasional PT Amanah Sukses Bersama"
+                documentNumber={`KAS/${getTodayDateString().replace(/-/g, '')}`}
+                periodLabel={`Per ${formatDateIndo(getTodayDateString())}`}
+                summaryMetrics={[
+                  { label: 'Total Saldo Aktual', value: formatRupiah(metrics.saldoAktif) },
+                  { label: 'Saldo Tunai', value: formatRupiah(metrics.saldoTunai) },
+                  { label: 'Saldo Bank', value: formatRupiah(metrics.saldoNonTunai) },
+                  { label: 'Total Mutasi', value: `${transaksiList.length} Transaksi` },
+                ]}
+                orientation="portrait"
+              />
               <button
                 type="button"
                 onClick={handleManualSync}

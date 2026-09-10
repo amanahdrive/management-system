@@ -1,122 +1,130 @@
 'use client';
 
 import React from 'react';
-import { FileSpreadsheet, FileText } from 'lucide-react';
-import ExcelJS from 'exceljs';
+import { FileSpreadsheet, Printer, Loader2 } from 'lucide-react';
+import {
+  exportToExcel,
+  exportToBusinessPdf,
+  ExportColumnDef,
+  BusinessExportOptions,
+} from '@/lib/utils/business-export';
 
-export interface ExportColumn {
-  header: string;
-  key: string;
-  width?: number;
-  isCurrency?: boolean;
-}
+export type ExportColumn<T = any> = ExportColumnDef<T>;
 
-interface ExportButtonProps {
-  data: any[];
-  columns: ExportColumn[];
+export interface ExportButtonProps<T = any> {
+  data: T[];
+  columns: ExportColumnDef<T>[];
   filename: string;
   title?: string;
+  documentTitle?: string;
+  subtitle?: string;
+  documentSubtitle?: string;
+  documentNumber?: string;
+  periodLabel?: string;
+  metadata?: { label: string; value: string }[];
+  summaryMetrics?: { label: string; value: string | number }[];
+  orientation?: 'portrait' | 'landscape';
+  sheetName?: string;
+  disabled?: boolean;
+  className?: string;
 }
 
-export function ExportButton({ data, columns, filename, title }: ExportButtonProps) {
+export function ExportButton<T = any>({
+  data,
+  columns,
+  filename,
+  title,
+  documentTitle,
+  subtitle,
+  documentSubtitle,
+  documentNumber,
+  periodLabel,
+  metadata,
+  summaryMetrics,
+  orientation,
+  sheetName,
+  disabled = false,
+  className = '',
+}: ExportButtonProps<T>) {
   const [loadingXlsx, setLoadingXlsx] = React.useState(false);
+  const [loadingPdf, setLoadingPdf] = React.useState(false);
 
-  const exportXlsx = async () => {
+  const exportOptions: BusinessExportOptions<T> = {
+    data: data || [],
+    columns,
+    filename,
+    title: title || documentTitle || 'Laporan Dokumen',
+    documentTitle,
+    subtitle: subtitle || documentSubtitle,
+    documentSubtitle,
+    documentNumber,
+    periodLabel,
+    metadata,
+    summaryMetrics,
+    orientation,
+    sheetName,
+  };
+
+  const handleExportXlsx = async () => {
+    if (loadingXlsx || !data || data.length === 0) return;
     try {
       setLoadingXlsx(true);
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('Data');
-
-      // Title Header Row
-      if (title) {
-        worksheet.mergeCells(1, 1, 1, columns.length);
-        const titleCell = worksheet.getCell(1, 1);
-        titleCell.value = title;
-        titleCell.font = { name: 'Inter', bold: true, size: 14, color: { argb: 'FF0F7A73' } };
-        titleCell.alignment = { vertical: 'middle', horizontal: 'left' };
-        worksheet.addRow([]);
-      }
-
-      // Column Headers
-      const headerRow = worksheet.addRow(columns.map((c) => c.header));
-      headerRow.font = { name: 'Inter', bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
-      headerRow.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF0F7A73' },
-      };
-
-      // Set column widths
-      columns.forEach((col, idx) => {
-        worksheet.getColumn(idx + 1).width = col.width || 20;
-      });
-
-      // Data Rows
-      data.forEach((row) => {
-        const rowData = columns.map((col) => {
-          const val = row[col.key];
-          return val !== undefined && val !== null ? val : '-';
-        });
-        const addedRow = worksheet.addRow(rowData);
-        addedRow.font = { name: 'Inter', size: 10 };
-
-        // Format borders and currency
-        columns.forEach((col, cIdx) => {
-          const cell = addedRow.getCell(cIdx + 1);
-          cell.font = { name: 'Inter', size: 10 };
-          cell.border = {
-            top: { style: 'thin', color: { argb: 'FFE2E8E7' } },
-            left: { style: 'thin', color: { argb: 'FFE2E8E7' } },
-            bottom: { style: 'thin', color: { argb: 'FFE2E8E7' } },
-            right: { style: 'thin', color: { argb: 'FFE2E8E7' } },
-          };
-          if (col.isCurrency && typeof cell.value === 'number') {
-            cell.numFmt = '"Rp "#,##0';
-          }
-        });
-      });
-
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${filename}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-      a.click();
-      window.URL.revokeObjectURL(url);
+      await exportToExcel(exportOptions);
     } catch (err) {
       console.error('Export XLSX error:', err);
+      alert('Gagal mengekspor file Excel. Silakan coba kembali.');
     } finally {
       setLoadingXlsx(false);
     }
   };
 
-  const exportPdf = () => {
-    window.print();
+  const handleExportPdf = async () => {
+    if (loadingPdf || !data || data.length === 0) return;
+    try {
+      setLoadingPdf(true);
+      await exportToBusinessPdf(exportOptions);
+    } catch (err) {
+      console.error('Export PDF error:', err);
+      alert('Gagal menyiapkan dokumen cetak PDF. Silakan coba kembali.');
+    } finally {
+      setLoadingPdf(false);
+    }
   };
 
+  const isDataEmpty = !data || data.length === 0 || disabled;
+
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center gap-1.5 flex-wrap ${className}`}>
+      {/* 1. Button Excel dengan AutoFilter bawaan */}
       <button
-        onClick={exportXlsx}
-        disabled={loadingXlsx || !data || data.length === 0}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-[var(--border)] rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 transition-colors disabled:opacity-50"
-        title="Export ke Excel"
+        type="button"
+        onClick={handleExportXlsx}
+        disabled={isDataEmpty || loadingXlsx}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 transition-all shadow-2xs hover:-translate-y-0.5 disabled:opacity-45 disabled:pointer-events-none"
+        title="Export file Excel (.xlsx) dengan fitur filter otomatis pada tiap header"
       >
-        <FileSpreadsheet className="w-4 h-4" />
-        <span>{loadingXlsx ? 'Exporting...' : 'Excel'}</span>
+        {loadingXlsx ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : (
+          <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+        )}
+        <span>{loadingXlsx ? 'Membuat...' : 'Excel'}</span>
       </button>
 
+      {/* 2. Button Cetak PDF Resmi Bisnis */}
       <button
-        onClick={exportPdf}
-        disabled={!data || data.length === 0}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-[var(--border)] rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-700 dark:text-rose-400 transition-colors disabled:opacity-50"
-        title="Export PDF / Cetak"
+        type="button"
+        onClick={handleExportPdf}
+        disabled={isDataEmpty || loadingPdf}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border border-[var(--brand-primary)]/30 bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary)]/20 text-[var(--brand-primary)] transition-all shadow-2xs hover:-translate-y-0.5 disabled:opacity-45 disabled:pointer-events-none"
+        title="Cetak atau unduh dokumen PDF resmi berstandar arsip bisnis (bebas elemen UI web)"
       >
-        <FileText className="w-4 h-4" />
-        <span>Cetak PDF</span>
+        {loadingPdf ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : (
+          <Printer className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+        )}
+        <span>{loadingPdf ? 'Menyiapkan...' : 'Cetak PDF'}</span>
       </button>
     </div>
   );
