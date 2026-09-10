@@ -5,37 +5,26 @@ import Link from 'next/link';
 import {
   Shield,
   ShieldCheck,
-  ShieldAlert,
   Lock,
-  Unlock,
   KeyRound,
-  UserCheck,
   Eye,
   EyeOff,
   Search,
   Calendar,
-  Filter,
   RefreshCw,
   ChevronLeft,
   ChevronRight,
-  CheckCircle2,
-  AlertTriangle,
   AlertCircle,
-  Info,
-  ExternalLink,
   LogOut,
   FileText,
   ArrowRight,
   Clock,
-  Building,
   Users,
   Wallet,
   Car,
   Sparkles,
   Tag,
-  Package,
   Award,
-  Layers,
   Check,
   X,
   Database,
@@ -43,7 +32,8 @@ import {
   Activity,
   User,
   SlidersHorizontal,
-  ChevronDown,
+  ExternalLink,
+  Laptop,
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import {
@@ -55,24 +45,24 @@ import {
 import {
   getAuditLogsList,
   getAuditLogMetrics,
+  getDeveloperAuthLogs,
   AuditLogItem,
   AuditMetrics,
   AuditLogFilter,
   AuditLogChangeItem,
 } from '@/lib/actions/audit-log';
 
-// Modul options
+// Modul options for System Data Changes (Auth is kept separate in Developer Session Pill)
 const MODUL_OPTIONS = [
-  { value: 'all', label: 'Semua Modul' },
+  { value: 'all', label: 'Semua Modul Sistem' },
   { value: 'siswa', label: 'Kesiswaan (Siswa)' },
   { value: 'keuangan', label: 'Keuangan & Kas' },
   { value: 'jadwal', label: 'Jadwal Mengemudi' },
   { value: 'kendaraan', label: 'Armada Kendaraan' },
-  { value: 'sim', label: 'Manajemen SIM' },
+  { value: 'sim', label: 'Pelatihan SIM' },
   { value: 'sertifikat', label: 'Sertifikat Siswa' },
   { value: 'master_data', label: 'Master Data' },
   { value: 'settings', label: 'Pengaturan Sistem' },
-  { value: 'auth', label: 'Autentikasi & Sesi' },
 ];
 
 // Aksi options
@@ -84,8 +74,6 @@ const AKSI_OPTIONS = [
   { value: 'payment', label: 'Transaksi Pembayaran' },
   { value: 'reschedule', label: 'Pergeseran Jadwal' },
   { value: 'delete', label: 'Penghapusan (Delete)' },
-  { value: 'login', label: 'Aktivitas Login' },
-  { value: 'logout', label: 'Aktivitas Logout' },
   { value: 'reset', label: 'Reset Data' },
 ];
 
@@ -105,8 +93,8 @@ export default function AuditLogPage() {
   const [sessionChecking, setSessionChecking] = useState(true);
   const [currentUser, setCurrentUser] = useState<DeveloperUser | null>(null);
 
-  // Login Form State
-  const [usernameInput, setUsernameInput] = useState('alfyalfi');
+  // Login Form State (Zero Autofill per user request)
+  const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
@@ -140,9 +128,23 @@ export default function AuditLogPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
 
-  // Modal State
+  // Modals State
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
   const [showMetadata, setShowMetadata] = useState(false);
+
+  // Developer Auth History Modal State
+  const [showAuthHistoryModal, setShowAuthHistoryModal] = useState(false);
+  const [authLogs, setAuthLogs] = useState<AuditLogItem[]>([]);
+  const [loadingAuthLogs, setLoadingAuthLogs] = useState(false);
+
+  // Dynamic Greeting based on local time (WIB)
+  const getGreetingText = () => {
+    const hour = new Date().getHours();
+    if (hour >= 4 && hour < 11) return 'Selamat Pagi';
+    if (hour >= 11 && hour < 15) return 'Selamat Siang';
+    if (hour >= 15 && hour < 18) return 'Selamat Sore';
+    return 'Selamat Malam';
+  };
 
   // Check developer session on load
   const checkSession = useCallback(async () => {
@@ -165,7 +167,7 @@ export default function AuditLogPage() {
     checkSession();
   }, [checkSession]);
 
-  // Load logs and metrics when authenticated
+  // Load system logs and metrics when authenticated
   const fetchAuditData = useCallback(async () => {
     if (!currentUser) return;
     setLoadingLogs(true);
@@ -203,6 +205,20 @@ export default function AuditLogPage() {
       fetchAuditData();
     }
   }, [currentUser, fetchAuditData]);
+
+  // Fetch Developer Auth Login History
+  const handleOpenAuthHistory = async () => {
+    setShowAuthHistoryModal(true);
+    setLoadingAuthLogs(true);
+    try {
+      const data = await getDeveloperAuthLogs(50);
+      setAuthLogs(data);
+    } catch (err) {
+      console.error('Error fetching developer auth logs:', err);
+    } finally {
+      setLoadingAuthLogs(false);
+    }
+  };
 
   // Handle Login Submit
   const handleLogin = async (e: React.FormEvent) => {
@@ -260,15 +276,17 @@ export default function AuditLogPage() {
   const formatTimestamp = (isoString: string) => {
     try {
       const date = new Date(isoString);
-      return new Intl.DateTimeFormat('id-ID', {
-        timeZone: 'Asia/Jakarta',
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      }).format(date) + ' WIB';
+      return (
+        new Intl.DateTimeFormat('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }).format(date) + ' WIB'
+      );
     } catch {
       return isoString;
     }
@@ -300,7 +318,7 @@ export default function AuditLogPage() {
       sertifikat: { label: 'Sertifikat', color: 'bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300 border-violet-300 dark:border-violet-800', icon: Award },
       master_data: { label: 'Master Data', color: 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-300 border-slate-300 dark:border-slate-700', icon: Database },
       settings: { label: 'Pengaturan', color: 'bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700', icon: SlidersHorizontal },
-      auth: { label: 'Autentikasi', color: 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border-purple-300 dark:border-purple-800', icon: Shield },
+      auth: { label: 'Sesi Developer', color: 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border-purple-300 dark:border-purple-800', icon: Shield },
     };
     const info = map[modul] || { label: modul, color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 border-gray-300', icon: Activity };
     const IconComponent = info.icon;
@@ -358,7 +376,7 @@ export default function AuditLogPage() {
           breadcrumbs={[{ label: 'Pengaturan', href: '/settings' }, { label: 'Audit Log' }]}
         />
 
-        <div className="card-container border-2 border-[var(--border)] shadow-xl p-6 sm:p-8 space-y-6">
+        <div className="bg-white dark:bg-[#0E131F] border border-[var(--border)] rounded-2xl shadow-xl p-6 sm:p-8 space-y-6">
           <div className="flex flex-col items-center text-center space-y-2">
             <div className="w-14 h-14 rounded-2xl bg-[var(--brand-primary)]/10 text-[var(--brand-primary)] flex items-center justify-center shadow-inner">
               <ShieldCheck className="w-7 h-7" />
@@ -388,7 +406,8 @@ export default function AuditLogPage() {
                   type="text"
                   value={usernameInput}
                   onChange={(e) => setUsernameInput(e.target.value)}
-                  placeholder="alfyalfi"
+                  placeholder="Masukkan username"
+                  autoComplete="off"
                   required
                   className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] font-medium focus:ring-2 focus:ring-[var(--brand-primary)] outline-none"
                 />
@@ -438,22 +457,17 @@ export default function AuditLogPage() {
               )}
             </button>
           </form>
-
-          <div className="pt-3 border-t border-[var(--border)] flex items-start gap-2.5 text-[11px] text-[var(--text-muted)] leading-normal">
-            <Shield className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
-            <p>
-              Akun Developer terdaftar: <strong className="text-[var(--text-primary)]">alfyalfi</strong>. Akses ini diawasi dan dilindungi ledger immutable WORM.
-            </p>
-          </div>
         </div>
       </div>
     );
   }
 
   // 3. Authenticated: Enterprise SaaS Audit Log Dashboard
+  const greeting = getGreetingText();
+
   return (
     <div className="space-y-6">
-      {/* Top Header with Developer Session Ribbon */}
+      {/* Top Header with Developer Greeting Pill & Logout */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
         <div>
           <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mb-1">
@@ -474,22 +488,31 @@ export default function AuditLogPage() {
             </span>
           </div>
           <p className="text-xs text-[var(--text-secondary)] mt-1">
-            Rekaman aktivitas dan histori perubahan sistem tak terhapus (Append-Only) dengan audit trail detail.
+            Rekaman aktivitas & histori perubahan data sistem (terpisah dari riwayat sesi developer).
           </p>
         </div>
 
-        {/* Developer Session Bar */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-xs shadow-xs">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-semibold text-[var(--text-primary)]">{currentUser.username}</span>
-            <span className="px-1.5 py-0.2 rounded text-[10px] uppercase font-bold bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-              {currentUser.role}
-            </span>
-          </div>
+        {/* Developer Session Pill (Clickable -> Opens Developer Login History) & Logout Button */}
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={handleOpenAuthHistory}
+            className="flex items-center gap-2.5 px-3 py-1.5 bg-white dark:bg-[#0E131F] hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/80 rounded-xl text-xs shadow-xs transition-all group text-left"
+            title="Klik untuk membuka Riwayat Sesi & Login Developer"
+          >
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <div className="flex flex-col">
+              <span className="font-bold text-[var(--text-primary)] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 flex items-center gap-1">
+                <span>{greeting}, {currentUser.nama || 'Alfi'}</span>
+                <ExternalLink className="w-3 h-3 text-[var(--text-muted)] opacity-60 group-hover:opacity-100 transition-opacity" />
+              </span>
+              <span className="text-[10px] text-[var(--text-muted)]">Riwayat Sesi Login</span>
+            </div>
+          </button>
+
           <button
             onClick={handleLogout}
-            className="px-3 py-1.5 border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 text-rose-700 dark:text-rose-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            className="px-3 py-2 border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
             title="Keluar Sesi Developer"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -498,38 +521,38 @@ export default function AuditLogPage() {
         </div>
       </div>
 
-      {/* 4 Metric KPI Cards */}
+      {/* 4 Metric KPI Cards (Opaque solid backgrounds) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Metric 1 */}
-        <div className="card-container p-4 flex flex-col justify-between border-l-4 border-l-blue-500">
+        <div className="bg-white dark:bg-[#0E131F] border border-[var(--border)] rounded-xl p-4 flex flex-col justify-between border-l-4 border-l-blue-500 shadow-xs">
           <div className="flex items-center justify-between text-[var(--text-muted)] mb-2">
-            <span className="text-xs font-semibold">Total Log Terdata</span>
+            <span className="text-xs font-semibold">Total Log Sistem</span>
             <Database className="w-4 h-4 text-blue-500" />
           </div>
           <div>
             <div className="text-2xl font-extrabold text-[var(--text-primary)]">
               {metrics.totalLogs.toLocaleString('id-ID')}
             </div>
-            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Sepanjang waktu (All-time)</p>
+            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Riwayat perubahan sistem</p>
           </div>
         </div>
 
         {/* Metric 2 */}
-        <div className="card-container p-4 flex flex-col justify-between border-l-4 border-l-emerald-500">
+        <div className="bg-white dark:bg-[#0E131F] border border-[var(--border)] rounded-xl p-4 flex flex-col justify-between border-l-4 border-l-emerald-500 shadow-xs">
           <div className="flex items-center justify-between text-[var(--text-muted)] mb-2">
-            <span className="text-xs font-semibold">Aktivitas Hari Ini</span>
+            <span className="text-xs font-semibold">Perubahan Hari Ini</span>
             <Clock className="w-4 h-4 text-emerald-500" />
           </div>
           <div>
             <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">
               {metrics.todayLogs.toLocaleString('id-ID')}
             </div>
-            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Tercatat pada zona waktu WIB</p>
+            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Tercatat pada zona WIB</p>
           </div>
         </div>
 
         {/* Metric 3 */}
-        <div className="card-container p-4 flex flex-col justify-between border-l-4 border-l-purple-500">
+        <div className="bg-white dark:bg-[#0E131F] border border-[var(--border)] rounded-xl p-4 flex flex-col justify-between border-l-4 border-l-purple-500 shadow-xs">
           <div className="flex items-center justify-between text-[var(--text-muted)] mb-2">
             <span className="text-xs font-semibold">Modul Teraktif</span>
             <Activity className="w-4 h-4 text-purple-500" />
@@ -539,13 +562,13 @@ export default function AuditLogPage() {
               {metrics.topModule.name}
             </div>
             <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-              {metrics.topModule.count.toLocaleString('id-ID')} riwayat perubahan
+              {metrics.topModule.count.toLocaleString('id-ID')} pembaruan data
             </p>
           </div>
         </div>
 
         {/* Metric 4 */}
-        <div className="card-container p-4 flex flex-col justify-between border-l-4 border-l-amber-500">
+        <div className="bg-white dark:bg-[#0E131F] border border-[var(--border)] rounded-xl p-4 flex flex-col justify-between border-l-4 border-l-amber-500 shadow-xs">
           <div className="flex items-center justify-between text-[var(--text-muted)] mb-2">
             <span className="text-xs font-semibold">Integritas Ledger</span>
             <ShieldCheck className="w-4 h-4 text-amber-500" />
@@ -562,8 +585,8 @@ export default function AuditLogPage() {
         </div>
       </div>
 
-      {/* Control & Filter Toolbar */}
-      <div className="card-container p-4 space-y-4">
+      {/* Control & Filter Toolbar (Opaque Solid) */}
+      <div className="bg-white dark:bg-[#0E131F] border border-[var(--border)] rounded-xl p-4 space-y-4 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Search Form */}
           <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
@@ -613,7 +636,7 @@ export default function AuditLogPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 text-xs">
           {/* Modul Filter */}
           <div>
-            <label className="block text-[var(--text-muted)] font-semibold mb-1">Modul</label>
+            <label className="block text-[var(--text-muted)] font-semibold mb-1">Modul Sistem</label>
             <select
               value={modulFilter}
               onChange={(e) => {
@@ -739,16 +762,16 @@ export default function AuditLogPage() {
         </div>
       </div>
 
-      {/* Audit Log Table / Feed */}
-      <div className="card-container overflow-hidden p-0">
-        <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between bg-black/[0.02] dark:bg-white/[0.02]">
+      {/* Audit Log Table / Feed (Opaque Solid) */}
+      <div className="bg-white dark:bg-[#0E131F] border border-[var(--border)] rounded-xl overflow-hidden shadow-xs">
+        <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-[var(--brand-primary)]" />
             <h3 className="font-bold text-xs text-[var(--text-primary)]">
-              Riwayat Aktivitas & Perubahan
+              Riwayat Perubahan Data Sistem
             </h3>
             <span className="text-[11px] text-[var(--text-muted)]">
-              ({totalCount} aktivitas ditemukan)
+              ({totalCount} aktivitas sistem)
             </span>
           </div>
           {loadingLogs && (
@@ -765,10 +788,10 @@ export default function AuditLogPage() {
               <FileText className="w-6 h-6" />
             </div>
             <p className="text-sm font-semibold text-[var(--text-primary)]">
-              Tidak Ada Rekaman Audit Log Ditemukan
+              Tidak Ada Rekaman Perubahan Data Ditemukan
             </p>
             <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto">
-              Tidak ada aktivitas yang sesuai dengan filter atau kriteria pencarian yang Anda tentukan.
+              Tidak ada perubahan data sistem yang cocok dengan kriteria filter yang Anda terapkan.
             </p>
             <button
               onClick={handleResetFilters}
@@ -781,7 +804,7 @@ export default function AuditLogPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-[var(--border)] text-[var(--text-muted)] font-semibold bg-black/[0.01] dark:bg-white/[0.01]">
+                <tr className="border-b border-[var(--border)] text-[var(--text-muted)] font-semibold bg-slate-50/50 dark:bg-slate-900/40">
                   <th className="py-2.5 px-4">Waktu (WIB)</th>
                   <th className="py-2.5 px-3">Aktor</th>
                   <th className="py-2.5 px-3">Modul & Aksi</th>
@@ -800,7 +823,7 @@ export default function AuditLogPage() {
                   return (
                     <tr
                       key={log.id}
-                      className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors"
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition-colors"
                     >
                       {/* Timestamp */}
                       <td className="py-3 px-4 whitespace-nowrap">
@@ -855,7 +878,7 @@ export default function AuditLogPage() {
                               setSelectedLog(log);
                               setShowMetadata(false);
                             }}
-                            className="px-2.5 py-1.5 border border-[var(--border)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] rounded-md font-semibold text-[11px] transition-colors inline-flex items-center gap-1"
+                            className="px-2.5 py-1.5 border border-[var(--border)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] rounded-md font-semibold text-[11px] transition-colors inline-flex items-center gap-1 bg-white dark:bg-[#0E131F]"
                           >
                             <span>Detail Diff</span>
                             <ArrowRight className="w-3 h-3" />
@@ -874,7 +897,7 @@ export default function AuditLogPage() {
 
         {/* Pagination Bar */}
         {totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-[var(--border)] flex items-center justify-between text-xs bg-black/[0.01] dark:bg-white/[0.01]">
+          <div className="px-4 py-3 border-t border-[var(--border)] flex items-center justify-between text-xs bg-slate-50/50 dark:bg-slate-900/30">
             <span className="text-[var(--text-muted)]">
               Menampilkan {(page - 1) * limit + 1} -{' '}
               {Math.min(page * limit, totalCount)} dari {totalCount} log
@@ -905,12 +928,12 @@ export default function AuditLogPage() {
         )}
       </div>
 
-      {/* Modal Detail Perubahan (Humanized Diff Viewer) */}
+      {/* MODAL 1: Detail Perubahan Diff (Solid Opaque Container) */}
       {selectedLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-[var(--card-bg)] border border-[var(--border)] rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scaleIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-[#0E131F] border border-[var(--border)] rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scaleIn">
             {/* Modal Header */}
-            <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between bg-black/[0.02] dark:bg-white/[0.02]">
+            <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   {getModulBadge(selectedLog.modul)}
@@ -934,10 +957,10 @@ export default function AuditLogPage() {
             {/* Modal Body */}
             <div className="p-5 overflow-y-auto space-y-4 text-xs">
               {/* Summary Description */}
-              <div className="p-3 rounded-lg bg-[var(--bg)] border border-[var(--border)] text-[var(--text-secondary)]">
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-[var(--border)] text-[var(--text-secondary)]">
                 <div className="font-semibold text-[var(--text-primary)] mb-0.5">Deskripsi Perubahan:</div>
                 <p>{selectedLog.deskripsi}</p>
-                <div className="mt-2 pt-2 border-t border-[var(--border)] flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[var(--text-muted)]">
+                <div className="mt-2.5 pt-2 border-t border-[var(--border)] flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[var(--text-muted)]">
                   <span>Waktu: <strong>{formatTimestamp(selectedLog.created_at)}</strong></span>
                   <span>Aktor: <strong>{selectedLog.actor_username} ({selectedLog.actor_role})</strong></span>
                   {selectedLog.entitas_id && (
@@ -954,11 +977,11 @@ export default function AuditLogPage() {
                 </h4>
 
                 {Array.isArray(selectedLog.perubahan) && selectedLog.perubahan.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {selectedLog.perubahan.map((diff: AuditLogChangeItem, i: number) => (
                       <div
                         key={i}
-                        className="p-3 rounded-lg border border-[var(--border)] bg-[var(--bg)] space-y-2"
+                        className="p-3.5 rounded-xl border border-[var(--border)] bg-slate-50/50 dark:bg-slate-900/40 space-y-2"
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-[var(--text-primary)]">
@@ -969,13 +992,13 @@ export default function AuditLogPage() {
                           </span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                          <div className="p-2 rounded bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300">
+                          <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300">
                             <span className="block text-[10px] font-semibold text-rose-600 dark:text-rose-400 mb-0.5">
                               Sebelumnya:
                             </span>
                             <span className="font-mono break-all">{diff.sebelum || '-'}</span>
                           </div>
-                          <div className="p-2 rounded bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300">
+                          <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300">
                             <span className="block text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 mb-0.5">
                               Sesudah:
                             </span>
@@ -986,11 +1009,11 @@ export default function AuditLogPage() {
                     ))}
                   </div>
                 ) : selectedLog.perubahan && typeof selectedLog.perubahan === 'object' ? (
-                  <div className="p-3 rounded-lg bg-black/5 dark:bg-white/5 font-mono text-[11px] overflow-x-auto">
+                  <div className="p-3.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-[var(--border)] font-mono text-[11px] overflow-x-auto">
                     <pre>{JSON.stringify(selectedLog.perubahan, null, 2)}</pre>
                   </div>
                 ) : (
-                  <div className="p-3 rounded-lg bg-[var(--bg)] border border-[var(--border)] text-[var(--text-muted)] text-center">
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-[var(--border)] text-[var(--text-muted)] text-center">
                     Tidak ada diff delta khusus yang tercatat untuk aktivitas ini.
                   </div>
                 )}
@@ -1008,7 +1031,7 @@ export default function AuditLogPage() {
                 </button>
 
                 {showMetadata && (
-                  <div className="mt-2 p-3 rounded-lg bg-black/5 dark:bg-white/5 border border-[var(--border)] space-y-1.5 font-mono text-[10px] text-[var(--text-secondary)]">
+                  <div className="mt-2 p-3 rounded-lg bg-slate-100 dark:bg-slate-900 border border-[var(--border)] space-y-1.5 font-mono text-[10px] text-[var(--text-secondary)]">
                     <div><strong>Log ID:</strong> {selectedLog.id}</div>
                     <div><strong>IP Address:</strong> {selectedLog.ip_address || '127.0.0.1 (Local / Proxy)'}</div>
                     <div><strong>User Agent:</strong> {selectedLog.user_agent || 'Unknown'}</div>
@@ -1021,13 +1044,117 @@ export default function AuditLogPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-5 py-3 border-t border-[var(--border)] flex items-center justify-between bg-black/[0.02] dark:bg-white/[0.02]">
+            <div className="px-5 py-3 border-t border-[var(--border)] flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
               <span className="text-[11px] text-[var(--text-muted)] flex items-center gap-1">
                 <Lock className="w-3 h-3 text-emerald-500" />
                 <span>Append-Only Ledger (Non-Modifiable)</span>
               </span>
               <button
                 onClick={() => setSelectedLog(null)}
+                className="px-4 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white font-semibold text-xs rounded-lg transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: Riwayat Sesi & Login Developer (Alfi) */}
+      {showAuthHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-[#0E131F] border border-[var(--border)] rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scaleIn">
+            {/* Modal Header */}
+            <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 flex items-center justify-center border border-purple-200 dark:border-purple-800">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-[var(--text-primary)] flex items-center gap-2">
+                    <span>Riwayat Sesi & Login Developer: Alfi</span>
+                    <span className="px-1.5 py-0.2 rounded text-[10px] uppercase font-bold bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                      Developer
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-[var(--text-muted)]">
+                    Catatan autentikasi sesi pengembang, alamat IP, dan aktivitas keluar/masuk.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAuthHistoryModal(false)}
+                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 overflow-y-auto space-y-3 text-xs">
+              {loadingAuthLogs ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-2 text-[var(--text-muted)]">
+                  <RefreshCw className="w-6 h-6 animate-spin text-[var(--brand-primary)]" />
+                  <span>Memuat riwayat sesi developer...</span>
+                </div>
+              ) : authLogs.length === 0 ? (
+                <div className="text-center py-10 text-[var(--text-muted)]">
+                  Belum ada rekaman sesi login tambahan.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {authLogs.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-3.5 rounded-xl border border-[var(--border)] bg-slate-50/60 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              item.aksi === 'login'
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200'
+                                : 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border border-slate-200'
+                            }`}
+                          >
+                            {item.aksi === 'login' ? 'Login Sesi' : 'Logout Sesi'}
+                          </span>
+                          <span className="font-semibold text-[var(--text-primary)]">
+                            {item.judul}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-[var(--text-muted)] flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                          <span>IP: <strong>{item.ip_address || '127.0.0.1'}</strong></span>
+                          {item.user_agent && (
+                            <span className="truncate max-w-xs" title={item.user_agent}>
+                              Browser: {item.user_agent.slice(0, 45)}...
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-right sm:self-center shrink-0">
+                        <div className="font-semibold text-[var(--text-primary)]">
+                          {formatTimestamp(item.created_at)}
+                        </div>
+                        <div className="text-[10px] text-[var(--text-muted)]">
+                          {getRelativeTime(item.created_at)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-3 border-t border-[var(--border)] flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
+              <span className="text-[11px] text-[var(--text-muted)] flex items-center gap-1.5">
+                <Laptop className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                <span>Sesi aktif 30 hari dengan auto-renew (sliding expiration).</span>
+              </span>
+              <button
+                onClick={() => setShowAuthHistoryModal(false)}
                 className="px-4 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white font-semibold text-xs rounded-lg transition-colors"
               >
                 Tutup

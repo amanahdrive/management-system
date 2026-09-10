@@ -153,12 +153,13 @@ export async function loginDeveloperAction(formData: {
 
     const { ip, userAgent } = await getRequestMetadata();
 
-    // 3. Create Session Token (7 days validity)
-    const exp = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    // 3. Create Session Token (30 days validity)
+    const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
+    const exp = Date.now() + SESSION_DURATION_MS;
     const tokenPayload: TokenPayload = {
       id: userRow.id,
       username: userRow.username,
-      nama: userRow.nama,
+      nama: userRow.nama || 'Alfi',
       role: userRow.role,
       email: userRow.email,
       exp,
@@ -166,14 +167,14 @@ export async function loginDeveloperAction(formData: {
 
     const token = createSignedToken(tokenPayload);
 
-    // 4. Set Secure HTTP-only Cookie
+    // 4. Set Secure HTTP-only Cookie (30 days)
     const cookieStore = await cookies();
     cookieStore.set({
       name: SESSION_COOKIE_NAME,
       value: token,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60,
+      maxAge: 30 * 24 * 60 * 60,
       path: '/',
       sameSite: 'lax',
     });
@@ -244,12 +245,33 @@ export async function getDeveloperSession(): Promise<SessionResult> {
       return { isAuthenticated: false, user: null };
     }
 
+    // Sliding Expiration: Automatically extend cookie session when accessed if < 20 days remaining
+    try {
+      const remainingMs = payload.exp - Date.now();
+      if (remainingMs < 20 * 24 * 60 * 60 * 1000) {
+        const renewedPayload: TokenPayload = {
+          ...payload,
+          exp: Date.now() + 30 * 24 * 60 * 60 * 1000,
+        };
+        const renewedToken = createSignedToken(renewedPayload);
+        cookieStore.set({
+          name: SESSION_COOKIE_NAME,
+          value: renewedToken,
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          maxAge: 30 * 24 * 60 * 60,
+          path: '/',
+          sameSite: 'lax',
+        });
+      }
+    } catch {}
+
     return {
       isAuthenticated: true,
       user: {
         id: payload.id,
         username: payload.username,
-        nama: payload.nama,
+        nama: payload.nama || 'Alfi',
         role: payload.role,
         email: payload.email,
       },

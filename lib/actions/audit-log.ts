@@ -74,10 +74,12 @@ export async function getAuditLogsList(
     const params: any[] = [];
     let pIdx = 1;
 
-    // Filter: Modul
+    // Filter: Modul (Default: exclude auth session logs so main list is dedicated to system data changes)
     if (filter.modul && filter.modul !== 'all') {
       conditions.push(`modul = $${pIdx++}`);
       params.push(filter.modul);
+    } else {
+      conditions.push(`modul != 'auth'`);
     }
 
     // Filter: Aksi
@@ -196,18 +198,18 @@ export async function getAuditLogsList(
 export async function getAuditLogMetrics(): Promise<AuditMetrics> {
   try {
     const totalRow = await dbQuerySingle<{ count: number }>(
-      `SELECT COUNT(*)::int as count FROM public.audit_logs`
+      `SELECT COUNT(*)::int as count FROM public.audit_logs WHERE modul != 'auth'`
     );
 
     const todayRow = await dbQuerySingle<{ count: number }>(
       `SELECT COUNT(*)::int as count FROM public.audit_logs
-       WHERE (created_at AT TIME ZONE 'Asia/Jakarta')::date = (NOW() AT TIME ZONE 'Asia/Jakarta')::date`
+       WHERE modul != 'auth' AND (created_at AT TIME ZONE 'Asia/Jakarta')::date = (NOW() AT TIME ZONE 'Asia/Jakarta')::date`
     );
 
     const urgencies = await dbQuery<{ tingkat_urgensi: string; count: number }>(
       `SELECT tingkat_urgensi, COUNT(*)::int as count
        FROM public.audit_logs
-       WHERE tingkat_urgensi IN ('warning', 'critical')
+       WHERE modul != 'auth' AND tingkat_urgensi IN ('warning', 'critical')
        GROUP BY tingkat_urgensi`
     );
 
@@ -221,6 +223,7 @@ export async function getAuditLogMetrics(): Promise<AuditMetrics> {
     const topModuleRow = await dbQuerySingle<{ modul: string; count: number }>(
       `SELECT modul, COUNT(*)::int as count
        FROM public.audit_logs
+       WHERE modul != 'auth'
        GROUP BY modul
        ORDER BY count DESC
        LIMIT 1`
@@ -255,6 +258,43 @@ export async function getAuditLogMetrics(): Promise<AuditMetrics> {
       topModule: { name: '-', count: 0 },
       isImmutableProtected: true,
     };
+  }
+}
+
+/**
+ * Fetch dedicated login & session history for Developer (Alfi)
+ */
+export async function getDeveloperAuthLogs(limit = 40): Promise<AuditLogItem[]> {
+  try {
+    const rows = await dbQuery<AuditLogItem>(
+      `SELECT
+        id,
+        created_at,
+        actor_id,
+        actor_username,
+        actor_role,
+        ip_address,
+        user_agent,
+        modul,
+        aksi,
+        entitas_tipe,
+        entitas_id,
+        judul,
+        deskripsi,
+        data_sebelum,
+        data_sesudah,
+        perubahan,
+        tingkat_urgensi
+      FROM public.audit_logs
+      WHERE modul = 'auth'
+      ORDER BY created_at DESC
+      LIMIT $1`,
+      [limit]
+    );
+    return rows;
+  } catch (err) {
+    console.error('Error fetching developer auth logs:', err);
+    return [];
   }
 }
 

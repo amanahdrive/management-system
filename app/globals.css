@@ -25,6 +25,7 @@
 
     /* Ground & Container Surfaces (Ultra Clean & Pure) */
     --bg:                  #FFFFFF;
+    --card-bg:             #FFFFFF;
     --bg-subtle:           #F8FAFC; /* Crisp ultra-clean canvas ground */
     --bg-elevated:         #FFFFFF;
     --bg-glass:            rgba(255, 255, 255, 0.85);
@@ -113,6 +114,7 @@
 
     /* Ground & Container Surfaces */
     --bg:                  #0E131F; /* Rich obsidian slate ground */
+    --card-bg:             #0E131F;
     --bg-subtle:           #080B12; /* Deep void canvas ground */
     --bg-elevated:         #151B2B; /* Hero bento tile */
     --bg-glass:            rgba(14, 19, 31, 0.82);
