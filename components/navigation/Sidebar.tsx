@@ -72,6 +72,11 @@ const PWA_SUB_ITEMS = [
   { label: 'PWA Finance', href: '/finance', icon: Wallet, badge: 'PWA' },
 ];
 
+const SETTINGS_SUB_ITEMS = [
+  { label: 'Pengaturan Sistem', href: '/settings', icon: Settings },
+  { label: 'Audit Log', href: '/settings/audit-log', icon: ShieldCheck, badge: 'Dev' },
+];
+
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarOpen, toggleSidebar, setSidebarOpen } = useUiStore();
@@ -95,6 +100,9 @@ export function Sidebar() {
 
   const isPwaActive = pathname.startsWith('/instruktur') || pathname.startsWith('/finance');
   const [pwaExpanded, setPwaExpanded] = React.useState(isPwaActive);
+
+  const isSettingsActive = pathname.startsWith('/settings');
+  const [settingsExpanded, setSettingsExpanded] = React.useState(isSettingsActive);
 
   const [isFinanceMode, setIsFinanceMode] = React.useState(false);
 
@@ -126,6 +134,10 @@ export function Sidebar() {
   React.useEffect(() => {
     if (isPwaActive) setPwaExpanded(true);
   }, [isPwaActive]);
+
+  React.useEffect(() => {
+    if (isSettingsActive) setSettingsExpanded(true);
+  }, [isSettingsActive]);
 
   const handleSiswaClick = () => {
     if (!sidebarOpen) {
@@ -170,6 +182,15 @@ export function Sidebar() {
       return;
     }
     setPwaExpanded((prev) => !prev);
+  };
+
+  const handleSettingsClick = () => {
+    if (!sidebarOpen) {
+      setSidebarOpen(true);
+      setSettingsExpanded(true);
+      return;
+    }
+    setSettingsExpanded((prev) => !prev);
   };
 
   const navItemClass = (isActive: boolean) =>
@@ -518,15 +539,53 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* 8. Pengaturan */}
-        <Link
-          href="/settings"
-          className={navItemClass(pathname.startsWith('/settings'))}
-          title={!sidebarOpen ? 'Pengaturan' : undefined}
-        >
-          <Settings className="w-4 h-4 min-w-[16px]" />
-          {sidebarOpen && <span className="whitespace-nowrap">Pengaturan</span>}
-        </Link>
+        {/* 8. Pengaturan & Audit Log Dropdown */}
+        <div>
+          <button
+            onClick={handleSettingsClick}
+            className={dropdownHeaderClass(isSettingsActive)}
+            title={!sidebarOpen ? 'Pengaturan' : undefined}
+          >
+            <div className="flex items-center gap-3">
+              <Settings className="w-4 h-4 min-w-[16px]" />
+              {sidebarOpen && <span className="whitespace-nowrap">Pengaturan</span>}
+            </div>
+            {sidebarOpen && (
+              settingsExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+            )}
+          </button>
+
+          {sidebarOpen && settingsExpanded && (
+            <div className="pl-4 pt-1 space-y-1 border-l border-[var(--border)] ml-5 my-1.5">
+              {SETTINGS_SUB_ITEMS.map((sub) => {
+                const SubIcon = sub.icon;
+                const isSubActive = pathname === sub.href;
+
+                return (
+                  <Link
+                    key={sub.href}
+                    href={sub.href}
+                    className={`flex items-center justify-between px-3 py-1.5 text-xs font-normal transition-all rounded-lg border-l ${
+                      isSubActive
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+                        : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <SubIcon className="w-3.5 h-3.5" />
+                      <span>{sub.label}</span>
+                    </div>
+                    {sub.badge && (
+                      <span className="text-[9px] px-1 py-0.2 rounded font-bold uppercase bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                        {sub.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
           </>
         )}
       </nav>

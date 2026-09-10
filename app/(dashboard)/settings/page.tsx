@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { PageHeader } from '@/components/shared/PageHeader';
 import {
   getGeneralSettings,
@@ -470,6 +471,27 @@ export default function SettingsPage() {
         description="Konfigurasi parameter operasional, keamanan PIN, notifikasi Telegram, dan pembersihan database"
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Settings' }]}
       />
+
+      {/* Navigation Submenu: Pengaturan vs Audit Log */}
+      <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2 text-xs font-semibold">
+        <Link
+          href="/settings"
+          className="px-3 py-1.5 rounded-lg bg-[var(--brand-primary)] text-white flex items-center gap-1.5 shadow-xs"
+        >
+          <Settings className="w-3.5 h-3.5" />
+          <span>Pengaturan Sistem</span>
+        </Link>
+        <Link
+          href="/settings/audit-log"
+          className="px-3 py-1.5 rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-1.5 transition-colors"
+        >
+          <ShieldCheck className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+          <span>Audit Log</span>
+          <span className="px-1.5 py-0.2 rounded text-[10px] uppercase font-bold bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+            Dev
+          </span>
+        </Link>
+      </div>
 
       {/* Success Notification Banner */}
       {resetSuccessBanner && (

@@ -71,6 +71,11 @@ const PWA_SUB_ITEMS = [
   { label: 'PWA Finance', href: '/finance', icon: Wallet },
 ];
 
+const SETTINGS_SUB_ITEMS = [
+  { label: 'Pengaturan Sistem', href: '/settings', icon: Settings },
+  { label: 'Audit Log (Developer)', href: '/settings/audit-log', icon: ShieldCheck, badge: 'Dev' },
+];
+
 export function MobileDrawer() {
   const pathname = usePathname();
   const { mobileDrawerOpen, setMobileDrawerOpen } = useUiStore();
@@ -94,6 +99,9 @@ export function MobileDrawer() {
 
   const isPwaActive = pathname.startsWith('/instruktur') || pathname.startsWith('/finance');
   const [pwaExpanded, setPwaExpanded] = React.useState(isPwaActive);
+
+  const isSettingsActive = pathname.startsWith('/settings');
+  const [settingsExpanded, setSettingsExpanded] = React.useState(isSettingsActive);
 
   const [isFinanceMode, setIsFinanceMode] = React.useState(false);
 
@@ -125,6 +133,10 @@ export function MobileDrawer() {
   React.useEffect(() => {
     if (isPwaActive) setPwaExpanded(true);
   }, [isPwaActive]);
+
+  React.useEffect(() => {
+    if (isSettingsActive) setSettingsExpanded(true);
+  }, [isSettingsActive]);
 
   React.useEffect(() => {
     if (!mobileDrawerOpen) return;
@@ -477,19 +489,56 @@ export function MobileDrawer() {
                 )}
               </div>
 
-              {/* 8. Pengaturan */}
-              <Link
-                href="/settings"
-                onClick={() => setMobileDrawerOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
-                  pathname.startsWith('/settings')
-                    ? 'bg-[var(--brand-primary)] text-white font-semibold'
-                    : 'text-[var(--text-primary)] hover:bg-[var(--brand-primary-light)]'
-                }`}
-              >
-                <Settings className="w-4 h-4" />
-                <span>Pengaturan Sistem</span>
-              </Link>
+              {/* 8. Pengaturan & Audit Log Dropdown */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setSettingsExpanded((prev) => !prev)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
+                    isSettingsActive
+                      ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+                      : 'text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Settings className="w-4 h-4 text-[var(--brand-primary)]" />
+                    <span>Pengaturan</span>
+                  </div>
+                  {settingsExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+
+                {settingsExpanded && (
+                  <div className="pl-6 pt-1 space-y-1 border-l-2 border-[var(--border)] ml-4 my-1">
+                    {SETTINGS_SUB_ITEMS.map((sub) => {
+                      const SubIcon = sub.icon;
+                      const isSubActive = pathname === sub.href;
+
+                      return (
+                        <Link
+                          key={sub.href}
+                          href={sub.href}
+                          onClick={() => setMobileDrawerOpen(false)}
+                          className={`flex items-center justify-between px-3 py-2 rounded-md text-xs transition-colors ${
+                            isSubActive
+                              ? 'bg-[var(--brand-primary)] text-white font-semibold'
+                              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <SubIcon className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                            <span>{sub.label}</span>
+                          </div>
+                          {sub.badge && (
+                            <span className="text-[9px] px-1 py-0.2 rounded font-bold uppercase bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                              {sub.badge}
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
