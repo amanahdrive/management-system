@@ -394,24 +394,31 @@ export default function PosPengeluaranPage() {
             value={`${summary.totalPos} Pos`}
             icon={<Layers className="w-5 h-5 text-indigo-600" />}
             description={`${summary.belumBayarCount} belum bayar • ${summary.sudahBayarCount} lunas`}
+            onClick={() => setFilterStatus('all')}
+            className={filterStatus === 'all' ? 'ring-1 ring-[var(--brand-primary)]' : ''}
           />
           <StatCard
             label="Total Estimasi Anggaran"
             value={formatRupiah(summary.totalEstimasi)}
             icon={<Wallet className="w-5 h-5 text-blue-600" />}
             description="Plafon anggaran belanja bulan berjalan"
+            onClick={() => setFilterStatus('all')}
           />
           <StatCard
             label="Sudah Dibayarkan (Realisasi)"
             value={formatRupiah(summary.totalRealisasi)}
             icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
             description="Total yang telah keluar dari kas/bank"
+            onClick={() => setFilterStatus('terbayar')}
+            className={filterStatus === 'terbayar' ? 'ring-1 ring-emerald-500' : ''}
           />
           <StatCard
             label="Sisa Belum Dibayar"
             value={formatRupiah(summary.totalSisaBelumBayar)}
             icon={<Clock className="w-5 h-5 text-amber-600" />}
             description="Kewajiban belanja yang belum dieksekusi"
+            onClick={() => setFilterStatus('belum_bayar')}
+            className={filterStatus === 'belum_bayar' ? 'ring-1 ring-amber-500' : ''}
           />
         </div>
 

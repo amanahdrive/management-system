@@ -588,18 +588,27 @@ export default function HutangPage() {
             value={formatRupiah(totalHutangKeseluruhan)}
             icon={<FileText className="w-5 h-5 text-rose-600" />}
             description={`${filteredHutangList.length} hutang sesuai filter aktif`}
+            onClick={() => {
+              setActiveTab('hutang');
+              setStatusFilterHutang('all');
+            }}
           />
           <StatCard
             label="Sisa Hutang Berjalan"
             value={formatRupiah(totalSisaHutang)}
             icon={<CreditCard className="w-5 h-5 text-amber-600" />}
             description="Kewajiban perusahaan belum lunas"
+            onClick={() => {
+              setActiveTab('hutang');
+              setStatusFilterHutang('berjalan');
+            }}
           />
           <StatCard
             label="Total Cicilan Terbayar"
             value={formatRupiah(totalCicilanTerbayar)}
             icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
             description={`${filteredPembayaranList.length} kali pembayaran cicilan`}
+            onClick={() => setActiveTab('cicilan')}
           />
         </div>
 

@@ -810,8 +810,8 @@ export default function KasOverviewPage() {
           }
         />
 
-        {/* Financial Metrics Cards: Total Saldo Aktual - Saldo Tunai - Saldo Bank - Total Piutang - Total Hutang */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Financial Metrics Cards: Total Saldo Aktual - Saldo Tunai - Saldo Bank - Pos Pengeluaran - Total Piutang - Total Hutang */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
           <StatCard
             label="Total Saldo Aktual"
             value={formatRupiah(metrics.saldoAktif)}
@@ -819,22 +819,30 @@ export default function KasOverviewPage() {
             description={
               (metrics.totalPosPengeluaran || 0) > 0
                 ? `(Tunai + Bank) - Pos: ${formatRupiah(metrics.totalPosPengeluaran || 0)}`
-                : '(Tunai + Bank) - Pos Pengeluaran'
+                : 'Laporan arus kas & cashflow'
             }
+            href="/kas/cashflow"
           />
           <StatCard
             label="Saldo Tunai"
             value={formatRupiah(metrics.saldoTunai)}
-            icon={<ArrowDownRight className="w-5 h-5 text-amber-600" />}
-            description="Uang tunai di brankas kantor"
-            onClick={handleOpenSetorTunai}
-            className="hover:border-emerald-500/50 cursor-pointer"
+            icon={<Banknote className="w-5 h-5 text-amber-600" />}
+            description="Uang tunai fisik di brankas"
+            href="/kas/rekening"
           />
           <StatCard
             label="Saldo Bank"
             value={formatRupiah(metrics.saldoNonTunai)}
-            icon={<ArrowUpRight className="w-5 h-5 text-blue-600" />}
-            description="Rekening BCA/Mandiri/dll"
+            icon={<Landmark className="w-5 h-5 text-blue-600" />}
+            description="Rekening bank operasional"
+            href="/kas/rekening"
+          />
+          <StatCard
+            label="Pos Pengeluaran"
+            value={formatRupiah(metrics.totalPosPengeluaran || 0)}
+            icon={<CreditCard className="w-5 h-5 text-purple-600" />}
+            description="Pos belanja & alokasi anggaran"
+            href="/kas/pos"
           />
           <StatCard
             label="Total Piutang"
@@ -843,14 +851,16 @@ export default function KasOverviewPage() {
             description={
               (metrics.totalKasbonStaff || 0) > 0
                 ? `Siswa: ${formatRupiah(metrics.totalPiutangSiswa || 0)} | Kasbon: ${formatRupiah(metrics.totalKasbonStaff || 0)}`
-                : 'Tagihan siswa yang belum lunas'
+                : 'Tagihan siswa & kasbon karyawan'
             }
+            href="/kas/piutang"
           />
           <StatCard
             label="Total Hutang"
             value={formatRupiah(metrics.totalHutang)}
             icon={<FileText className="w-5 h-5 text-rose-600" />}
-            description="Hutang vendor / leasing / operasional"
+            description="Hutang vendor, leasing & operasional"
+            href="/kas/hutang"
           />
         </div>
 

@@ -1178,9 +1178,16 @@ export default function FinancePortalPage() {
                 </span>
               </div>
 
-              <div>
-                <div className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums">
-                  {formatRupiah(metrics.saldoAktif)}
+              <div
+                onClick={() => setActiveTab('cashflow')}
+                className="cursor-pointer group"
+                title="Klik untuk detail arus kas (cashflow)"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums group-hover:underline">
+                    {formatRupiah(metrics.saldoAktif)}
+                  </div>
+                  <ArrowRight className="w-4 h-4 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
                 </div>
                 <div className="text-[11px] opacity-80 mt-0.5 font-medium">
                   {(metrics.totalPosPengeluaran || 0) > 0
@@ -1205,10 +1212,17 @@ export default function FinancePortalPage() {
                   </div>
                   <span className="font-bold tabular-nums block mt-1">{formatRupiah(metrics.saldoTunai)}</span>
                 </div>
-                <div className="bg-black/20 rounded-2xl p-3 border border-white/10">
-                  <span className="text-[10px] opacity-80 block font-medium">Saldo Bank</span>
+                <Link
+                  href="/kas/rekening"
+                  className="bg-black/20 hover:bg-black/30 rounded-2xl p-3 cursor-pointer transition-all border border-white/10 block"
+                  title="Klik untuk detail rekening bank"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] opacity-80 font-medium">Saldo Bank</span>
+                    <ArrowRight className="w-2.5 h-2.5 opacity-60" />
+                  </div>
                   <span className="font-bold tabular-nums block mt-1">{formatRupiah(metrics.saldoNonTunai)}</span>
-                </div>
+                </Link>
               </div>
             </div>
 
@@ -1261,7 +1275,7 @@ export default function FinancePortalPage() {
 
               <div
                 onClick={() => setActiveTab('hutang')}
-                className="p-3.5 rounded-none bg-[var(--bg)] border border-[var(--border)] shadow-xs space-y-1 cursor-pointer active:scale-98 transition-transform"
+                className="p-4 rounded-2xl liquid-glass-card border border-[var(--liquid-glass-border)] space-y-1 cursor-pointer active:scale-98 transition-all"
               >
                 <div className="flex items-center justify-between text-[var(--text-secondary)]">
                   <span className="text-[10.5px] font-bold">Total Hutang</span>
