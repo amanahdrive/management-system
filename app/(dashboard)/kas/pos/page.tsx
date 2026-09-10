@@ -94,6 +94,7 @@ export default function PosPengeluaranPage() {
     tanggal: getTodayDateString(),
     pic_nama: 'Admin Finance',
     keterangan: '',
+    catat_ke_kas: true,
   });
 
   // Modal Edit Pos State
@@ -244,6 +245,7 @@ export default function PosPengeluaranPage() {
       tanggal: getTodayDateString(),
       pic_nama: 'Admin Finance',
       keterangan: `Pembayaran Pos: ${pos.nama_pos}`,
+      catat_ke_kas: true,
     });
   };
 
@@ -254,8 +256,8 @@ export default function PosPengeluaranPage() {
       alert('Nominal pembayaran harus lebih besar dari Rp 0!');
       return;
     }
-    if (payForm.jenis_pembayaran === 'non_tunai' && !payForm.rekening_id) {
-      alert('Silakan pilih rekening bank tujuan!');
+    if (payForm.catat_ke_kas && payForm.jenis_pembayaran === 'non_tunai' && !payForm.rekening_id) {
+      alert('Silakan pilih rekening bank sumber dana!');
       return;
     }
 
@@ -340,7 +342,7 @@ export default function PosPengeluaranPage() {
       key: 'tanggal_jatuh_tempo',
       width: 16,
       align: 'center',
-      formatter: (v) => (v ? formatDateIndo(v) : '-'),
+      formatter: (v, item) => (v ? formatDateIndo(v) : item?.sumber === 'otomatis_sim' ? 'Menunggu Jadwal Sesi' : '-'),
     },
     { header: 'Estimasi Anggaran', key: 'nominal_estimasi', width: 20, isCurrency: true },
     {
@@ -353,9 +355,14 @@ export default function PosPengeluaranPage() {
     {
       header: 'Status Pembayaran',
       key: 'status',
-      width: 16,
+      width: 18,
       align: 'center',
-      formatter: (v) => (v === 'terbayar' ? 'TERBAYAR' : 'BELUM BAYAR'),
+      formatter: (v, item) =>
+        v === 'terbayar'
+          ? item?.kas_transaksi_id
+            ? 'LUNAS KAS'
+            : 'TERBAYAR (LUAR KAS)'
+          : 'BELUM BAYAR',
     },
     {
       header: 'Tanggal Bayar',
@@ -701,6 +708,11 @@ export default function PosPengeluaranPage() {
                                 </span>
                               )}
                             </div>
+                          ) : pos.sumber === 'otomatis_sim' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                              <Clock className="w-2.5 h-2.5" />
+                              Menunggu Jadwal Sesi
+                            </span>
                           ) : (
                             <span className="text-[var(--text-secondary)]">-</span>
                           )}
@@ -727,7 +739,7 @@ export default function PosPengeluaranPage() {
                           {pos.status === 'terbayar' ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/30">
                               <CheckCircle2 className="w-3 h-3" />
-                              Lunas Kas
+                              {pos.kas_transaksi_id ? 'Lunas Kas' : 'Terbayar (Luar Kas)'}
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/30">
@@ -823,51 +835,84 @@ export default function PosPengeluaranPage() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                      Metode Pembayaran *
+                {/* Checkbox Catat ke Kas */}
+                <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)]">
+                  <input
+                    type="checkbox"
+                    id="catat_ke_kas"
+                    checked={payForm.catat_ke_kas}
+                    onChange={(e) => setPayForm({ ...payForm, catat_ke_kas: e.target.checked })}
+                    className="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  />
+                  <div className="flex-1">
+                    <label htmlFor="catat_ke_kas" className="text-xs font-bold text-[var(--text-primary)] cursor-pointer select-none">
+                      Catat ke dalam Kas & Keuangan
                     </label>
-                    <select
-                      value={payForm.jenis_pembayaran}
-                      onChange={(e) =>
-                        setPayForm({
-                          ...payForm,
-                          jenis_pembayaran: e.target.value as 'tunai' | 'non_tunai',
-                        })
-                      }
-                      className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
-                    >
-                      <option value="tunai">Kas Tunai (Fisik)</option>
-                      <option value="non_tunai">Transfer Bank (Non-Tunai)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <DatePickerWIB
-                      label="Tanggal Bayar *"
-                      value={payForm.tanggal}
-                      onChange={(val) => setPayForm({ ...payForm, tanggal: val })}
-                    />
+                    <p className="text-[11px] text-[var(--text-secondary)] mt-0.5 leading-relaxed">
+                      {payForm.catat_ke_kas
+                        ? 'Pengeluaran ini akan dibukukan ke Buku Kas dan memotong saldo kas/bank aktif.'
+                        : 'Pos ditandai terbayar tanpa mencatat transaksi baru ke Buku Kas / mutasi kas.'}
+                    </p>
                   </div>
                 </div>
 
-                {payForm.jenis_pembayaran === 'non_tunai' && (
+                {payForm.catat_ke_kas ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                          Metode Pembayaran *
+                        </label>
+                        <select
+                          value={payForm.jenis_pembayaran}
+                          onChange={(e) =>
+                            setPayForm({
+                              ...payForm,
+                              jenis_pembayaran: e.target.value as 'tunai' | 'non_tunai',
+                            })
+                          }
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                        >
+                          <option value="tunai">Kas Tunai (Fisik)</option>
+                          <option value="non_tunai">Transfer Bank (Non-Tunai)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <DatePickerWIB
+                          label="Tanggal Bayar *"
+                          value={payForm.tanggal}
+                          onChange={(val) => setPayForm({ ...payForm, tanggal: val })}
+                        />
+                      </div>
+                    </div>
+
+                    {payForm.jenis_pembayaran === 'non_tunai' && (
+                      <div>
+                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                          Pilih Rekening Bank Sumber Dana *
+                        </label>
+                        <select
+                          value={payForm.rekening_id}
+                          onChange={(e) => setPayForm({ ...payForm, rekening_id: e.target.value })}
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                        >
+                          {rekeningList.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.nama_bank} - {r.nomor_rekening} ({r.atas_nama})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </>
+                ) : (
                   <div>
-                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                      Pilih Rekening Bank Sumber Dana *
-                    </label>
-                    <select
-                      value={payForm.rekening_id}
-                      onChange={(e) => setPayForm({ ...payForm, rekening_id: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
-                    >
-                      {rekeningList.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.nama_bank} - {r.nomor_rekening} ({r.atas_nama})
-                        </option>
-                      ))}
-                    </select>
+                    <DatePickerWIB
+                      label="Tanggal Pembayaran *"
+                      value={payForm.tanggal}
+                      onChange={(val) => setPayForm({ ...payForm, tanggal: val })}
+                    />
                   </div>
                 )}
 
@@ -886,7 +931,7 @@ export default function PosPengeluaranPage() {
 
                 <div>
                   <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                    Keterangan Kas
+                    Keterangan
                   </label>
                   <input
                     type="text"
@@ -909,7 +954,11 @@ export default function PosPengeluaranPage() {
                     disabled={isSubmittingPay}
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-sm"
                   >
-                    {isSubmittingPay ? 'Membukukan...' : 'Konfirmasi & Catat ke Kas'}
+                    {isSubmittingPay
+                      ? 'Memproses...'
+                      : payForm.catat_ke_kas
+                      ? 'Konfirmasi & Catat ke Kas'
+                      : 'Konfirmasi Selesai Bayar'}
                   </button>
                 </div>
               </form>

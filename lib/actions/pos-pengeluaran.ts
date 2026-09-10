@@ -164,16 +164,17 @@ function buildDueDate(yearMonth: string, day: number): string {
 }
 
 /**
- * Generator Otomatis Pos Pengeluaran untuk suatu bulan (Idempotent):
- * 1. Siswa SIM Siap Terbit (Lunas tapi SIM belum selesai) -> Modal SIM
+ * Generator Otomatis Pos Pengeluaran untuk suatu bulan (Idempotent & Preservatif):
+ * 1. Siswa SIM Baru/Aktif (yang belum selesai SIM) -> Modal SIM dengan jatuh tempo sesi terakhir (atau kosong jika belum ada jadwal)
  * 2. Cicilan Hutang Berjalan -> Hutang aktif dengan jatuh tempo bulan berjalan
- * 3. Pos Operasional Rutin: Token Listrik (200k), WiFi (300k), Air PDAM (100k fluktuatif)
+ * 3. Pos Operasional Rutin: Token Listrik, WiFi, Air PDAM (hanya tambahkan jika belum ada di daftar)
  */
 export async function generatePosOtomatisBulanIni(
   periodeBulan: string
-): Promise<{ success: boolean; createdCount: number; message: string }> {
+): Promise<{ success: boolean; createdCount: number; updatedCount: number; message: string }> {
   try {
     let createdCount = 0;
+    let updatedCount = 0;
 
     const [simSettings, opSettings] = await Promise.all([
       getModalSimSettings(),
@@ -181,29 +182,35 @@ export async function generatePosOtomatisBulanIni(
     ]);
 
     // -------------------------------------------------------------
-    // 1. SISWA SIM SIAP TERBIT (LUNAS + SIM BELUM)
+    // 1. SISWA PAKET SIM AKTIF (BELUM SELESAI SIM)
     // -------------------------------------------------------------
-    const siswaSiapTerbit = await dbQuery<{
+    const siswaSimList = await dbQuery<{
       id: string;
       nama: string;
       nama_paket: string;
       tanggal_booking: string;
+      sesi_terakhir: string | null;
     }>(
-      `SELECT s.id, s.nama, p.nama_paket, s.tanggal_booking 
+      `SELECT s.id, s.nama, p.nama_paket, s.tanggal_booking,
+              (
+                SELECT MAX(j.tanggal_sesi)::text 
+                FROM jadwal_sesi j 
+                WHERE j.siswa_id = s.id AND j.status_sesi != 'batal'
+              ) as sesi_terakhir
        FROM siswa s
        JOIN paket p ON s.paket_id = p.id
        WHERE p.termasuk_sim = TRUE 
-         AND s.status_pembayaran_kode = 'lunas' 
-         AND s.status_sim = 'belum'
+         AND (s.status_sim != 'selesai' OR s.status_sim IS NULL)
          AND (s.is_archived = FALSE OR s.is_archived IS NULL)`
     );
 
-    for (const s of siswaSiapTerbit || []) {
-      // Cek apakah pos untuk siswa ini sudah pernah digenerate
-      const existing = await dbQuerySingle<{ id: string }>(
-        `SELECT id FROM pos_pengeluaran 
-         WHERE siswa_id = $1 AND sumber = 'otomatis_sim' AND status != 'dibatalkan'`,
-        [s.id]
+    for (const s of siswaSimList || []) {
+      // Cek apakah pos untuk siswa ini sudah pernah ada (baik otomatis maupun manual)
+      const existing = await dbQuerySingle<{ id: string; status: string; tanggal_jatuh_tempo: string | null }>(
+        `SELECT id, status, tanggal_jatuh_tempo::text 
+         FROM pos_pengeluaran 
+         WHERE (siswa_id = $1 OR nama_pos ILIKE $2) AND status != 'dibatalkan'`,
+        [s.id, `%SIM%${s.nama}%`]
       );
 
       if (!existing) {
@@ -213,6 +220,11 @@ export async function generatePosOtomatisBulanIni(
           simSettings.configPerJenis?.['default'] ||
           simSettings.hargaDefault ||
           850000;
+
+        const dueDate = s.sesi_terakhir || null;
+        const catatanText = dueDate
+          ? `Otomatis dari Siswa SIM (${s.nama_paket}) - Jatuh tempo sesi terakhir`
+          : `Otomatis dari Siswa SIM (${s.nama_paket}) - Jadwal sesi belum diatur`;
 
         await dbQuery(
           `INSERT INTO pos_pengeluaran (
@@ -225,12 +237,26 @@ export async function generatePosOtomatisBulanIni(
             'sim',
             modalPrice,
             periodeBulan,
-            s.tanggal_booking || getTodayDateString(),
+            dueDate,
             s.id,
-            `Otomatis dari Siswa Siap Terbit (${s.nama_paket})`,
+            catatanText,
           ]
         );
         createdCount++;
+      } else if (existing.status === 'belum_bayar' && s.sesi_terakhir) {
+        // Jika pos sudah ada dan belum dibayar, selaraskan jatuh tempo jika ada jadwal sesi terakhir baru
+        const currentDueDate = existing.tanggal_jatuh_tempo ? String(existing.tanggal_jatuh_tempo).slice(0, 10) : null;
+        if (currentDueDate !== s.sesi_terakhir) {
+          await dbQuery(
+            `UPDATE pos_pengeluaran 
+             SET tanggal_jatuh_tempo = $1,
+                 catatan = 'Jatuh tempo disesuaikan ke tanggal sesi terakhir',
+                 updated_at = NOW()
+             WHERE id = $2`,
+            [s.sesi_terakhir, existing.id]
+          );
+          updatedCount++;
+        }
       }
     }
 
@@ -253,8 +279,8 @@ export async function generatePosOtomatisBulanIni(
     for (const h of hutangBerjalan || []) {
       const existing = await dbQuerySingle<{ id: string }>(
         `SELECT id FROM pos_pengeluaran 
-         WHERE hutang_id = $1 AND periode_bulan = $2 AND status != 'dibatalkan'`,
-        [h.id, periodeBulan]
+         WHERE (hutang_id = $1 OR nama_pos ILIKE $3) AND periode_bulan = $2 AND status != 'dibatalkan'`,
+        [h.id, periodeBulan, `%${h.nama_hutang}%`]
       );
 
       if (!existing) {
@@ -286,14 +312,13 @@ export async function generatePosOtomatisBulanIni(
     }
 
     // -------------------------------------------------------------
-    // 3. OPERASIONAL RUTIN: TOKEN, WIFI, AIR
+    // 3. OPERASIONAL RUTIN: TOKEN, WIFI, AIR (Hanya jika belum ada)
     // -------------------------------------------------------------
     // A. Token Listrik
     const existingToken = await dbQuerySingle<{ id: string }>(
       `SELECT id FROM pos_pengeluaran 
-       WHERE sumber = 'otomatis_operasional' 
-         AND periode_bulan = $1 
-         AND nama_pos LIKE 'Tagihan Token Listrik%' 
+       WHERE periode_bulan = $1 
+         AND (nama_pos ILIKE '%Token Listrik%' OR nama_pos ILIKE '%Listrik%') 
          AND status != 'dibatalkan'`,
       [periodeBulan]
     );
@@ -320,9 +345,8 @@ export async function generatePosOtomatisBulanIni(
     // B. WiFi Kantor
     const existingWifi = await dbQuerySingle<{ id: string }>(
       `SELECT id FROM pos_pengeluaran 
-       WHERE sumber = 'otomatis_operasional' 
-         AND periode_bulan = $1 
-         AND nama_pos LIKE 'Tagihan WiFi Kantor%' 
+       WHERE periode_bulan = $1 
+         AND (nama_pos ILIKE '%WiFi%' OR nama_pos ILIKE '%Internet%') 
          AND status != 'dibatalkan'`,
       [periodeBulan]
     );
@@ -349,9 +373,8 @@ export async function generatePosOtomatisBulanIni(
     // C. Air PDAM (Fluktuatif)
     const existingAir = await dbQuerySingle<{ id: string }>(
       `SELECT id FROM pos_pengeluaran 
-       WHERE sumber = 'otomatis_operasional' 
-         AND periode_bulan = $1 
-         AND nama_pos LIKE 'Tagihan Air PDAM%' 
+       WHERE periode_bulan = $1 
+         AND (nama_pos ILIKE '%Air PDAM%' OR nama_pos ILIKE '%PDAM%') 
          AND status != 'dibatalkan'`,
       [periodeBulan]
     );
@@ -379,18 +402,173 @@ export async function generatePosOtomatisBulanIni(
     safeRevalidate('/kas/pos');
     safeRevalidate('/kas');
 
+    let msg = `Sinkronisasi periode ${periodeBulan}: `;
+    if (createdCount === 0 && updatedCount === 0) {
+      msg += `Semua pos pengeluaran sudah terdata lengkap. Tidak ada data yang diubah atau diduplikasi.`;
+    } else {
+      msg += `Berhasil menambahkan ${createdCount} pos baru`;
+      if (updatedCount > 0) {
+        msg += ` dan menyelaraskan tanggal jatuh tempo ${updatedCount} pos SIM`;
+      }
+      msg += `. Pos yang sudah ada tetap aman.`;
+    }
+
     return {
       success: true,
       createdCount,
-      message: `Berhasil memeriksa dan menambahkan ${createdCount} pos pengeluaran baru untuk periode ${periodeBulan}.`,
+      updatedCount,
+      message: msg,
     };
   } catch (err: any) {
     console.error('Error generating automatic pos pengeluaran:', err);
     return {
       success: false,
       createdCount: 0,
+      updatedCount: 0,
       message: err.message || 'Gagal membuat pos otomatis',
     };
+  }
+}
+
+/**
+ * Sinkronkan Siswa SIM Baru / Update Paket ke Pos Pengeluaran pada Bulan Aktif:
+ * - Jika siswa mengambil paket SIM, langsung masukkan ke pos pengeluaran bulan aktif.
+ * - Tanggal jatuh tempo menyesuaikan tanggal sesi terakhir siswa (atau NULL jika jadwal belum diatur).
+ * - Jika siswa batal/tidak mengambil paket SIM, pos pending dibatalkan.
+ */
+export async function syncSiswaSimToPosPengeluaran(siswaId: string): Promise<void> {
+  try {
+    const s = await dbQuerySingle<{
+      id: string;
+      nama: string;
+      tanggal_booking: string;
+      status_sim: string;
+      nama_paket: string;
+      termasuk_sim: boolean;
+      sesi_terakhir: string | null;
+    }>(
+      `SELECT s.id, s.nama, s.tanggal_booking, s.status_sim, p.nama_paket, p.termasuk_sim,
+              (
+                SELECT MAX(j.tanggal_sesi)::text 
+                FROM jadwal_sesi j 
+                WHERE j.siswa_id = s.id AND j.status_sesi != 'batal'
+              ) as sesi_terakhir
+       FROM siswa s
+       JOIN paket p ON s.paket_id = p.id
+       WHERE s.id = $1`,
+      [siswaId]
+    );
+
+    if (!s) return;
+
+    const existing = await dbQuerySingle<{ id: string; status: string; tanggal_jatuh_tempo: string | null }>(
+      `SELECT id, status, tanggal_jatuh_tempo::text 
+       FROM pos_pengeluaran 
+       WHERE siswa_id = $1 AND status != 'dibatalkan'`,
+      [siswaId]
+    );
+
+    // Jika siswa batal ambil SIM, hapus pos pending yang belum dibayar
+    if (!s.termasuk_sim) {
+      if (existing && existing.status === 'belum_bayar') {
+        await dbQuery(`DELETE FROM pos_pengeluaran WHERE id = $1`, [existing.id]);
+        cacheInvalidate('pos_pengeluaran*');
+        safeRevalidate('/kas/pos');
+      }
+      return;
+    }
+
+    // Siswa mengambil paket SIM
+    const simSettings = await getModalSimSettings();
+    const jenis = s.nama_paket?.toLowerCase().includes('sim c') ? 'SIM C' : 'SIM A';
+    const modalPrice =
+      simSettings.configPerJenis?.[jenis] ||
+      simSettings.configPerJenis?.['default'] ||
+      simSettings.hargaDefault ||
+      850000;
+
+    const currentMonth = getTodayDateString().slice(0, 7);
+    const dueDate = s.sesi_terakhir || null;
+
+    if (!existing) {
+      const catatanText = dueDate
+        ? `Otomatis dari Siswa SIM (${s.nama_paket}) - Jatuh tempo sesi terakhir`
+        : `Otomatis dari Siswa SIM (${s.nama_paket}) - Jadwal sesi belum diatur`;
+
+      await dbQuery(
+        `INSERT INTO pos_pengeluaran (
+          nama_pos, kategori, nominal_estimasi, nominal_realisasi, 
+          is_fluktuatif, sumber, periode_bulan, tanggal_jatuh_tempo, 
+          status, siswa_id, catatan, created_at, updated_at
+        ) VALUES ($1, 'sim', $2, 0, FALSE, 'otomatis_sim', $3, $4, 'belum_bayar', $5, $6, NOW(), NOW())`,
+        [
+          `Modal SIM - ${s.nama} (${jenis})`,
+          modalPrice,
+          currentMonth,
+          dueDate,
+          s.id,
+          catatanText,
+        ]
+      );
+      cacheInvalidate('pos_pengeluaran*');
+      safeRevalidate('/kas/pos');
+    } else if (existing.status === 'belum_bayar') {
+      const currentDueDate = existing.tanggal_jatuh_tempo ? String(existing.tanggal_jatuh_tempo).slice(0, 10) : null;
+      if (currentDueDate !== dueDate) {
+        await dbQuery(
+          `UPDATE pos_pengeluaran 
+           SET tanggal_jatuh_tempo = $1, 
+               catatan = CASE WHEN $1::text IS NOT NULL THEN 'Jatuh tempo disesuaikan ke tanggal sesi terakhir' ELSE 'Jadwal sesi belum diatur' END,
+               updated_at = NOW() 
+           WHERE id = $2`,
+          [dueDate, existing.id]
+        );
+        cacheInvalidate('pos_pengeluaran*');
+        safeRevalidate('/kas/pos');
+      }
+    }
+  } catch (err) {
+    console.error('Error in syncSiswaSimToPosPengeluaran:', err);
+  }
+}
+
+/**
+ * Sinkronkan Tanggal Jatuh Tempo Pos SIM saat Jadwal Sesi Siswa Diatur atau Berubah
+ */
+export async function syncSimPosDueDateOnScheduleChange(siswaId: string): Promise<void> {
+  try {
+    const existing = await dbQuerySingle<{ id: string; status: string; tanggal_jatuh_tempo: string | null }>(
+      `SELECT id, status, tanggal_jatuh_tempo::text 
+       FROM pos_pengeluaran 
+       WHERE siswa_id = $1 AND kategori = 'sim' AND status = 'belum_bayar'`,
+      [siswaId]
+    );
+    if (!existing) return;
+
+    const res = await dbQuerySingle<{ sesi_terakhir: string | null }>(
+      `SELECT MAX(tanggal_sesi)::text as sesi_terakhir 
+       FROM jadwal_sesi 
+       WHERE siswa_id = $1 AND status_sesi != 'batal'`,
+      [siswaId]
+    );
+
+    const dueDate = res?.sesi_terakhir || null;
+    const currentDueDate = existing.tanggal_jatuh_tempo ? String(existing.tanggal_jatuh_tempo).slice(0, 10) : null;
+
+    if (currentDueDate !== dueDate) {
+      await dbQuery(
+        `UPDATE pos_pengeluaran 
+         SET tanggal_jatuh_tempo = $1,
+             catatan = CASE WHEN $1::text IS NOT NULL THEN 'Jatuh tempo disesuaikan ke tanggal sesi terakhir' ELSE 'Jadwal sesi belum diatur' END,
+             updated_at = NOW()
+         WHERE id = $2`,
+        [dueDate, existing.id]
+      );
+      cacheInvalidate('pos_pengeluaran*');
+      safeRevalidate('/kas/pos');
+    }
+  } catch (err) {
+    console.error('Error in syncSimPosDueDateOnScheduleChange:', err);
   }
 }
 
@@ -523,12 +701,13 @@ export interface BayarPosPayload {
   tanggal: string;
   pic_nama: string;
   keterangan?: string;
+  catat_ke_kas?: boolean;
 }
 
 /**
  * Eksekusi Pembayaran Pos Pengeluaran:
- * - Catat mutasi pengeluaran ke kas_transaksi
- * - Hubungkan kas_transaksi_id ke pos_pengeluaran dan update status menjadi 'terbayar'
+ * - Jika catat_ke_kas !== false: catat mutasi pengeluaran ke kas_transaksi & tautkan kas_transaksi_id
+ * - Jika catat_ke_kas === false: hanya update status menjadi 'terbayar' tanpa mutasi kas_transaksi
  * - Jika terkait hutang, sinkronkan sisa hutang di tabel hutang
  */
 export async function bayarPosPengeluaran(
@@ -550,33 +729,38 @@ export async function bayarPosPengeluaran(
       return { success: false, error: 'Nominal pembayaran harus lebih besar dari 0' };
     }
 
-    const txKategori =
-      pos.kategori === 'sim' ? 'operasional' : (pos.kategori || 'operasional');
-    const txKeterangan =
-      payload.keterangan?.trim() || `Pembayaran Pos: ${pos.nama_pos}`;
+    const catatKeKas = payload.catat_ke_kas !== false;
+    let newTxId: string | null = null;
 
-    // 1. Simpan ke kas_transaksi
-    const txRows = await dbQuery<{ id: string }>(
-      `INSERT INTO kas_transaksi (
-        tanggal, tipe, kategori, keterangan, nominal,
-        jenis_pembayaran, rekening_id, pic_tipe, pic_nama,
-        siswa_id, hutang_id, sumber_otomatis, created_at, updated_at
-      ) VALUES ($1, 'pengeluaran', $2, $3, $4, $5, $6, 'admin', $7, $8, $9, TRUE, NOW(), NOW())
-      RETURNING id`,
-      [
-        payload.tanggal || getTodayDateString(),
-        txKategori,
-        txKeterangan,
-        payload.nominal_realisasi,
-        payload.jenis_pembayaran,
-        payload.jenis_pembayaran === 'non_tunai' ? (payload.rekening_id || null) : null,
-        payload.pic_nama || 'Admin Staff',
-        pos.siswa_id || null,
-        pos.hutang_id || null,
-      ]
-    );
+    if (catatKeKas) {
+      const txKategori =
+        pos.kategori === 'sim' ? 'operasional' : (pos.kategori || 'operasional');
+      const txKeterangan =
+        payload.keterangan?.trim() || `Pembayaran Pos: ${pos.nama_pos}`;
 
-    const newTxId = txRows[0].id;
+      // 1. Simpan ke kas_transaksi
+      const txRows = await dbQuery<{ id: string }>(
+        `INSERT INTO kas_transaksi (
+          tanggal, tipe, kategori, keterangan, nominal,
+          jenis_pembayaran, rekening_id, pic_tipe, pic_nama,
+          siswa_id, hutang_id, sumber_otomatis, created_at, updated_at
+        ) VALUES ($1, 'pengeluaran', $2, $3, $4, $5, $6, 'admin', $7, $8, $9, TRUE, NOW(), NOW())
+        RETURNING id`,
+        [
+          payload.tanggal || getTodayDateString(),
+          txKategori,
+          txKeterangan,
+          payload.nominal_realisasi,
+          payload.jenis_pembayaran,
+          payload.jenis_pembayaran === 'non_tunai' ? (payload.rekening_id || null) : null,
+          payload.pic_nama || 'Admin Staff',
+          pos.siswa_id || null,
+          pos.hutang_id || null,
+        ]
+      );
+
+      newTxId = txRows[0].id;
+    }
 
     // 2. Update pos_pengeluaran
     await dbQuery(
@@ -595,14 +779,18 @@ export async function bayarPosPengeluaran(
     }
 
     cacheInvalidate('pos_pengeluaran*');
-    cacheInvalidate('kas*');
-    cacheInvalidate('dashboard*');
+    if (catatKeKas) {
+      cacheInvalidate('kas*');
+      cacheInvalidate('dashboard*');
+      safeRevalidate('/kas');
+      safeRevalidate('/kas/cashflow');
+      safeRevalidate('/finance');
+    }
+    if (pos.hutang_id) {
+      safeRevalidate('/kas/hutang');
+    }
 
     safeRevalidate('/kas/pos');
-    safeRevalidate('/kas');
-    safeRevalidate('/kas/cashflow');
-    safeRevalidate('/kas/hutang');
-    safeRevalidate('/finance');
 
     return { success: true };
   } catch (err: any) {

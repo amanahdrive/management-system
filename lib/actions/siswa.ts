@@ -6,6 +6,7 @@ import { getTodayDateString } from '@/lib/utils/date';
 import { Siswa } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 import { syncSiswaPaymentState } from '@/lib/actions/kas';
+import { syncSiswaSimToPosPengeluaran } from '@/lib/actions/pos-pengeluaran';
 
 const SISWA_CACHE_KEY = 'siswa_list';
 
@@ -238,11 +239,15 @@ export async function createOrUpdateSiswa(
       return { success: false, error: 'Gagal menyimpan data siswa' };
     }
 
+    // Sinkronkan ke Pos Pengeluaran jika mengambil paket SIM pada bulan aktif (atau hapus jika batal SIM)
+    await syncSiswaSimToPosPengeluaran(savedSiswa.id);
+
     cacheInvalidate('siswa*');
     cacheInvalidate('dashboard*');
 
     revalidatePath('/siswa');
     revalidatePath('/kas');
+    revalidatePath('/kas/pos');
     revalidatePath('/kas/cashflow');
     revalidatePath('/kas/piutang');
     revalidatePath('/dashboard');
@@ -255,12 +260,20 @@ export async function createOrUpdateSiswa(
 
 export async function deleteSiswa(id: string): Promise<{ success: boolean; error?: string }> {
   try {
+    // Hapus pos pengeluaran SIM yang belum bayar jika siswa dihapus
+    await dbQuery(
+      `DELETE FROM pos_pengeluaran WHERE siswa_id = $1 AND status = 'belum_bayar'`,
+      [id]
+    );
+
     await dbQuery('DELETE FROM siswa WHERE id = $1', [id]);
 
     cacheInvalidate('siswa*');
+    cacheInvalidate('pos_pengeluaran*');
     cacheInvalidate('dashboard*');
 
     revalidatePath('/siswa');
+    revalidatePath('/kas/pos');
     revalidatePath('/dashboard');
     return { success: true };
   } catch (err: any) {

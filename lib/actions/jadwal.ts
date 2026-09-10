@@ -5,6 +5,7 @@ import { cacheInvalidate } from '@/lib/utils/cache';
 import { JadwalSesi } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 import { getGeneralSettings } from '@/lib/actions/settings';
+import { syncSimPosDueDateOnScheduleChange } from '@/lib/actions/pos-pengeluaran';
 import {
   generateWhatsAppJadwalMarkdown,
   generateWhatsAppRangeScheduleMarkdown,
@@ -257,6 +258,10 @@ export async function upsertJadwalSesi(
         `UPDATE jadwal_sesi SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
         values
       );
+      const targetSiswaId = cleanPayload.siswa_id || (saved as any)?.siswa_id;
+      if (targetSiswaId) {
+        await syncSimPosDueDateOnScheduleChange(targetSiswaId);
+      }
       cacheInvalidate('dashboard*');
       cacheInvalidate('jadwal*');
       revalidatePath('/jadwal');
@@ -272,6 +277,10 @@ export async function upsertJadwalSesi(
         `INSERT INTO jadwal_sesi (${cols}) VALUES (${placeholders}) RETURNING *`,
         values
       );
+      const targetSiswaId = cleanPayload.siswa_id || (saved as any)?.siswa_id;
+      if (targetSiswaId) {
+        await syncSimPosDueDateOnScheduleChange(targetSiswaId);
+      }
       cacheInvalidate('dashboard*');
       cacheInvalidate('jadwal*');
       revalidatePath('/jadwal');
@@ -286,14 +295,20 @@ export async function upsertJadwalBatch(
   jadwalList: Partial<JadwalSesi>[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const affectedSiswaIds = new Set<string>();
     for (const item of jadwalList) {
       const { siswa, instruktur, slot_waktu, kendaraan, slot_waktu_akhir, ...clean } = item as any;
+      if (clean.siswa_id) affectedSiswaIds.add(clean.siswa_id);
       const keys = Object.keys(clean).filter((k) => clean[k] !== undefined);
       const cols = keys.map((k) => `"${k}"`).join(', ');
       const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
       const values = keys.map((k) => clean[k]);
 
       await dbQuery(`INSERT INTO jadwal_sesi (${cols}) VALUES (${placeholders})`, values);
+    }
+
+    for (const sId of affectedSiswaIds) {
+      await syncSimPosDueDateOnScheduleChange(sId);
     }
 
     cacheInvalidate('dashboard*');
@@ -377,6 +392,18 @@ export async function bulkUpdateJadwalSesi(
       values
     );
 
+    if (siswaId) {
+      await syncSimPosDueDateOnScheduleChange(siswaId);
+    } else {
+      const affectedRows = await dbQuery<{ siswa_id: string }>(
+        `SELECT DISTINCT siswa_id FROM jadwal_sesi WHERE id = ANY($1::uuid[])`,
+        [sessionIds]
+      );
+      for (const row of affectedRows || []) {
+        if (row.siswa_id) await syncSimPosDueDateOnScheduleChange(row.siswa_id);
+      }
+    }
+
     cacheInvalidate('dashboard*');
     cacheInvalidate('jadwal*');
 
@@ -404,6 +431,9 @@ export async function updateJadwalBatchSpecific(
       return { success: true, count: 0 };
     }
 
+    const affectedSiswaIds = new Set<string>();
+    if (siswaId) affectedSiswaIds.add(siswaId);
+
     for (const item of updates) {
       if (!item.id) continue;
       const {
@@ -418,6 +448,8 @@ export async function updateJadwalBatchSpecific(
         ...clean
       } = item as any;
 
+      if (clean.siswa_id) affectedSiswaIds.add(clean.siswa_id);
+
       const keys = Object.keys(clean).filter((k) => clean[k] !== undefined);
       if (keys.length === 0) continue;
 
@@ -429,6 +461,10 @@ export async function updateJadwalBatchSpecific(
         `UPDATE jadwal_sesi SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length}`,
         values
       );
+    }
+
+    for (const sId of affectedSiswaIds) {
+      await syncSimPosDueDateOnScheduleChange(sId);
     }
 
     cacheInvalidate('dashboard*');
@@ -495,6 +531,8 @@ export async function updateSesiProgress(
       );
     }
 
+    await syncSimPosDueDateOnScheduleChange(siswaId);
+
     cacheInvalidate('dashboard*');
     cacheInvalidate('jadwal*');
     cacheInvalidate('staff*');
@@ -553,6 +591,8 @@ export async function rescheduleSesiShiftCascade(
       }
     }
 
+    await syncSimPosDueDateOnScheduleChange(siswaId);
+
     cacheInvalidate('dashboard*');
     cacheInvalidate('jadwal*');
     cacheInvalidate('staff*');
@@ -576,10 +616,23 @@ export async function deleteJadwalSesi(
   siswaId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    let targetSiswaId = siswaId;
+    if (!targetSiswaId) {
+      const existing = await dbQuerySingle<{ siswa_id: string }>(
+        'SELECT siswa_id FROM jadwal_sesi WHERE id = $1',
+        [id]
+      );
+      targetSiswaId = existing?.siswa_id;
+    }
+
     if (siswaId) {
       await dbQuery('DELETE FROM jadwal_sesi WHERE siswa_id = $1', [siswaId]);
     } else {
       await dbQuery('DELETE FROM jadwal_sesi WHERE id = $1', [id]);
+    }
+
+    if (targetSiswaId) {
+      await syncSimPosDueDateOnScheduleChange(targetSiswaId);
     }
 
     cacheInvalidate('dashboard*');
