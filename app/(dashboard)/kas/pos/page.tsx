@@ -330,7 +330,7 @@ export default function PosPengeluaranPage() {
       align: 'center',
       formatter: (v) =>
         v === 'otomatis_sim'
-          ? 'SIM Siap Terbit'
+          ? 'Pelatihan SIM'
           : v === 'otomatis_hutang'
           ? 'Cicilan Hutang'
           : v === 'otomatis_operasional'
@@ -562,7 +562,7 @@ export default function PosPengeluaranPage() {
               className="px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
             >
               <option value="all">Semua Sumber Pos</option>
-              <option value="otomatis_sim">SIM Siap Terbit</option>
+              <option value="otomatis_sim">Pelatihan SIM</option>
               <option value="otomatis_hutang">Cicilan Hutang</option>
               <option value="otomatis_operasional">Operasional Rutin (Token/WiFi/Air)</option>
               <option value="manual">Pos Manual</option>
@@ -667,7 +667,7 @@ export default function PosPengeluaranPage() {
                             {pos.sumber === 'otomatis_sim' && (
                               <span className="px-2 py-0.5 bg-blue-500/10 text-blue-600 border border-blue-500/20 rounded-md text-[10px] font-bold flex items-center gap-1">
                                 <Sparkles className="w-2.5 h-2.5" />
-                                SIM Siap Terbit
+                                Pelatihan SIM
                               </span>
                             )}
                             {pos.sumber === 'otomatis_hutang' && (
@@ -1012,7 +1012,7 @@ export default function PosPengeluaranPage() {
                       className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
                     >
                       <option value="operasional">Operasional</option>
-                      <option value="sim">Penerbitan SIM</option>
+                      <option value="sim">Pelatihan SIM</option>
                       <option value="cicilan_hutang">Cicilan Hutang</option>
                       <option value="bbm">BBM Kendaraan</option>
                       <option value="gaji">Gaji / Honor</option>
@@ -1131,7 +1131,7 @@ export default function PosPengeluaranPage() {
                       className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
                     >
                       <option value="operasional">Operasional</option>
-                      <option value="sim">Penerbitan SIM</option>
+                      <option value="sim">Pelatihan SIM</option>
                       <option value="cicilan_hutang">Cicilan Hutang</option>
                       <option value="bbm">BBM Kendaraan</option>
                       <option value="gaji">Gaji / Honor</option>

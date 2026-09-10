@@ -182,7 +182,7 @@ export default function ManajemenSimPage() {
           setSimConfigSuccess(false);
         }, 1200);
       } else {
-        alert(res.error || 'Gagal menyimpan pengaturan modal SIM');
+        alert(res.error || 'Gagal menyimpan pengaturan biaya pelatihan SIM');
       }
     } catch (err) {
       console.error('Error saving sim config:', err);
@@ -451,7 +451,7 @@ export default function ManajemenSimPage() {
               className="px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
             >
               <SettingsIcon className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
-              <span>Atur Modal SIM ({formatRupiah(simConfig.hargaDefault)})</span>
+              <span>Atur Biaya Pelatihan SIM ({formatRupiah(simConfig.hargaDefault)})</span>
             </button>
           </div>
         }
@@ -1273,7 +1273,7 @@ export default function ManajemenSimPage() {
         </div>
       )}
 
-      {/* Modal Pengaturan Modal SIM */}
+      {/* Modal Pengaturan Biaya Pelatihan SIM */}
       {isSimConfigModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
           <div className="w-full max-w-md bg-[var(--bg)] rounded-2xl border border-[var(--border)] p-6 shadow-2xl space-y-4">
@@ -1284,10 +1284,10 @@ export default function ManajemenSimPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-[var(--text-primary)]">
-                    Pengaturan Modal Penerbitan SIM
+                    Pengaturan Biaya Pelatihan SIM
                   </h3>
                   <p className="text-xs text-[var(--text-secondary)]">
-                    Biaya modal pembuatan SIM untuk POS Belanja Kas
+                    Biaya pelatihan pembuatan SIM untuk Pos Belanja Kas
                   </p>
                 </div>
               </div>
@@ -1303,7 +1303,7 @@ export default function ManajemenSimPage() {
             <form onSubmit={handleSaveSimConfig} className="space-y-4 text-xs">
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
-                  Modal Standar / SIM A (Mobil) *
+                  Biaya Pelatihan Standar / SIM A (Mobil) *
                 </label>
                 <CurrencyInput
                   value={simConfig.hargaDefault}
@@ -1320,7 +1320,7 @@ export default function ManajemenSimPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
-                  Modal SIM C (Motor - Opsional)
+                  Biaya Pelatihan SIM C (Motor - Opsional)
                 </label>
                 <CurrencyInput
                   value={simConfig.configPerJenis?.['SIM C'] || 650000}
@@ -1337,7 +1337,7 @@ export default function ManajemenSimPage() {
               {simConfigSuccess && (
                 <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-600 font-bold text-center text-xs flex items-center justify-center gap-1.5 animate-fadeIn">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Pengaturan modal SIM berhasil disimpan!</span>
+                  <span>Pengaturan biaya pelatihan SIM berhasil disimpan!</span>
                 </div>
               )}
 

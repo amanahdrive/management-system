@@ -348,7 +348,11 @@ export async function saveModalSimSettings(
     safeRevalidatePath('/kas/pos');
     return { success: true };
   } catch (err: any) {
-    console.error('Error saving modal SIM settings:', err);
-    return { success: false, error: err.message || 'Gagal menyimpan pengaturan modal SIM' };
+    console.error('Error saving pelatihan SIM settings:', err);
+    return { success: false, error: err.message || 'Gagal menyimpan pengaturan biaya pelatihan SIM' };
   }
 }
+
+export type PelatihanSimSettings = ModalSimSettings;
+export const getPelatihanSimSettings = getModalSimSettings;
+export const savePelatihanSimSettings = saveModalSimSettings;

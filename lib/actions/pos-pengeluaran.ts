@@ -165,7 +165,7 @@ function buildDueDate(yearMonth: string, day: number): string {
 
 /**
  * Generator Otomatis Pos Pengeluaran untuk suatu bulan (Idempotent & Preservatif):
- * 1. Siswa SIM Baru/Aktif (yang belum selesai SIM) -> Modal SIM dengan jatuh tempo sesi terakhir (atau kosong jika belum ada jadwal)
+ * 1. Siswa SIM Baru/Aktif (yang belum selesai SIM) -> Pelatihan SIM dengan jatuh tempo sesi terakhir (atau kosong jika belum ada jadwal)
  * 2. Cicilan Hutang Berjalan -> Hutang aktif dengan jatuh tempo bulan berjalan
  * 3. Pos Operasional Rutin: Token Listrik, WiFi, Air PDAM (hanya tambahkan jika belum ada di daftar)
  */
@@ -233,7 +233,7 @@ export async function generatePosOtomatisBulanIni(
             status, siswa_id, catatan, created_at, updated_at
           ) VALUES ($1, $2, $3, 0, FALSE, 'otomatis_sim', $4, $5, 'belum_bayar', $6, $7, NOW(), NOW())`,
           [
-            `Modal SIM - ${s.nama} (${jenis})`,
+            `Pelatihan SIM - ${s.nama} (${jenis})`,
             'sim',
             modalPrice,
             periodeBulan,
@@ -502,7 +502,7 @@ export async function syncSiswaSimToPosPengeluaran(siswaId: string): Promise<voi
           status, siswa_id, catatan, created_at, updated_at
         ) VALUES ($1, 'sim', $2, 0, FALSE, 'otomatis_sim', $3, $4, 'belum_bayar', $5, $6, NOW(), NOW())`,
         [
-          `Modal SIM - ${s.nama} (${jenis})`,
+          `Pelatihan SIM - ${s.nama} (${jenis})`,
           modalPrice,
           currentMonth,
           dueDate,
