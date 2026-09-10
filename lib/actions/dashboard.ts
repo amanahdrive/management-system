@@ -106,7 +106,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
           COUNT(*) FILTER (WHERE status_pembayaran_kode = 'lunas' AND has_sessions AND NOT has_pending)::int AS siswa_selesai,
           COUNT(*) FILTER (WHERE tanggal_booking >= $1)::int AS siswa_baru_bulan_ini,
           COUNT(*) FILTER (WHERE termasuk_sim AND status_pembayaran_kode = 'lunas' AND status_sim != 'selesai')::int AS siswa_siap_sim,
-          COUNT(*) FILTER (WHERE status_pembayaran_kode != 'lunas')::int AS siswa_belum_lunas
+          COUNT(*) FILTER (WHERE status_pembayaran_kode != 'lunas' AND GREATEST(0, COALESCE(harga_final, 0) - COALESCE(dp_nominal, 0)) > 0)::int AS siswa_belum_lunas
         FROM siswa_calc;
       `, [firstDayThisMonth]),
 

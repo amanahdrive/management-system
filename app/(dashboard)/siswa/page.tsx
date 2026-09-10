@@ -355,9 +355,26 @@ export default function SiswaPage() {
         const hargaFinal = Number(row.original.harga_final) || 0;
         const dpNominal = Number(row.original.dp_nominal) || 0;
 
+        const sisa = Math.max(0, hargaFinal - dpNominal);
+
+        if (kode === 'lunas' || (kode === 'dp' && sisa === 0 && hargaFinal > 0)) {
+          return (
+            <div className="space-y-0.5">
+              <span
+                className="px-2.5 py-0.5 text-xs text-white font-bold rounded-md inline-block shadow-xs"
+                style={{ backgroundColor: '#1B8A5A' }}
+              >
+                Lunas (100%)
+              </span>
+              <div className="text-[10.5px] text-emerald-600 font-semibold">
+                Terbayar Penuh
+              </div>
+            </div>
+          );
+        }
+
         if (kode === 'dp') {
           const pct = hargaFinal > 0 ? Math.round((dpNominal / hargaFinal) * 100) : 0;
-          const sisa = Math.max(0, hargaFinal - dpNominal);
           return (
             <div className="space-y-0.5">
               <span
@@ -827,6 +844,36 @@ export default function SiswaPage() {
                         Diskon promo: {promosiList.find(p => p.id === formData.promosi_id)?.nama_promo}
                       </p>
                     )}
+
+                    {(() => {
+                      if (!formData.id) return null;
+                      const existing = siswaList.find((s) => s.id === formData.id);
+                      if (!existing) return null;
+                      const paid = existing.status_pembayaran_kode === 'lunas' ? existing.harga_final : (existing.dp_nominal || 0);
+                      if (paid <= 0) return null;
+                      const newFinal = formData.harga_final || 0;
+                      const isCovered = newFinal <= paid;
+                      return (
+                        <div className={`mt-2 p-2.5 rounded-md text-xs border ${
+                          isCovered
+                            ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                            : 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                        }`}>
+                          <div className="flex items-center justify-between font-semibold">
+                            <span>Total Pembayaran Terdahulu:</span>
+                            <span className="tabular-num font-bold">{formatRupiah(paid)}</span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between text-[11px]">
+                            <span>Dampak Piutang Paket Baru:</span>
+                            <span className="font-bold">
+                              {isCovered
+                                ? '✓ Otomatis Lunas (Sisa Piutang: Rp 0)'
+                                : `Sisa Piutang Baru: ${formatRupiah(newFinal - paid)} (Status: DP)`}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 

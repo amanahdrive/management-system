@@ -135,8 +135,14 @@ export async function getKasOverviewMetrics() {
 
 export async function syncSiswaPaymentState(siswaId: string): Promise<void> {
   try {
-    const siswa = await dbQuerySingle<{ id: string; harga_final: number; status_pembayaran_kode: string }>(
-      'SELECT id, harga_final, status_pembayaran_kode FROM siswa WHERE id = $1',
+    const siswa = await dbQuerySingle<{
+      id: string;
+      harga_final: number;
+      status_pembayaran_kode: string;
+      dp_nominal: number | null;
+      dp_tanggal: string | null;
+    }>(
+      'SELECT id, harga_final, status_pembayaran_kode, dp_nominal, dp_tanggal FROM siswa WHERE id = $1',
       [siswaId]
     );
     if (!siswa) return;
@@ -167,7 +173,15 @@ export async function syncSiswaPaymentState(siswaId: string): Promise<void> {
       });
     }
 
-    const netPaid = Math.max(0, totalPemasukan - totalRefund);
+    const netTxPaid = Math.max(0, totalPemasukan - totalRefund);
+    let netPaid = (txs && txs.length > 0) ? netTxPaid : (Number(siswa.dp_nominal) || 0);
+    if (Number(siswa.dp_nominal) > netPaid && !hasRefund) {
+      netPaid = Number(siswa.dp_nominal);
+    }
+    if (!lastPayDate && siswa.dp_tanggal) {
+      lastPayDate = siswa.dp_tanggal;
+    }
+
     const hargaFinal = Number(siswa.harga_final) || 0;
 
     let newStatus = 'belum_bayar';
@@ -181,11 +195,11 @@ export async function syncSiswaPaymentState(siswaId: string): Promise<void> {
     } else if (netPaid >= hargaFinal && hargaFinal > 0) {
       newStatus = 'lunas';
       newDpNominal = netPaid;
-      newDpTanggal = lastPayDate;
+      newDpTanggal = lastPayDate || new Date().toISOString();
     } else if (netPaid > 0) {
       newStatus = 'dp';
       newDpNominal = netPaid;
-      newDpTanggal = lastPayDate;
+      newDpTanggal = lastPayDate || new Date().toISOString();
     } else {
       newStatus = 'belum_bayar';
       newDpNominal = null;
@@ -205,7 +219,11 @@ export async function syncSiswaPaymentState(siswaId: string): Promise<void> {
 
     revalidatePath('/siswa');
     revalidatePath(`/siswa/${siswaId}`);
+    revalidatePath('/kas');
+    revalidatePath('/kas/cashflow');
     revalidatePath('/kas/piutang');
+    revalidatePath('/dashboard');
+    revalidatePath('/finance');
   } catch (err) {
     console.error('Error in syncSiswaPaymentState:', err);
   }

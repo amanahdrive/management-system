@@ -165,11 +165,19 @@ export default function PiutangPage() {
         }
       }
 
+      // Sisa tagihan piutang siswa
+      const paid = s.status_pembayaran_kode === 'lunas' ? s.harga_final : (s.dp_nominal || 0);
+      const sisaPiutang = s.status_pembayaran_kode === 'lunas' ? 0 : Math.max(0, s.harga_final - paid);
+
       // Status filter
       if (statusFilterSiswa === 'belum_lunas') {
-        if (s.status_pembayaran_kode !== 'dp' && s.status_pembayaran_kode !== 'belum_bayar') return false;
-      } else if (statusFilterSiswa !== 'all') {
-        if (s.status_pembayaran_kode !== statusFilterSiswa) return false;
+        if (s.status_pembayaran_kode === 'lunas' || s.status_pembayaran_kode === 'batal' || sisaPiutang <= 0) return false;
+      } else if (statusFilterSiswa === 'dp') {
+        if (s.status_pembayaran_kode !== 'dp' || sisaPiutang <= 0) return false;
+      } else if (statusFilterSiswa === 'belum_bayar') {
+        if (s.status_pembayaran_kode !== 'belum_bayar' || sisaPiutang <= 0) return false;
+      } else if (statusFilterSiswa === 'lunas') {
+        if (s.status_pembayaran_kode !== 'lunas' && sisaPiutang > 0) return false;
       }
 
       // Search query
@@ -483,8 +491,11 @@ export default function PiutangPage() {
       header: 'Status Bayar',
       sortingFn: 'text',
       cell: ({ row }) => {
-        const isDp = row.original.status_pembayaran_kode === 'dp';
-        const isLunas = row.original.status_pembayaran_kode === 'lunas';
+        const isLunasDirect = row.original.status_pembayaran_kode === 'lunas';
+        const paid = isLunasDirect ? row.original.harga_final : (row.original.dp_nominal || 0);
+        const sisa = isLunasDirect ? 0 : Math.max(0, row.original.harga_final - paid);
+        const isLunas = isLunasDirect || sisa <= 0;
+        const isDp = !isLunas && row.original.status_pembayaran_kode === 'dp';
         return (
           <span
             className={`px-2.5 py-1 text-xs font-bold rounded-md text-white inline-block ${
@@ -519,16 +530,14 @@ export default function PiutangPage() {
         return row.status_pembayaran_kode === 'lunas'
           ? 0
           : row.status_pembayaran_kode === 'dp'
-          ? row.harga_final - (row.dp_nominal || 0)
+          ? Math.max(0, row.harga_final - (row.dp_nominal || 0))
           : row.harga_final;
       },
       sortingFn: 'basic',
       cell: ({ row }) => {
-        const sisa = row.original.status_pembayaran_kode === 'lunas'
-          ? 0
-          : row.original.status_pembayaran_kode === 'dp'
-          ? row.original.harga_final - (row.original.dp_nominal || 0)
-          : row.original.harga_final;
+        const isLunas = row.original.status_pembayaran_kode === 'lunas';
+        const paid = isLunas ? row.original.harga_final : (row.original.dp_nominal || 0);
+        const sisa = isLunas ? 0 : Math.max(0, row.original.harga_final - paid);
         return (
           <span className={`font-bold text-xs ${sisa > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
             {formatRupiah(sisa)}
@@ -541,12 +550,10 @@ export default function PiutangPage() {
       header: 'Aksi',
       enableSorting: false,
       cell: ({ row }) => {
-        const isLunas = row.original.status_pembayaran_kode === 'lunas';
-        const sisa = isLunas
-          ? 0
-          : row.original.status_pembayaran_kode === 'dp'
-          ? row.original.harga_final - (row.original.dp_nominal || 0)
-          : row.original.harga_final;
+        const isLunasDirect = row.original.status_pembayaran_kode === 'lunas';
+        const paid = isLunasDirect ? row.original.harga_final : (row.original.dp_nominal || 0);
+        const sisa = isLunasDirect ? 0 : Math.max(0, row.original.harga_final - paid);
+        const hasRemainingPiutang = !isLunasDirect && sisa > 0;
 
         const waMessage = encodeURIComponent(
           `Halo Kak ${row.original.nama}, kami dari Amanah Drive mengkonfirmasi sisa tagihan kursus sebesar ${formatRupiah(sisa)}. Mohon info tanggal pelunasannya ya Kak. Terima kasih!`
@@ -554,27 +561,41 @@ export default function PiutangPage() {
 
         return (
           <div className="flex items-center gap-2">
-            {!isLunas && (
-              <button
-                onClick={() => handleOpenPelunasan(row.original)}
-                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold flex items-center gap-1 shadow-2xs"
-                title="Catat Pelunasan"
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>Pelunasan</span>
-              </button>
+            {hasRemainingPiutang ? (
+              <>
+                <button
+                  onClick={() => handleOpenPelunasan(row.original)}
+                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold flex items-center gap-1 shadow-2xs"
+                  title="Catat Pelunasan"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Pelunasan</span>
+                </button>
+                {row.original.no_whatsapp && (
+                  <a
+                    href={`https://wa.me/${row.original.no_whatsapp?.replace(/^0/, '62')}?text=${waMessage}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-1.5 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded"
+                    title="Kirim Pesan WA Penagihan"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                  </a>
+                )}
+              </>
+            ) : (
+              <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Lunas
+              </span>
             )}
-            {!isLunas && (
-              <a
-                href={`https://wa.me/${row.original.no_whatsapp?.replace(/^0/, '62')}?text=${waMessage}`}
-                target="_blank"
-                rel="noreferrer"
-                className="p-1.5 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded"
-                title="Kirim Pesan WA Penagihan"
-              >
-                <MessageSquare className="w-4 h-4" />
-              </a>
-            )}
+            <Link
+              href={`/siswa/${row.original.id}`}
+              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5 rounded"
+              title="Lihat Detail Siswa"
+            >
+              <Eye className="w-4 h-4" />
+            </Link>
           </div>
         );
       },

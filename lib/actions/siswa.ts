@@ -5,6 +5,7 @@ import { cacheGet, cacheSet, cacheInvalidate } from '@/lib/utils/cache';
 import { getTodayDateString } from '@/lib/utils/date';
 import { Siswa } from '@/types/database';
 import { revalidatePath } from 'next/cache';
+import { syncSiswaPaymentState } from '@/lib/actions/kas';
 
 const SISWA_CACHE_KEY = 'siswa_list';
 
@@ -193,6 +194,12 @@ export async function createOrUpdateSiswa(
         `UPDATE siswa SET ${setClauses}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
         values
       );
+
+      // Sinkronisasi status pembayaran & piutang berdasarkan paket / harga_final baru
+      await syncSiswaPaymentState(cleanPayload.id);
+
+      // Ambil kembali data siswa terbaru lengkap dengan relasi dan status pembayaran terupdate
+      savedSiswa = await getSiswaById(cleanPayload.id);
     } else {
       cleanPayload.status_pembayaran_kode = 'belum_bayar';
       cleanPayload.dp_nominal = null;
