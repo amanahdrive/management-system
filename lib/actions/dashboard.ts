@@ -83,6 +83,8 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
           SELECT
             s.id,
             s.status_pembayaran_kode,
+            s.harga_final,
+            s.dp_nominal,
             COALESCE(s.status_sim, 'belum') AS status_sim,
             COALESCE(p.termasuk_sim, false) AS termasuk_sim,
             s.tanggal_booking,

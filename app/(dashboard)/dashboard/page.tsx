@@ -43,16 +43,23 @@ const DashboardCharts = dynamic(
 export default function DashboardPage() {
   const [metrics, setMetrics] = React.useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
   const [isSyncing, setIsSyncing] = React.useState(false);
   const [sesiFilter, setSesiFilter] = React.useState<'all' | 'terjadwal' | 'selesai'>('all');
 
   const loadData = React.useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await getDashboardMetrics();
-      setMetrics(res);
-    } catch (e) {
+      if (res) {
+        setMetrics(res);
+      } else {
+        setError('Gagal memuat data metrik dashboard.');
+      }
+    } catch (e: any) {
       console.error('Error loading dashboard metrics:', e);
+      setError(e?.message || 'Terjadi kesalahan saat memuat dashboard.');
     } finally {
       setLoading(false);
     }
@@ -75,6 +82,25 @@ export default function DashboardPage() {
       setTimeout(() => setIsSyncing(false), 400);
     }
   };
+
+  if (error && !metrics) {
+    return (
+      <div className="p-8 my-12 text-center rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 max-w-md mx-auto space-y-4">
+        <AlertTriangle className="w-10 h-10 text-rose-500 mx-auto" />
+        <div>
+          <h3 className="text-sm font-bold text-rose-800 dark:text-rose-300">Gagal Memuat Dashboard</h3>
+          <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{error}</p>
+        </div>
+        <button
+          onClick={loadData}
+          className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs inline-flex items-center gap-2 transition-all"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          <span>Coba Muat Ulang</span>
+        </button>
+      </div>
+    );
+  }
 
   if (loading || !metrics) {
     return (
