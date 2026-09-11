@@ -618,7 +618,7 @@ export async function createPosPengeluaran(data: {
 }
 
 /**
- * Update Pos Pengeluaran
+ * Update Pos Pengeluaran (Mendukung koreksi status, edit nominal realisasi, dan sinkronisasi kas)
  */
 export async function updatePosPengeluaran(
   id: string,
@@ -631,31 +631,81 @@ export async function updatePosPengeluaran(
     );
     if (!existing) return { success: false, error: 'Pos pengeluaran tidak ditemukan' };
 
+    let newKasTxId = existing.kas_transaksi_id;
+    let nominalRealisasi =
+      data.nominal_realisasi !== undefined ? data.nominal_realisasi : existing.nominal_realisasi;
+
+    // 1. Jika status diubah dari terbayar -> belum_bayar (koreksi salah input / batal bayar):
+    if (existing.status === 'terbayar' && data.status === 'belum_bayar') {
+      if (existing.kas_transaksi_id) {
+        // Hapus mutasi pengeluaran kas terkait agar saldo kas kembali utuh
+        await dbQuery('DELETE FROM kas_transaksi WHERE id = $1', [existing.kas_transaksi_id]);
+        newKasTxId = null;
+      }
+      nominalRealisasi = 0;
+    }
+    // 2. Jika status diubah menjadi dibatalkan:
+    else if (data.status === 'dibatalkan') {
+      if (existing.kas_transaksi_id) {
+        await dbQuery('DELETE FROM kas_transaksi WHERE id = $1', [existing.kas_transaksi_id]);
+        newKasTxId = null;
+      }
+      nominalRealisasi = 0;
+    }
+    // 3. Jika tetap terbayar tetapi nominal_realisasi diedit:
+    else if (
+      existing.status === 'terbayar' &&
+      (data.status === 'terbayar' || !data.status) &&
+      existing.kas_transaksi_id &&
+      data.nominal_realisasi !== undefined &&
+      Number(data.nominal_realisasi) !== Number(existing.nominal_realisasi)
+    ) {
+      // Selaraskan juga nominal pada catatan transaksi kas
+      await dbQuery(
+        'UPDATE kas_transaksi SET nominal = $1, updated_at = NOW() WHERE id = $2',
+        [data.nominal_realisasi, existing.kas_transaksi_id]
+      );
+    }
+
     await dbQuery(
       `UPDATE pos_pengeluaran SET
         nama_pos = COALESCE($1, nama_pos),
         kategori = COALESCE($2, kategori),
         nominal_estimasi = COALESCE($3, nominal_estimasi),
-        is_fluktuatif = COALESCE($4, is_fluktuatif),
-        tanggal_jatuh_tempo = COALESCE($5, tanggal_jatuh_tempo),
-        catatan = COALESCE($6, catatan),
-        status = COALESCE($7, status),
+        nominal_realisasi = $4,
+        is_fluktuatif = COALESCE($5, is_fluktuatif),
+        tanggal_jatuh_tempo = COALESCE($6, tanggal_jatuh_tempo),
+        catatan = COALESCE($7, catatan),
+        status = COALESCE($8, status),
+        kas_transaksi_id = $9,
         updated_at = NOW()
-      WHERE id = $8`,
+      WHERE id = $10`,
       [
         data.nama_pos,
         data.kategori,
         data.nominal_estimasi,
+        nominalRealisasi,
         data.is_fluktuatif,
         data.tanggal_jatuh_tempo,
         data.catatan,
         data.status,
+        newKasTxId,
         id,
       ]
     );
 
+    if (existing.hutang_id) {
+      await syncHutangPaymentState(existing.hutang_id);
+    }
+
     cacheInvalidate('pos_pengeluaran*');
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+    safeRevalidate('/kas');
     safeRevalidate('/kas/pos');
+    safeRevalidate('/kas/cashflow');
+    safeRevalidate('/kas/hutang');
+    safeRevalidate('/finance');
     return { success: true };
   } catch (err: any) {
     console.error('Error updating pos pengeluaran:', err);
@@ -664,7 +714,7 @@ export async function updatePosPengeluaran(
 }
 
 /**
- * Hapus / Batalkan Pos Pengeluaran
+ * Hapus Pos Pengeluaran (Mendukung hapus pos yang sudah terbayar dengan membatalkan mutasi kas)
  */
 export async function deletePosPengeluaran(
   id: string
@@ -676,17 +726,25 @@ export async function deletePosPengeluaran(
     );
     if (!existing) return { success: false, error: 'Pos tidak ditemukan' };
 
-    if (existing.status === 'terbayar' && existing.kas_transaksi_id) {
-      return {
-        success: false,
-        error: 'Pos yang sudah terbayar tidak dapat dihapus langsung. Hapus transaksi mutasi di Kas terlebih dahulu.',
-      };
+    // Jika pos terbayar dan ada mutasi kas_transaksi, hapus juga mutasi kasnya agar saldo kas tetap sinkron
+    if (existing.kas_transaksi_id) {
+      await dbQuery('DELETE FROM kas_transaksi WHERE id = $1', [existing.kas_transaksi_id]);
     }
 
     await dbQuery('DELETE FROM pos_pengeluaran WHERE id = $1', [id]);
 
+    if (existing.hutang_id) {
+      await syncHutangPaymentState(existing.hutang_id);
+    }
+
     cacheInvalidate('pos_pengeluaran*');
+    cacheInvalidate('kas*');
+    cacheInvalidate('dashboard*');
+    safeRevalidate('/kas');
     safeRevalidate('/kas/pos');
+    safeRevalidate('/kas/cashflow');
+    safeRevalidate('/kas/hutang');
+    safeRevalidate('/finance');
     return { success: true };
   } catch (err: any) {
     console.error('Error deleting pos pengeluaran:', err);

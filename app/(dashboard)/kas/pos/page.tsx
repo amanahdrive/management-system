@@ -23,7 +23,7 @@ import {
 } from '@/lib/actions/pos-pengeluaran';
 import { getRekeningList } from '@/lib/actions/rekening';
 import { getOperasionalSettings, saveOperasionalSettings, OperasionalSettings } from '@/lib/actions/settings';
-import { PosPengeluaran, RekeningBank } from '@/types/database';
+import { PosPengeluaran, PosPengeluaranStatus, RekeningBank } from '@/types/database';
 import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
 import {
   Wallet,
@@ -104,9 +104,11 @@ export default function PosPengeluaranPage() {
     nama_pos: '',
     kategori: 'operasional',
     nominal_estimasi: 0,
+    nominal_realisasi: 0,
     is_fluktuatif: false,
     tanggal_jatuh_tempo: '',
     catatan: '',
+    status: 'belum_bayar' as PosPengeluaranStatus,
   });
 
   // Delete Confirm State
@@ -280,9 +282,11 @@ export default function PosPengeluaranPage() {
       nama_pos: pos.nama_pos,
       kategori: pos.kategori,
       nominal_estimasi: pos.nominal_estimasi,
+      nominal_realisasi: pos.nominal_realisasi || pos.nominal_estimasi,
       is_fluktuatif: pos.is_fluktuatif,
       tanggal_jatuh_tempo: pos.tanggal_jatuh_tempo || '',
       catatan: pos.catatan || '',
+      status: pos.status,
     });
   };
 
@@ -762,28 +766,32 @@ export default function PosPengeluaranPage() {
                                 <span>Bayar Pos</span>
                               </button>
                             ) : (
-                              <span className="text-[10px] text-emerald-600 font-semibold italic">
-                                Selesai
-                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEdit(pos)}
+                                className="px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-md text-[11px] font-semibold transition-colors flex items-center gap-1"
+                                title="Klik untuk edit data atau koreksi status"
+                              >
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>Lunas</span>
+                              </button>
                             )}
                             <button
                               type="button"
                               onClick={() => handleOpenEdit(pos)}
                               className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] rounded-md transition-colors"
-                              title="Edit pos"
+                              title="Edit pos & status"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
-                            {pos.status !== 'terbayar' && (
-                              <button
-                                type="button"
-                                onClick={() => setDeletingId(pos.id)}
-                                className="p-1 text-[var(--text-secondary)] hover:text-rose-600 hover:bg-rose-500/10 rounded-md transition-colors"
-                                title="Hapus pos"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => setDeletingId(pos.id)}
+                              className="p-1 text-[var(--text-secondary)] hover:text-rose-600 hover:bg-rose-500/10 rounded-md transition-colors"
+                              title={pos.status === 'terbayar' ? "Hapus pos (akan membatalkan mutasi kas terkait)" : "Hapus pos"}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1148,16 +1156,76 @@ export default function PosPengeluaranPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
-                    Nominal Estimasi (Rp) *
-                  </label>
-                  <CurrencyInput
-                    value={editForm.nominal_estimasi}
-                    onChange={(val) => setEditForm({ ...editForm, nominal_estimasi: val })}
-                    className="w-full text-base font-bold"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                      Nominal Estimasi (Rp) *
+                    </label>
+                    <CurrencyInput
+                      value={editForm.nominal_estimasi}
+                      onChange={(val) => setEditForm({ ...editForm, nominal_estimasi: val })}
+                      className="w-full text-sm font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                      Status Pembayaran *
+                    </label>
+                    <select
+                      value={editForm.status}
+                      onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
+                      className={`w-full px-3 py-2 rounded-lg border font-bold text-xs ${
+                        editForm.status === 'terbayar'
+                          ? 'border-emerald-500 bg-emerald-50/40 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                          : editForm.status === 'dibatalkan'
+                          ? 'border-rose-500 bg-rose-50/40 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]'
+                      }`}
+                    >
+                      <option value="belum_bayar">Belum Bayar</option>
+                      <option value="terbayar">Terbayar (Lunas)</option>
+                      <option value="dibatalkan">Dibatalkan</option>
+                    </select>
+                  </div>
                 </div>
+
+                {editForm.status === 'terbayar' && (
+                  <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800/60 space-y-2">
+                    <label className="block text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+                      <span>Nominal Realisasi Bayar (Rp) *</span>
+                      {editingPos?.kas_transaksi_id ? (
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-normal">
+                          ✓ Terhubung ke Mutasi Kas
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-normal">
+                          (Tanpa Mutasi Kas)
+                        </span>
+                      )}
+                    </label>
+                    <CurrencyInput
+                      value={editForm.nominal_realisasi}
+                      onChange={(val) => setEditForm({ ...editForm, nominal_realisasi: val })}
+                      className="w-full text-base font-extrabold bg-white dark:bg-[#0E131F] border-emerald-400"
+                    />
+                    <p className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                      Mengubah angka ini akan otomatis menyesuaikan nominal pada catatan mutasi pengeluaran kas.
+                    </p>
+                  </div>
+                )}
+
+                {editingPos?.status === 'terbayar' && editForm.status === 'belum_bayar' && (
+                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-300 text-xs flex items-start gap-2.5 animate-fadeIn">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold">Koreksi Salah Bayar:</div>
+                      <p className="text-[11px] leading-relaxed mt-0.5">
+                        Mengubah status kembali ke <strong>Belum Bayar</strong> akan otomatis <strong>menghapus mutasi pengeluaran kas terkait</strong> agar saldo kas Anda kembali utuh.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border)]">
                   <input
@@ -1359,15 +1427,25 @@ export default function PosPengeluaranPage() {
         )}
 
         {/* Delete Confirm Dialog */}
-        <ConfirmDialog
-          isOpen={Boolean(deletingId)}
-          onClose={() => setDeletingId(null)}
-          onConfirm={handleDeleteConfirm}
-          title="Hapus Pos Pengeluaran"
-          description="Apakah Anda yakin ingin menghapus pos pengeluaran ini? Data pos yang dihapus tidak dapat dipulihkan."
-          confirmText="Hapus Pos"
-          isDanger={true}
-        />
+        {(() => {
+          const targetDeleting = posList.find((p) => p.id === deletingId);
+          const isPaid = targetDeleting?.status === 'terbayar';
+          return (
+            <ConfirmDialog
+              isOpen={Boolean(deletingId)}
+              onClose={() => setDeletingId(null)}
+              onConfirm={handleDeleteConfirm}
+              title={isPaid ? 'Hapus Pos Terbayar' : 'Hapus Pos Pengeluaran'}
+              description={
+                isPaid
+                  ? `Pos "${targetDeleting?.nama_pos}" berstatus TERBAYAR. Menghapus pos ini juga akan otomatis membatalkan/menghapus catatan mutasi kas pengeluaran terkait agar saldo kas tetap akurat. Lanjutkan penghapusan?`
+                  : 'Apakah Anda yakin ingin menghapus pos pengeluaran ini? Data pos yang dihapus tidak dapat dipulihkan.'
+              }
+              confirmText={isPaid ? 'Hapus Pos & Mutasi Kas' : 'Hapus Pos'}
+              isDanger={true}
+            />
+          );
+        })()}
       </div>
     </PinGateDialog>
   );
