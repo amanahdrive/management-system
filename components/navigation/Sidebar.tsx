@@ -32,8 +32,16 @@ import {
   GraduationCap,
   Smartphone,
   ExternalLink,
+  Globe,
+  Inbox,
 } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
+
+const HOMEPAGE_SUB_ITEMS = [
+  { label: 'Internal Tracking', href: '/homepage-manager/tracking', icon: BarChart3 },
+  { label: 'Form Submit', href: '/homepage-manager/submissions', icon: Inbox },
+  { label: 'Update Information', href: '/homepage-manager/information', icon: Globe },
+];
 
 const SISWA_SUB_ITEMS = [
   { label: 'Data Siswa', href: '/siswa', icon: Users },
@@ -81,6 +89,9 @@ export function Sidebar() {
   const pathname = usePathname();
   const { sidebarOpen, toggleSidebar, setSidebarOpen } = useUiStore();
 
+  const isHomepageActive = pathname.startsWith('/homepage-manager');
+  const [homepageExpanded, setHomepageExpanded] = React.useState(isHomepageActive);
+
   const isSiswaActive =
     pathname.startsWith('/siswa') ||
     pathname.startsWith('/sim') ||
@@ -116,6 +127,10 @@ export function Sidebar() {
   }, []);
 
   React.useEffect(() => {
+    if (isHomepageActive) setHomepageExpanded(true);
+  }, [isHomepageActive]);
+
+  React.useEffect(() => {
     if (isSiswaActive) setSiswaExpanded(true);
   }, [isSiswaActive]);
 
@@ -138,6 +153,15 @@ export function Sidebar() {
   React.useEffect(() => {
     if (isSettingsActive) setSettingsExpanded(true);
   }, [isSettingsActive]);
+
+  const handleHomepageClick = () => {
+    if (!sidebarOpen) {
+      setSidebarOpen(true);
+      setHomepageExpanded(true);
+      return;
+    }
+    setHomepageExpanded((prev) => !prev);
+  };
 
   const handleSiswaClick = () => {
     if (!sidebarOpen) {
@@ -324,6 +348,47 @@ export function Sidebar() {
           <BarChart3 className="w-4 h-4 min-w-[16px]" />
           {sidebarOpen && <span className="whitespace-nowrap">Analitik</span>}
         </Link>
+
+        {/* 2b. Homepage Manager Dropdown */}
+        <div>
+          <button
+            onClick={handleHomepageClick}
+            className={dropdownHeaderClass(isHomepageActive)}
+            title={!sidebarOpen ? 'Homepage Manager' : undefined}
+          >
+            <div className="flex items-center gap-3">
+              <Globe className="w-4 h-4 min-w-[16px]" />
+              {sidebarOpen && <span className="whitespace-nowrap font-medium">Homepage Manager</span>}
+            </div>
+            {sidebarOpen && (
+              homepageExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+            )}
+          </button>
+
+          {sidebarOpen && homepageExpanded && (
+            <div className="pl-4 pt-1 space-y-1 border-l border-[var(--border)] ml-5 my-1.5">
+              {HOMEPAGE_SUB_ITEMS.map((sub) => {
+                const SubIcon = sub.icon;
+                const isSubActive = pathname === sub.href;
+
+                return (
+                  <Link
+                    key={sub.href}
+                    href={sub.href}
+                    className={`flex items-center gap-2.5 px-3 py-1.5 text-xs font-normal transition-all rounded-lg border-l ${
+                      isSubActive
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+                        : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <SubIcon className="w-3.5 h-3.5" />
+                    <span>{sub.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* 3. Manajemen Siswa Dropdown */}
         <div>

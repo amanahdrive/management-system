@@ -425,3 +425,51 @@ export interface PosPengeluaran {
   kas_transaksi?: KasTransaksi;
 }
 
+export type HomepageLeadStatus = 'baru' | 'dihubungi' | 'siswa' | 'batal';
+
+export interface HomepageLead {
+  id: string;
+  nama: string;
+  whatsapp: string;
+  paket_id: string | null;
+  paket_nama: string | null;
+  kendaraan_id: string | null;
+  kendaraan_nama: string | null;
+  slot_waktu_id: string | null;
+  slot_waktu_nama: string | null;
+  antar_jemput: boolean;
+  alamat_jemput: string | null;
+  catatan: string | null;
+  status: HomepageLeadStatus;
+  source: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  meta_event_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface HomepageEvent {
+  id: string;
+  event_name: string;
+  event_data: Record<string, any> | null;
+  source: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+export interface HomepageContactInfo {
+  phone: string;
+  display_phone: string;
+  name: string;
+  role: string;
+  avatar_url: string;
+}
+
+export interface HomepageMapsInfo {
+  address: string;
+  embed_url: string;
+}
+
+

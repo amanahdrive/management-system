@@ -31,8 +31,16 @@ import {
   Smartphone,
   ExternalLink,
   Building2,
+  Globe,
+  Inbox,
 } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
+
+const HOMEPAGE_SUB_ITEMS = [
+  { label: 'Internal Tracking', href: '/homepage-manager/tracking', icon: BarChart3 },
+  { label: 'Form Submit', href: '/homepage-manager/submissions', icon: Inbox },
+  { label: 'Update Information', href: '/homepage-manager/information', icon: Globe },
+];
 
 const SISWA_SUB_ITEMS = [
   { label: 'Data Siswa', href: '/siswa', icon: Users },
@@ -80,6 +88,9 @@ export function MobileDrawer() {
   const pathname = usePathname();
   const { mobileDrawerOpen, setMobileDrawerOpen } = useUiStore();
 
+  const isHomepageActive = pathname.startsWith('/homepage-manager');
+  const [homepageExpanded, setHomepageExpanded] = React.useState(isHomepageActive);
+
   const isSiswaActive =
     pathname.startsWith('/siswa') ||
     pathname.startsWith('/sim') ||
@@ -113,6 +124,10 @@ export function MobileDrawer() {
       );
     }
   }, [mobileDrawerOpen, pathname]);
+
+  React.useEffect(() => {
+    if (isHomepageActive) setHomepageExpanded(true);
+  }, [isHomepageActive]);
 
   React.useEffect(() => {
     if (isSiswaActive) setSiswaExpanded(true);
@@ -260,6 +275,50 @@ export function MobileDrawer() {
                 <BarChart3 className="w-4 h-4" />
                 <span>Pusat Analitik & Laporan</span>
               </Link>
+
+              {/* 2b. Homepage Manager Dropdown */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setHomepageExpanded((prev) => !prev)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-xs font-medium transition-colors ${
+                    isHomepageActive
+                      ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+                      : 'text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Globe className="w-4 h-4" />
+                    <span>Homepage Manager</span>
+                  </div>
+                  {homepageExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+
+                {homepageExpanded && (
+                  <div className="pl-6 pt-1 space-y-1 border-l-2 border-[var(--border)] ml-4 my-1">
+                    {HOMEPAGE_SUB_ITEMS.map((sub) => {
+                      const SubIcon = sub.icon;
+                      const isSubActive = pathname === sub.href;
+
+                      return (
+                        <Link
+                          key={sub.href}
+                          href={sub.href}
+                          onClick={() => setMobileDrawerOpen(false)}
+                          className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors ${
+                            isSubActive
+                              ? 'bg-[var(--brand-primary)] text-white font-semibold'
+                              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5'
+                          }`}
+                        >
+                          <SubIcon className="w-3.5 h-3.5" />
+                          <span>{sub.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               {/* 3. Manajemen Siswa Dropdown */}
               <div>
