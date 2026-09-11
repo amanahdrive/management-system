@@ -22,11 +22,14 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+const SUPABASE_STORAGE_URL =
+  'https://yhwwhqqffgtiavapgjvc.supabase.co/storage/v1/object/public/assets';
+
 const PRESET_AVATARS = [
-  { name: 'Kak Lia (Student Care)', url: '/staff_models/Lia.webp' },
-  { name: 'Kak Syawal (Lead Instructor)', url: '/staff_models/Syawal.webp' },
-  { name: 'Kak Risky (Instructor)', url: '/staff_models/Risky.webp' },
-  { name: 'Kak Alpi (Instructor)', url: '/staff_models/Alpi.webp' },
+  { name: 'Kak Lia (Student Care)', url: `${SUPABASE_STORAGE_URL}/staff_models/Lia.webp` },
+  { name: 'Kak Syawal (Lead Instructor)', url: `${SUPABASE_STORAGE_URL}/staff_models/Syawal.webp` },
+  { name: 'Kak Risky (Instructor)', url: `${SUPABASE_STORAGE_URL}/staff_models/Risky.webp` },
+  { name: 'Kak Alpi (Instructor)', url: `${SUPABASE_STORAGE_URL}/staff_models/Alpi.webp` },
 ];
 
 export default function HomepageInformationPage() {
@@ -37,7 +40,7 @@ export default function HomepageInformationPage() {
     display_phone: '0813-7790-961',
     name: 'Kak Lia (Nur Awalia)',
     role: 'Student Care & Konsultasi Resmi',
-    avatar_url: '/staff_models/Lia.webp',
+    avatar_url: `${SUPABASE_STORAGE_URL}/staff_models/Lia.webp`,
   });
   const [maps, setMaps] = useState<HomepageMapsInfo>({
     address: 'Jl. Demang Lebar Daun No. 45, Palembang, Sumatera Selatan',
@@ -268,12 +271,13 @@ export default function HomepageInformationPage() {
               <div className="flex items-center gap-3">
                 <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-[#0F7A73] bg-zinc-100 shrink-0">
                   <Image
-                    src={contact.avatar_url || '/staff_models/Lia.webp'}
+                    src={contact.avatar_url || `${SUPABASE_STORAGE_URL}/staff_models/Lia.webp`}
                     alt={contact.name}
                     fill
+                    sizes="48px"
                     className="object-cover"
                     onError={(e) => {
-                      // Fallback if avatar fails
+                      // Fallback to local file if CDN fails
                       (e.target as any).src = '/staff_models/Lia.webp';
                     }}
                   />
