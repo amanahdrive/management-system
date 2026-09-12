@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -206,6 +206,7 @@ export default function KendaraanPage() {
             <FleetOperationalOverview
               tarifMaintenancePerKm={fleetSettings.tarifMaintenancePerKm}
               targetEfisiensiBbm={fleetSettings.targetEfisiensiBbm}
+              kendaraanList={kendaraanList}
             />
           )}
 
