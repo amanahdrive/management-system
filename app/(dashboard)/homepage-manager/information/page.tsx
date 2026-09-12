@@ -20,6 +20,11 @@ import {
   ExternalLink,
   MessageCircle,
   Sparkles,
+  Sliders,
+  ZoomIn,
+  Move,
+  Target,
+  RotateCcw,
 } from 'lucide-react';
 
 const SUPABASE_STORAGE_URL =
@@ -41,6 +46,9 @@ export default function HomepageInformationPage() {
     name: 'Kak Lia (Nur Awalia)',
     role: 'Student Care & Konsultasi Resmi',
     avatar_url: `${SUPABASE_STORAGE_URL}/staff_models/Lia.webp`,
+    avatar_position_x: 50,
+    avatar_position_y: 20,
+    avatar_scale: 100,
   });
   const [maps, setMaps] = useState<HomepageMapsInfo>({
     address: 'Jl. Demang Lebar Daun No. 45, Palembang, Sumatera Selatan',
@@ -60,7 +68,14 @@ export default function HomepageInformationPage() {
     setLoading(true);
     try {
       const res = await getHomepageSettings();
-      if (res.contact_info) setContact(res.contact_info);
+      if (res.contact_info) {
+        setContact({
+          ...res.contact_info,
+          avatar_position_x: res.contact_info.avatar_position_x ?? 50,
+          avatar_position_y: res.contact_info.avatar_position_y ?? 20,
+          avatar_scale: res.contact_info.avatar_scale ?? 100,
+        });
+      }
       if (res.maps_info) setMaps(res.maps_info);
     } catch (err) {
       console.error('Error loading homepage settings:', err);
@@ -116,11 +131,11 @@ export default function HomepageInformationPage() {
       )}
 
       <PageHeader
-        title="Update Information Homepage"
-        description="Kelola informasi publik homepage Amanah Drive: nomor WhatsApp resmi, PIC kontak & foto profil, serta iframe Google Maps."
+        title="Homepage Updater"
+        description="Kelola informasi publik homepage Amanah Drive: nomor WhatsApp resmi, PIC kontak, posisi & ukuran foto profil agar tidak kepotong, serta embed Google Maps."
         breadcrumbs={[
           { label: 'Homepage Manager', href: '/homepage-manager/submissions' },
-          { label: 'Update Information' },
+          { label: 'Homepage Updater' },
         ]}
         actions={
           <button
@@ -251,6 +266,173 @@ export default function HomepageInformationPage() {
                   ))}
                 </div>
               </div>
+
+              {/* Avatar Positioning & Zoom Controls */}
+              <div className="mt-4 pt-3.5 border-t border-[var(--border)] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
+                    <Sliders className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                    <span>Atur Posisi &amp; Ukuran Display Picture</span>
+                  </div>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                    Pos: {contact.avatar_position_x ?? 50}% {contact.avatar_position_y ?? 20}% | Zoom: {contact.avatar_scale ?? 100}%
+                  </span>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setContact({
+                        ...contact,
+                        avatar_position_x: 50,
+                        avatar_position_y: 15,
+                        avatar_scale: 110,
+                      })
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all"
+                  >
+                    <Target className="w-3 h-3" />
+                    <span>Fokus Wajah (Rekomendasi)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setContact({
+                        ...contact,
+                        avatar_position_x: 50,
+                        avatar_position_y: 50,
+                        avatar_scale: 100,
+                      })
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-500/20 border border-[var(--border)] transition-all"
+                  >
+                    <User className="w-3 h-3" />
+                    <span>Tengah (Standar)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setContact({
+                        ...contact,
+                        avatar_position_x: 50,
+                        avatar_position_y: 10,
+                        avatar_scale: 135,
+                      })
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300 hover:bg-blue-500/20 border border-blue-500/30 transition-all"
+                  >
+                    <ZoomIn className="w-3 h-3" />
+                    <span>Close-up Wajah</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setContact({
+                        ...contact,
+                        avatar_position_x: 50,
+                        avatar_position_y: 20,
+                        avatar_scale: 100,
+                      })
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-500/20 border border-[var(--border)] transition-all"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset</span>
+                  </button>
+                </div>
+
+                {/* Sliders Grid */}
+                <div className="space-y-3 bg-[var(--bg)] p-3 rounded-lg border border-[var(--border)]">
+                  {/* Zoom / Scale Slider */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                      <label className="flex items-center gap-1.5">
+                        <ZoomIn className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                        <span>Ukuran Foto (Zoom / Skala):</span>
+                      </label>
+                      <span className="font-mono text-[var(--brand-primary)] font-bold">
+                        {contact.avatar_scale ?? 100}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={70}
+                      max={200}
+                      step={5}
+                      value={contact.avatar_scale ?? 100}
+                      onChange={(e) =>
+                        setContact({ ...contact, avatar_scale: Number(e.target.value) })
+                      }
+                      className="w-full accent-[var(--brand-primary)] cursor-pointer h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-lg"
+                    />
+                    <div className="flex justify-between text-[9px] text-[var(--text-muted)] font-mono mt-0.5">
+                      <span>70% (Jauh)</span>
+                      <span>100% (Normal)</span>
+                      <span>200% (Close-up)</span>
+                    </div>
+                  </div>
+
+                  {/* Posisi Vertikal Y */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                      <label className="flex items-center gap-1.5">
+                        <Move className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                        <span>Posisi Vertikal (Fokus Wajah / Atas-Bawah):</span>
+                      </label>
+                      <span className="font-mono text-[var(--brand-primary)] font-bold">
+                        {contact.avatar_position_y ?? 20}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={contact.avatar_position_y ?? 20}
+                      onChange={(e) =>
+                        setContact({ ...contact, avatar_position_y: Number(e.target.value) })
+                      }
+                      className="w-full accent-[var(--brand-primary)] cursor-pointer h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-lg"
+                    />
+                    <div className="flex justify-between text-[9px] text-[var(--text-muted)] font-mono mt-0.5">
+                      <span>0% (Kepala / Atas)</span>
+                      <span>50% (Dada / Tengah)</span>
+                      <span>100% (Bawah)</span>
+                    </div>
+                  </div>
+
+                  {/* Posisi Horizontal X */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                      <label className="flex items-center gap-1.5">
+                        <Move className="w-3.5 h-3.5 text-[var(--brand-primary)] rotate-90" />
+                        <span>Posisi Horizontal (Kiri - Kanan):</span>
+                      </label>
+                      <span className="font-mono text-[var(--brand-primary)] font-bold">
+                        {contact.avatar_position_x ?? 50}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={contact.avatar_position_x ?? 50}
+                      onChange={(e) =>
+                        setContact({ ...contact, avatar_position_x: Number(e.target.value) })
+                      }
+                      className="w-full accent-[var(--brand-primary)] cursor-pointer h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-lg"
+                    />
+                    <div className="flex justify-between text-[9px] text-[var(--text-muted)] font-mono mt-0.5">
+                      <span>0% (Kiri)</span>
+                      <span>50% (Tengah)</span>
+                      <span>100% (Kanan)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -268,16 +450,23 @@ export default function HomepageInformationPage() {
 
             {/* Widget Simulated on Homepage */}
             <div className="p-4 rounded-xl border border-[var(--border)] bg-[#ffffff] text-[#121317] space-y-3 shadow-sm">
+              <div className="text-[11px] font-semibold text-[#45474d] flex items-center justify-between">
+                <span>1. Dialog WhatsApp Pop-up</span>
+                <span className="text-[10px] text-[#0F7A73] font-mono">48x48 px</span>
+              </div>
               <div className="flex items-center gap-3">
-                <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-[#0F7A73] bg-zinc-100 shrink-0">
+                <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-[#0F7A73] bg-zinc-100 shrink-0 shadow-xs">
                   <Image
                     src={contact.avatar_url || `${SUPABASE_STORAGE_URL}/staff_models/Lia.webp`}
                     alt={contact.name}
                     fill
                     sizes="48px"
-                    className="object-cover"
+                    className="object-cover transition-all duration-150"
+                    style={{
+                      objectPosition: `${contact.avatar_position_x ?? 50}% ${contact.avatar_position_y ?? 20}%`,
+                      transform: `scale(${(contact.avatar_scale ?? 100) / 100})`,
+                    }}
                     onError={(e) => {
-                      // Fallback to local file if CDN fails
                       (e.target as any).src = '/staff_models/Lia.webp';
                     }}
                   />
@@ -308,8 +497,61 @@ export default function HomepageInformationPage() {
               </div>
             </div>
 
+            {/* Additional Simulations: Floating CTA & Navbar */}
+            <div className="p-3.5 rounded-xl border border-[var(--border)] bg-[#ffffff] text-[#121317] space-y-3 shadow-sm">
+              <div className="text-[11px] font-semibold text-[#45474d] flex items-center justify-between">
+                <span>2. Simulasi Komponen Lainnya</span>
+                <span className="text-[10px] text-emerald-600 font-medium">Auto Sinkron</span>
+              </div>
+
+              {/* Floating Button Simulation */}
+              <div className="flex items-center justify-between p-2 rounded-lg border border-zinc-150 bg-zinc-50 text-[#121317]">
+                <div className="flex items-center gap-2">
+                  <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-zinc-200 bg-white shrink-0">
+                    <Image
+                      src={contact.avatar_url || `${SUPABASE_STORAGE_URL}/staff_models/Lia.webp`}
+                      alt={contact.name}
+                      fill
+                      sizes="32px"
+                      className="object-cover transition-all duration-150"
+                      style={{
+                        objectPosition: `${contact.avatar_position_x ?? 50}% ${contact.avatar_position_y ?? 20}%`,
+                        transform: `scale(${(contact.avatar_scale ?? 100) / 100})`,
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-[#0F7A73] font-bold block uppercase tracking-wider">Floating CTA</span>
+                    <span className="text-xs font-bold">Chat Kak Lia</span>
+                  </div>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">32x32</span>
+              </div>
+
+              {/* Navbar Button Simulation */}
+              <div className="flex items-center justify-between p-2 rounded-lg bg-[#0F7A73] text-white">
+                <div className="flex items-center gap-2">
+                  <div className="relative w-4 h-4 rounded-md overflow-hidden border border-white/40 bg-black/20 shrink-0">
+                    <Image
+                      src={contact.avatar_url || `${SUPABASE_STORAGE_URL}/staff_models/Lia.webp`}
+                      alt={contact.name}
+                      fill
+                      sizes="16px"
+                      className="object-cover transition-all duration-150"
+                      style={{
+                        objectPosition: `${contact.avatar_position_x ?? 50}% ${contact.avatar_position_y ?? 20}%`,
+                        transform: `scale(${(contact.avatar_scale ?? 100) / 100})`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs font-medium">Chat Kak Lia (Navbar)</span>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-white/20 text-white font-mono">16x16</span>
+              </div>
+            </div>
+
             <div className="p-3 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-[var(--border)] text-[11px] text-[var(--text-muted)] leading-relaxed">
-              Perubahan pada nomor dan PIC kontak akan langsung diterapkan ke tombol WhatsApp mengambang (floating CTA), formulir booking, navbar, dan footer homepage tanpa perlu redeploy.
+              Posisi dan zoom yang disimpan di sini akan langsung mengatur CSS display picture di seluruh homepage (floating CTA, navbar, kalkulator kursus, dan footer) agar wajah tidak terpotong.
             </div>
           </div>
         </div>

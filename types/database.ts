@@ -465,6 +465,9 @@ export interface HomepageContactInfo {
   name: string;
   role: string;
   avatar_url: string;
+  avatar_position_x?: number;
+  avatar_position_y?: number;
+  avatar_scale?: number;
 }
 
 export interface HomepageMapsInfo {

@@ -18,7 +18,10 @@ const DEFAULT_CONTACT_INFO: HomepageContactInfo = {
   display_phone: '0813-7790-961',
   name: 'Kak Lia (Nur Awalia)',
   role: 'Student Care & Konsultasi Resmi',
-  avatar_url: '/staff_models/Lia.webp',
+  avatar_url: 'https://yhwwhqqffgtiavapgjvc.supabase.co/storage/v1/object/public/assets/staff_models/Lia.webp',
+  avatar_position_x: 50,
+  avatar_position_y: 20,
+  avatar_scale: 100,
 };
 
 const DEFAULT_MAPS_INFO: HomepageMapsInfo = {

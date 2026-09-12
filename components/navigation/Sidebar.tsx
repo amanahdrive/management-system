@@ -40,7 +40,7 @@ import { useUiStore } from '@/lib/store/ui-store';
 const HOMEPAGE_SUB_ITEMS = [
   { label: 'Internal Tracking', href: '/homepage-manager/tracking', icon: BarChart3 },
   { label: 'Form Submit', href: '/homepage-manager/submissions', icon: Inbox },
-  { label: 'Update Information', href: '/homepage-manager/information', icon: Globe },
+  { label: 'Homepage Updater', href: '/homepage-manager/information', icon: Globe },
 ];
 
 const SISWA_SUB_ITEMS = [
