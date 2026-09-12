@@ -284,10 +284,30 @@ export const DEFAULT_TERMS_AND_CONDITIONS = [
  * Convert unified NotaData to InvoiceDocumentData (A4 Portrait)
  */
 export function toInvoiceData(data: NotaData): InvoiceDocumentData {
+  const items = buildStandardItems(data);
+  const positiveSubtotal = items
+    .filter((it) => !it.isDiscount && (Number(it.nominal) || 0) >= 0)
+    .reduce((acc, it) => acc + (Number(it.nominal) || 0), 0);
+  const discountSubtotal = items
+    .filter((it) => it.isDiscount || (Number(it.nominal) || 0) < 0)
+    .reduce((acc, it) => acc + Math.abs(Number(it.nominal) || 0), 0) + (Number(data.diskonNominal) || 0);
+
+  const totalTagihanBersih =
+    data.totalTagihanBersih !== undefined && !isNaN(data.totalTagihanBersih)
+      ? data.totalTagihanBersih
+      : Math.max(0, positiveSubtotal - discountSubtotal);
+
+  const dpTerbayar = Number(data.dpTerbayar) || 0;
+  const nominalBayarIni = Number(data.nominalBayarIni) || 0;
+  const sisaPiutang =
+    data.sisaPiutang !== undefined && !isNaN(data.sisaPiutang)
+      ? data.sisaPiutang
+      : Math.max(0, totalTagihanBersih - (dpTerbayar + nominalBayarIni));
+
   const statusPembayaran: 'lunas' | 'dp' | 'belum_bayar' =
-    data.sisaPiutang <= 0
+    sisaPiutang <= 0
       ? 'lunas'
-      : data.dpTerbayar > 0 || data.nominalBayarIni > 0
+      : dpTerbayar > 0 || nominalBayarIni > 0
       ? 'dp'
       : 'belum_bayar';
 
@@ -305,13 +325,13 @@ export function toInvoiceData(data: NotaData): InvoiceDocumentData {
     jadwalLatihan: data.catatanPaket,
     namaInstruktur: data.namaInstruktur,
     tanggalMulai: data.tanggalMulai,
-    items: buildStandardItems(data),
-    hargaPaket: data.hargaPaket,
-    diskonNominal: data.diskonNominal,
-    totalTagihanBersih: data.totalTagihanBersih,
-    dpTerbayar: data.dpTerbayar,
-    nominalBayarIni: data.nominalBayarIni,
-    sisaPiutang: data.sisaPiutang,
+    items,
+    hargaPaket: positiveSubtotal > 0 ? positiveSubtotal : (data.hargaPaket || 0),
+    diskonNominal: discountSubtotal,
+    totalTagihanBersih,
+    dpTerbayar,
+    nominalBayarIni,
+    sisaPiutang,
     metodePembayaran: data.metodePembayaran,
     namaBank: data.namaBank,
     catatan: data.catatanPembayaran,
@@ -327,16 +347,36 @@ export function toInvoiceData(data: NotaData): InvoiceDocumentData {
  * Convert unified NotaData to ReceiptDocumentData (A5 Landscape)
  */
 export function toReceiptData(data: NotaData): ReceiptDocumentData {
+  const items = buildStandardItems(data);
+  const positiveSubtotal = items
+    .filter((it) => !it.isDiscount && (Number(it.nominal) || 0) >= 0)
+    .reduce((acc, it) => acc + (Number(it.nominal) || 0), 0);
+  const discountSubtotal = items
+    .filter((it) => it.isDiscount || (Number(it.nominal) || 0) < 0)
+    .reduce((acc, it) => acc + Math.abs(Number(it.nominal) || 0), 0) + (Number(data.diskonNominal) || 0);
+
+  const totalTagihanBersih =
+    data.totalTagihanBersih !== undefined && !isNaN(data.totalTagihanBersih)
+      ? data.totalTagihanBersih
+      : Math.max(0, positiveSubtotal - discountSubtotal);
+
+  const dpTerbayar = Number(data.dpTerbayar) || 0;
+  const nominalBayarIni = Number(data.nominalBayarIni) || 0;
+  const sisaPiutang =
+    data.sisaPiutang !== undefined && !isNaN(data.sisaPiutang)
+      ? data.sisaPiutang
+      : Math.max(0, totalTagihanBersih - (dpTerbayar + nominalBayarIni));
+
   const statusPembayaran: 'lunas' | 'dp' | 'belum_bayar' =
-    data.sisaPiutang <= 0
+    sisaPiutang <= 0
       ? 'lunas'
-      : data.dpTerbayar > 0 || data.nominalBayarIni > 0
+      : dpTerbayar > 0 || nominalBayarIni > 0
       ? 'dp'
       : 'belum_bayar';
 
   const jenisNota =
     data.jenis === 'invoice_tagihan'
-      ? data.nominalBayarIni > 0
+      ? nominalBayarIni > 0
         ? 'nota_pembayaran'
         : 'nota_tagihan'
       : (data.jenis as 'nota_dp' | 'nota_pelunasan' | 'nota_pembayaran' | 'nota_tagihan');
@@ -353,13 +393,13 @@ export function toReceiptData(data: NotaData): ReceiptDocumentData {
     namaPaket: data.namaPaket,
     jumlahSesi: data.jumlahSesi,
     tipeMobil: data.tipeMobil,
-    items: buildStandardItems(data),
-    hargaPaket: data.hargaPaket,
-    diskonNominal: data.diskonNominal,
-    totalTagihanBersih: data.totalTagihanBersih,
-    dpTerbayar: data.dpTerbayar,
-    nominalBayarIni: data.nominalBayarIni,
-    sisaPiutang: data.sisaPiutang,
+    items,
+    hargaPaket: positiveSubtotal > 0 ? positiveSubtotal : (data.hargaPaket || 0),
+    diskonNominal: discountSubtotal,
+    totalTagihanBersih,
+    dpTerbayar,
+    nominalBayarIni,
+    sisaPiutang,
     metodePembayaran: data.metodePembayaran,
     namaBank: data.namaBank,
     catatanPembayaran: data.catatanPembayaran,

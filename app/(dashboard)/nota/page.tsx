@@ -54,6 +54,11 @@ import {
   CalendarDays,
   RotateCcw,
   Filter,
+  Sparkles,
+  Tag,
+  Calculator,
+  UserCheck,
+  MapPin,
 } from 'lucide-react';
 
 export type PeriodFilterType = 'all' | 'today' | 'this_week' | 'this_month' | 'last_month' | 'this_year' | 'custom';
@@ -196,8 +201,17 @@ export default function NotaPage() {
   const [modalActivePage, setModalActivePage] = React.useState<number>(0);
   const [modalTotalPages, setModalTotalPages] = React.useState<number>(1);
 
-  // Custom Items (for Multi-Item / Extra Fees / Overflow Testing)
-  const [customItems, setCustomItems] = React.useState<InvoiceItem[]>([]);
+  // Dynamic Studio Items (Single Source of Truth for Document Items)
+  const [studioItems, setStudioItems] = React.useState<InvoiceItem[]>([
+    {
+      no: 1,
+      uraian: 'Paket Silver 10 Sesi (Manual)',
+      keterangan: 'Pelatihan Mengemudi Mobil Manual Dasar s/d Mahir',
+      qty: '1 Paket',
+      nominal: 2500000,
+      isDiscount: false,
+    },
+  ]);
 
   // Document Paper Ref for Capture
   const documentPaperRef = React.useRef<HTMLDivElement>(null);
@@ -248,10 +262,83 @@ export default function NotaPage() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  // Calculations
-  const totalTagihanBersih = Math.max(0, hargaPaket - diskonNominal);
-  const totalBayarAkumulasi = dpTerbayar + nominalBayarIni;
+  // Studio Items Dynamic Calculations
+  const subtotalItemsBruto = React.useMemo(() => {
+    return studioItems
+      .filter((item) => !item.isDiscount && (Number(item.nominal) || 0) >= 0)
+      .reduce((sum, item) => sum + (Number(item.nominal) || 0), 0);
+  }, [studioItems]);
+
+  const totalDiskonItems = React.useMemo(() => {
+    const discountFromItems = studioItems
+      .filter((item) => item.isDiscount || (Number(item.nominal) || 0) < 0)
+      .reduce((sum, item) => sum + Math.abs(Number(item.nominal) || 0), 0);
+    return discountFromItems + (Number(diskonNominal) || 0);
+  }, [studioItems, diskonNominal]);
+
+  const totalTagihanBersih = Math.max(0, subtotalItemsBruto - totalDiskonItems);
+  const totalBayarAkumulasi = (Number(dpTerbayar) || 0) + (Number(nominalBayarIni) || 0);
   const sisaPiutang = Math.max(0, totalTagihanBersih - totalBayarAkumulasi);
+
+  // Studio Items Handlers (Fully Dynamic & Adaptive)
+  const handleAddItem = (preset?: Partial<InvoiceItem>) => {
+    const nextNo = studioItems.length + 1;
+    const isDisc = preset?.isDiscount || (preset?.nominal !== undefined && preset.nominal < 0);
+    const newItem: InvoiceItem = {
+      no: nextNo,
+      uraian: preset?.uraian || `Layanan Tambahan #${nextNo}`,
+      keterangan: preset?.keterangan || '',
+      qty: preset?.qty || '1',
+      nominal: preset?.nominal !== undefined ? preset.nominal : 150000,
+      isDiscount: isDisc || false,
+    };
+    setStudioItems((prev) => [...prev, newItem]);
+    showToast(`Berhasil menambahkan: ${newItem.uraian}`, 'success');
+  };
+
+  const handleUpdateItem = (index: number, updates: Partial<InvoiceItem>) => {
+    setStudioItems((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], ...updates };
+      return next;
+    });
+  };
+
+  const handleDeleteItem = (index: number) => {
+    if (studioItems.length <= 1) {
+      setStudioItems([
+        {
+          no: 1,
+          uraian: '',
+          keterangan: '',
+          qty: '1',
+          nominal: 0,
+          isDiscount: false,
+        },
+      ]);
+      showToast('Baris item dikosongkan', 'warning');
+      return;
+    }
+    setStudioItems((prev) => {
+      const filtered = prev.filter((_, i) => i !== index);
+      return filtered.map((item, i) => ({ ...item, no: i + 1 }));
+    });
+    showToast('Item berhasil dihapus', 'warning');
+  };
+
+  const handleResetToDefault = () => {
+    setStudioItems([
+      {
+        no: 1,
+        uraian: namaPaket || 'Paket Silver 10 Sesi (Manual)',
+        keterangan: catatanPaket || `${jumlahSesi} Sesi Pertemuan • Transmisi ${tipeMobil}`,
+        qty: '1 Paket',
+        nominal: 2500000,
+        isDiscount: false,
+      },
+    ]);
+    showToast('Daftar item direset ke paket default', 'success');
+  };
 
   // Compute Period Bounds (Asia/Jakarta WIB)
   const periodBounds = React.useMemo(() => {
@@ -463,6 +550,17 @@ export default function NotaPage() {
     const dp = Number(siswa.dp_nominal) || 0;
     setDpTerbayar(dp);
 
+    const pktDesc = `${p?.jumlah_sesi || 10} Sesi Pertemuan • ${p?.jenis_mobil?.join(', ') || 'Manual'}`;
+    const initialItem: InvoiceItem = {
+      no: 1,
+      uraian: p ? p.nama_paket : 'Paket Kursus Mengemudi',
+      keterangan: pktDesc,
+      qty: '1 Paket',
+      nominal: harga,
+      isDiscount: false,
+    };
+    setStudioItems([initialItem]);
+
     if (targetJenis === 'nota_dp') {
       const suggestedDp = dp > 0 ? dp : Math.round(harga * 0.5);
       setNominalBayarIni(suggestedDp);
@@ -493,7 +591,8 @@ export default function NotaPage() {
       setNominalBayarIni(0);
       setCatatanPembayaran(`Tagihan Resmi Kursus Mengemudi - ${namaSiswa}`);
     } else {
-      setNominalBayarIni(1000000);
+      const sisa = Math.max(0, totalTagihanBersih - dpTerbayar);
+      setNominalBayarIni(sisa > 0 ? sisa : totalTagihanBersih);
       setCatatanPembayaran(`Pembayaran Kursus Mengemudi - ${namaSiswa}`);
     }
   };
@@ -507,12 +606,12 @@ export default function NotaPage() {
     kodeSiswa,
     noWhatsapp,
     alamatSiswa,
-    namaPaket,
+    namaPaket: studioItems[0]?.uraian || namaPaket,
     jumlahSesi,
     tipeMobil,
-    catatanPaket,
-    hargaPaket,
-    diskonNominal,
+    catatanPaket: studioItems[0]?.keterangan || catatanPaket,
+    hargaPaket: subtotalItemsBruto > 0 ? subtotalItemsBruto : (studioItems[0]?.nominal || 0),
+    diskonNominal: totalDiskonItems,
     totalTagihanBersih,
     dpTerbayar,
     nominalBayarIni,
@@ -524,7 +623,7 @@ export default function NotaPage() {
     picNama,
     picJabatan,
     showStempel,
-    customItems: customItems.length > 0 ? customItems : undefined,
+    customItems: studioItems,
   };
 
   const docInfo = getJenisInfo(jenis);
@@ -1120,7 +1219,13 @@ export default function NotaPage() {
                     <input
                       type="text"
                       value={namaPaket}
-                      onChange={(e) => setNamaPaket(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNamaPaket(val);
+                        if (studioItems.length > 0) {
+                          handleUpdateItem(0, { uraian: val });
+                        }
+                      }}
                       placeholder="Paket Kursus Mengemudi"
                       className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
                     />
@@ -1128,40 +1233,389 @@ export default function NotaPage() {
                 </div>
               </div>
 
-              {/* Rincian Biaya Form */}
-              <div className="card-container p-5 space-y-3">
+              {/* 3. Interactive Items List (Rincian Layanan & Item Tagihan) */}
+              <div className="card-container p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--brand-primary)] flex items-center gap-2">
+                    <SlidersHorizontal className="w-4 h-4" />
+                    <span>3. Rincian Item Tagihan & Layanan ({studioItems.length})</span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => handleAddItem()}
+                    className="px-3 py-1.5 rounded-xl bg-[var(--brand-primary)] text-white text-xs font-bold hover:bg-[var(--brand-primary-dark)] transition-all shadow-xs flex items-center gap-1.5 active:scale-95"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Tambah Item</span>
+                  </button>
+                </div>
+
+                {/* Quick Presets / Shortcuts */}
+                <div className="p-3 rounded-2xl bg-[var(--bg-subtle)] border border-[var(--border)] space-y-2">
+                  <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-[var(--text-secondary)]">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Shortcut Tambah Cepat:</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleAddItem({
+                          uraian: 'Sesi Tambahan Latihan Mengemudi',
+                          keterangan: '1 Sesi Tambahan (Pertemuan Latihan Praktik)',
+                          qty: '1 Sesi',
+                          nominal: 150000,
+                          isDiscount: false,
+                        })
+                      }
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[var(--bg)] border border-[var(--border)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] text-[var(--text-primary)] transition-all flex items-center gap-1 shadow-2xs"
+                    >
+                      <span>+ Sesi Tambahan</span>
+                      <span className="text-[9.5px] text-[var(--text-secondary)]">(150rb)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleAddItem({
+                          uraian: 'Biaya Pembuatan SIM A Resmi',
+                          keterangan: 'Pengurusan Penerbitan SIM A Polresta Palembang',
+                          qty: '1 Paket',
+                          nominal: 750000,
+                          isDiscount: false,
+                        })
+                      }
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[var(--bg)] border border-[var(--border)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] text-[var(--text-primary)] transition-all flex items-center gap-1 shadow-2xs"
+                    >
+                      <span>+ Biaya SIM A</span>
+                      <span className="text-[9.5px] text-[var(--text-secondary)]">(750rb)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleAddItem({
+                          uraian: 'Layanan Antar-Jemput Siswa',
+                          keterangan: 'Layanan Jemput & Antar Pulang Sesi Latihan',
+                          qty: '1 Layanan',
+                          nominal: 200000,
+                          isDiscount: false,
+                        })
+                      }
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[var(--bg)] border border-[var(--border)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)] text-[var(--text-primary)] transition-all flex items-center gap-1 shadow-2xs"
+                    >
+                      <span>+ Antar-Jemput</span>
+                      <span className="text-[9.5px] text-[var(--text-secondary)]">(200rb)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleAddItem({
+                          uraian: 'Potongan Diskon Promosi',
+                          keterangan: 'Promo Potongan Biaya Pendaftaran',
+                          qty: '-',
+                          nominal: -100000,
+                          isDiscount: true,
+                        })
+                      }
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 hover:bg-rose-100 transition-all flex items-center gap-1 shadow-2xs"
+                    >
+                      <span>- Potongan Diskon</span>
+                      <span className="text-[9.5px] opacity-80">(100rb)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Items List */}
+                <div className="space-y-3">
+                  {studioItems.map((item, idx) => {
+                    const isDiscount = item.isDiscount || (Number(item.nominal) || 0) < 0;
+                    const absNominal = Math.abs(Number(item.nominal) || 0);
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-3.5 rounded-2xl border transition-all space-y-2.5 text-xs ${
+                          isDiscount
+                            ? 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/60'
+                            : 'bg-[var(--bg)] border-[var(--border)] hover:border-teal-500/40 shadow-2xs'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 pb-1 border-b border-[var(--border)]">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-[11px] px-2 py-0.5 rounded-md bg-[var(--bg-subtle)] text-[var(--text-secondary)]">
+                              #{idx + 1}
+                            </span>
+                            <div className="inline-flex rounded-lg p-0.5 bg-[var(--bg-subtle)] border border-[var(--border)] text-[10px]">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleUpdateItem(idx, {
+                                    isDiscount: false,
+                                    nominal: absNominal,
+                                  });
+                                }}
+                                className={`px-2 py-0.5 rounded-md font-bold transition-all ${
+                                  !isDiscount
+                                    ? 'bg-[var(--brand-primary)] text-white shadow-2xs'
+                                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                                }`}
+                              >
+                                Biaya (+)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleUpdateItem(idx, {
+                                    isDiscount: true,
+                                    nominal: -absNominal,
+                                  });
+                                }}
+                                className={`px-2 py-0.5 rounded-md font-bold transition-all ${
+                                  isDiscount
+                                    ? 'bg-rose-600 text-white shadow-2xs'
+                                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                                }`}
+                              >
+                                Diskon (-)
+                              </button>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteItem(idx)}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
+                            title="Hapus baris item ini"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-semibold text-[var(--text-secondary)] mb-1">
+                            Nama Layanan / Uraian *
+                          </label>
+                          <input
+                            type="text"
+                            value={item.uraian}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              handleUpdateItem(idx, { uraian: val });
+                              if (idx === 0) setNamaPaket(val);
+                            }}
+                            placeholder="Deskripsi layanan / nama paket kursus"
+                            className="w-full px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-semibold text-[var(--text-secondary)] mb-1">
+                            Keterangan Tambahan / Detail
+                          </label>
+                          <input
+                            type="text"
+                            value={item.keterangan || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              handleUpdateItem(idx, { keterangan: val });
+                              if (idx === 0) setCatatanPaket(val);
+                            }}
+                            placeholder="cth: 10 Sesi Pertemuan • Transmisi Manual"
+                            className="w-full px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-12 gap-2.5">
+                          <div className="col-span-5">
+                            <label className="block text-[10px] font-semibold text-[var(--text-secondary)] mb-1">
+                              Qty / Satuan
+                            </label>
+                            <input
+                              type="text"
+                              value={item.qty}
+                              onChange={(e) => handleUpdateItem(idx, { qty: e.target.value })}
+                              placeholder="1 Paket"
+                              className="w-full px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs"
+                            />
+                          </div>
+                          <div className="col-span-7">
+                            <CurrencyInput
+                              label={isDiscount ? 'Nominal Diskon (Rp) *' : 'Nominal Harga (Rp) *'}
+                              value={absNominal}
+                              onChange={(val) => {
+                                handleUpdateItem(idx, {
+                                  nominal: isDiscount ? -Math.abs(val) : Math.abs(val),
+                                });
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div className="flex items-center justify-between pt-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={handleResetToDefault}
+                      className="text-[11px] text-[var(--text-secondary)] hover:text-rose-600 font-semibold flex items-center gap-1 transition-colors"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Reset ke Paket Default</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAddItem()}
+                      className="text-[11px] text-[var(--brand-primary)] hover:underline font-bold flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Tambah Item Baru</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Pembayaran & Kalkulasi Sisa Tagihan (Real-time Adaptive) */}
+              <div className="card-container p-5 space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--brand-primary)] flex items-center gap-2">
                   <CreditCard className="w-4 h-4" />
-                  <span>3. Rincian Nominal Pembayaran</span>
+                  <span>4. Pembayaran & Sisa Tagihan Nota</span>
                 </h3>
 
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <CurrencyInput
-                      label="Harga Paket (Rp) *"
-                      value={hargaPaket}
-                      onChange={(val) => setHargaPaket(val)}
-                    />
+                {/* Live Real-time Subtotal & Total Banner */}
+                <div className="p-4 rounded-2xl bg-[var(--bg-subtle)] border border-[var(--border)] space-y-2">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-[10px] text-[var(--text-secondary)] block">Subtotal Biaya Item:</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        {formatRupiah(subtotalItemsBruto)}
+                      </span>
+                    </div>
+                    {totalDiskonItems > 0 && (
+                      <div className="text-right">
+                        <span className="text-[10px] text-rose-500 block">Total Potongan Diskon:</span>
+                        <span className="font-bold text-rose-600">
+                          - {formatRupiah(totalDiskonItems)}
+                        </span>
+                      </div>
+                    )}
                   </div>
+
+                  <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between">
+                    <div>
+                      <span className="text-[10.5px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">
+                        Total Tagihan Bersih:
+                      </span>
+                      <span className="text-lg font-black text-[var(--brand-primary)]">
+                        {formatRupiah(totalTagihanBersih)}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono text-[var(--text-secondary)] bg-[var(--bg)] px-2.5 py-1 rounded-lg border border-[var(--border)]">
+                      {studioItems.length} Baris Item
+                    </span>
+                  </div>
+                </div>
+
+                {/* DP & Nominal Bayar Inputs */}
+                <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
                     <CurrencyInput
                       label="DP Terdahulu (Rp)"
                       value={dpTerbayar}
                       onChange={(val) => setDpTerbayar(val)}
+                      placeholder="Rp 0"
+                    />
+                  </div>
+                  <div>
+                    <CurrencyInput
+                      label="Pembayaran Saat Ini (Rp) *"
+                      value={nominalBayarIni}
+                      onChange={(val) => setNominalBayarIni(val)}
+                      placeholder="Rp 0"
                     />
                   </div>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-teal-50/80 dark:bg-teal-950/40 border-2 border-[var(--brand-primary)]">
-                  <CurrencyInput
-                    label="Nominal Bayar Saat Ini (Rp) *"
-                    value={nominalBayarIni}
-                    onChange={(val) => setNominalBayarIni(val)}
-                  />
+                {/* 1-Click Payment Shortcuts */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-[var(--text-secondary)]">
+                    Shortcut Set Nominal Bayar:
+                  </span>
+                  <div className="grid grid-cols-3 gap-1.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const sisa = Math.max(0, totalTagihanBersih - dpTerbayar);
+                        setNominalBayarIni(sisa);
+                      }}
+                      className="py-1.5 px-2 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 font-bold hover:bg-emerald-100 transition-all text-center truncate"
+                      title="Set nominal bayar agar langsung lunas"
+                    >
+                      Lunaskan ({formatRupiah(Math.max(0, totalTagihanBersih - dpTerbayar))})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNominalBayarIni(Math.round(totalTagihanBersih * 0.5));
+                      }}
+                      className="py-1.5 px-2 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 font-bold hover:bg-amber-100 transition-all text-center truncate"
+                      title="Set nominal bayar ke DP 50%"
+                    >
+                      DP 50% ({formatRupiah(Math.round(totalTagihanBersih * 0.5))})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNominalBayarIni(0)}
+                      className="py-1.5 px-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)] font-bold hover:text-[var(--text-primary)] transition-all text-center"
+                      title="Set nominal bayar ke Rp 0 untuk nota tagihan / invoice belum bayar"
+                    >
+                      Tagihan Saja (Rp 0)
+                    </button>
+                  </div>
                 </div>
 
-                {/* Method & Bank */}
-                <div className="space-y-2 pt-2 border-t border-[var(--border)]">
+                {/* SISA TAGIHAN REALTIME ADAPTIVE BADGE */}
+                <div
+                  className={`p-3.5 rounded-2xl border transition-all flex items-start justify-between gap-3 ${
+                    sisaPiutang <= 0 && (dpTerbayar + nominalBayarIni) > 0
+                      ? 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                      : sisaPiutang > 0
+                      ? 'bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                      : 'bg-slate-100 dark:bg-slate-900 border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-200'
+                  }`}
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      {sisaPiutang <= 0 && (dpTerbayar + nominalBayarIni) > 0 ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      )}
+                      <span className="font-extrabold text-xs uppercase tracking-wide">
+                        {sisaPiutang <= 0 && (dpTerbayar + nominalBayarIni) > 0
+                          ? 'STATUS: LUNAS (100%)'
+                          : totalBayarAkumulasi > 0
+                          ? 'STATUS: BELUM LUNAS (DP BERJALAN)'
+                          : 'STATUS: TAGIHAN / BELUM BAYAR'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] opacity-90 leading-tight">
+                      {sisaPiutang <= 0 && (dpTerbayar + nominalBayarIni) > 0
+                        ? 'Tagihan telah dibayar penuh. Nota akan otomatis mencetak status LUNAS.'
+                        : `Total uang masuk Rp ${formatRupiah(totalBayarAkumulasi)}. Sisa piutang otomatis tercetak di nota.`}
+                    </p>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span className="text-[10px] font-semibold opacity-75 block">Sisa Tagihan:</span>
+                    <span className="text-sm font-black font-mono">
+                      {sisaPiutang <= 0 ? 'Rp 0' : formatRupiah(sisaPiutang)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Method & Bank Selection */}
+                <div className="space-y-2.5 pt-2 border-t border-[var(--border)]">
                   <label className="block text-[10.5px] font-semibold text-[var(--text-secondary)]">
                     Metode Pembayaran
                   </label>
@@ -1223,100 +1677,81 @@ export default function NotaPage() {
                         ))}
                     </select>
                   )}
+
+                  <div>
+                    <label className="block text-[10.5px] font-semibold text-[var(--text-secondary)] mb-1">
+                      Catatan Transaksi / Pembayaran
+                    </label>
+                    <input
+                      type="text"
+                      value={catatanPembayaran}
+                      onChange={(e) => setCatatanPembayaran(e.target.value)}
+                      placeholder="cth: Pelunasan Biaya Kursus Mengemudi - Nama Siswa"
+                      className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Custom Items Builder for Multi-Item / Extra Fees */}
+              {/* 5. Otorisasi & Tanda Tangan Dokumen */}
               <div className="card-container p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--brand-primary)] flex items-center gap-2">
-                    <SlidersHorizontal className="w-4 h-4" />
-                    <span>4. Tambahan Item / Rincian Kustom ({customItems.length})</span>
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCustomItems([
-                        ...customItems,
-                        {
-                          no: customItems.length + 1,
-                          uraian: `Layanan Tambahan #${customItems.length + 1}`,
-                          qty: '1',
-                          nominal: 250000,
-                        },
-                      ]);
-                    }}
-                    className="px-2.5 py-1 rounded-xl bg-[var(--brand-primary-light)] text-[var(--brand-primary)] text-xs font-bold hover:bg-[var(--brand-primary)] hover:text-white transition-colors flex items-center gap-1"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Tambah Baris</span>
-                  </button>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--brand-primary)] flex items-center gap-2">
+                  <UserCheck className="w-4 h-4" />
+                  <span>5. Otorisasi & Tanda Tangan</span>
+                </h3>
+
+                <div className="grid grid-cols-2 gap-2.5 text-xs">
+                  <div>
+                    <label className="block text-[10.5px] font-semibold text-[var(--text-secondary)] mb-1">
+                      Kota Penerbitan
+                    </label>
+                    <input
+                      type="text"
+                      value={kota}
+                      onChange={(e) => setKota(e.target.value)}
+                      placeholder="Palembang"
+                      className="w-full px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10.5px] font-semibold text-[var(--text-secondary)] mb-1">
+                      Nama PIC / Petugas Kasir
+                    </label>
+                    <input
+                      type="text"
+                      value={picNama}
+                      onChange={(e) => setPicNama(e.target.value)}
+                      placeholder="Admin Amanah Drive"
+                      className="w-full px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                    />
+                  </div>
                 </div>
 
-                {customItems.length === 0 ? (
-                  <p className="text-[11px] text-[var(--text-secondary)] italic">
-                    Secara default, rincian nota memuat paket pelatihan utama. Tambahkan baris di sini jika ingin membuat nota multi-item (misal: Sesi Tambahan, Biaya SIM, dll) atau menguji pemisahan multi-halaman.
-                  </p>
-                ) : (
-                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    {customItems.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="p-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] space-y-2 text-xs"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-[10px] text-slate-500">#{idx + 1}</span>
-                          <input
-                            type="text"
-                            value={item.uraian}
-                            onChange={(e) => {
-                              const updated = [...customItems];
-                              updated[idx].uraian = e.target.value;
-                              setCustomItems(updated);
-                            }}
-                            placeholder="Deskripsi layanan / biaya"
-                            className="flex-1 px-2 py-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setCustomItems(customItems.filter((_, i) => i !== idx))}
-                            className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <input
-                            type="text"
-                            value={item.qty}
-                            onChange={(e) => {
-                              const updated = [...customItems];
-                              updated[idx].qty = e.target.value;
-                              setCustomItems(updated);
-                            }}
-                            placeholder="Qty (cth: 1 Sesi)"
-                            className="px-2 py-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-xs"
-                          />
-                          <CurrencyInput
-                            value={item.nominal}
-                            onChange={(val) => {
-                              const updated = [...customItems];
-                              updated[idx].nominal = val;
-                              setCustomItems(updated);
-                            }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => setCustomItems([])}
-                      className="text-[10px] text-rose-600 hover:underline font-bold"
-                    >
-                      Reset ke Paket Default
-                    </button>
+                <div className="grid grid-cols-2 gap-2.5 text-xs items-center">
+                  <div>
+                    <label className="block text-[10.5px] font-semibold text-[var(--text-secondary)] mb-1">
+                      Jabatan Petugas
+                    </label>
+                    <input
+                      type="text"
+                      value={picJabatan}
+                      onChange={(e) => setPicJabatan(e.target.value)}
+                      placeholder="Petugas Administrasi"
+                      className="w-full px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs"
+                    />
                   </div>
-                )}
+                  <div className="pt-4">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[var(--text-primary)]">
+                      <input
+                        type="checkbox"
+                        checked={showStempel}
+                        onChange={(e) => setShowStempel(e.target.checked)}
+                        className="w-4 h-4 rounded text-[var(--brand-primary)]"
+                      />
+                      <span>Tampilkan Cap Stempel Resmi</span>
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
 

@@ -139,7 +139,7 @@ export function ReceiptA5Template({
             <table className="w-full">
               <tbody>
                 <tr className="border-b border-slate-200 bg-slate-50/70">
-                  <td className="py-0.5 px-2.5 text-right text-slate-600 font-medium">Total Biaya Paket Kursus:</td>
+                  <td className="py-0.5 px-2.5 text-right text-slate-600 font-medium">Total Tagihan / Biaya Layanan:</td>
                   <td className="py-0.5 px-2.5 text-right font-bold text-slate-900 w-36">{formatRupiah(data.totalTagihanBersih)}</td>
                 </tr>
 

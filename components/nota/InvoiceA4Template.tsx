@@ -154,7 +154,7 @@ export function InvoiceA4Template({
             <table className="w-full text-[9.5px]">
               <tbody>
                 <tr className="border-b border-slate-200 bg-slate-50/80">
-                  <td className="py-1 px-3 text-right text-slate-600 font-medium">Subtotal Biaya Paket Kursus:</td>
+                  <td className="py-1 px-3 text-right text-slate-600 font-medium">Subtotal Biaya Layanan:</td>
                   <td className="py-1 px-3 text-right font-bold text-slate-900 w-40">{formatRupiah(data.hargaPaket)}</td>
                 </tr>
 
