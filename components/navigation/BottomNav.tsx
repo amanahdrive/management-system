@@ -17,6 +17,7 @@ import {
 import { useUiStore } from '@/lib/store/ui-store';
 import { sound } from '@/lib/sound/SoundFX';
 import { LiquidGlassBottomNav, LiquidNavItem } from './LiquidGlassBottomNav';
+import { checkIsFinanceMode } from '@/lib/utils/finance-mode';
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -25,13 +26,19 @@ export function BottomNav() {
   const [isFinanceMode, setIsFinanceMode] = React.useState(false);
 
   React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setIsFinanceMode(
-        sessionStorage.getItem('amanah_finance_mode') === 'true' ||
-        localStorage.getItem('amanah_finance_mode') === 'true'
-      );
-    }
-  }, []);
+    if (typeof window === 'undefined') return;
+
+    const updateMode = () => {
+      setIsFinanceMode(checkIsFinanceMode(pathname));
+    };
+    updateMode();
+
+    const handleModeChange = () => updateMode();
+    window.addEventListener('amanah:finance-mode-change', handleModeChange);
+    return () => {
+      window.removeEventListener('amanah:finance-mode-change', handleModeChange);
+    };
+  }, [pathname]);
 
   // Jika dalam Finance Mode, tampilkan dock navigasi khusus Kas & Keuangan
   if (isFinanceMode) {

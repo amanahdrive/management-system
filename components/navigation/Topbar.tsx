@@ -5,15 +5,17 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ThemeToggle } from '../shared/ThemeToggle';
 import { useUiStore } from '@/lib/store/ui-store';
-import { RefreshCw, Check, Volume2, VolumeX } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { RefreshCw, Check, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
 import { sound } from '@/lib/sound/SoundFX';
 import { purgeServerCache } from '@/lib/actions/cache';
 import { triggerAppRefresh } from '@/lib/utils/refresh-event';
+import { checkIsFinanceMode, clearFinanceMode } from '@/lib/utils/finance-mode';
 
 export function Topbar() {
   const { sidebarOpen } = useUiStore();
   const router = useRouter();
+  const pathname = usePathname();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [lastSyncTime, setLastSyncTime] = React.useState<string>('');
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
@@ -21,13 +23,19 @@ export function Topbar() {
   const [isFinanceMode, setIsFinanceMode] = React.useState(false);
 
   React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setIsFinanceMode(
-        sessionStorage.getItem('amanah_finance_mode') === 'true' ||
-        localStorage.getItem('amanah_finance_mode') === 'true'
-      );
-    }
-  }, []);
+    if (typeof window === 'undefined') return;
+
+    const updateMode = () => {
+      setIsFinanceMode(checkIsFinanceMode(pathname));
+    };
+    updateMode();
+
+    const handleModeChange = () => updateMode();
+    window.addEventListener('amanah:finance-mode-change', handleModeChange);
+    return () => {
+      window.removeEventListener('amanah:finance-mode-change', handleModeChange);
+    };
+  }, [pathname]);
 
   React.useEffect(() => {
     setIsMuted(sound.getMuted());
@@ -127,6 +135,23 @@ export function Topbar() {
 
       {/* Right: Audio Toggle, Refresh DB, Theme Toggle & Admin Badge */}
       <div className="flex items-center gap-2">
+        {/* Quick Return to Admin Button (When in Finance Mode) */}
+        {isFinanceMode && (
+          <button
+            type="button"
+            onClick={() => {
+              clearFinanceMode();
+              setIsFinanceMode(false);
+              router.push('/dashboard');
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 rounded-xl text-[11px] font-semibold transition-all cursor-pointer active:scale-95 shadow-2xs"
+            title="Kembali ke Dashboard Admin Utama"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden xs:inline sm:inline">Dashboard Admin</span>
+          </button>
+        )}
+
         {/* Audio Toggle */}
         <button
           onClick={handleToggleSound}

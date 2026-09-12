@@ -8,6 +8,12 @@ import { BottomNav } from '@/components/navigation/BottomNav';
 import { MobileDrawer } from '@/components/navigation/MobileDrawer';
 import { PwaHistoryIsolation } from '@/components/shared/PwaHistoryIsolation';
 import { useUiStore } from '@/lib/store/ui-store';
+import {
+  isAdminRoute,
+  checkIsFinanceMode,
+  clearFinanceMode,
+  isStandalonePwa,
+} from '@/lib/utils/finance-mode';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { sidebarOpen } = useUiStore();
@@ -16,29 +22,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isFinanceMode, setIsFinanceMode] = React.useState(false);
 
   React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const isFin =
-        sessionStorage.getItem('amanah_finance_mode') === 'true' ||
-        localStorage.getItem('amanah_finance_mode') === 'true';
+    if (typeof window === 'undefined') return;
+
+    const updateMode = () => {
+      // Jika berada di rute Admin Console (/dashboard, /siswa, /jadwal, dll.), Finance mode DILARANG aktif
+      if (isAdminRoute(pathname)) {
+        clearFinanceMode();
+        setIsFinanceMode(false);
+        return;
+      }
+
+      const isFin = checkIsFinanceMode(pathname);
       setIsFinanceMode(isFin);
 
-      // Kunci Finance App: Jika mode finance aktif dan pengguna berada di luar modul Kas & Keuangan / Nota, redirect langsung ke /finance
-      if (isFin) {
+      // Hanya redirect ke /finance jika sedang di STANDALONE PWA (aplikasi mobile terinstal)
+      // dan berada di luar modul kas/nota
+      if (isFin && isStandalonePwa()) {
         const isAllowedKas =
           pathname.startsWith('/kas') ||
           pathname.startsWith('/nota') ||
           pathname.startsWith('/finance');
         if (!isAllowedKas) {
-          console.warn('[Finance Scope Guard] Rute admin diblokir dalam mode Finance:', pathname);
           router.replace('/finance');
         }
       }
-    }
+    };
+
+    updateMode();
+
+    const handleModeChange = () => updateMode();
+    window.addEventListener('amanah:finance-mode-change', handleModeChange);
+    return () => {
+      window.removeEventListener('amanah:finance-mode-change', handleModeChange);
+    };
   }, [pathname, router]);
 
   return (
     <div className="min-h-screen bg-[var(--bg-subtle)]">
-      {/* Jika dalam mode Finance, aktifkan isolasi tombol back pada seluruh submenu Kas */}
+      {/* Khusus mode Finance standalone, aktifkan isolasi tombol back */}
       {isFinanceMode && <PwaHistoryIsolation />}
 
       <Sidebar />

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   LayoutDashboard,
@@ -34,8 +34,10 @@ import {
   ExternalLink,
   Globe,
   Inbox,
+  ArrowLeft,
 } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
+import { checkIsFinanceMode, clearFinanceMode } from '@/lib/utils/finance-mode';
 
 const HOMEPAGE_SUB_ITEMS = [
   { label: 'Internal Tracking', href: '/homepage-manager/tracking', icon: BarChart3 },
@@ -87,6 +89,7 @@ const SETTINGS_SUB_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { sidebarOpen, toggleSidebar, setSidebarOpen } = useUiStore();
 
   const isHomepageActive = pathname.startsWith('/homepage-manager');
@@ -118,13 +121,19 @@ export function Sidebar() {
   const [isFinanceMode, setIsFinanceMode] = React.useState(false);
 
   React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setIsFinanceMode(
-        sessionStorage.getItem('amanah_finance_mode') === 'true' ||
-        localStorage.getItem('amanah_finance_mode') === 'true'
-      );
-    }
-  }, []);
+    if (typeof window === 'undefined') return;
+
+    const updateMode = () => {
+      setIsFinanceMode(checkIsFinanceMode(pathname));
+    };
+    updateMode();
+
+    const handleModeChange = () => updateMode();
+    window.addEventListener('amanah:finance-mode-change', handleModeChange);
+    return () => {
+      window.removeEventListener('amanah:finance-mode-change', handleModeChange);
+    };
+  }, [pathname]);
 
   React.useEffect(() => {
     if (isHomepageActive) setHomepageExpanded(true);
@@ -292,6 +301,25 @@ export function Sidebar() {
       <nav className="flex-1 py-4 px-2.5 space-y-1 overflow-y-auto">
         {isFinanceMode ? (
           <>
+            {/* Tombol Kembali ke Admin Dashboard */}
+            <div className="pb-2 mb-2 border-b border-[var(--liquid-glass-border)]">
+              <button
+                type="button"
+                onClick={() => {
+                  clearFinanceMode();
+                  setIsFinanceMode(false);
+                  router.push('/dashboard');
+                }}
+                className={`w-full flex items-center ${
+                  sidebarOpen ? 'gap-2.5 px-3' : 'justify-center px-0'
+                } py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 dark:bg-emerald-500/15 dark:hover:bg-emerald-500/25 border border-emerald-500/30 rounded-xl transition-all cursor-pointer shadow-2xs`}
+                title="Kembali ke Dashboard Admin Utama"
+              >
+                <ArrowLeft className="w-4 h-4 shrink-0" />
+                {sidebarOpen && <span className="whitespace-nowrap">Dashboard Admin</span>}
+              </button>
+            </div>
+
             {/* 1. Portal Finance (Beranda) */}
             <Link
               href="/finance"

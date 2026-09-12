@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Wallet,
@@ -33,8 +33,10 @@ import {
   Building2,
   Globe,
   Inbox,
+  ArrowLeft,
 } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
+import { checkIsFinanceMode, clearFinanceMode } from '@/lib/utils/finance-mode';
 
 const HOMEPAGE_SUB_ITEMS = [
   { label: 'Internal Tracking', href: '/homepage-manager/tracking', icon: BarChart3 },
@@ -86,6 +88,7 @@ const SETTINGS_SUB_ITEMS = [
 
 export function MobileDrawer() {
   const pathname = usePathname();
+  const router = useRouter();
   const { mobileDrawerOpen, setMobileDrawerOpen } = useUiStore();
 
   const isHomepageActive = pathname.startsWith('/homepage-manager');
@@ -117,12 +120,18 @@ export function MobileDrawer() {
   const [isFinanceMode, setIsFinanceMode] = React.useState(false);
 
   React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setIsFinanceMode(
-        sessionStorage.getItem('amanah_finance_mode') === 'true' ||
-        localStorage.getItem('amanah_finance_mode') === 'true'
-      );
-    }
+    if (typeof window === 'undefined') return;
+
+    const updateMode = () => {
+      setIsFinanceMode(checkIsFinanceMode(pathname));
+    };
+    updateMode();
+
+    const handleModeChange = () => updateMode();
+    window.addEventListener('amanah:finance-mode-change', handleModeChange);
+    return () => {
+      window.removeEventListener('amanah:finance-mode-change', handleModeChange);
+    };
   }, [mobileDrawerOpen, pathname]);
 
   React.useEffect(() => {
@@ -192,6 +201,23 @@ export function MobileDrawer() {
                 className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5"
               >
                 <X className="w-5 h-5 text-[var(--text-secondary)]" />
+              </button>
+            </div>
+
+            {/* Tombol Kembali ke Dashboard Admin */}
+            <div className="mb-3 pb-3 border-b border-[var(--border)]">
+              <button
+                type="button"
+                onClick={() => {
+                  clearFinanceMode();
+                  setIsFinanceMode(false);
+                  setMobileDrawerOpen(false);
+                  router.push('/dashboard');
+                }}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all shadow-2xs cursor-pointer active:scale-98"
+              >
+                <ArrowLeft className="w-4 h-4 shrink-0" />
+                <span>Kembali ke Dashboard Admin</span>
               </button>
             </div>
 

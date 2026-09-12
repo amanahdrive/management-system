@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { KasTransaksi, KasKategori, Siswa, Paket, RekeningBank, Hutang, JenisHutangEnum } from '@/types/database';
 import {
   getKasOverviewMetrics,
@@ -44,11 +45,13 @@ import { LiquidGlassBottomNav } from '@/components/navigation/LiquidGlassBottomN
 import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
 import { purgeServerCache } from '@/lib/actions/cache';
 import { usePinStore } from '@/lib/store/pin-store';
+import { clearFinanceMode } from '@/lib/utils/finance-mode';
 import {
   TrendingUp,
   TrendingDown,
   Wallet,
   Plus,
+  ArrowLeft,
   Pencil,
   Trash2,
   RefreshCw,
@@ -112,6 +115,7 @@ const GREETING = (() => {
 })();
 
 export default function FinancePortalPage() {
+  const router = useRouter();
   // PIN Auth Gate
   const [pinVerified, setPinVerified] = React.useState(false);
   const [pinInput, setPinInput] = React.useState('');
@@ -1112,10 +1116,24 @@ export default function FinancePortalPage() {
             <button
               type="submit"
               disabled={pinLoading || pinInput.length !== 6}
-              className="w-full py-3 bg-gradient-to-r from-[#0F7A73] to-[#10B981] hover:brightness-110 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-all shadow-md active:scale-98"
+              className="w-full py-3 bg-gradient-to-r from-[#0F7A73] to-[#10B981] hover:brightness-110 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-all shadow-md active:scale-98 cursor-pointer"
             >
               {pinLoading ? 'Memverifikasi...' : 'Buka Portal Finance'}
             </button>
+
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  clearFinanceMode();
+                  router.push('/dashboard');
+                }}
+                className="inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:underline cursor-pointer py-1"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Kembali ke Dashboard Admin</span>
+              </button>
+            </div>
           </form>
         </div>
       </div>
@@ -1148,6 +1166,20 @@ export default function FinancePortalPage() {
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* Tombol Cepat Kembali ke Admin Console */}
+            <button
+              type="button"
+              onClick={() => {
+                clearFinanceMode();
+                router.push('/dashboard');
+              }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-emerald-500/10 text-[var(--text-secondary)] hover:text-emerald-700 dark:hover:text-emerald-300 text-[11px] font-semibold transition-all active:scale-95 cursor-pointer"
+              title="Kembali ke Dashboard Admin Utama"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Admin</span>
+            </button>
+
             <button
               type="button"
               onClick={handleRefresh}
