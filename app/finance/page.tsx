@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { KasTransaksi, KasKategori, Siswa, Paket, RekeningBank, Hutang, JenisHutangEnum } from '@/types/database';
+import { KasTransaksi, KasKategori, Siswa, Paket, RekeningBank, Hutang, JenisHutangEnum, StaffKasbonSummary } from '@/types/database';
 import {
   getKasOverviewMetrics,
   getKasTransaksiList,
@@ -91,6 +91,8 @@ import {
   Layers,
   ChevronRight,
   LayoutDashboard,
+  GraduationCap,
+  Briefcase,
 } from 'lucide-react';
 
 function fmt(n: number): string {
@@ -188,6 +190,19 @@ export default function FinancePortalPage() {
   const [pelunasanMetode, setPelunasanMetode] = React.useState<'tunai' | 'non_tunai'>('non_tunai');
   const [pelunasanCatatKeKas, setPelunasanCatatKeKas] = React.useState(true);
   const [pelunasanLoading, setPelunasanLoading] = React.useState(false);
+
+  // Piutang Karyawan & Sub-Tab States
+  const [staffKasbonList, setStaffKasbonList] = React.useState<StaffKasbonSummary[]>([]);
+  const [activePiutangType, setActivePiutangType] = React.useState<'siswa' | 'karyawan'>('siswa');
+  const [piutangSearchQuery, setPiutangSearchQuery] = React.useState('');
+
+  // Modal Pelunasan / Pengembalian Kasbon Karyawan
+  const [showKasbonModal, setShowKasbonModal] = React.useState(false);
+  const [selectedStaffKasbon, setSelectedStaffKasbon] = React.useState<StaffKasbonSummary | null>(null);
+  const [kasbonBayarNominal, setKasbonBayarNominal] = React.useState(0);
+  const [kasbonBayarTanggal, setKasbonBayarTanggal] = React.useState(TODAY);
+  const [kasbonBayarMetode, setKasbonBayarMetode] = React.useState<'tunai' | 'non_tunai'>('tunai');
+  const [kasbonSubmitting, setKasbonSubmitting] = React.useState(false);
 
   // Modal Setor Tunai State
   const [showSetorTunaiModal, setShowSetorTunaiModal] = React.useState(false);
@@ -360,6 +375,7 @@ export default function FinancePortalPage() {
             setHutangList(hut);
             setDpKustomList(dpk);
             setRekeningList(rek);
+            setStaffKasbonList(Array.isArray(json.staffKasbon) ? json.staffKasbon : []);
             setMetrics(activeMetrics);
 
             const defRek =
@@ -425,6 +441,7 @@ export default function FinancePortalPage() {
         setHutangList(hut);
         setDpKustomList(dpk);
         setRekeningList(rek);
+        setStaffKasbonList(ksb);
         setMetrics(activeMetrics);
 
         const defRek =
@@ -959,10 +976,100 @@ export default function FinancePortalPage() {
     return list;
   }, [recentTx, txFilterType, txSearchQuery]);
 
-  // Filtered Piutang List (Siswa with status 'dp' or 'belum_bayar')
+  // Filtered Piutang List (Siswa with status 'dp' or 'belum_bayar' and sisa > 0)
   const piutangSiswaList = React.useMemo(() => {
-    return siswaList.filter((s) => s.status_pembayaran_kode === 'dp' || s.status_pembayaran_kode === 'belum_bayar');
+    return siswaList.filter((s) => {
+      const hargaFinal = Number(s.harga_final) || 0;
+      const dp = Number(s.dp_nominal) || 0;
+      const paid = s.status_pembayaran_kode === 'lunas' ? hargaFinal : dp;
+      const sisa = Math.max(0, hargaFinal - paid);
+      return (s.status_pembayaran_kode === 'dp' || s.status_pembayaran_kode === 'belum_bayar') && sisa > 0;
+    });
   }, [siswaList]);
+
+  // Filtered Kasbon Staff List (Staff with sisa_kasbon > 0)
+  const piutangStaffList = React.useMemo(() => {
+    return staffKasbonList.filter((s) => (Number(s.sisa_kasbon) || 0) > 0);
+  }, [staffKasbonList]);
+
+  // Total Piutang Siswa
+  const totalPiutangSiswa = React.useMemo(() => {
+    return piutangSiswaList.reduce((acc, s) => {
+      const hargaFinal = Number(s.harga_final) || 0;
+      const dp = Number(s.dp_nominal) || 0;
+      return acc + Math.max(0, hargaFinal - dp);
+    }, 0);
+  }, [piutangSiswaList]);
+
+  // Total Piutang Karyawan (Kasbon)
+  const totalPiutangKaryawan = React.useMemo(() => {
+    return piutangStaffList.reduce((acc, s) => acc + Math.max(0, Number(s.sisa_kasbon) || 0), 0);
+  }, [piutangStaffList]);
+
+  // Total Piutang All (Siswa + Karyawan)
+  const totalPiutangAll = totalPiutangSiswa + totalPiutangKaryawan;
+
+  // Searched Siswa List
+  const searchedPiutangSiswaList = React.useMemo(() => {
+    if (!piutangSearchQuery.trim()) return piutangSiswaList;
+    const q = piutangSearchQuery.toLowerCase();
+    return piutangSiswaList.filter(
+      (s) =>
+        s.nama.toLowerCase().includes(q) ||
+        (s.kode_siswa || '').toLowerCase().includes(q) ||
+        (s.no_whatsapp || '').includes(q) ||
+        (s.paket?.nama_paket || '').toLowerCase().includes(q)
+    );
+  }, [piutangSiswaList, piutangSearchQuery]);
+
+  // Searched Staff Kasbon List
+  const searchedPiutangStaffList = React.useMemo(() => {
+    if (!piutangSearchQuery.trim()) return piutangStaffList;
+    const q = piutangSearchQuery.toLowerCase();
+    return piutangStaffList.filter((s) => s.nama.toLowerCase().includes(q));
+  }, [piutangStaffList, piutangSearchQuery]);
+
+  // Handler: Catat Pengembalian Kasbon Karyawan
+  const handleOpenKasbonPelunasan = (staff: StaffKasbonSummary) => {
+    setSelectedStaffKasbon(staff);
+    setKasbonBayarNominal(Math.max(0, Number(staff.sisa_kasbon) || 0));
+    setKasbonBayarTanggal(TODAY);
+    setKasbonBayarMetode('tunai');
+    setShowKasbonModal(true);
+  };
+
+  const handleSaveKasbonPelunasan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStaffKasbon || kasbonBayarNominal <= 0) return;
+    setKasbonSubmitting(true);
+    try {
+      const res = await addKasTransaksi({
+        tanggal: kasbonBayarTanggal,
+        tipe: 'pemasukan',
+        kategori: 'pengembalian_kasbon',
+        keterangan: `Pengembalian Kasbon - ${selectedStaffKasbon.nama}`,
+        nominal: kasbonBayarNominal,
+        jenis_pembayaran: kasbonBayarMetode,
+        rekening_id: kasbonBayarMetode === 'non_tunai' ? selectedRekeningId || null : null,
+        pic_tipe: 'finance',
+        pic_nama: 'Lia (Finance)',
+        staff_id: selectedStaffKasbon.id,
+        sumber_otomatis: false,
+      });
+
+      if (res.success) {
+        setShowKasbonModal(false);
+        showToast(`Pengembalian kasbon ${selectedStaffKasbon.nama} berhasil dicatat!`);
+        loadData();
+      } else {
+        alert('Gagal mencatat pengembalian kasbon: ' + res.error);
+      }
+    } catch (err: any) {
+      alert('Terjadi kesalahan: ' + (err?.message || 'Error'));
+    } finally {
+      setKasbonSubmitting(false);
+    }
+  };
 
   // Flow Period Calculation & Filtering
   const { flowPeriodLabel, flowDateRangeLabel, flowFilteredTx, flowSearchedTx } = React.useMemo(() => {
@@ -1706,101 +1813,346 @@ export default function FinancePortalPage() {
         {/* Tab Piutang */}
         {activeTab === 'piutang' && (
           <div className="space-y-4 animate-fadeIn">
-            {/* Header Card */}
-            <div className="p-4 rounded-none bg-linear-to-br from-amber-600 to-amber-700 text-white shadow-md space-y-1">
-              <span className="text-[10px] uppercase font-bold tracking-wider opacity-90">
-                Total Piutang Siswa Beredar
-              </span>
-              <div className="text-2xl font-black tabular-nums">
-                {formatRupiah(metrics.totalPiutang)}
+            {/* Top Switcher: Piutang vs Hutang */}
+            <div className="flex items-center gap-1.5 p-1 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl shadow-xs">
+              <button
+                type="button"
+                onClick={() => setActiveTab('piutang')}
+                className="flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 bg-amber-500 text-white shadow-xs"
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Piutang ({fmt(totalPiutangAll)})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('hutang')}
+                className="flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                <Landmark className="w-3.5 h-3.5" />
+                <span>Hutang ({fmt(metrics.totalHutang)})</span>
+              </button>
+            </div>
+
+            {/* Card 1: Overview Total Piutang (Non-Clickable) */}
+            <div className="p-4 rounded-2xl bg-linear-to-br from-amber-600 to-amber-700 text-white shadow-md space-y-1.5 select-none">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold tracking-wider opacity-90 flex items-center gap-1.5">
+                  <Wallet className="w-3.5 h-3.5 opacity-80" />
+                  Total Piutang Beredar
+                </span>
+                <span className="text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-xs font-bold">
+                  Overview
+                </span>
               </div>
-              <div className="text-[11px] opacity-90 font-medium">
-                {piutangSiswaList.length} siswa memiliki sisa tagihan belum lunas
+              <div className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight">
+                {formatRupiah(totalPiutangAll)}
+              </div>
+              <div className="text-[11px] opacity-90 flex items-center gap-3 pt-1 border-t border-white/15">
+                <span className="flex items-center gap-1">
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  <strong>{piutangSiswaList.length}</strong> Siswa
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Briefcase className="w-3.5 h-3.5" />
+                  <strong>{piutangStaffList.length}</strong> Karyawan (Kasbon)
+                </span>
               </div>
             </div>
 
-            {/* List of Students with Outstanding Balances */}
-            <div className="space-y-2.5">
-              {piutangSiswaList.length === 0 ? (
-                <div className="card-container text-center py-12 text-xs text-[var(--text-secondary)]">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                  <p className="font-bold text-sm text-[var(--text-primary)]">Semua Piutang Siswa Lunas!</p>
-                  <p className="text-[11px] mt-1">Tidak ada tagihan yang beredar saat ini.</p>
+            {/* Cards 2 & 3: Sub-Cards Bersebelahan (Clickable Switcher) */}
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* Card Piutang Siswa */}
+              <button
+                type="button"
+                onClick={() => setActivePiutangType('siswa')}
+                className={`p-3.5 rounded-2xl text-left transition-all border relative flex flex-col justify-between ${
+                  activePiutangType === 'siswa'
+                    ? 'bg-amber-500/10 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/30 shadow-xs'
+                    : 'bg-[var(--bg-card)] border-[var(--border)] opacity-70 hover:opacity-100'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full mb-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
+                    <GraduationCap
+                      className={`w-4 h-4 ${
+                        activePiutangType === 'siswa'
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-[var(--text-secondary)]'
+                      }`}
+                    />
+                    <span>Piutang Siswa</span>
+                  </div>
+                  {activePiutangType === 'siswa' && (
+                    <span className="w-2 h-2 rounded-full bg-amber-500 ring-2 ring-amber-400/40" />
+                  )}
                 </div>
-              ) : (
-                piutangSiswaList.map((s) => {
-                  const hargaFinal = Number(s.harga_final) || 0;
-                  const dp = Number(s.dp_nominal) || 0;
-                  const sisa = Math.max(0, hargaFinal - dp);
-                  const isDp = s.status_pembayaran_kode === 'dp';
-                  const pct = hargaFinal > 0 ? Math.round((dp / hargaFinal) * 100) : 0;
+                <div>
+                  <div className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 tabular-nums">
+                    {formatRupiah(totalPiutangSiswa)}
+                  </div>
+                  <div className="text-[10px] text-[var(--text-secondary)] mt-0.5 font-medium">
+                    {piutangSiswaList.length} siswa belum lunas
+                  </div>
+                </div>
+              </button>
 
-                  return (
-                    <div
-                      key={s.id}
-                      className="card-container p-4 space-y-3 border border-[var(--border)] shadow-xs"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="font-bold text-sm text-[var(--text-primary)]">{s.nama}</div>
-                          <div className="text-[11px] text-[var(--text-secondary)] font-mono">
-                            <span className="font-semibold text-[var(--brand-primary)]">{s.kode_siswa}</span> • {s.no_whatsapp || '-'}
+              {/* Card Piutang Karyawan */}
+              <button
+                type="button"
+                onClick={() => setActivePiutangType('karyawan')}
+                className={`p-3.5 rounded-2xl text-left transition-all border relative flex flex-col justify-between ${
+                  activePiutangType === 'karyawan'
+                    ? 'bg-amber-500/10 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/30 shadow-xs'
+                    : 'bg-[var(--bg-card)] border-[var(--border)] opacity-70 hover:opacity-100'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full mb-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
+                    <Briefcase
+                      className={`w-4 h-4 ${
+                        activePiutangType === 'karyawan'
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-[var(--text-secondary)]'
+                      }`}
+                    />
+                    <span>Piutang Karyawan</span>
+                  </div>
+                  {activePiutangType === 'karyawan' && (
+                    <span className="w-2 h-2 rounded-full bg-amber-500 ring-2 ring-amber-400/40" />
+                  )}
+                </div>
+                <div>
+                  <div className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 tabular-nums">
+                    {formatRupiah(totalPiutangKaryawan)}
+                  </div>
+                  <div className="text-[10px] text-[var(--text-secondary)] mt-0.5 font-medium">
+                    {piutangStaffList.length} orang ada kasbon
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
+              <input
+                type="text"
+                value={piutangSearchQuery}
+                onChange={(e) => setPiutangSearchQuery(e.target.value)}
+                placeholder={
+                  activePiutangType === 'siswa'
+                    ? 'Cari nama siswa, kode, WA, atau paket...'
+                    : 'Cari nama karyawan kasbon...'
+                }
+                className="w-full pl-9 pr-8 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] text-xs text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-amber-500"
+              />
+              {piutangSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setPiutangSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-0.5"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Conditional List based on activePiutangType */}
+            {activePiutangType === 'siswa' ? (
+              /* LIST PIUTANG SISWA */
+              <div className="space-y-2.5">
+                {searchedPiutangSiswaList.length === 0 ? (
+                  <div className="card-container text-center py-12 text-xs text-[var(--text-secondary)]">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                    <p className="font-bold text-sm text-[var(--text-primary)]">
+                      {piutangSearchQuery ? 'Tidak Ada Siswa Ditemukan' : 'Semua Piutang Siswa Lunas!'}
+                    </p>
+                    <p className="text-[11px] mt-1">
+                      {piutangSearchQuery
+                        ? 'Coba kata kunci pencarian yang lain.'
+                        : 'Tidak ada sisa tagihan siswa beredar saat ini.'}
+                    </p>
+                  </div>
+                ) : (
+                  searchedPiutangSiswaList.map((s) => {
+                    const hargaFinal = Number(s.harga_final) || 0;
+                    const dp = Number(s.dp_nominal) || 0;
+                    const sisa = Math.max(0, hargaFinal - dp);
+                    const isDp = s.status_pembayaran_kode === 'dp';
+                    const pct = hargaFinal > 0 ? Math.round((dp / hargaFinal) * 100) : 0;
+
+                    return (
+                      <div
+                        key={s.id}
+                        className="card-container p-4 space-y-3 border border-[var(--border)] shadow-xs rounded-2xl"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="font-bold text-sm text-[var(--text-primary)]">{s.nama}</div>
+                            <div className="text-[11px] text-[var(--text-secondary)] font-mono">
+                              <span className="font-semibold text-[var(--brand-primary)]">{s.kode_siswa}</span> • {s.no_whatsapp || '-'}
+                            </div>
+                          </div>
+
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                              isDp
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300'
+                                : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300'
+                            }`}
+                          >
+                            {isDp ? `DP ${pct}%` : 'Belum Bayar'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[var(--bg-subtle)] text-xs">
+                          <div>
+                            <span className="text-[10px] text-[var(--text-secondary)] block">Paket Kursus</span>
+                            <span className="font-semibold text-[var(--text-primary)]">
+                              {s.paket?.nama_paket || 'Khusus'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[var(--text-secondary)] block">Sisa Tagihan</span>
+                            <span className="font-black text-rose-600 tabular-nums">
+                              {formatRupiah(sisa)}
+                            </span>
                           </div>
                         </div>
 
-                        <span
-                          className={`px-2.5 py-0.5 rounded-none text-[10px] font-extrabold border ${
-                            isDp
-                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300'
-                              : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300'
-                          }`}
-                        >
-                          {isDp ? `DP ${pct}%` : 'Belum Bayar'}
-                        </span>
-                      </div>
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="text-[10.5px] text-[var(--text-secondary)]">
+                            Total Biaya: <strong>{formatRupiah(hargaFinal)}</strong>
+                          </div>
 
-                      <div className="grid grid-cols-2 gap-2 p-2.5 rounded-none bg-[var(--bg-subtle)] text-xs">
-                        <div>
-                          <span className="text-[10px] text-[var(--text-secondary)] block">Paket Kursus</span>
-                          <span className="font-semibold text-[var(--text-primary)]">
-                            {s.paket?.nama_paket || 'Khusus'}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPelunasan(s)}
+                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1 shadow-xs active:scale-95 transition-all"
+                          >
+                            <CreditCard className="w-3.5 h-3.5" />
+                            <span>Input Pelunasan</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            ) : (
+              /* LIST PIUTANG KARYAWAN (KASBON) */
+              <div className="space-y-2.5">
+                {searchedPiutangStaffList.length === 0 ? (
+                  <div className="card-container text-center py-12 text-xs text-[var(--text-secondary)]">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                    <p className="font-bold text-sm text-[var(--text-primary)]">
+                      {piutangSearchQuery ? 'Tidak Ada Karyawan Ditemukan' : 'Semua Kasbon Karyawan Lunas!'}
+                    </p>
+                    <p className="text-[11px] mt-1">
+                      {piutangSearchQuery
+                        ? 'Coba kata kunci pencarian yang lain.'
+                        : 'Tidak ada kasbon karyawan yang aktif saat ini.'}
+                    </p>
+                  </div>
+                ) : (
+                  searchedPiutangStaffList.map((staff) => {
+                    const totalKasbon = Number(staff.total_kasbon) || 0;
+                    const totalPotongan = Number(staff.total_potongan) || 0;
+                    const sisaKasbon = Math.max(0, Number(staff.sisa_kasbon) || 0);
+
+                    return (
+                      <div
+                        key={staff.id}
+                        className="card-container p-4 space-y-3 border border-[var(--border)] shadow-xs rounded-2xl"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 font-black text-sm flex items-center justify-center shrink-0">
+                              {staff.nama ? staff.nama.charAt(0).toUpperCase() : 'K'}
+                            </div>
+                            <div>
+                              <div className="font-bold text-sm text-[var(--text-primary)]">{staff.nama}</div>
+                              <div className="text-[11px] text-[var(--text-secondary)]">
+                                Pinjaman / Kasbon Karyawan
+                              </div>
+                            </div>
+                          </div>
+
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300">
+                            Kasbon Aktif
                           </span>
                         </div>
-                        <div>
-                          <span className="text-[10px] text-[var(--text-secondary)] block">Sisa Tagihan</span>
-                          <span className="font-black text-rose-600 tabular-nums">
-                            {formatRupiah(sisa)}
-                          </span>
+
+                        <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-[var(--bg-subtle)] text-xs">
+                          <div>
+                            <span className="text-[9.5px] text-[var(--text-secondary)] block">Total Kasbon</span>
+                            <span className="font-bold text-[var(--text-primary)] tabular-nums">
+                              {formatRupiah(totalKasbon)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[9.5px] text-[var(--text-secondary)] block">Telah Dibayar</span>
+                            <span className="font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                              {formatRupiah(totalPotongan)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[9.5px] text-[var(--text-secondary)] block">Sisa Kasbon</span>
+                            <span className="font-black text-rose-600 tabular-nums">
+                              {formatRupiah(sisaKasbon)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="text-[10.5px] text-[var(--text-secondary)]">
+                            Sisa: <strong className="text-rose-600">{formatRupiah(sisaKasbon)}</strong>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenKasbonPelunasan(staff)}
+                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1 shadow-xs active:scale-95 transition-all"
+                          >
+                            <CreditCard className="w-3.5 h-3.5" />
+                            <span>Catat Pengembalian</span>
+                          </button>
                         </div>
                       </div>
-
-                      <div className="flex items-center justify-between pt-1">
-                        <div className="text-[10.5px] text-[var(--text-secondary)]">
-                          Total Biaya: <strong>{formatRupiah(hargaFinal)}</strong>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleOpenPelunasan(s)}
-                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-none text-xs flex items-center gap-1 shadow-xs active:scale-95 transition-all"
-                        >
-                          <CreditCard className="w-3.5 h-3.5" />
-                          <span>Input Pelunasan</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </div>
         )}
 
         {/* Tab Hutang */}
         {activeTab === 'hutang' && (
           <div className="space-y-4 animate-fadeIn">
+            {/* Top Switcher: Piutang vs Hutang */}
+            <div className="flex items-center gap-1.5 p-1 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl shadow-xs">
+              <button
+                type="button"
+                onClick={() => setActiveTab('piutang')}
+                className="flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Piutang ({fmt(totalPiutangAll)})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('hutang')}
+                className="flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 bg-rose-500 text-white shadow-xs"
+              >
+                <Landmark className="w-3.5 h-3.5" />
+                <span>Hutang ({fmt(metrics.totalHutang)})</span>
+              </button>
+            </div>
+
             {/* Header Card */}
-            <div className="p-4 rounded-none bg-linear-to-br from-rose-600 to-rose-700 text-white shadow-md flex items-center justify-between">
+            <div className="p-4 rounded-2xl bg-linear-to-br from-rose-600 to-rose-700 text-white shadow-md flex items-center justify-between">
               <div>
                 <span className="text-[10px] uppercase font-bold tracking-wider opacity-90">
                   Total Sisa Hutang Usaha
@@ -1940,7 +2292,7 @@ export default function FinancePortalPage() {
                 </button>
               </div>
 
-              {/* Pilihan 1: Piutang Siswa */}
+              {/* Pilihan 1: Piutang Berjalan */}
               <button
                 type="button"
                 onClick={() => {
@@ -1958,9 +2310,9 @@ export default function FinancePortalPage() {
                     <CreditCard className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="text-xs font-bold">Piutang Siswa</div>
+                    <div className="text-xs font-bold">Piutang Berjalan</div>
                     <div className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold tabular-nums">
-                      {formatRupiah(metrics.totalPiutangSiswa)}
+                      {formatRupiah(totalPiutangAll)}
                     </div>
                   </div>
                 </div>
@@ -3262,6 +3614,162 @@ export default function FinancePortalPage() {
                   className="flex-1 py-2 bg-[var(--brand-primary)] hover:opacity-90 text-white font-bold rounded-none shadow-xs disabled:opacity-50"
                 >
                   {savingEditTx ? 'Menyimpan...' : 'Simpan Perubahan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Pengembalian / Pelunasan Kasbon Karyawan */}
+      {showKasbonModal && selectedStaffKasbon && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                  <CreditCard className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[var(--text-primary)]">
+                    Pengembalian Kasbon Karyawan
+                  </h3>
+                  <p className="text-[11px] text-[var(--text-secondary)]">
+                    Catat setoran cicilan atau pelunasan kasbon ke kas
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowKasbonModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveKasbonPelunasan} className="p-4 space-y-3.5">
+              {/* Info Karyawan & Sisa */}
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[var(--text-secondary)]">Nama Karyawan</span>
+                  <span className="text-xs font-bold text-[var(--text-primary)]">{selectedStaffKasbon.nama}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[var(--text-secondary)]">Sisa Kasbon Saat Ini</span>
+                  <span className="text-sm font-black text-rose-600 tabular-nums">
+                    {formatRupiah(Number(selectedStaffKasbon.sisa_kasbon) || 0)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Tanggal */}
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                  Tanggal Pengembalian *
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={kasbonBayarTanggal}
+                  onChange={(e) => setKasbonBayarTanggal(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold text-[var(--text-primary)]"
+                />
+              </div>
+
+              {/* Nominal */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-semibold text-[var(--text-secondary)]">
+                    Nominal Disetor (Rp) *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setKasbonBayarNominal(Math.max(0, Number(selectedStaffKasbon.sisa_kasbon) || 0))}
+                    className="text-[10px] text-amber-600 dark:text-amber-400 font-bold hover:underline"
+                  >
+                    Bayar Lunas Semua
+                  </button>
+                </div>
+                <CurrencyInput
+                  label=""
+                  value={kasbonBayarNominal}
+                  onChange={(val) => setKasbonBayarNominal(val)}
+                />
+              </div>
+
+              {/* Metode Pembayaran */}
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1.5">
+                  Metode Pembayaran
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setKasbonBayarMetode('tunai')}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                      kasbonBayarMetode === 'tunai'
+                        ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                        : 'bg-[var(--bg)] border-[var(--border)] text-[var(--text-secondary)]'
+                    }`}
+                  >
+                    💵 Tunai (Kas Fisik)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setKasbonBayarMetode('non_tunai')}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                      kasbonBayarMetode === 'non_tunai'
+                        ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                        : 'bg-[var(--bg)] border-[var(--border)] text-[var(--text-secondary)]'
+                    }`}
+                  >
+                    💳 Transfer Bank
+                  </button>
+                </div>
+              </div>
+
+              {/* Pilihan Rekening jika Non-Tunai */}
+              {kasbonBayarMetode === 'non_tunai' && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Masuk ke Rekening Bank *
+                  </label>
+                  <select
+                    value={selectedRekeningId || ''}
+                    onChange={(e) => setSelectedRekeningId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold text-[var(--text-primary)]"
+                  >
+                    {rekeningList.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.nama_bank} - {r.nomor_rekening} ({r.atas_nama})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-[var(--border)] flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowKasbonModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] font-semibold text-xs"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={kasbonSubmitting || kasbonBayarNominal <= 0}
+                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs disabled:opacity-50 text-xs flex items-center justify-center gap-1.5"
+                >
+                  {kasbonSubmitting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <span>Simpan Pembayaran</span>
+                  )}
                 </button>
               </div>
             </form>
