@@ -7,7 +7,7 @@ import { DEFAULT_KAS_KATEGORI } from '@/lib/constants/finance';
 import { getTodayDateString } from '@/lib/utils/date';
 import { getRekeningList } from '@/lib/actions/rekening';
 import { revalidatePath } from 'next/cache';
-import { syncKendaraanStatus } from '@/lib/actions/kendaraan';
+import { syncKendaraanStatus, syncBbmToKendaraanLog } from '@/lib/actions/kendaraan';
 
 const METRICS_CACHE_KEY = 'kas_overview_metrics';
 
@@ -504,6 +504,28 @@ export async function addKasTransaksi(
     if (!cleanData.kendaraan_id || cleanData.kendaraan_id === '' || cleanData.kendaraan_id === 'null' || cleanData.kendaraan_id === 'undefined') {
       cleanData.kendaraan_id = null;
     }
+
+    // Auto-deteksi kendaraan dari keterangan jika kategori BBM dan kendaraan belum dipilih
+    if (!cleanData.kendaraan_id && (cleanData.kategori === 'bbm' || cleanData.kategori?.toLowerCase()?.includes('bbm'))) {
+      const ket = (cleanData.keterangan || '').toLowerCase();
+      try {
+        const vehicles = await dbQuery<{ id: string; nama_kendaraan: string; plat_nomor: string }>(
+          'SELECT id, nama_kendaraan, plat_nomor FROM kendaraan WHERE aktif = true'
+        );
+        for (const v of vehicles) {
+          const nameClean = v.nama_kendaraan.toLowerCase();
+          const platClean = v.plat_nomor.toLowerCase().replace(/\s+/g, '');
+          const ketClean = ket.replace(/\s+/g, '');
+          if (ket.includes(nameClean) || ketClean.includes(platClean)) {
+            cleanData.kendaraan_id = v.id;
+            break;
+          }
+        }
+      } catch (errVeh) {
+        console.warn('Could not auto-detect vehicle for BBM:', errVeh);
+      }
+    }
+
     if (cleanData.potongan_kasbon !== undefined) {
       cleanData.potongan_kasbon = Number(cleanData.potongan_kasbon) || 0;
     }
@@ -543,42 +565,7 @@ export async function addKasTransaksi(
     // Auto-sync BBM to Kendaraan status & log harian if kendaraan_id is specified
     if (cleanData.kendaraan_id && (cleanData.kategori === 'bbm' || cleanData.kategori?.toLowerCase()?.includes('bbm'))) {
       const txTanggal = cleanData.tanggal || getTodayDateString();
-      const txNominal = Number(cleanData.nominal) || 0;
-
-      let jenisBbm = 'pertalite';
-      const ketLower = (cleanData.keterangan || '').toLowerCase();
-      if (ketLower.includes('pertamax')) jenisBbm = 'pertamax';
-      else if (ketLower.includes('solar') || ketLower.includes('dexlite')) jenisBbm = 'solar';
-
-      let liter: number | null = null;
-      const literMatch = ketLower.match(/(\d+(\.\d+)?)\s*l(iter)?/i);
-      if (literMatch && literMatch[1]) {
-        liter = parseFloat(literMatch[1]);
-      } else if (txNominal > 0) {
-        const hargaRow = await dbQuerySingle<{ harga_per_liter: number }>(
-          'SELECT harga_per_liter FROM harga_bbm WHERE jenis = $1',
-          [jenisBbm]
-        );
-        const price = hargaRow?.harga_per_liter || (jenisBbm === 'pertamax' ? 12950 : 10000);
-        liter = parseFloat((txNominal / price).toFixed(2));
-      }
-
-      await dbQuery(
-        `INSERT INTO kendaraan_log_harian (kendaraan_id, tanggal, bbm_nominal, bbm_liter, bbm_jenis, catatan)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (kendaraan_id, tanggal) DO UPDATE
-         SET 
-           bbm_nominal = COALESCE(kendaraan_log_harian.bbm_nominal, 0) + EXCLUDED.bbm_nominal,
-           bbm_liter = COALESCE(kendaraan_log_harian.bbm_liter, 0) + EXCLUDED.bbm_liter,
-           bbm_jenis = COALESCE(EXCLUDED.bbm_jenis, kendaraan_log_harian.bbm_jenis),
-           catatan = COALESCE(EXCLUDED.catatan, kendaraan_log_harian.catatan),
-           updated_at = NOW()`,
-        [cleanData.kendaraan_id, txTanggal, txNominal, liter, jenisBbm, cleanData.keterangan || 'Pengisian BBM dari Transaksi Kas']
-      );
-
-      await syncKendaraanStatus(cleanData.kendaraan_id);
-      revalidatePath('/kendaraan');
-      revalidatePath(`/kendaraan/${cleanData.kendaraan_id}`);
+      await syncBbmToKendaraanLog(cleanData.kendaraan_id, txTanggal);
     }
 
     cacheInvalidate('kas*');
@@ -1028,15 +1015,43 @@ export async function updateKasTransaksi(
     }
 
     // Sync BBM to Kendaraan status if updated
-    const targetKendaraanId = cleanUpdates.kendaraan_id !== undefined ? cleanUpdates.kendaraan_id : oldTx?.kendaraan_id;
     const targetKategori = cleanUpdates.kategori || oldTx?.kategori;
+    let targetKendaraanId = cleanUpdates.kendaraan_id !== undefined ? cleanUpdates.kendaraan_id : oldTx?.kendaraan_id;
+    const targetTanggal = cleanUpdates.tanggal || oldTx?.tanggal;
+
+    // Auto-deteksi armada jika kategori BBM dan belum ditentukan
+    if (!targetKendaraanId && (targetKategori === 'bbm' || targetKategori?.toLowerCase()?.includes('bbm'))) {
+      const ket = (cleanUpdates.keterangan || oldTx?.keterangan || '').toLowerCase();
+      try {
+        const vehicles = await dbQuery<{ id: string; nama_kendaraan: string; plat_nomor: string }>(
+          'SELECT id, nama_kendaraan, plat_nomor FROM kendaraan WHERE aktif = true'
+        );
+        for (const v of vehicles) {
+          const nameClean = v.nama_kendaraan.toLowerCase();
+          const platClean = v.plat_nomor.toLowerCase().replace(/\s+/g, '');
+          const ketClean = ket.replace(/\s+/g, '');
+          if (ket.includes(nameClean) || ketClean.includes(platClean)) {
+            targetKendaraanId = v.id;
+            await dbQuery('UPDATE kas_transaksi SET kendaraan_id = $1 WHERE id = $2', [v.id, id]);
+            break;
+          }
+        }
+      } catch (errVeh) {
+        console.warn('Could not auto-detect vehicle for BBM on update:', errVeh);
+      }
+    }
+
     if (targetKendaraanId && (targetKategori === 'bbm' || targetKategori?.toLowerCase()?.includes('bbm'))) {
-      await syncKendaraanStatus(targetKendaraanId);
-      if (oldTx?.kendaraan_id && oldTx.kendaraan_id !== targetKendaraanId) {
-        await syncKendaraanStatus(oldTx.kendaraan_id);
+      if (targetTanggal) {
+        await syncBbmToKendaraanLog(targetKendaraanId, targetTanggal);
+      }
+      if (oldTx?.kendaraan_id && oldTx?.tanggal && (oldTx.kendaraan_id !== targetKendaraanId || oldTx.tanggal !== targetTanggal)) {
+        await syncBbmToKendaraanLog(oldTx.kendaraan_id, oldTx.tanggal);
       }
       revalidatePath('/kendaraan');
       revalidatePath(`/kendaraan/${targetKendaraanId}`);
+    } else if (oldTx?.kendaraan_id && oldTx?.tanggal && (oldTx.kategori === 'bbm' || oldTx.kategori?.toLowerCase()?.includes('bbm'))) {
+      await syncBbmToKendaraanLog(oldTx.kendaraan_id, oldTx.tanggal);
     }
 
     cacheInvalidate('kas*');
@@ -1060,8 +1075,8 @@ export async function updateKasTransaksi(
 
 export async function deleteKasTransaksi(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const tx = await dbQuerySingle<{ id: string; siswa_id: string; hutang_id: string; staff_id: string; kendaraan_id: string; kategori: string }>(
-      'SELECT id, siswa_id, hutang_id, staff_id, kendaraan_id, kategori FROM kas_transaksi WHERE id = $1',
+    const tx = await dbQuerySingle<{ id: string; tanggal: string; siswa_id: string; hutang_id: string; staff_id: string; kendaraan_id: string; kategori: string }>(
+      'SELECT id, tanggal, siswa_id, hutang_id, staff_id, kendaraan_id, kategori FROM kas_transaksi WHERE id = $1',
       [id]
     );
 
@@ -1075,7 +1090,7 @@ export async function deleteKasTransaksi(id: string): Promise<{ success: boolean
       await syncHutangPaymentState(tx.hutang_id);
     }
     if (tx?.kendaraan_id && (tx.kategori === 'bbm' || tx.kategori?.toLowerCase()?.includes('bbm'))) {
-      await syncKendaraanStatus(tx.kendaraan_id);
+      await syncBbmToKendaraanLog(tx.kendaraan_id, tx.tanggal);
       revalidatePath('/kendaraan');
       revalidatePath(`/kendaraan/${tx.kendaraan_id}`);
     }

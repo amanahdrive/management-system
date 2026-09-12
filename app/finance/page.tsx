@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { KasTransaksi, KasKategori, Siswa, Paket, RekeningBank, Hutang, JenisHutangEnum, StaffKasbonSummary } from '@/types/database';
+import { KasTransaksi, KasKategori, Siswa, Paket, RekeningBank, Hutang, JenisHutangEnum, StaffKasbonSummary, Kendaraan } from '@/types/database';
 import {
   getKasOverviewMetrics,
   getKasTransaksiList,
@@ -162,6 +162,7 @@ export default function FinancePortalPage() {
 
   // Add Transaction Modal / Bottom Sheet
   const [showAddForm, setShowAddForm] = React.useState(false);
+  const [kendaraanList, setKendaraanList] = React.useState<Kendaraan[]>([]);
   const [formData, setFormData] = React.useState({
     tanggal: TODAY,
     tipe: 'pengeluaran' as 'pemasukan' | 'pengeluaran',
@@ -172,6 +173,7 @@ export default function FinancePortalPage() {
     pic_tipe: 'finance' as 'admin' | 'finance',
     pic_nama: 'Lia (Finance)',
     siswa_id: '',
+    kendaraan_id: '',
     sumber_otomatis: false,
   });
   const [submitting, setSubmitting] = React.useState(false);
@@ -375,6 +377,7 @@ export default function FinancePortalPage() {
             setHutangList(hut);
             setDpKustomList(dpk);
             setRekeningList(rek);
+            setKendaraanList(Array.isArray(json.kendaraan) ? json.kendaraan : []);
             setStaffKasbonList(Array.isArray(json.staffKasbon) ? json.staffKasbon : []);
             setMetrics(activeMetrics);
 
@@ -561,6 +564,7 @@ export default function FinancePortalPage() {
       ...prev,
       kategori: newKategori,
       siswa_id: '',
+      kendaraan_id: '',
       keterangan: '',
       nominal: 0,
     }));
@@ -688,6 +692,8 @@ export default function FinancePortalPage() {
       finalKeterangan = `DP Kustom - ${nama} | Paket: ${p?.nama_paket || 'Paket Kursus'} | Total: ${formatRupiah(price)}`;
     }
 
+    const finalKendaraanId = formData.kategori === 'bbm' ? (formData.kendaraan_id || null) : null;
+
     const res = await addKasTransaksi({
       tanggal: formData.tanggal,
       tipe: formData.tipe,
@@ -699,6 +705,7 @@ export default function FinancePortalPage() {
       pic_tipe: 'finance',
       pic_nama: 'Lia (Finance)',
       siswa_id: finalSiswaId,
+      kendaraan_id: finalKendaraanId,
       sumber_otomatis: false,
     });
 
@@ -715,6 +722,7 @@ export default function FinancePortalPage() {
         pic_tipe: 'finance',
         pic_nama: 'Lia (Finance)',
         siswa_id: '',
+        kendaraan_id: '',
         sumber_otomatis: false,
       });
       setCustomNama('');
@@ -741,6 +749,7 @@ export default function FinancePortalPage() {
       pic_nama: tx.pic_nama,
       pic_tipe: tx.pic_tipe,
       siswa_id: tx.siswa_id || '',
+      kendaraan_id: tx.kendaraan_id || '',
     });
   };
 
@@ -2695,6 +2704,38 @@ export default function FinancePortalPage() {
                 </select>
               </div>
 
+              {/* Armada Kendaraan Selector if BBM */}
+              {formData.kategori === 'bbm' && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Pilih Armada Kendaraan *
+                  </label>
+                  <select
+                    value={formData.kendaraan_id}
+                    onChange={(e) => {
+                      const vId = e.target.value;
+                      const selectedVeh = kendaraanList.find((k) => k.id === vId);
+                      setFormData((prev) => ({
+                        ...prev,
+                        kendaraan_id: vId,
+                        keterangan: selectedVeh ? `BBM ${selectedVeh.nama_kendaraan} (${selectedVeh.plat_nomor})` : prev.keterangan,
+                      }));
+                    }}
+                    className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)] text-xs"
+                    required
+                  >
+                    <option value="">-- Pilih Armada Kendaraan --</option>
+                    {kendaraanList
+                      .filter((k) => k.aktif)
+                      .map((k) => (
+                        <option key={k.id} value={k.id}>
+                          {k.nama_kendaraan} - {k.plat_nomor} ({k.tipe_transmisi?.toUpperCase()})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
               {/* Student Dropdown if Student Category */}
               {(formData.kategori === 'dp_siswa' || formData.kategori === 'pelunasan_siswa') && (
                 <div className="space-y-3">
@@ -3562,6 +3603,29 @@ export default function FinancePortalPage() {
                   ))}
                 </select>
               </div>
+
+              {/* Armada Kendaraan if BBM */}
+              {editTxForm.kategori === 'bbm' && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Armada Kendaraan *
+                  </label>
+                  <select
+                    value={editTxForm.kendaraan_id || ''}
+                    onChange={(e) => setEditTxForm((prev) => ({ ...prev, kendaraan_id: e.target.value || null }))}
+                    className="w-full px-3 py-2 rounded-none border border-[var(--border)] bg-[var(--bg)] text-xs font-semibold"
+                  >
+                    <option value="">-- Pilih Armada --</option>
+                    {kendaraanList
+                      .filter((k) => k.aktif)
+                      .map((k) => (
+                        <option key={k.id} value={k.id}>
+                          {k.nama_kendaraan} - {k.plat_nomor} ({k.tipe_transmisi?.toUpperCase()})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
 
               {/* Keterangan */}
               <div>

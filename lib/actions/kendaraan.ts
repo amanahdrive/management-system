@@ -35,7 +35,20 @@ export async function getKendaraanLogList(filter?: {
   try {
     let query = `
       SELECT 
-        l.*,
+        l.id,
+        l.kendaraan_id,
+        l.tanggal,
+        l.tanggal_akhir,
+        l.odometer_basecamp_out,
+        l.odometer_basecamp_in,
+        l.jarak_tempuh,
+        l.total_slot_selesai,
+        l.created_at,
+        l.updated_at,
+        COALESCE(l.bbm_nominal, kas_bbm.total_nominal) AS bbm_nominal,
+        COALESCE(l.bbm_liter, kas_bbm.total_liter) AS bbm_liter,
+        COALESCE(l.bbm_jenis, kas_bbm.bbm_jenis, 'pertalite') AS bbm_jenis,
+        COALESCE(l.catatan, kas_bbm.catatan) AS catatan,
         json_build_object(
           'id', k.id,
           'nama_kendaraan', k.nama_kendaraan,
@@ -45,6 +58,17 @@ export async function getKendaraanLogList(filter?: {
         ) AS kendaraan
       FROM kendaraan_log_harian l
       JOIN kendaraan k ON l.kendaraan_id = k.id
+      LEFT JOIN LATERAL (
+        SELECT 
+          SUM(kt.nominal)::integer AS total_nominal,
+          ROUND(SUM(kt.nominal) / 10000.0, 2) AS total_liter,
+          'pertalite' AS bbm_jenis,
+          STRING_AGG(kt.keterangan, '; ') AS catatan
+        FROM kas_transaksi kt
+        WHERE kt.kendaraan_id = l.kendaraan_id 
+          AND kt.tanggal = l.tanggal 
+          AND (kt.kategori = 'bbm' OR kt.kategori ILIKE '%bbm%')
+      ) kas_bbm ON true
       WHERE 1=1
     `;
     const params: any[] = [];
@@ -75,6 +99,91 @@ export async function getKendaraanLogList(filter?: {
 }
 
 /**
+ * Sinkronisasi BBM dari kas_transaksi ke kendaraan_log_harian secara total dan akurat.
+ */
+export async function syncBbmToKendaraanLog(
+  kendaraanId: string,
+  tanggal: string
+): Promise<void> {
+  await syncBbmToKendaraanLogInternal(kendaraanId, tanggal);
+  await syncKendaraanStatus(kendaraanId);
+}
+
+async function syncBbmToKendaraanLogInternal(
+  kendaraanId: string,
+  tanggal: string
+): Promise<void> {
+  try {
+    if (!kendaraanId || !tanggal) return;
+
+    const summary = await dbQuerySingle<{ total_nominal: number; keterangan: string }>(
+      `SELECT 
+         COALESCE(SUM(nominal), 0)::integer AS total_nominal,
+         STRING_AGG(keterangan, '; ') AS keterangan
+       FROM kas_transaksi
+       WHERE kendaraan_id = $1 
+         AND tanggal = $2 
+         AND (kategori = 'bbm' OR kategori ILIKE '%bbm%')`,
+      [kendaraanId, tanggal]
+    );
+
+    const totalNominal = summary?.total_nominal ? Number(summary.total_nominal) : 0;
+    const ketLower = (summary?.keterangan || '').toLowerCase();
+
+    if (totalNominal > 0) {
+      let jenisBbm = 'pertalite';
+      if (ketLower.includes('pertamax')) jenisBbm = 'pertamax';
+      else if (ketLower.includes('solar') || ketLower.includes('dexlite')) jenisBbm = 'solar';
+
+      let liter: number | null = null;
+      const literMatch = ketLower.match(/(\d+(\.\d+)?)\s*l(iter)?/i);
+      if (literMatch && literMatch[1]) {
+        liter = parseFloat(literMatch[1]);
+      } else {
+        const hargaRow = await dbQuerySingle<HargaBBM>(
+          'SELECT harga_per_liter FROM harga_bbm WHERE jenis = $1',
+          [jenisBbm]
+        );
+        const price = hargaRow?.harga_per_liter || (jenisBbm === 'pertamax' ? 12950 : 10000);
+        liter = parseFloat((totalNominal / price).toFixed(2));
+      }
+
+      await dbQuery(
+        `INSERT INTO kendaraan_log_harian (kendaraan_id, tanggal, bbm_nominal, bbm_liter, bbm_jenis, catatan)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (kendaraan_id, tanggal) DO UPDATE
+         SET 
+           bbm_nominal = EXCLUDED.bbm_nominal,
+           bbm_liter = EXCLUDED.bbm_liter,
+           bbm_jenis = EXCLUDED.bbm_jenis,
+           catatan = COALESCE(kendaraan_log_harian.catatan, EXCLUDED.catatan),
+           updated_at = NOW()`,
+        [kendaraanId, tanggal, totalNominal, liter, jenisBbm, summary?.keterangan || 'Pengisian BBM dari Transaksi Kas']
+      );
+    } else {
+      const existingLog = await dbQuerySingle<{ id: string; odometer_basecamp_out: number | null; odometer_basecamp_in: number | null }>(
+        'SELECT id, odometer_basecamp_out, odometer_basecamp_in FROM kendaraan_log_harian WHERE kendaraan_id = $1 AND tanggal = $2',
+        [kendaraanId, tanggal]
+      );
+      if (existingLog) {
+        if (existingLog.odometer_basecamp_out === null && existingLog.odometer_basecamp_in === null) {
+          await dbQuery('DELETE FROM kendaraan_log_harian WHERE id = $1', [existingLog.id]);
+        } else {
+          await dbQuery(
+            `UPDATE kendaraan_log_harian 
+             SET bbm_nominal = NULL, bbm_liter = NULL, bbm_jenis = NULL, updated_at = NOW() 
+             WHERE id = $1`,
+            [existingLog.id]
+          );
+        }
+      }
+    }
+  } catch (err) {
+    console.error(`Error syncing bbm to log for vehicle ${kendaraanId} on ${tanggal}:`, err);
+  }
+}
+
+/**
  * Sinkronisasi status riil armada (odometer terkini, bbm terakhir, oli, cuci)
  * dari seluruh log harian aktual, memastikan card armada selalu akurat dan tidak tertinggal.
  */
@@ -86,7 +195,19 @@ export async function syncKendaraanStatus(kendaraanId: string): Promise<void> {
       [kendaraanId]
     );
 
-    // 2. Cari odometer tertinggi dari log harian
+    // 2. Sinkronkan BBM dari kas transaksi jika ada
+    const latestKasBbm = await dbQuerySingle<{ tanggal: string }>(
+      `SELECT tanggal FROM kas_transaksi
+       WHERE kendaraan_id = $1 AND (kategori = 'bbm' OR kategori ILIKE '%bbm%')
+       ORDER BY tanggal DESC, created_at DESC
+       LIMIT 1`,
+      [kendaraanId]
+    );
+    if (latestKasBbm?.tanggal) {
+      await syncBbmToKendaraanLogInternal(kendaraanId, latestKasBbm.tanggal);
+    }
+
+    // 3. Cari odometer tertinggi dari log harian
     const latestOdoRes = await dbQuerySingle<{ max_odo: number }>(
       `SELECT GREATEST(
          MAX(COALESCE(odometer_basecamp_in, 0)),
@@ -98,7 +219,7 @@ export async function syncKendaraanStatus(kendaraanId: string): Promise<void> {
     );
     const latestOdo = latestOdoRes?.max_odo ? Number(latestOdoRes.max_odo) : null;
 
-    // 3. Cari log BBM terakhir berdasarkan tanggal dan waktu pembuatan
+    // 4. Cari log BBM terakhir berdasarkan tanggal dan waktu pembuatan
     const latestBbmLog = await dbQuerySingle<KendaraanLogHarian>(
       `SELECT * FROM kendaraan_log_harian
        WHERE kendaraan_id = $1 
@@ -137,7 +258,7 @@ export async function syncKendaraanStatus(kendaraanId: string): Promise<void> {
       }
     }
 
-    // 4. Update kendaraan_status dengan data riil terkini
+    // 5. Update kendaraan_status dengan data riil terkini
     await dbQuery(
       `UPDATE kendaraan_status 
        SET 
@@ -219,10 +340,48 @@ export async function upsertKendaraanLog(
     let bbmLiter = log.bbm_liter !== undefined && log.bbm_liter !== null && !isNaN(Number(log.bbm_liter))
       ? Number(log.bbm_liter)
       : null;
-    const bbmNominal = log.bbm_nominal !== undefined && log.bbm_nominal !== null && !isNaN(Number(log.bbm_nominal))
+    let bbmNominal = log.bbm_nominal !== undefined && log.bbm_nominal !== null && !isNaN(Number(log.bbm_nominal))
       ? Number(log.bbm_nominal)
       : null;
     let bbmJenis = log.bbm_jenis || null;
+
+    // Cegah BBM terhapus saat user hanya menginput/mengedit odometer log
+    if (bbmNominal === null && bbmLiter === null) {
+      if (log.id) {
+        const existing = await dbQuerySingle<KendaraanLogHarian>(
+          'SELECT bbm_nominal, bbm_liter, bbm_jenis, catatan FROM kendaraan_log_harian WHERE id = $1',
+          [log.id]
+        );
+        if (existing?.bbm_nominal) {
+          bbmNominal = Number(existing.bbm_nominal);
+          bbmLiter = existing.bbm_liter ? Number(existing.bbm_liter) : null;
+          bbmJenis = existing.bbm_jenis || 'pertalite';
+        }
+      }
+
+      if (bbmNominal === null) {
+        const kasBbm = await dbQuerySingle<{ total_nominal: number; keterangan: string }>(
+          `SELECT COALESCE(SUM(nominal), 0)::integer AS total_nominal, STRING_AGG(keterangan, '; ') AS keterangan
+           FROM kas_transaksi
+           WHERE kendaraan_id = $1 AND tanggal = $2 AND (kategori = 'bbm' OR kategori ILIKE '%bbm%')`,
+          [log.kendaraan_id, log.tanggal]
+        );
+        if (kasBbm && kasBbm.total_nominal > 0) {
+          bbmNominal = kasBbm.total_nominal;
+          const ketLower = (kasBbm.keterangan || '').toLowerCase();
+          if (ketLower.includes('pertamax')) bbmJenis = 'pertamax';
+          else if (ketLower.includes('solar') || ketLower.includes('dexlite')) bbmJenis = 'solar';
+          else bbmJenis = 'pertalite';
+
+          const hargaRow = await dbQuerySingle<HargaBBM>(
+            'SELECT harga_per_liter FROM harga_bbm WHERE jenis = $1',
+            [bbmJenis]
+          );
+          const price = hargaRow?.harga_per_liter || (bbmJenis === 'pertamax' ? 12950 : 10000);
+          bbmLiter = parseFloat((bbmNominal / price).toFixed(2));
+        }
+      }
+    }
 
     // Otomatisasi kalkulasi liter BBM dan jenis default jika nominal diinput
     if (bbmNominal && bbmNominal > 0) {
@@ -245,7 +404,7 @@ export async function upsertKendaraanLog(
     let savedId: string | undefined = log.id;
 
     if (log.id) {
-      // Update by ID
+      // Update by ID dengan COALESCE agar bbm tidak terhapus jika null
       await dbQuery(
         `UPDATE kendaraan_log_harian 
          SET 
@@ -255,10 +414,10 @@ export async function upsertKendaraanLog(
            odometer_basecamp_out = $4,
            odometer_basecamp_in = $5,
            jarak_tempuh = $6,
-           bbm_liter = $7,
-           bbm_nominal = $8,
-           bbm_jenis = $9,
-           catatan = $10,
+           bbm_liter = COALESCE($7, bbm_liter),
+           bbm_nominal = COALESCE($8, bbm_nominal),
+           bbm_jenis = COALESCE($9, bbm_jenis),
+           catatan = COALESCE($10, catatan),
            updated_at = NOW()
          WHERE id = $11`,
         [
