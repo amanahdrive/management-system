@@ -993,14 +993,13 @@ export async function getArmadaOperasionalMonthlyStats(
       const bbmNominal = Math.max(bbmLogNominal, bbmKasNominal);
       const bbmLiter = bbmLogLiter > 0 ? bbmLogLiter : (bbmNominal > 0 ? parseFloat((bbmNominal / 10000).toFixed(2)) : 0);
 
-      // Jumlah sesi selesai bulan ini
+      // Jumlah sesi selesai bulan ini - jadwal_sesi memiliki kendaraan_id langsung
       const sesiRes = await dbQuerySingle<{ sesi_count: number }>(
         `SELECT COUNT(*)::integer AS sesi_count
-         FROM jadwal_sesi js
-         JOIN jadwal j ON js.jadwal_id = j.id
-         WHERE j.kendaraan_id = $1
-           AND js.tanggal_sesi >= $2 AND js.tanggal_sesi <= $3
-           AND js.status_sesi = 'selesai'`,
+         FROM jadwal_sesi
+         WHERE kendaraan_id = $1
+           AND tanggal_sesi >= $2 AND tanggal_sesi <= $3
+           AND status_sesi = 'selesai'`,
         [k.id, startDate, endDate]
       );
       const sesiSelesai = Number(sesiRes?.sesi_count ?? 0);
