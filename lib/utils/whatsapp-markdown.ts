@@ -32,6 +32,23 @@ export function sortSesiBySlotUrutan(list: JadwalSesi[]): JadwalSesi[] {
   });
 }
 
+export const INSTRUCTOR_ORDER: Record<string, number> = {
+  'risky': 1,
+  'syawal': 2,
+  'alpi': 3,
+};
+
+export function sortInstructors<T extends { instrukturNama: string }>(list: T[]): T[] {
+  return [...list].sort((a, b) => {
+    const nameA = a.instrukturNama.toLowerCase().trim();
+    const nameB = b.instrukturNama.toLowerCase().trim();
+    const orderA = INSTRUCTOR_ORDER[nameA] ?? 99;
+    const orderB = INSTRUCTOR_ORDER[nameB] ?? 99;
+    if (orderA !== orderB) return orderA - orderB;
+    return a.instrukturNama.localeCompare(b.instrukturNama);
+  });
+}
+
 /**
  * Generates Daily WhatsApp Schedule Markdown
  */
@@ -60,15 +77,19 @@ export function generateWhatsAppJadwalMarkdown(
   body += `\n────────────────────────\n\n`;
 
   // Saring hanya sesi yang berstatus 'terjadwal' (abaikan sesi 'selesai' dan 'batal')
-  const activeGroups = groupedData
+  const mappedGroups = groupedData
     .map((g) => ({
       ...g,
       sesiList: sortSesiBySlotUrutan(
         g.sesiList.filter((s) => s.status_sesi === 'terjadwal')
       ),
     }))
-    .filter((g) => g.sesiList.length > 0)
-    .sort((a, b) => a.instrukturNama.localeCompare(b.instrukturNama));
+    .filter((g) => {
+      const lower = g.instrukturNama.toLowerCase().trim();
+      return lower !== 'alfi' && lower !== 'lia' && g.sesiList.length > 0;
+    });
+
+  const activeGroups = sortInstructors(mappedGroups);
 
   if (activeGroups.length === 0) {
     body += `_Tidak ada sesi mengemudi terjadwal pada tanggal ini._\n\n`;
@@ -405,9 +426,13 @@ export function generateWhatsAppRecapMarkdown(
   }
   body += `────────────────────────\n\n`;
 
-  const sortedGroups = [...groupedData].sort((a, b) =>
-    a.instrukturNama.localeCompare(b.instrukturNama)
-  );
+  // Saring hanya grup instruktur (abaikan staf non-instruktur seperti Alfi / Lia)
+  const filteredGroups = groupedData.filter((g) => {
+    const lower = g.instrukturNama.toLowerCase().trim();
+    return lower !== 'alfi' && lower !== 'lia';
+  });
+
+  const sortedGroups = sortInstructors(filteredGroups);
 
   sortedGroups.forEach((group, index) => {
     const allSesi = group.sesiList;
@@ -417,7 +442,7 @@ export function generateWhatsAppRecapMarkdown(
     let operasionalSesiCount = 0;
     let pribadiSesiCount = 0;
     const dailySlotsMap = new Map<string, number>();
-    const siswaNamesSet = new Set<string>();
+    const siswaCountMap = new Map<string, number>();
 
     selesaiSesi.forEach((s) => {
       // Slot calculation: if multi-slot (e.g. slot 1 & 2), calculate 2 slots, else 1
@@ -439,7 +464,8 @@ export function generateWhatsAppRecapMarkdown(
       }
 
       if (s.siswa?.nama) {
-        siswaNamesSet.add(s.siswa.nama.trim());
+        const name = s.siswa.nama.trim();
+        siswaCountMap.set(name, (siswaCountMap.get(name) || 0) + 1);
       }
     });
 
@@ -451,8 +477,6 @@ export function generateWhatsAppRecapMarkdown(
     });
 
     const totalSesi = selesaiSesi.length;
-    const siswaListArray = Array.from(siswaNamesSet);
-
     const feeOperasional = operasionalSesiCount * rates.feeOperasional;
     const feePribadi = pribadiSesiCount * rates.feePribadi;
     const uangMakan = qualifyingDays * rates.uangMakanHarian;
@@ -477,21 +501,24 @@ export function generateWhatsAppRecapMarkdown(
     body += `• Hari Bertugas: *${activeDays} Hari* (${qualifyingDays} Hari Uang Makan)\n`;
     body += `• Total Slot Selesai: *${slotCount} Slot* (${totalSesi} Sesi)\n`;
     if (pribadiSesiCount > 0) {
-      body += `  - Mobil Operasional: ${operasionalSesiCount} Sesi\n`;
-      body += `  - Mobil Pribadi: ${pribadiSesiCount} Sesi\n`;
+      body += `  - Armada Internal: ${operasionalSesiCount} Sesi\n`;
+      body += `  - Mobil Siswa: ${pribadiSesiCount} Sesi\n`;
     }
 
-    if (siswaListArray.length > 0) {
-      body += `• Siswa Ditangani (${siswaListArray.length} Orang):\n`;
-      body += `  _${siswaListArray.join(', ')}_\n`;
+    if (siswaCountMap.size > 0) {
+      const siswaListFormatted = Array.from(siswaCountMap.entries()).map(
+        ([nama, count]) => `${nama} (${count}x)`
+      );
+      body += `• Siswa Ditangani (${siswaCountMap.size} Orang):\n`;
+      body += `  _${siswaListFormatted.join(', ')}_\n`;
     }
 
     body += `• *Estimasi Honor & Uang Makan:*\n`;
     if (operasionalSesiCount > 0) {
-      body += `  - Fee Mobil Operasional: ${formatRupiah(feeOperasional)} (${operasionalSesiCount} sesi x ${formatRupiah(rates.feeOperasional)})\n`;
+      body += `  - Fee Instruktur (Armada Internal): ${formatRupiah(feeOperasional)} (${operasionalSesiCount} sesi x ${formatRupiah(rates.feeOperasional)})\n`;
     }
     if (pribadiSesiCount > 0) {
-      body += `  - Fee Mobil Pribadi: ${formatRupiah(feePribadi)} (${pribadiSesiCount} sesi x ${formatRupiah(rates.feePribadi)})\n`;
+      body += `  - Fee Instruktur (Mobil Siswa): ${formatRupiah(feePribadi)} (${pribadiSesiCount} sesi x ${formatRupiah(rates.feePribadi)})\n`;
     }
     if (qualifyingDays > 0) {
       body += `  - Uang Makan: ${formatRupiah(uangMakan)} (${qualifyingDays} hari x ${formatRupiah(rates.uangMakanHarian)})\n`;

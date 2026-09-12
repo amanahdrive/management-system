@@ -912,28 +912,44 @@ export async function generateWhatsAppRecapText(
       minSlotUangMakan: settings.minSlotUangMakan || 2,
     };
 
-    const groupMap = new Map<string, { nama: string; list: JadwalSesi[] }>();
-    jadwalList.forEach((sesi) => {
-      const instNama = sesi.instruktur?.nama || 'Instruktur';
-      const instId = sesi.staff_id;
+    // Fetch only active instructors (exclude Admin, Finance, etc.)
+    const activeInstructors = await dbQuery<{ id: string; nama: string }>(`
+      SELECT s.id, s.nama 
+      FROM staff s
+      JOIN staff_jabatan sj ON s.id = sj.staff_id
+      JOIN jabatan j ON sj.jabatan_id = j.id
+      WHERE LOWER(j.nama_jabatan) LIKE '%instruktur%' 
+        AND s.aktif = true
+      GROUP BY s.id, s.nama
+      ORDER BY s.nama ASC
+    `);
 
-      if (!groupMap.has(instId)) {
-        groupMap.set(instId, { nama: instNama, list: [] });
-      }
-      groupMap.get(instId)!.list.push(sesi);
+    const instructorMap = new Map<string, string>();
+    activeInstructors.forEach((inst) => {
+      instructorMap.set(inst.id, inst.nama);
     });
 
-    // If no specific staff filter, include all active instructors
+    const groupMap = new Map<string, { nama: string; list: JadwalSesi[] }>();
+
+    // If no specific staff filter, initialize all active instructors so they appear even if 0 sessions
     if (!staffId || staffId === 'semua') {
-      const allActiveStaff = await dbQuery<{ id: string; nama: string }>(
-        'SELECT id, nama FROM staff WHERE aktif = true ORDER BY nama ASC'
-      );
-      allActiveStaff.forEach((st) => {
-        if (!groupMap.has(st.id)) {
-          groupMap.set(st.id, { nama: st.nama, list: [] });
-        }
+      activeInstructors.forEach((st) => {
+        groupMap.set(st.id, { nama: st.nama, list: [] });
       });
+    } else if (staffId && instructorMap.has(staffId)) {
+      groupMap.set(staffId, { nama: instructorMap.get(staffId)!, list: [] });
     }
+
+    // Populate sessions for instructors ONLY (ignoring any non-instructor sessions)
+    jadwalList.forEach((sesi) => {
+      const instId = sesi.staff_id;
+      if (instructorMap.has(instId)) {
+        if (!groupMap.has(instId)) {
+          groupMap.set(instId, { nama: instructorMap.get(instId)!, list: [] });
+        }
+        groupMap.get(instId)!.list.push(sesi);
+      }
+    });
 
     const groupedData: InstrukturJadwalGroup[] = Array.from(groupMap.values()).map((g) => ({
       instrukturNama: g.nama,
