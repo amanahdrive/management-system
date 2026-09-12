@@ -47,7 +47,7 @@ export function LiquidGlassBottomNav({
     <div className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] inset-x-0 z-40 flex justify-center px-3 pointer-events-none select-none">
       <div className="pointer-events-auto relative w-full max-w-[384px] h-[68px]">
         {/* 1. Backdrop Blur & Frosted Glass SVG Container */}
-        <div className="absolute inset-0 filter drop-shadow-[0_16px_36px_rgba(0,0,0,0.18)] dark:drop-shadow-[0_20px_48px_rgba(0,0,0,0.6)]">
+        <div className="absolute inset-0 rounded-[26px] overflow-hidden backdrop-blur-xl shadow-lg border border-white/20 dark:border-white/10">
           <svg
             viewBox="0 0 380 68"
             className="w-full h-full overflow-visible"
@@ -76,24 +76,13 @@ export function LiquidGlassBottomNav({
                 <stop offset="50%" stopColor="var(--liquid-glass-bg)" />
                 <stop offset="100%" stopColor="var(--liquid-glass-dock-bg)" />
               </linearGradient>
-
-              {/* Frosted Glass Micro-Grain Filter */}
-              <filter id="liquidFrostedGrain" x="0%" y="0%" width="100%" height="100%">
-                <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="2" result="noise" />
-                <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.04 0" />
-                <feComposite in2="SourceGraphic" in="glare" operator="in" />
-              </filter>
             </defs>
 
-            {/* Glass Background Path with backdrop-blur */}
+            {/* Glass Background Path */}
             <path
               d={pathD}
               fill="url(#liquidGlassBody)"
-              className="backdrop-blur-3xl saturate-200"
-              style={{
-                backdropFilter: 'blur(32px) saturate(200%)',
-                WebkitBackdropFilter: 'blur(32px) saturate(200%)',
-              }}
+              className="opacity-95"
             />
 
             {/* Specular Rim Stroke (Light Mode) */}

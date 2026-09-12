@@ -4,8 +4,10 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
+  serverExternalPackages: ['pg'],
   experimental: {
     cpus: 4,
+    optimizePackageImports: ['lucide-react', 'recharts'],
   },
   images: {
     formats: ['image/avif', 'image/webp'],

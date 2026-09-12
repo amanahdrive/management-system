@@ -193,23 +193,15 @@ export default function KasOverviewPage() {
               rek.find((r: RekeningBank) => r.aktif);
             if (defRek) setSelectedRekeningId(defRek.id);
 
-            localStorage.setItem(
-              'amanah_kas_web_cache_v2',
-              JSON.stringify({
-                metrics: activeMetrics,
-                transaksi: tx,
-                kategori: kat,
-                siswa: sis,
-                paket: json.paket || [],
-                hutang: hut,
-                staff: stf,
-                staffKasbon: ksb,
-                kendaraan: knd,
-                rekening: rek,
-                dpKustom: json.dpKustom || [],
-                updatedAt: Date.now(),
-              })
-            );
+            try {
+              localStorage.setItem(
+                'amanah_kas_web_cache_v2',
+                JSON.stringify({
+                  metrics: activeMetrics,
+                  updatedAt: Date.now(),
+                })
+              );
+            } catch {}
             dataLoaded = true;
           }
         }
@@ -274,22 +266,15 @@ export default function KasOverviewPage() {
           rek.find((r: RekeningBank) => r.aktif);
         if (defRek) setSelectedRekeningId(defRek.id);
 
-        localStorage.setItem(
-          'amanah_kas_web_cache_v2',
-          JSON.stringify({
-            metrics: activeMetrics,
-            transaksi: tx,
-            kategori: kat,
-            siswa: sis,
-            paket: pak,
-            hutang: hut,
-            staff: stf,
-            staffKasbon: ksb,
-            rekening: rek,
-            dpKustom: dpk,
-            updatedAt: Date.now(),
-          })
-        );
+        try {
+          localStorage.setItem(
+            'amanah_kas_web_cache_v2',
+            JSON.stringify({
+              metrics: activeMetrics,
+              updatedAt: Date.now(),
+            })
+          );
+        } catch {}
       }
     } catch (err) {
       console.error('Error loading kas data:', err);

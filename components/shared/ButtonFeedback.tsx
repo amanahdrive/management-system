@@ -82,7 +82,13 @@ function ButtonFeedbackInner() {
     if (!pulseIntervalRef.current) {
       pulseIntervalRef.current = setInterval(() => {
         setGlowIntensity((prev) => {
-          if (prev >= 85) return 85;
+          if (prev >= 85) {
+            if (pulseIntervalRef.current) {
+              clearInterval(pulseIntervalRef.current);
+              pulseIntervalRef.current = null;
+            }
+            return 85;
+          }
           return Math.min(85, prev + 10);
         });
       }, 100);
@@ -205,18 +211,16 @@ function ButtonFeedbackInner() {
       ripple.style.left = `${clientX - rect.left - radius}px`;
       ripple.style.top = `${clientY - rect.top - radius}px`;
 
-      const style = window.getComputedStyle(target);
+      const targetClass = target.className || '';
       const isPrimary =
-        target.classList.contains('btn-primary') ||
-        style.backgroundColor.includes('15, 122, 115') ||
-        style.backgroundColor.includes('16, 185, 129') ||
-        style.backgroundColor.includes('14, 116, 144') ||
-        target.className.includes('bg-emerald') ||
-        target.className.includes('bg-teal') ||
-        target.className.includes('bg-indigo') ||
-        target.className.includes('bg-blue') ||
-        target.className.includes('bg-rose') ||
-        target.className.includes('bg-amber');
+        targetClass.includes('btn-primary') ||
+        targetClass.includes('bg-emerald') ||
+        targetClass.includes('bg-teal') ||
+        targetClass.includes('bg-indigo') ||
+        targetClass.includes('bg-blue') ||
+        targetClass.includes('bg-rose') ||
+        targetClass.includes('bg-amber') ||
+        targetClass.includes('[var(--brand-primary)]');
 
       if (isPrimary) {
         ripple.style.background = 'rgba(255, 255, 255, 0.35)';
@@ -224,8 +228,7 @@ function ButtonFeedbackInner() {
         ripple.style.background = 'var(--brand-glow, rgba(16, 185, 129, 0.3))';
       }
 
-      const currentPos = style.position;
-      if (currentPos === 'static' || !currentPos) {
+      if (!target.style.position || target.style.position === 'static') {
         target.style.position = 'relative';
       }
       target.style.overflow = 'hidden';

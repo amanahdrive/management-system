@@ -44,16 +44,36 @@ export function isStandalonePwa(): boolean {
   }
 }
 
+let isDispatchingFinanceMode = false;
+
 /**
- * Menghapus seluruh flag / tanda mode finance dari storage browser dan memberitahu komponen lain
+ * Menghapus seluruh flag / tanda mode finance dari storage browser dan memberitahu komponen lain.
+ * Dilengkapi guard idempotensi untuk mencegah rekursi dispatch event.
  */
 export function clearFinanceMode(): void {
   if (typeof window === 'undefined') return;
   try {
+    const wasSession = sessionStorage.getItem('amanah_finance_mode') === 'true';
+    const wasLocal = localStorage.getItem('amanah_finance_mode') === 'true';
+    const wasCookie = document.cookie.includes('amanah_finance_mode=true');
+
+    // Jika sudah bersih, jangan dispatch event lagi (memutus loop rekursif)
+    if (!wasSession && !wasLocal && !wasCookie) {
+      return;
+    }
+
     sessionStorage.removeItem('amanah_finance_mode');
     localStorage.removeItem('amanah_finance_mode');
     document.cookie = 'amanah_finance_mode=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax';
-    window.dispatchEvent(new CustomEvent('amanah:finance-mode-change', { detail: { isFinance: false } }));
+
+    if (!isDispatchingFinanceMode) {
+      isDispatchingFinanceMode = true;
+      try {
+        window.dispatchEvent(new CustomEvent('amanah:finance-mode-change', { detail: { isFinance: false } }));
+      } finally {
+        isDispatchingFinanceMode = false;
+      }
+    }
   } catch {}
 }
 
@@ -63,16 +83,29 @@ export function clearFinanceMode(): void {
 export function setFinanceMode(): void {
   if (typeof window === 'undefined') return;
   try {
+    const isAlreadySession = sessionStorage.getItem('amanah_finance_mode') === 'true';
+    const isAlreadyLocal = localStorage.getItem('amanah_finance_mode') === 'true';
+
     sessionStorage.setItem('amanah_finance_mode', 'true');
     localStorage.setItem('amanah_finance_mode', 'true');
     document.cookie = 'amanah_finance_mode=true; path=/; max-age=86400; SameSite=Lax';
-    window.dispatchEvent(new CustomEvent('amanah:finance-mode-change', { detail: { isFinance: true } }));
+
+    if (!isAlreadySession || !isAlreadyLocal) {
+      if (!isDispatchingFinanceMode) {
+        isDispatchingFinanceMode = true;
+        try {
+          window.dispatchEvent(new CustomEvent('amanah:finance-mode-change', { detail: { isFinance: true } }));
+        } finally {
+          isDispatchingFinanceMode = false;
+        }
+      }
+    }
   } catch {}
 }
 
 /**
- * Memeriksa status aktif mode Finance:
- * - Jika berada di rute Admin (/dashboard, /siswa, dll): PASTI FALSE, dan otomatis bersihkan flag finance.
+ * Memeriksa status aktif mode Finance (Fungsi Pure Query tanpa side effect):
+ * - Jika berada di rute Admin (/dashboard, /siswa, dll): FALSE.
  * - Jika berada di /finance: TRUE.
  * - Jika berada di modul Kas / Nota: TRUE HANYA jika flag finance memang aktif di storage.
  * - Rute lain: FALSE.
@@ -81,9 +114,8 @@ export function checkIsFinanceMode(pathname?: string | null): boolean {
   if (typeof window === 'undefined') return false;
   const currentPath = pathname || window.location.pathname;
 
-  // Jika membuka rute admin utama, mode finance DILARANG aktif dan harus direset!
+  // Jika membuka rute admin utama, mode finance PASTI false (tanpa efek samping memicu dispatchEvent)
   if (isAdminRoute(currentPath)) {
-    clearFinanceMode();
     return false;
   }
 

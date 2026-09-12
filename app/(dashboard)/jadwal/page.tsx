@@ -242,18 +242,15 @@ export default function JadwalPage() {
     setMonthlyJadwalList(mList);
     setKendaraanList(kList);
 
-    if (iList.length > 0 && !formData.staff_id) {
-      setFormData((prev) => ({ ...prev, staff_id: iList[0].id }));
-    }
-    if (swList.length > 0 && !formData.slot_waktu_id) {
-      setFormData((prev) => ({ ...prev, slot_waktu_id: swList[0].id }));
-    }
-    if (kList.length > 0 && !formData.kendaraan_id) {
-      setFormData((prev) => ({ ...prev, kendaraan_id: kList[0].id }));
-    }
+    setFormData((prev) => ({
+      ...prev,
+      staff_id: prev.staff_id || (iList.length > 0 ? iList[0].id : ''),
+      slot_waktu_id: prev.slot_waktu_id || (swList.length > 0 ? swList[0].id : ''),
+      kendaraan_id: prev.kendaraan_id || (kList.length > 0 ? kList[0].id : ''),
+    }));
 
     setLoading(false);
-  }, [getEffectiveDateRange, selectedStaff, formData.staff_id, formData.slot_waktu_id, formData.kendaraan_id]);
+  }, [getEffectiveDateRange, selectedStaff]);
 
   React.useEffect(() => {
     loadData();
@@ -372,6 +369,17 @@ export default function JadwalPage() {
 
     // Filter bentrok: only show sessions with conflict or off-day
     if (filterBentrok) {
+      // Pre-index monthly sessions by date and staff to eliminate O(N * M) nested scan
+      const staffDateSessionsMap = new Map<string, JadwalSesi[]>();
+      for (const j of monthlyJadwalList) {
+        if (j.status_sesi === 'terjadwal' && j.staff_id && j.tanggal_sesi) {
+          const key = `${j.tanggal_sesi}_${j.staff_id}`;
+          const existing = staffDateSessionsMap.get(key);
+          if (existing) existing.push(j);
+          else staffDateSessionsMap.set(key, [j]);
+        }
+      }
+
       list = list.filter((sesi) => {
         if (!sesi.staff_id || !sesi.slot_waktu_id || sesi.status_sesi !== 'terjadwal') return false;
         const dayIdx = (() => {
@@ -384,12 +392,15 @@ export default function JadwalPage() {
         if (!ins) return false;
         // Off day
         if (!ins.hari_kerja?.includes(dayNameEng)) return true;
-        // Slot conflict: hanya terjadi jika ada sesi bertabrakan yang berstatus terjadwal
-        const hasConflict = monthlyJadwalList.some((j) => {
-          if (j.id === sesi.id || j.tanggal_sesi !== sesi.tanggal_sesi) return false;
-          if (j.status_sesi !== 'terjadwal' || j.staff_id !== sesi.staff_id) return false;
+
+        // Slot conflict: cek hanya sesi untuk instruktur dan tanggal yang sama
+        const sameStaffAndDate = staffDateSessionsMap.get(`${sesi.tanggal_sesi}_${sesi.staff_id}`);
+        if (!sameStaffAndDate || sameStaffAndDate.length <= 1) return false;
+
+        const mySlots = getSessionOccupiedSlotIds(sesi.slot_waktu_id, sesi.slot_waktu_id_akhir, slotList);
+        const hasConflict = sameStaffAndDate.some((j) => {
+          if (j.id === sesi.id) return false;
           const jSlots = getSessionOccupiedSlotIds(j.slot_waktu_id, j.slot_waktu_id_akhir, slotList);
-          const mySlots = getSessionOccupiedSlotIds(sesi.slot_waktu_id, sesi.slot_waktu_id_akhir, slotList);
           return mySlots.some((s) => jSlots.includes(s));
         });
         return hasConflict;
@@ -397,7 +408,7 @@ export default function JadwalPage() {
     }
 
     return list;
-  }, [jadwalList, filterBentrok, instrukturList, monthlyJadwalList]);
+  }, [jadwalList, filterBentrok, instrukturList, monthlyJadwalList, slotList]);
 
   const availableSiswaList = React.useMemo(() => {
     return siswaList.filter((s) => !allScheduledSiswaIds.includes(s.id));

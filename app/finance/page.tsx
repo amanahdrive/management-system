@@ -367,21 +367,16 @@ export default function FinancePortalPage() {
               rek.find((r: RekeningBank) => r.aktif);
             if (defRek) setSelectedRekeningId(defRek.id);
 
-            // Persist to local cache for instant offline reload
-            localStorage.setItem(
-              'amanah_finance_cache_v2',
-              JSON.stringify({
-                metrics: activeMetrics,
-                transaksi: tx,
-                kategori: kat,
-                siswa: sis,
-                paket: pak,
-                hutang: hut,
-                rekening: rek,
-                dpKustom: dpk,
-                updatedAt: Date.now(),
-              })
-            );
+            // Persist lightweight metrics to local cache (avoiding megabyte main-thread serialization)
+            try {
+              localStorage.setItem(
+                'amanah_finance_cache_v2',
+                JSON.stringify({
+                  metrics: activeMetrics,
+                  updatedAt: Date.now(),
+                })
+              );
+            } catch {}
             dataLoaded = true;
           }
         }
@@ -437,20 +432,15 @@ export default function FinancePortalPage() {
           rek.find((r: RekeningBank) => r.aktif);
         if (defRek) setSelectedRekeningId(defRek.id);
 
-        localStorage.setItem(
-          'amanah_finance_cache_v2',
-          JSON.stringify({
-            metrics: activeMetrics,
-            transaksi: tx,
-            kategori: kat,
-            siswa: sis,
-            paket: pak,
-            hutang: hut,
-            rekening: rek,
-            dpKustom: dpk,
-            updatedAt: Date.now(),
-          })
-        );
+        try {
+          localStorage.setItem(
+            'amanah_finance_cache_v2',
+            JSON.stringify({
+              metrics: activeMetrics,
+              updatedAt: Date.now(),
+            })
+          );
+        } catch {}
       }
     } catch (err) {
       console.error('Error loading finance data:', err);
