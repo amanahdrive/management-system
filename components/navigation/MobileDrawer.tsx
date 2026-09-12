@@ -52,7 +52,7 @@ const SISWA_SUB_ITEMS = [
 ];
 
 const KENDARAAN_SUB_ITEMS = [
-  { label: 'Armada Kendaraan', href: '/kendaraan', icon: Car },
+  { label: 'Manajemen Armada', href: '/kendaraan', icon: Car },
   { label: 'Data Insiden', href: '/insiden', icon: AlertOctagon },
 ];
 

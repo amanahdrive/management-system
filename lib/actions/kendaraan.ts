@@ -890,3 +890,221 @@ export async function recordPengisianBBM(
   }
 }
 
+// ============================================================
+// MANAJEMEN ARMADA — Fleet Operational Monthly Analytics
+// ============================================================
+
+export interface ArmadaMonthlyStats {
+  kendaraanId: string;
+  namaKendaraan: string;
+  platNomor: string;
+  totalKm: number;
+  sesiSelesai: number;
+  bbmNominal: number;
+  bbmLiter: number;
+  efisiensiBbmKmPerL: number;
+  biayaBbmPerKm: number;
+  cadanganMaintenanceDisisihkan: number;
+  servisTermakai: number;
+  saldoCadangan: number;
+  totalBebanKomprehensif: number;
+  biayaRiilKas: number;
+  biayaPerKm: number;
+  biayaPerSesi: number;
+}
+
+export interface ArmadaOperasionalOverview {
+  bulan: string;
+  tarifMaintenancePerKm: number;
+  targetEfisiensiBbm: number;
+  armada: ArmadaMonthlyStats[];
+  fleetTotal: {
+    totalKm: number;
+    sesiSelesai: number;
+    bbmNominal: number;
+    cadanganTotal: number;
+    servisTotal: number;
+    totalBeban: number;
+    biayaRiilKas: number;
+    biayaPerKm: number;
+    biayaPerSesi: number;
+    efisiensiBbm: number;
+  };
+}
+
+/**
+ * Mengumpulkan data operasional bulanan per armada untuk Manajemen Armada.
+ * @param bulan Format: 'YYYY-MM' (e.g. '2026-09')
+ * @param tarifMaintenancePerKm Tarif cadangan Rp per km (default 1000)
+ * @param targetEfisiensiBbm Target km/L (default 10)
+ */
+export async function getArmadaOperasionalMonthlyStats(
+  bulan: string,
+  tarifMaintenancePerKm: number = 1000,
+  targetEfisiensiBbm: number = 10
+): Promise<ArmadaOperasionalOverview> {
+  try {
+    const [year, month] = bulan.split('-').map(Number);
+    const startDate = `${bulan}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${bulan}-${String(lastDay).padStart(2, '0')}`;
+
+    const kendaraanList = await dbQuery<{ id: string; nama_kendaraan: string; plat_nomor: string }>(
+      `SELECT id, nama_kendaraan, plat_nomor FROM kendaraan ORDER BY nama_kendaraan ASC`
+    );
+
+    const armadaStats: ArmadaMonthlyStats[] = [];
+
+    for (const k of kendaraanList) {
+      // Total KM dari kendaraan_log_harian bulan ini
+      const kmRes = await dbQuerySingle<{ total_km: number }>(
+        `SELECT COALESCE(SUM(jarak_tempuh), 0)::integer AS total_km
+         FROM kendaraan_log_harian
+         WHERE kendaraan_id = $1 AND tanggal >= $2 AND tanggal <= $3`,
+        [k.id, startDate, endDate]
+      );
+      const totalKm = Number(kmRes?.total_km ?? 0);
+
+      // BBM dari log harian
+      const bbmLogRes = await dbQuerySingle<{ total_nominal: number; total_liter: number }>(
+        `SELECT 
+           COALESCE(SUM(bbm_nominal), 0)::integer AS total_nominal,
+           COALESCE(SUM(bbm_liter), 0)::numeric AS total_liter
+         FROM kendaraan_log_harian
+         WHERE kendaraan_id = $1 AND tanggal >= $2 AND tanggal <= $3
+           AND bbm_nominal > 0`,
+        [k.id, startDate, endDate]
+      );
+      const bbmLogNominal = Number(bbmLogRes?.total_nominal ?? 0);
+      const bbmLogLiter = Number(bbmLogRes?.total_liter ?? 0);
+
+      // Fallback ke kas_transaksi
+      const bbmKasRes = await dbQuerySingle<{ total_nominal: number }>(
+        `SELECT COALESCE(SUM(nominal), 0)::integer AS total_nominal
+         FROM kas_transaksi
+         WHERE kendaraan_id = $1 
+           AND tanggal >= $2 AND tanggal <= $3
+           AND (kategori = 'bbm' OR kategori ILIKE '%bbm%')
+           AND tipe = 'pengeluaran'`,
+        [k.id, startDate, endDate]
+      );
+      const bbmKasNominal = Number(bbmKasRes?.total_nominal ?? 0);
+
+      const bbmNominal = Math.max(bbmLogNominal, bbmKasNominal);
+      const bbmLiter = bbmLogLiter > 0 ? bbmLogLiter : (bbmNominal > 0 ? parseFloat((bbmNominal / 10000).toFixed(2)) : 0);
+
+      // Jumlah sesi selesai bulan ini
+      const sesiRes = await dbQuerySingle<{ sesi_count: number }>(
+        `SELECT COUNT(*)::integer AS sesi_count
+         FROM jadwal_sesi js
+         JOIN jadwal j ON js.jadwal_id = j.id
+         WHERE j.kendaraan_id = $1
+           AND js.tanggal_sesi >= $2 AND js.tanggal_sesi <= $3
+           AND js.status_sesi = 'selesai'`,
+        [k.id, startDate, endDate]
+      );
+      const sesiSelesai = Number(sesiRes?.sesi_count ?? 0);
+
+      // Biaya servis/perbaikan bulan ini
+      const servisRes = await dbQuerySingle<{ total_servis: number }>(
+        `SELECT COALESCE(SUM(nominal), 0)::integer AS total_servis
+         FROM kas_transaksi
+         WHERE kendaraan_id = $1
+           AND tanggal >= $2 AND tanggal <= $3
+           AND tipe = 'pengeluaran'
+           AND (
+             kategori ILIKE '%servis%'
+             OR kategori ILIKE '%perbaikan%'
+             OR kategori ILIKE '%sparepart%'
+             OR kategori ILIKE '%ban%'
+             OR kategori ILIKE '%oli%'
+           )`,
+        [k.id, startDate, endDate]
+      );
+      const servisTermakai = Number(servisRes?.total_servis ?? 0);
+
+      // Kalkulasi derivatif
+      const cadanganMaintenanceDisisihkan = totalKm * tarifMaintenancePerKm;
+      const saldoCadangan = cadanganMaintenanceDisisihkan - servisTermakai;
+      const totalBebanKomprehensif = bbmNominal + cadanganMaintenanceDisisihkan;
+      const biayaRiilKas = bbmNominal + servisTermakai;
+      const biayaPerKm = totalKm > 0 ? Math.round(totalBebanKomprehensif / totalKm) : 0;
+      const biayaPerSesi = sesiSelesai > 0 ? Math.round(totalBebanKomprehensif / sesiSelesai) : 0;
+      const efisiensiBbmKmPerL = bbmLiter > 0 ? parseFloat((totalKm / bbmLiter).toFixed(2)) : 0;
+      const biayaBbmPerKm = totalKm > 0 ? Math.round(bbmNominal / totalKm) : 0;
+
+      armadaStats.push({
+        kendaraanId: k.id,
+        namaKendaraan: k.nama_kendaraan,
+        platNomor: k.plat_nomor,
+        totalKm,
+        sesiSelesai,
+        bbmNominal,
+        bbmLiter,
+        efisiensiBbmKmPerL,
+        biayaBbmPerKm,
+        cadanganMaintenanceDisisihkan,
+        servisTermakai,
+        saldoCadangan,
+        totalBebanKomprehensif,
+        biayaRiilKas,
+        biayaPerKm,
+        biayaPerSesi,
+      });
+    }
+
+    // Fleet consolidated totals
+    const fleetTotalKm = armadaStats.reduce((s, a) => s + a.totalKm, 0);
+    const fleetSesiSelesai = armadaStats.reduce((s, a) => s + a.sesiSelesai, 0);
+    const fleetBbmNominal = armadaStats.reduce((s, a) => s + a.bbmNominal, 0);
+    const fleetBbmLiter = armadaStats.reduce((s, a) => s + a.bbmLiter, 0);
+    const fleetCadangan = armadaStats.reduce((s, a) => s + a.cadanganMaintenanceDisisihkan, 0);
+    const fleetServis = armadaStats.reduce((s, a) => s + a.servisTermakai, 0);
+    const fleetTotalBeban = fleetBbmNominal + fleetCadangan;
+    const fleetBiayaRiilKas = fleetBbmNominal + fleetServis;
+    const fleetBiayaPerKm = fleetTotalKm > 0 ? Math.round(fleetTotalBeban / fleetTotalKm) : 0;
+    const fleetBiayaPerSesi = fleetSesiSelesai > 0 ? Math.round(fleetTotalBeban / fleetSesiSelesai) : 0;
+    const fleetEfisiensiBbm = fleetBbmLiter > 0 ? parseFloat((fleetTotalKm / fleetBbmLiter).toFixed(2)) : 0;
+
+    return {
+      bulan,
+      tarifMaintenancePerKm,
+      targetEfisiensiBbm,
+      armada: armadaStats,
+      fleetTotal: {
+        totalKm: fleetTotalKm,
+        sesiSelesai: fleetSesiSelesai,
+        bbmNominal: fleetBbmNominal,
+        cadanganTotal: fleetCadangan,
+        servisTotal: fleetServis,
+        totalBeban: fleetTotalBeban,
+        biayaRiilKas: fleetBiayaRiilKas,
+        biayaPerKm: fleetBiayaPerKm,
+        biayaPerSesi: fleetBiayaPerSesi,
+        efisiensiBbm: fleetEfisiensiBbm,
+      },
+    };
+  } catch (err) {
+    console.error('Error in getArmadaOperasionalMonthlyStats:', err);
+    return {
+      bulan,
+      tarifMaintenancePerKm,
+      targetEfisiensiBbm,
+      armada: [],
+      fleetTotal: {
+        totalKm: 0,
+        sesiSelesai: 0,
+        bbmNominal: 0,
+        cadanganTotal: 0,
+        servisTotal: 0,
+        totalBeban: 0,
+        biayaRiilKas: 0,
+        biayaPerKm: 0,
+        biayaPerSesi: 0,
+        efisiensiBbm: 0,
+      },
+    };
+  }
+}
+
+

@@ -18,11 +18,23 @@ export interface GeneralSettings {
   waTemplate: string;
   pertalitePrice: number;
   pertamaxPrice: number;
+  solarPrice: number;
   gajiInstrukturOperasional: number;
   gajiInstrukturPribadi: number;
   uangMakanInstrukturHarian: number;
   minSlotUangMakan: number;
+  tarifMaintenancePerKm: number;
+  targetEfisiensiBbm: number;
 }
+
+export interface FleetSettings {
+  pertalitePrice: number;
+  pertamaxPrice: number;
+  solarPrice: number;
+  tarifMaintenancePerKm: number;
+  targetEfisiensiBbm: number;
+}
+
 
 const DEFAULT_WA_TEMPLATE =
   '• Minta share lokasi kepada klien sebelum berangkat.\n' +
@@ -56,6 +68,7 @@ export async function getGeneralSettings(): Promise<GeneralSettings> {
       waTemplate: map['wa_footer_template'] || DEFAULT_WA_TEMPLATE,
       pertalitePrice: map['harga_bbm_pertalite'] ? Number(map['harga_bbm_pertalite']) : 10000,
       pertamaxPrice: map['harga_bbm_pertamax'] ? Number(map['harga_bbm_pertamax']) : 16300,
+      solarPrice: map['harga_bbm_solar'] ? Number(map['harga_bbm_solar']) : 6800,
       gajiInstrukturOperasional: map['gaji_instruktur_operasional']
         ? Number(map['gaji_instruktur_operasional'])
         : 50000,
@@ -68,6 +81,12 @@ export async function getGeneralSettings(): Promise<GeneralSettings> {
       minSlotUangMakan: map['min_slot_uang_makan']
         ? Number(map['min_slot_uang_makan'])
         : 2,
+      tarifMaintenancePerKm: map['tarif_maintenance_per_km']
+        ? Number(map['tarif_maintenance_per_km'])
+        : 1000,
+      targetEfisiensiBbm: map['target_efisiensi_bbm']
+        ? Number(map['target_efisiensi_bbm'])
+        : 10,
     };
 
     cacheSet(CACHE_KEY, result, 60);
@@ -80,10 +99,13 @@ export async function getGeneralSettings(): Promise<GeneralSettings> {
       waTemplate: DEFAULT_WA_TEMPLATE,
       pertalitePrice: 10000,
       pertamaxPrice: 16300,
+      solarPrice: 6800,
       gajiInstrukturOperasional: 50000,
       gajiInstrukturPribadi: 70000,
       uangMakanInstrukturHarian: 15000,
       minSlotUangMakan: 2,
+      tarifMaintenancePerKm: 1000,
+      targetEfisiensiBbm: 10,
     };
   }
 }
@@ -159,6 +181,62 @@ export async function saveBbmPrices(
   } catch (err: any) {
     console.error('Error saving BBM prices:', err);
     return { success: false, error: err.message || 'Gagal menyimpan harga BBM' };
+  }
+}
+
+/**
+ * Get Fleet-specific settings (BBM prices, maintenance tariff, efficiency target)
+ */
+export async function getFleetSettings(): Promise<FleetSettings> {
+  try {
+    const rows = await dbQuery<{ key: string; value: string }>(
+      `SELECT key, value FROM settings WHERE key IN (
+        'harga_bbm_pertalite','harga_bbm_pertamax','harga_bbm_solar',
+        'tarif_maintenance_per_km','target_efisiensi_bbm'
+      )`
+    );
+    const map: Record<string, string> = {};
+    (rows || []).forEach((r) => { map[r.key] = r.value; });
+
+    return {
+      pertalitePrice: map['harga_bbm_pertalite'] ? Number(map['harga_bbm_pertalite']) : 10000,
+      pertamaxPrice: map['harga_bbm_pertamax'] ? Number(map['harga_bbm_pertamax']) : 16300,
+      solarPrice: map['harga_bbm_solar'] ? Number(map['harga_bbm_solar']) : 6800,
+      tarifMaintenancePerKm: map['tarif_maintenance_per_km'] ? Number(map['tarif_maintenance_per_km']) : 1000,
+      targetEfisiensiBbm: map['target_efisiensi_bbm'] ? Number(map['target_efisiensi_bbm']) : 10,
+    };
+  } catch (err) {
+    console.error('Error fetching fleet settings:', err);
+    return {
+      pertalitePrice: 10000,
+      pertamaxPrice: 16300,
+      solarPrice: 6800,
+      tarifMaintenancePerKm: 1000,
+      targetEfisiensiBbm: 10,
+    };
+  }
+}
+
+/**
+ * Save Fleet Settings (BBM prices + maintenance tariff + efficiency target)
+ */
+export async function saveFleetSettings(
+  data: FleetSettings
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await upsertSetting('harga_bbm_pertalite', data.pertalitePrice.toString(), 'Harga BBM Pertalite per Liter');
+    await upsertSetting('harga_bbm_pertamax', data.pertamaxPrice.toString(), 'Harga BBM Pertamax per Liter');
+    await upsertSetting('harga_bbm_solar', data.solarPrice.toString(), 'Harga BBM Solar/Dexlite per Liter');
+    await upsertSetting('tarif_maintenance_per_km', data.tarifMaintenancePerKm.toString(), 'Tarif cadangan maintenance per km tempuh');
+    await upsertSetting('target_efisiensi_bbm', data.targetEfisiensiBbm.toString(), 'Target efisiensi BBM armada (km/L)');
+
+    cacheInvalidate(CACHE_KEY);
+    safeRevalidatePath('/settings');
+    safeRevalidatePath('/kendaraan');
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error saving fleet settings:', err);
+    return { success: false, error: err.message || 'Gagal menyimpan pengaturan armada' };
   }
 }
 
