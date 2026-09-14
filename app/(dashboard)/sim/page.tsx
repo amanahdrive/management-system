@@ -201,9 +201,10 @@ export default function ManajemenSimPage() {
   const [sortField, setSortField] = React.useState<SortField>('tanggal_booking');
   const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc');
 
-  // Modal State for Changing SIM Status
+  // Modal State for Changing SIM Status & Jenis SIM
   const [selectedSiswa, setSelectedSiswa] = React.useState<Siswa | null>(null);
   const [modalTargetStatus, setModalTargetStatus] = React.useState<'belum' | 'selesai'>('selesai');
+  const [modalJenisSim, setModalJenisSim] = React.useState<'SIM A' | 'SIM C' | 'SIM A + SIM C'>('SIM A');
   const [modalTanggalSelesai, setModalTanggalSelesai] = React.useState<string>(getTodayDateString());
   const [modalCatatanSim, setModalCatatanSim] = React.useState<string>('');
   const [isModalOpen, setIsModalOpen] = React.useState(false);
@@ -528,18 +529,26 @@ export default function ManajemenSimPage() {
     }
   };
 
-  // Open Modal to Change Status
+  // Open Modal to Change Status & Jenis SIM
   const handleOpenChangeStatus = (siswa: Siswa) => {
-    // If attempting to mark as completed, but student hasn't paid in full
-    if (siswa.status_sim !== 'selesai' && siswa.status_pembayaran_kode !== 'lunas') {
-      setUnpaidAlertStudent(siswa);
-      return;
-    }
-
     setSelectedSiswa(siswa);
-    setModalTargetStatus(siswa.status_sim === 'selesai' ? 'belum' : 'selesai');
+    setModalTargetStatus(siswa.status_sim === 'selesai' ? 'selesai' : 'belum');
     setModalTanggalSelesai(siswa.tanggal_selesai_sim || getTodayDateString());
-    setModalCatatanSim(siswa.catatan_sim || '');
+
+    const note = siswa.catatan_sim || '';
+    let initialJenis: 'SIM A' | 'SIM C' | 'SIM A + SIM C' = 'SIM A';
+    if (/SIM A\s*\+\s*SIM C/i.test(note) || /SIM A\s*&\s*C/i.test(note)) {
+      initialJenis = 'SIM A + SIM C';
+    } else if (/SIM C/i.test(note)) {
+      initialJenis = 'SIM C';
+    } else if (/SIM A/i.test(note)) {
+      initialJenis = 'SIM A';
+    }
+    setModalJenisSim(initialJenis);
+
+    const cleanNote = note.replace(/^\[(SIM A \+ SIM C|SIM A|SIM C)\]\s*/i, '').trim();
+    setModalCatatanSim(cleanNote);
+
     setModalError(null);
     setIsModalOpen(true);
   };
@@ -548,14 +557,24 @@ export default function ManajemenSimPage() {
     e.preventDefault();
     if (!selectedSiswa) return;
 
+    if (modalTargetStatus === 'selesai' && selectedSiswa.status_pembayaran_kode !== 'lunas') {
+      setModalError(
+        `Gagal menyelesaikan SIM: Siswa "${selectedSiswa.nama}" belum melunasi biaya kursus (Status: ${selectedSiswa.status_pembayaran_kode.toUpperCase()}). Status SIM hanya dapat diselesaikan jika status pembayaran sudah LUNAS.`
+      );
+      return;
+    }
+
     setSaving(true);
     setModalError(null);
+
+    const cleanUserNote = modalCatatanSim.replace(/^\[(SIM A \+ SIM C|SIM A|SIM C)\]\s*/i, '').trim();
+    const formattedCatatan = `[${modalJenisSim}]${cleanUserNote ? ' ' + cleanUserNote : ''}`;
 
     const res = await updateStatusSim(
       selectedSiswa.id,
       modalTargetStatus,
       modalTargetStatus === 'selesai' ? modalTanggalSelesai : null,
-      modalCatatanSim
+      formattedCatatan
     );
 
     setSaving(false);
@@ -1181,13 +1200,31 @@ export default function ManajemenSimPage() {
                         </div>
                       </td>
 
-                      {/* Paket Kursus */}
+                      {/* Paket Kursus & Jenis SIM */}
                       <td className="p-3 whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded-lg bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-bold text-[11px] inline-flex items-center gap-1">
-                          <IdCard className="w-3 h-3" />
-                          <span>{s.paket?.nama_paket || 'Paket SIM'}</span>
-                        </span>
-                        <div className="text-[10px] text-[var(--text-secondary)] mt-0.5 font-medium">
+                        <div className="flex flex-col items-start gap-1">
+                          <span className="px-2 py-0.5 rounded-lg bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-bold text-[11px] inline-flex items-center gap-1">
+                            <IdCard className="w-3 h-3" />
+                            <span>{s.paket?.nama_paket || 'Paket SIM'}</span>
+                          </span>
+
+                          {/* Badge Jenis SIM */}
+                          {s.catatan_sim?.includes('SIM A + SIM C') || s.catatan_sim?.includes('SIM A & C') ? (
+                            <span className="px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 font-extrabold text-[10px] border border-purple-300 dark:border-purple-800 flex items-center gap-1">
+                              <Sparkles className="w-2.5 h-2.5 text-purple-600" />
+                              <span>SIM A + SIM C (Add-On)</span>
+                            </span>
+                          ) : s.catatan_sim?.includes('SIM C') ? (
+                            <span className="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 font-bold text-[10px] border border-amber-300 dark:border-amber-800">
+                              SIM C (Motor)
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 font-semibold text-[10px] border border-blue-200 dark:border-blue-900">
+                              SIM A (Mobil)
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-[var(--text-secondary)] mt-1 font-medium">
                           {formatRupiah(s.harga_final)}
                         </div>
                       </td>
@@ -1461,13 +1498,68 @@ export default function ManajemenSimPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--text-secondary)]">Status Pembayaran:</span>
-                <span className="font-bold text-emerald-600 uppercase">
-                  {selectedSiswa.status_pembayaran_kode} (LUNAS)
+                <span className={`font-bold uppercase ${
+                  selectedSiswa.status_pembayaran_kode === 'lunas' ? 'text-emerald-600' : 'text-amber-600'
+                }`}>
+                  {selectedSiswa.status_pembayaran_kode}
                 </span>
               </div>
             </div>
 
             <form onSubmit={handleSaveStatusSim} className="space-y-4 text-xs">
+              {/* Pilihan Jenis / Layanan SIM */}
+              <div>
+                <label className="block text-[var(--text-primary)] mb-1 font-bold">
+                  Pilihan Jenis / Layanan SIM *
+                </label>
+                <span className="text-[10px] text-[var(--text-secondary)] block mb-2">
+                  Paketan dasar kursus mencakup SIM A. Pilih SIM A + SIM C jika siswa menambah add-on SIM C.
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalJenisSim('SIM A')}
+                    className={`p-2 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer ${
+                      modalJenisSim === 'SIM A'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 ring-2 ring-blue-500/20 shadow-xs'
+                        : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)] hover:border-blue-300'
+                    }`}
+                  >
+                    <div>SIM A</div>
+                    <div className="text-[9px] font-normal opacity-80 mt-0.5">(Mobil)</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setModalJenisSim('SIM C')}
+                    className={`p-2 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer ${
+                      modalJenisSim === 'SIM C'
+                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 ring-2 ring-amber-500/20 shadow-xs'
+                        : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)] hover:border-amber-300'
+                    }`}
+                  >
+                    <div>SIM C</div>
+                    <div className="text-[9px] font-normal opacity-80 mt-0.5">(Motor)</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setModalJenisSim('SIM A + SIM C')}
+                    className={`p-2.5 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer ${
+                      modalJenisSim === 'SIM A + SIM C'
+                        ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 ring-2 ring-purple-500/20 shadow-xs'
+                        : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)] hover:border-purple-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <Sparkles className="w-3 h-3 text-purple-500" />
+                      <span>SIM A + C</span>
+                    </div>
+                    <div className="text-[9px] font-normal opacity-80 mt-0.5">(Mobil & Motor)</div>
+                  </button>
+                </div>
+              </div>
+
               {/* Radio Pilihan Status */}
               <div>
                 <label className="block text-[var(--text-secondary)] mb-1.5 font-bold">
