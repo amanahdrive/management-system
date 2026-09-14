@@ -344,19 +344,19 @@ export default function ManajemenSimPage() {
     let text = `DAFTAR SISWA SIAP SIM\nTanggal: ${tglFormatted}\n\n`;
 
     if (selectedStudentsList.length === 0) {
-      text += `- (Tidak ada siswa dipilih)\n\n`;
+      text += `* (Tidak ada siswa dipilih)\n\n`;
     } else {
       selectedStudentsList.forEach((s) => {
         const waNum = s.no_whatsapp ? s.no_whatsapp : 'Tanpa No WA';
-        text += `- ${s.nama} (${waNum})\n`;
+        text += `* ${s.nama} (${waNum})\n`;
       });
       text += `\n`;
     }
 
     text += `Subtotal:\n`;
-    text += `- Pelatihan: ${formatRupiah(subtotalPelatihan)}\n`;
-    text += `- Fee Admin: ${formatRupiah(subtotalFeeAdmin)}\n\n`;
-    text += `Total: ${formatRupiah(totalEksekusi)}`;
+    text += `* Pelatihan: ${countSelected}x ${formatRupiah(biayaPelatihanUnit)} = ${formatRupiah(subtotalPelatihan)}\n`;
+    text += `* Fee Admin: ${countSelected}x ${formatRupiah(feeAdminUnit)} = ${formatRupiah(subtotalFeeAdmin)}\n\n`;
+    text += `Total ${countSelected} siswa: ${formatRupiah(totalEksekusi)}`;
 
     return text;
   };
