@@ -435,12 +435,12 @@ export async function addNonSiswaSimParticipant(
       `INSERT INTO siswa (
         kode_siswa, nama, tanggal_booking, tanggal_rencana_mulai,
         no_whatsapp, alamat, paket_id, harga_final, harga_manual_override,
-        status_pembayaran_kode, dp_nominal, dp_tanggal, sumber, catatan,
+        status_pembayaran_kode, dp_nominal, dp_tanggal, sumber, sumber_kustom_text, catatan,
         status_sim, catatan_sim, is_archived, created_at, updated_at
       ) VALUES (
         $1, $2, $3, $3,
         $4, $5, $6, $7, TRUE,
-        $8, $9, $10, 'lain_lain', $11,
+        $8, $9, $10, 'kustom', 'Pendaftaran SIM Non-Siswa', $11,
         'belum', $12, FALSE, NOW(), NOW()
       ) RETURNING id`,
       [
