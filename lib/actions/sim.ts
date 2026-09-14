@@ -218,3 +218,57 @@ export async function updateStatusSim(
     return { success: false, error: err.message || 'Terjadi kesalahan sistem' };
   }
 }
+
+/**
+ * Eksekusi masal status SIM siswa menjadi selesai
+ */
+export async function executeBatchSim(
+  siswaIds: string[],
+  tanggalPelatihan: string,
+  catatanSim?: string
+): Promise<{ success: boolean; executedCount: number; error?: string }> {
+  try {
+    if (!siswaIds || siswaIds.length === 0) {
+      return { success: false, executedCount: 0, error: 'Tidak ada siswa yang dipilih' };
+    }
+
+    const tgl = tanggalPelatihan || getTodayDateString();
+
+    await dbQuery(
+      `UPDATE siswa 
+       SET 
+         status_sim = 'selesai',
+         tanggal_selesai_sim = $1,
+         catatan_sim = COALESCE($2, catatan_sim),
+         is_archived = TRUE,
+         updated_at = NOW()
+       WHERE id = ANY($3::uuid[])`,
+      [tgl, catatanSim || null, siswaIds]
+    );
+
+    // Update pos_pengeluaran terkait jika ada
+    await dbQuery(
+      `UPDATE pos_pengeluaran
+       SET tanggal_jatuh_tempo = $1,
+           updated_at = NOW()
+       WHERE siswa_id = ANY($2::uuid[]) AND status = 'belum_bayar'`,
+      [tgl, siswaIds]
+    );
+
+    cacheInvalidate('siswa*');
+    cacheInvalidate('sim*');
+    cacheInvalidate('pos_pengeluaran*');
+    cacheInvalidate('dashboard*');
+
+    safeRevalidatePath('/sim');
+    safeRevalidatePath('/siswa');
+    safeRevalidatePath('/dashboard');
+    safeRevalidatePath('/kas/pos');
+
+    return { success: true, executedCount: siswaIds.length };
+  } catch (err: any) {
+    console.error('Error executing batch SIM:', err);
+    return { success: false, executedCount: 0, error: err.message || 'Terjadi kesalahan sistem' };
+  }
+}
+

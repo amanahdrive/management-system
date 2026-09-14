@@ -135,6 +135,22 @@ export function formatDateLongIndo(dateInput: Date | string | null | undefined):
 }
 
 /**
+ * Format tanggal ke nama hari dan tanggal teks panjang Indonesia (WIB)
+ * Contoh: "Senin, 14 September 2026"
+ */
+export function formatHariTanggalLongIndo(dateInput: Date | string | null | undefined): string {
+  if (!dateInput) return '-';
+  const parts = getJakartaDateParts(dateInput);
+  if (!parts) return '-';
+
+  const namaHari = HARI_INDONESIA[parts.weekdayIndex];
+  const day = parts.day;
+  const namaBulan = BULAN_INDONESIA[parts.month - 1];
+  return `${namaHari}, ${day} ${namaBulan} ${parts.year}`;
+}
+
+
+/**
  * Dapatkan string tanggal hari ini (YYYY-MM-DD) dalam zona waktu Asia/Jakarta (WIB).
  * Mencegah bug tanggal kemarin saat server Next.js berjalan di UTC (misal Vercel pada pukul 00:00–06:59 WIB).
  */

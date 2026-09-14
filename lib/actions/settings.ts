@@ -370,6 +370,8 @@ export async function saveOperasionalSettings(
 
 export interface ModalSimSettings {
   hargaDefault: number;
+  biayaPelatihanSim: number;
+  feeAdmin: number;
   configPerJenis: Record<string, number>;
 }
 
@@ -395,8 +397,14 @@ export async function getModalSimSettings(): Promise<ModalSimSettings> {
       }
     }
 
+    const biayaPelatihanSim = map['modal_sim_biaya_pelatihan'] ? Number(map['modal_sim_biaya_pelatihan']) : 780000;
+    const feeAdmin = map['modal_sim_fee_admin'] ? Number(map['modal_sim_fee_admin']) : 70000;
+    const hargaDefault = map['modal_sim_harga'] ? Number(map['modal_sim_harga']) : (biayaPelatihanSim + feeAdmin);
+
     const result: ModalSimSettings = {
-      hargaDefault: map['modal_sim_harga'] ? Number(map['modal_sim_harga']) : 850000,
+      hargaDefault,
+      biayaPelatihanSim,
+      feeAdmin,
       configPerJenis,
     };
 
@@ -406,21 +414,64 @@ export async function getModalSimSettings(): Promise<ModalSimSettings> {
     console.error('Error fetching modal sim settings:', err);
     return {
       hargaDefault: 850000,
+      biayaPelatihanSim: 780000,
+      feeAdmin: 70000,
       configPerJenis: { 'SIM A': 850000, 'SIM C': 650000, default: 850000 },
     };
   }
 }
 
 export async function saveModalSimSettings(
+  biayaPelatihanSim: number,
+  feeAdmin: number,
+  configPerJenis?: Record<string, number>
+): Promise<{ success: boolean; error?: string }>;
+export async function saveModalSimSettings(
   hargaDefault: number,
   configPerJenis?: Record<string, number>
+): Promise<{ success: boolean; error?: string }>;
+export async function saveModalSimSettings(
+  param1: number,
+  param2?: number | Record<string, number>,
+  param3?: number | Record<string, number>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await upsertSetting('modal_sim_harga', String(hargaDefault), 'Harga modal penerbitan SIM per siswa');
+    let biayaPelatihan = 780000;
+    let feeAdmin = 70000;
+    let hargaDefault = 850000;
+    let configPerJenis: Record<string, number> | undefined;
+
+    if (typeof param2 === 'number') {
+      biayaPelatihan = param1;
+      feeAdmin = param2;
+      hargaDefault = biayaPelatihan + feeAdmin;
+      if (typeof param3 === 'object' && param3 !== null) {
+        configPerJenis = param3 as Record<string, number>;
+      }
+    } else {
+      if (typeof param3 === 'number') {
+        biayaPelatihan = param1;
+        feeAdmin = param3;
+        hargaDefault = biayaPelatihan + feeAdmin;
+      } else {
+        hargaDefault = param1;
+        biayaPelatihan = param1 >= 70000 ? param1 - 70000 : param1;
+        feeAdmin = param1 >= 70000 ? 70000 : 0;
+      }
+      if (typeof param2 === 'object' && param2 !== null) {
+        configPerJenis = param2 as Record<string, number>;
+      }
+    }
+
+
+    await upsertSetting('modal_sim_biaya_pelatihan', String(biayaPelatihan), 'Biaya pelatihan SIM per siswa');
+    await upsertSetting('modal_sim_fee_admin', String(feeAdmin), 'Fee admin SIM per siswa');
+    await upsertSetting('modal_sim_harga', String(hargaDefault), 'Harga modal total penerbitan SIM per siswa');
     if (configPerJenis) {
       await upsertSetting('modal_sim_config', JSON.stringify(configPerJenis), 'Konfigurasi harga modal SIM per jenis');
     }
 
+    cacheInvalidate(CACHE_KEY);
     cacheInvalidate('modal_sim_settings');
     safeRevalidatePath('/sim');
     safeRevalidatePath('/kas/pos');
@@ -434,3 +485,4 @@ export async function saveModalSimSettings(
 export type PelatihanSimSettings = ModalSimSettings;
 export const getPelatihanSimSettings = getModalSimSettings;
 export const savePelatihanSimSettings = saveModalSimSettings;
+

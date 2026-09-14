@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { Siswa, Paket } from '@/types/database';
-import { getSimSiswaList, getSimMetricsSummary, updateStatusSim, SimMetricsSummary } from '@/lib/actions/sim';
+import { getSimSiswaList, getSimMetricsSummary, updateStatusSim, executeBatchSim, SimMetricsSummary } from '@/lib/actions/sim';
 import { getPaketList } from '@/lib/actions/master-data';
-import { formatDateIndo, getTodayDateString, addDaysToDateStr } from '@/lib/utils/date';
+import { formatDateIndo, getTodayDateString, addDaysToDateStr, formatHariTanggalLongIndo } from '@/lib/utils/date';
 import { formatRupiah } from '@/lib/utils/currency';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
@@ -35,7 +35,13 @@ import {
   Settings as SettingsIcon,
   X,
   ArrowRight,
+  Zap,
+  Copy,
+  CheckSquare,
+  Square,
+  Filter,
 } from 'lucide-react';
+
 
 type TabView = 'active' | 'archived' | 'all';
 type DatePreset = 'all' | 'month' | '30days' | 'custom';
@@ -109,10 +115,25 @@ export default function ManajemenSimPage() {
   const [isSimConfigModalOpen, setIsSimConfigModalOpen] = React.useState(false);
   const [simConfig, setSimConfig] = React.useState<ModalSimSettings>({
     hargaDefault: 850000,
+    biayaPelatihanSim: 780000,
+    feeAdmin: 70000,
     configPerJenis: { 'SIM A': 850000, 'SIM C': 650000, default: 850000 },
   });
   const [savingSimConfig, setSavingSimConfig] = React.useState(false);
   const [simConfigSuccess, setSimConfigSuccess] = React.useState(false);
+
+  // Modal State for Batch SIM Execution
+  const [isEksekusiModalOpen, setIsEksekusiModalOpen] = React.useState(false);
+  const [eksekusiPeriode, setEksekusiPeriode] = React.useState<'bulan_ini' | 'bulan_lalu' | 'semua'>('bulan_ini');
+  const [eksekusiStatusSim, setEksekusiStatusSim] = React.useState<'belum' | 'semua' | 'selesai'>('belum');
+  const [eksekusiSimAFilter, setEksekusiSimAFilter] = React.useState(true);
+  const [eksekusiSimCFilter, setEksekusiSimCFilter] = React.useState(true);
+  const [eksekusiTanggal, setEksekusiTanggal] = React.useState<string>(getTodayDateString());
+  const [selectedEksekusiIds, setSelectedEksekusiIds] = React.useState<string[]>([]);
+  const [executingBatch, setExecutingBatch] = React.useState(false);
+  const [waCopiedToast, setWaCopiedToast] = React.useState(false);
+  const [eksekusiError, setEksekusiError] = React.useState<string | null>(null);
+  const [eksekusiSuccessMsg, setEksekusiSuccessMsg] = React.useState<string | null>(null);
 
   // Tab View: 'active' (belum selesai), 'archived' (selesai), 'all' (semua)
   const [currentTab, setCurrentTab] = React.useState<TabView>('active');
@@ -174,12 +195,17 @@ export default function ManajemenSimPage() {
     setSavingSimConfig(true);
     setSimConfigSuccess(false);
     try {
-      const res = await saveModalSimSettings(simConfig.hargaDefault, simConfig.configPerJenis);
+      const res = await saveModalSimSettings(
+        simConfig.biayaPelatihanSim ?? 780000,
+        simConfig.feeAdmin ?? 70000,
+        simConfig.configPerJenis
+      );
       if (res.success) {
         setSimConfigSuccess(true);
         setTimeout(() => {
           setIsSimConfigModalOpen(false);
           setSimConfigSuccess(false);
+          loadData();
         }, 1200);
       } else {
         alert(res.error || 'Gagal menyimpan pengaturan biaya pelatihan SIM');
@@ -190,6 +216,156 @@ export default function ManajemenSimPage() {
       setSavingSimConfig(false);
     }
   };
+
+  // Filtered Students for Eksekusi Modal
+  const eksekusiFilteredStudents = React.useMemo(() => {
+    const todayStr = getTodayDateString();
+    const currentYearMonth = todayStr.slice(0, 7); // "YYYY-MM"
+
+    const [y, m] = currentYearMonth.split('-').map(Number);
+    const prevDate = new Date(y, m - 2, 1);
+    const prevYearMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+
+    return siswaList.filter((s) => {
+      // 1. Filter Periode
+      const studentMonth = (s.tanggal_booking || s.created_at || '').slice(0, 7);
+      if (eksekusiPeriode === 'bulan_ini' && studentMonth !== currentYearMonth) {
+        return false;
+      }
+      if (eksekusiPeriode === 'bulan_lalu' && studentMonth !== prevYearMonth) {
+        return false;
+      }
+
+      // 2. Filter Status SIM
+      if (eksekusiStatusSim === 'belum') {
+        // Default: BELUM (Siap Terbit) -> status_sim != 'selesai' AND status_pembayaran_kode = 'lunas'
+        if (s.status_sim === 'selesai' || s.status_pembayaran_kode !== 'lunas') {
+          return false;
+        }
+      } else if (eksekusiStatusSim === 'selesai') {
+        if (s.status_sim !== 'selesai') {
+          return false;
+        }
+      }
+
+      // 3. Filter Jenis SIM
+      const isSimC = (s.paket?.nama_paket || '').toLowerCase().includes('sim c');
+      const isSimA = !isSimC;
+
+      if (isSimA && !eksekusiSimAFilter) return false;
+      if (isSimC && !eksekusiSimCFilter) return false;
+
+      return true;
+    });
+  }, [siswaList, eksekusiPeriode, eksekusiStatusSim, eksekusiSimAFilter, eksekusiSimCFilter]);
+
+  // Sync selected student IDs when Eksekusi Modal opens or filtered list changes
+  React.useEffect(() => {
+    if (isEksekusiModalOpen) {
+      setSelectedEksekusiIds(eksekusiFilteredStudents.map((s) => s.id));
+    }
+  }, [isEksekusiModalOpen, eksekusiFilteredStudents]);
+
+  const selectedStudentsList = React.useMemo(() => {
+    return eksekusiFilteredStudents.filter((s) => selectedEksekusiIds.includes(s.id));
+  }, [eksekusiFilteredStudents, selectedEksekusiIds]);
+
+  const countSelected = selectedStudentsList.length;
+  const biayaPelatihanUnit = simConfig.biayaPelatihanSim ?? 780000;
+  const feeAdminUnit = simConfig.feeAdmin ?? 70000;
+
+  const subtotalPelatihan = countSelected * biayaPelatihanUnit;
+  const subtotalFeeAdmin = countSelected * feeAdminUnit;
+  const totalEksekusi = countSelected * (biayaPelatihanUnit + feeAdminUnit);
+
+  const toggleSelectAllEksekusi = () => {
+    if (selectedEksekusiIds.length === eksekusiFilteredStudents.length) {
+      setSelectedEksekusiIds([]);
+    } else {
+      setSelectedEksekusiIds(eksekusiFilteredStudents.map((s) => s.id));
+    }
+  };
+
+  const toggleSelectStudentEksekusi = (id: string) => {
+    setSelectedEksekusiIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const generateWaMarkdownText = () => {
+    const tglFormatted = formatHariTanggalLongIndo(eksekusiTanggal || getTodayDateString());
+    let text = `DAFTAR SISWA SIAP SIM\nTanggal: ${tglFormatted}\n\n`;
+
+    if (selectedStudentsList.length === 0) {
+      text += `- (Tidak ada siswa dipilih)\n\n`;
+    } else {
+      selectedStudentsList.forEach((s) => {
+        const waNum = s.no_whatsapp ? s.no_whatsapp : 'Tanpa No WA';
+        text += `- ${s.nama} (${waNum})\n`;
+      });
+      text += `\n`;
+    }
+
+    text += `Subtotal:\n`;
+    text += `- Pelatihan: ${formatRupiah(subtotalPelatihan)}\n`;
+    text += `- Fee Admin: ${formatRupiah(subtotalFeeAdmin)}\n\n`;
+    text += `Total: ${formatRupiah(totalEksekusi)}`;
+
+    return text;
+  };
+
+  const handleCopyWaMarkdown = async () => {
+    const text = generateWaMarkdownText();
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setWaCopiedToast(true);
+      setTimeout(() => setWaCopiedToast(false), 2500);
+    } catch (err) {
+      console.error('Failed to copy WA Markdown:', err);
+      alert('Gagal menyalin ke clipboard');
+    }
+  };
+
+  const handleExecuteBatchSimSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedEksekusiIds.length === 0) {
+      setEksekusiError('Pilih minimal 1 siswa yang akan dieksekusi.');
+      return;
+    }
+
+    setExecutingBatch(true);
+    setEksekusiError(null);
+    setEksekusiSuccessMsg(null);
+
+    try {
+      const res = await executeBatchSim(selectedEksekusiIds, eksekusiTanggal);
+      if (res.success) {
+        setEksekusiSuccessMsg(`Berhasil meng-eksekusi ${res.executedCount} siswa ke status SIM SELESAI.`);
+        setTimeout(() => {
+          setIsEksekusiModalOpen(false);
+          setEksekusiSuccessMsg(null);
+          loadData();
+        }, 1500);
+      } else {
+        setEksekusiError(res.error || 'Gagal meng-eksekusi penerbitan SIM.');
+      }
+    } catch (err: any) {
+      console.error('Error in batch execution:', err);
+      setEksekusiError(err.message || 'Terjadi kesalahan sistem.');
+    } finally {
+      setExecutingBatch(false);
+    }
+  };
+
 
   React.useEffect(() => {
     loadData();
@@ -431,6 +607,18 @@ export default function ManajemenSimPage() {
         breadcrumbs={[{ label: 'Manajemen Siswa' }, { label: 'Manajemen SIM' }]}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                setIsEksekusiModalOpen(true);
+                setEksekusiError(null);
+                setEksekusiSuccessMsg(null);
+              }}
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm hover:-translate-y-0.5"
+            >
+              <Zap className="w-3.5 h-3.5 fill-current" />
+              <span>Eksekusi Pelatihan SIM</span>
+            </button>
             <ExportButton
               data={sortedStudents}
               columns={exportSimColumns}
@@ -451,11 +639,12 @@ export default function ManajemenSimPage() {
               className="px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
             >
               <SettingsIcon className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
-              <span>Atur Biaya Pelatihan SIM ({formatRupiah(simConfig.hargaDefault)})</span>
+              <span>Pengaturan Biaya</span>
             </button>
           </div>
         }
       />
+
 
       {/* Summary Metric Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1273,7 +1462,7 @@ export default function ManajemenSimPage() {
         </div>
       )}
 
-      {/* Modal Pengaturan Biaya Pelatihan SIM */}
+      {/* Modal Pengaturan Biaya SIM */}
       {isSimConfigModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
           <div className="w-full max-w-md bg-[var(--bg)] rounded-2xl border border-[var(--border)] p-6 shadow-2xl space-y-4">
@@ -1284,10 +1473,10 @@ export default function ManajemenSimPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-[var(--text-primary)]">
-                    Pengaturan Biaya Pelatihan SIM
+                    Pengaturan Biaya
                   </h3>
                   <p className="text-xs text-[var(--text-secondary)]">
-                    Biaya pelatihan pembuatan SIM untuk Pos Belanja Kas
+                    Pengaturan rincian biaya pelatihan & fee admin penerbitan SIM
                   </p>
                 </div>
               </div>
@@ -1303,15 +1492,15 @@ export default function ManajemenSimPage() {
             <form onSubmit={handleSaveSimConfig} className="space-y-4 text-xs">
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
-                  Biaya Pelatihan Standar / SIM A (Mobil) *
+                  Biaya Pelatihan SIM *
                 </label>
                 <CurrencyInput
-                  value={simConfig.hargaDefault}
+                  value={simConfig.biayaPelatihanSim ?? 780000}
                   onChange={(val) =>
                     setSimConfig((prev) => ({
                       ...prev,
-                      hargaDefault: val,
-                      configPerJenis: { ...(prev.configPerJenis || {}), 'SIM A': val },
+                      biayaPelatihanSim: val,
+                      hargaDefault: val + (prev.feeAdmin ?? 70000),
                     }))
                   }
                   className="w-full text-base font-bold"
@@ -1320,24 +1509,32 @@ export default function ManajemenSimPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
-                  Biaya Pelatihan SIM C (Motor - Opsional)
+                  Fee Admin SIM *
                 </label>
                 <CurrencyInput
-                  value={simConfig.configPerJenis?.['SIM C'] || 650000}
+                  value={simConfig.feeAdmin ?? 70000}
                   onChange={(val) =>
                     setSimConfig((prev) => ({
                       ...prev,
-                      configPerJenis: { ...(prev.configPerJenis || {}), 'SIM C': val },
+                      feeAdmin: val,
+                      hargaDefault: (prev.biayaPelatihanSim ?? 780000) + val,
                     }))
                   }
                   className="w-full text-base font-bold"
                 />
               </div>
 
+              <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl flex items-center justify-between text-xs">
+                <span className="text-[var(--text-secondary)] font-medium">Total Modal SIM Per Siswa:</span>
+                <span className="font-bold text-[var(--brand-primary)] text-sm">
+                  {formatRupiah((simConfig.biayaPelatihanSim ?? 780000) + (simConfig.feeAdmin ?? 70000))}
+                </span>
+              </div>
+
               {simConfigSuccess && (
                 <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-600 font-bold text-center text-xs flex items-center justify-center gap-1.5 animate-fadeIn">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Pengaturan biaya pelatihan SIM berhasil disimpan!</span>
+                  <span>Pengaturan biaya SIM berhasil disimpan!</span>
                 </div>
               )}
 
@@ -1361,6 +1558,323 @@ export default function ManajemenSimPage() {
           </div>
         </div>
       )}
+
+      {/* Modal Eksekusi Pelatihan SIM */}
+      {isEksekusiModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-[var(--bg)] rounded-2xl border border-[var(--border)] p-6 shadow-2xl space-y-5">
+            {/* Header Modal */}
+            <div className="border-b border-[var(--border)] pb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <Zap className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-[var(--text-primary)]">
+                    Eksekusi Pelatihan SIM
+                  </h3>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Filter & pilih daftar siswa berstatus siap terbit, eksekusi status, atau salin WA Markdown
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEksekusiModalOpen(false)}
+                className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl hover:bg-[var(--surface-hover)] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {eksekusiError && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{eksekusiError}</span>
+              </div>
+            )}
+
+            {eksekusiSuccessMsg && (
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 text-emerald-600 dark:text-emerald-300 text-xs flex items-center gap-2 font-bold animate-fadeIn">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span>{eksekusiSuccessMsg}</span>
+              </div>
+            )}
+
+            {/* Filter Section & Control Panel */}
+            <div className="bg-[var(--bg-subtle)]/70 border border-[var(--border)] rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
+                <Filter className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                <span>Filter & Parameter Eksekusi</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                {/* Filter Periode Bulan */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Periode Bulan
+                  </label>
+                  <select
+                    value={eksekusiPeriode}
+                    onChange={(e) => setEksekusiPeriode(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)] cursor-pointer"
+                  >
+                    <option value="bulan_ini">Bulan Ini</option>
+                    <option value="bulan_lalu">Bulan Lalu</option>
+                    <option value="semua">Semua Periode</option>
+                  </select>
+                </div>
+
+                {/* Filter Status SIM */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Status SIM
+                  </label>
+                  <select
+                    value={eksekusiStatusSim}
+                    onChange={(e) => setEksekusiStatusSim(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)] cursor-pointer"
+                  >
+                    <option value="belum">BELUM (Siap Terbit)</option>
+                    <option value="semua">Semua Status</option>
+                    <option value="selesai">Selesai Terbit</option>
+                  </select>
+                </div>
+
+                {/* Filter Jenis SIM (Checkboxes) */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Jenis SIM
+                  </label>
+                  <div className="flex items-center gap-3 pt-1">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={eksekusiSimAFilter}
+                        onChange={(e) => setEksekusiSimAFilter(e.target.checked)}
+                        className="rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
+                      />
+                      <span className="font-semibold text-xs text-[var(--text-primary)]">SIM A</span>
+                    </label>
+
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={eksekusiSimCFilter}
+                        onChange={(e) => setEksekusiSimCFilter(e.target.checked)}
+                        className="rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
+                      />
+                      <span className="font-semibold text-xs text-[var(--text-primary)]">SIM C</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Tanggal Pelatihan SIM */}
+                <div>
+                  <DatePickerWIB
+                    label="Pilih Tanggal Pelatihan *"
+                    value={eksekusiTanggal}
+                    onChange={setEksekusiTanggal}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Student Table List with Checkboxes */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs px-1">
+                <span className="font-bold text-[var(--text-primary)]">
+                  Daftar Siswa Siap Terbit ({eksekusiFilteredStudents.length} Siswa Terfilter)
+                </span>
+                <button
+                  type="button"
+                  onClick={toggleSelectAllEksekusi}
+                  className="text-[var(--brand-primary)] hover:underline font-semibold text-xs flex items-center gap-1 cursor-pointer"
+                >
+                  {selectedEksekusiIds.length === eksekusiFilteredStudents.length ? (
+                    <>
+                      <CheckSquare className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                      <span>Batal Pilih Semua</span>
+                    </>
+                  ) : (
+                    <>
+                      <Square className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+                      <span>Pilih Semua ({eksekusiFilteredStudents.length})</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="border border-[var(--border)] rounded-xl overflow-hidden max-h-56 overflow-y-auto">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead className="bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-b border-[var(--border)] sticky top-0 z-10 select-none">
+                    <tr>
+                      <th className="p-2.5 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={
+                            eksekusiFilteredStudents.length > 0 &&
+                            selectedEksekusiIds.length === eksekusiFilteredStudents.length
+                          }
+                          onChange={toggleSelectAllEksekusi}
+                          className="rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
+                        />
+                      </th>
+                      <th className="p-2.5 font-bold">Nama Siswa</th>
+                      <th className="p-2.5 font-bold">No. WhatsApp</th>
+                      <th className="p-2.5 font-bold">Jenis SIM / Paket</th>
+                      <th className="p-2.5 font-bold">Status Bayar</th>
+                      <th className="p-2.5 font-bold">Tgl Booking</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border)]">
+                    {eksekusiFilteredStudents.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-6 text-center text-xs text-[var(--text-secondary)]">
+                          Tidak ada siswa yang memenuhi filter eksekusi.
+                        </td>
+                      </tr>
+                    ) : (
+                      eksekusiFilteredStudents.map((s) => {
+                        const isSelected = selectedEksekusiIds.includes(s.id);
+                        const isSimC = (s.paket?.nama_paket || '').toLowerCase().includes('sim c');
+                        const jenisSim = isSimC ? 'SIM C' : 'SIM A';
+
+                        return (
+                          <tr
+                            key={s.id}
+                            onClick={() => toggleSelectStudentEksekusi(s.id)}
+                            className={`cursor-pointer transition-colors ${
+                              isSelected
+                                ? 'bg-[var(--brand-primary-light)]/40 hover:bg-[var(--brand-primary-light)]/60'
+                                : 'hover:bg-[var(--bg-subtle)]/50'
+                            }`}
+                          >
+                            <td className="p-2.5 text-center">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSelectStudentEksekusi(s.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
+                              />
+                            </td>
+                            <td className="p-2.5 font-bold text-[var(--text-primary)]">
+                              {s.nama}
+                            </td>
+                            <td className="p-2.5 font-mono text-[var(--text-secondary)]">
+                              {s.no_whatsapp || '-'}
+                            </td>
+                            <td className="p-2.5">
+                              <span className="px-2 py-0.5 rounded-md bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-bold text-[10px]">
+                                {jenisSim}
+                              </span>
+                              <span className="text-[10px] text-[var(--text-secondary)] ml-1.5">
+                                {s.paket?.nama_paket}
+                              </span>
+                            </td>
+                            <td className="p-2.5">
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-[10px]">
+                                {s.status_pembayaran_kode?.toUpperCase()}
+                              </span>
+                            </td>
+                            <td className="p-2.5 text-[var(--text-secondary)]">
+                              {formatDateIndo(s.tanggal_booking)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Cost Breakdown & Subtotal Summary Box */}
+            <div className="p-4 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl space-y-2 text-xs">
+              <div className="flex items-center justify-between font-semibold text-[var(--text-secondary)]">
+                <span>Ringkasan Eksekusi ({countSelected} Siswa Terpilih):</span>
+                <span className="text-[11px] italic">Pelatihan Rp {formatRupiah(biayaPelatihanUnit)} + Fee Admin Rp {formatRupiah(feeAdminUnit)}</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-[var(--border)]">
+                <div className="p-2.5 bg-[var(--bg)] rounded-lg border border-[var(--border)] space-y-0.5">
+                  <div className="text-[10px] text-[var(--text-secondary)] font-semibold uppercase">
+                    Subtotal Pelatihan
+                  </div>
+                  <div className="text-sm font-extrabold text-[var(--text-primary)] tabular-nums">
+                    {formatRupiah(subtotalPelatihan)}
+                  </div>
+                </div>
+
+                <div className="p-2.5 bg-[var(--bg)] rounded-lg border border-[var(--border)] space-y-0.5">
+                  <div className="text-[10px] text-[var(--text-secondary)] font-semibold uppercase">
+                    Subtotal Fee Admin
+                  </div>
+                  <div className="text-sm font-extrabold text-[var(--text-primary)] tabular-nums">
+                    {formatRupiah(subtotalFeeAdmin)}
+                  </div>
+                </div>
+
+                <div className="p-2.5 bg-[var(--brand-primary-light)] rounded-lg border border-[var(--brand-primary)]/30 space-y-0.5">
+                  <div className="text-[10px] text-[var(--brand-primary)] font-extrabold uppercase">
+                    Total Keseluruhan
+                  </div>
+                  <div className="text-base font-black text-[var(--brand-primary)] tabular-nums">
+                    {formatRupiah(totalEksekusi)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons Footer */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-[var(--border)]">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={handleCopyWaMarkdown}
+                  className="w-full sm:w-auto px-4 py-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy WA Markdown</span>
+                </button>
+                {waCopiedToast && (
+                  <span className="absolute -top-8 left-0 px-2.5 py-1 bg-black text-white text-[10px] rounded-lg shadow-md animate-fadeIn whitespace-nowrap z-20">
+                    WA Markdown disalin ke clipboard!
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsEksekusiModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] transition-colors cursor-pointer"
+                >
+                  Kembali
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExecuteBatchSimSubmit}
+                  disabled={executingBatch || countSelected === 0}
+                  className="px-5 py-2 text-xs font-extrabold rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  {executingBatch ? (
+                    <span>Memproses Eksekusi...</span>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4 fill-current" />
+                      <span>Eksekusi ({countSelected} Siswa)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
