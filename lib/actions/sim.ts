@@ -363,7 +363,6 @@ export interface AddNonSiswaSimPayload {
   dpNominal?: number;
   tanggalBooking?: string;
   catatan?: string;
-  catatKeKas?: boolean;
   linkedKasId?: string;
 }
 
@@ -440,19 +439,8 @@ export async function addNonSiswaSimParticipant(
          WHERE id = $2`,
         [newSiswaId, payload.linkedKasId]
       );
-    } else if (payload.catatKeKas !== false && statusBayar !== 'belum_bayar') {
-      const nominalKas = statusBayar === 'lunas' ? payload.hargaFinal : dpNominal;
-      const ketText = `Pemasukan Pelatihan SIM Non-Siswa (${targetJenis}): ${payload.nama.trim()}`;
-
-      await dbQuery(
-        `INSERT INTO kas_transaksi (
-          tanggal, tipe, kategori, keterangan, nominal,
-          jenis_pembayaran, pic_tipe, pic_nama, siswa_id, sumber_otomatis,
-          created_at, updated_at
-        ) VALUES ($1, 'pemasukan', 'pembayaran_siswa', $2, $3, 'tunai', 'admin', 'Admin SIM', $4, TRUE, NOW(), NOW())`,
-        [tgl, ketText, nominalKas, newSiswaId]
-      );
     }
+
 
     cacheInvalidate('siswa*');
     cacheInvalidate('sim*');

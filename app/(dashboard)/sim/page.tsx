@@ -50,7 +50,10 @@ import {
   Square,
   Filter,
   UserPlus,
+  ChevronDown,
+  SlidersHorizontal,
 } from 'lucide-react';
+
 
 
 
@@ -146,6 +149,20 @@ export default function ManajemenSimPage() {
   const [eksekusiError, setEksekusiError] = React.useState<string | null>(null);
   const [eksekusiSuccessMsg, setEksekusiSuccessMsg] = React.useState<string | null>(null);
 
+  // Header Dropdown Menu State
+  const [isHeaderMenuOpen, setIsHeaderMenuOpen] = React.useState(false);
+  const headerMenuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target as Node)) {
+        setIsHeaderMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Modal State for Adding Non-Siswa Participant
   const [isNonSiswaModalOpen, setIsNonSiswaModalOpen] = React.useState(false);
   const [nonSiswaNama, setNonSiswaNama] = React.useState('');
@@ -153,7 +170,6 @@ export default function ManajemenSimPage() {
   const [nonSiswaJenisSim, setNonSiswaJenisSim] = React.useState<'SIM A' | 'SIM C'>('SIM A');
   const [nonSiswaHarga, setNonSiswaHarga] = React.useState<number>(850000);
   const [nonSiswaStatusBayar, setNonSiswaStatusBayar] = React.useState<'lunas' | 'dp' | 'belum_bayar'>('lunas');
-  const [nonSiswaCatatKas, setNonSiswaCatatKas] = React.useState(true);
   const [nonSiswaLinkedKasId, setNonSiswaLinkedKasId] = React.useState<string | undefined>(undefined);
   const [nonSiswaCatatan, setNonSiswaCatatan] = React.useState('');
   const [savingNonSiswa, setSavingNonSiswa] = React.useState(false);
@@ -166,6 +182,7 @@ export default function ManajemenSimPage() {
 
   // Tab View: 'active' (belum selesai), 'archived' (selesai), 'all' (semua)
   const [currentTab, setCurrentTab] = React.useState<TabView>('active');
+
 
 
   // Filters
@@ -403,7 +420,6 @@ export default function ManajemenSimPage() {
     setNonSiswaJenisSim('SIM A');
     setNonSiswaHarga(simConfig.hargaDefault || 850000);
     setNonSiswaStatusBayar('lunas');
-    setNonSiswaCatatKas(true);
     setNonSiswaLinkedKasId(undefined);
     setNonSiswaCatatan('');
     setNonSiswaError(null);
@@ -430,7 +446,6 @@ export default function ManajemenSimPage() {
       setNonSiswaNama(found.namaExtracted);
       setNonSiswaHarga(found.nominal > 0 ? found.nominal : simConfig.hargaDefault || 850000);
       setNonSiswaLinkedKasId(found.id);
-      setNonSiswaCatatKas(false);
       setNonSiswaCatatan(`Ditautkan dari Pemasukan Kas (${formatDateIndo(found.tanggal)}: ${found.keterangan})`);
     }
   };
@@ -458,7 +473,6 @@ export default function ManajemenSimPage() {
         statusPembayaran: nonSiswaStatusBayar,
         tanggalBooking: getTodayDateString(),
         catatan: nonSiswaCatatan.trim() || 'Peserta SIM Non-Siswa (Input Langsung)',
-        catatKeKas: nonSiswaCatatKas,
         linkedKasId: nonSiswaLinkedKasId,
       });
 
@@ -479,6 +493,7 @@ export default function ManajemenSimPage() {
       setSavingNonSiswa(false);
     }
   };
+
 
 
 
@@ -721,7 +736,7 @@ export default function ManajemenSimPage() {
         description="Kelola penerbitan SIM, validasi status pelunasan siswa, dan arsip berkas SIM selesai terbit"
         breadcrumbs={[{ label: 'Manajemen Siswa' }, { label: 'Manajemen SIM' }]}
         actions={
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <button
               type="button"
               onClick={() => {
@@ -729,44 +744,77 @@ export default function ManajemenSimPage() {
                 setEksekusiError(null);
                 setEksekusiSuccessMsg(null);
               }}
-              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm hover:-translate-y-0.5"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 shadow-sm hover:-translate-y-0.5 cursor-pointer"
             >
-              <Zap className="w-3.5 h-3.5 fill-current" />
+              <Zap className="w-4 h-4 fill-current" />
               <span>Eksekusi Pelatihan SIM</span>
             </button>
-            <button
-              type="button"
-              onClick={handleOpenNonSiswaModal}
-              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm hover:-translate-y-0.5"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>+ Tambah Non-Siswa</span>
-            </button>
-            <ExportButton
 
-              data={sortedStudents}
-              columns={exportSimColumns}
-              filename={`amanahdrive_layanan_sim_${currentTab}`}
-              title="REKAPITULASI PENERBITAN SIM SISWA"
-              subtitle="Laporan Administrasi & Status Berkas SIM Siswa Amanah Drive"
-              summaryMetrics={[
-                { label: 'Total Siswa SIM', value: `${metrics.totalSim} Orang` },
-                { label: 'SIM Selesai Terbit', value: `${metrics.totalSelesai} Berkas` },
-                { label: 'Belum Selesai', value: `${metrics.totalBelumSelesai} Berkas` },
-                { label: 'Siap Terbit (Lunas)', value: `${metrics.totalSiapTerbit} Berkas` },
-              ]}
-              orientation="landscape"
-            />
-            <button
-              type="button"
-              onClick={() => setIsSimConfigModalOpen(true)}
-              className="px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
-            >
-              <SettingsIcon className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
-              <span>Pengaturan Biaya</span>
-            </button>
+            <div className="relative" ref={headerMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsHeaderMenuOpen((prev) => !prev)}
+                className="px-3.5 py-2 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl text-xs font-bold text-[var(--text-primary)] transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                <span>Menu Opsi SIM</span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-[var(--text-secondary)] transition-transform duration-200 ${
+                    isHeaderMenuOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {isHeaderMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-[var(--bg)] border border-[var(--border)] rounded-2xl shadow-xl p-1.5 z-40 space-y-1 animate-fadeIn">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsHeaderMenuOpen(false);
+                      handleOpenNonSiswaModal();
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs font-bold text-[var(--text-primary)] hover:bg-[var(--brand-primary-light)] hover:text-[var(--brand-primary)] rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <UserPlus className="w-4 h-4 text-indigo-600" />
+                    <span>+ Tambah Non-Siswa</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsHeaderMenuOpen(false);
+                      setIsSimConfigModalOpen(true);
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs font-bold text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <SettingsIcon className="w-4 h-4 text-[var(--brand-primary)]" />
+                    <span>Pengaturan Biaya SIM</span>
+                  </button>
+
+                  <div className="border-t border-[var(--border)] my-1" />
+
+                  <div className="px-1 py-0.5">
+                    <ExportButton
+                      data={sortedStudents}
+                      columns={exportSimColumns}
+                      filename={`amanahdrive_layanan_sim_${currentTab}`}
+                      title="REKAPITULASI PENERBITAN SIM SISWA"
+                      subtitle="Laporan Administrasi & Status Berkas SIM Siswa Amanah Drive"
+                      summaryMetrics={[
+                        { label: 'Total Siswa SIM', value: `${metrics.totalSim} Orang` },
+                        { label: 'SIM Selesai Terbit', value: `${metrics.totalSelesai} Berkas` },
+                        { label: 'Belum Selesai', value: `${metrics.totalBelumSelesai} Berkas` },
+                        { label: 'Siap Terbit (Lunas)', value: `${metrics.totalSiapTerbit} Berkas` },
+                      ]}
+                      orientation="landscape"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         }
+
       />
 
 
@@ -2174,28 +2222,6 @@ export default function ManajemenSimPage() {
                 </span>
               </div>
 
-              {/* Checkbox Opsi Pencatatan Kas */}
-              <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl space-y-1 select-none">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={nonSiswaCatatKas}
-                    onChange={(e) => setNonSiswaCatatKas(e.target.checked)}
-                    disabled={Boolean(nonSiswaLinkedKasId)}
-                    className="rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
-                  />
-                  <span className="font-bold text-xs text-[var(--text-primary)]">
-                    Catat Pemasukan ke Kas Transaksi
-                  </span>
-                </label>
-                <p className="text-[10px] text-[var(--text-secondary)] pl-6">
-                  {nonSiswaLinkedKasId
-                    ? 'Telah ditautkan ke transaksi Kas yang dipilih di atas (tidak menambah mutasi baru).'
-                    : nonSiswaCatatKas
-                    ? 'Mutasi pemasukan kas baru sebesar nominal biaya akan otomatis dibuat.'
-                    : 'Pendaftaran disimpan tanpa mencatat mutasi baru di kas.'}
-                </p>
-              </div>
 
               {/* Catatan / Keterangan */}
               <div>
