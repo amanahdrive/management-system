@@ -282,6 +282,33 @@ export interface KasSimCandidate {
 }
 
 /**
+ * Ekstraksi nama siswa dari keterangan transaksi kas
+ * Contoh:
+ * - "Pelatihan SIM - Aning Aura" -> "Aning Aura"
+ * - "Pembayaran Pos: Pelatihan SIM - Sinta Nabila (SIM A)" -> "Sinta Nabila"
+ * - "SIM KRISWANTO" -> "KRISWANTO"
+ */
+function extractStudentNameFromKasKeterangan(keterangan: string): string {
+  if (!keterangan) return '';
+  
+  let name = keterangan.trim();
+  
+  // 1. Hapus prefix umum pencatatan kas/pos
+  name = name.replace(/^(Pembayaran Pos|PENGIRIMAN|Transfer|Pemasukan|Setoran|Biaya)\s*[:|-]?\s*/gi, '');
+  
+  // 2. Hapus teks dalam kurung seperti (SIM A), (SIM C), (Lunas), (DP), (Mobil), (Motor) dll
+  name = name.replace(/\((SIM\s*[AC]|Lunas|DP|Mobil|Motor|[^)]*)\)/gi, '');
+  
+  // 3. Hapus keyword SIM dan kombinasinya (Pelatihan SIM, Pengurusan SIM, Penerbitan SIM, Biaya SIM, DP SIM, Lunas SIM, SIM A, SIM C, SIM)
+  name = name.replace(/(Pelatihan|Pengurusan|Penerbitan|Biaya|Pendaftaran|DP|Lunas)?\s*SIM\s*[AC]?\s*[:|-]?\s*/gi, '');
+  
+  // 4. Bersihkan karakter pemisah di awal & akhir seperti hyphen, titik dua, spasi
+  name = name.replace(/^[-:\s]+/, '').replace(/[-:\s]+$/, '').trim();
+
+  return name;
+}
+
+/**
  * Pindai transaksi kas masuk yang mengandung kata kunci SIM namun belum terdaftar di siswa / SIM
  */
 export async function analyzeUnregisteredKasSimTransactions(): Promise<KasSimCandidate[]> {
@@ -316,23 +343,26 @@ export async function analyzeUnregisteredKasSimTransactions(): Promise<KasSimCan
     const candidates: KasSimCandidate[] = [];
 
     for (const row of rawKas) {
-      let extractedName = (row.pic_nama || '').trim();
+      // Prioritaskan ekstraksi nama dari Keterangan (pic_nama adalah staf/admin finance yang mencatat transaksi)
+      let extractedName = extractStudentNameFromKasKeterangan(row.keterangan);
 
-      if (!extractedName && row.keterangan) {
-        const cleanKet = row.keterangan.replace(/pemasukan|pembayaran|pelatihan|pengurusan|penerbitan|biaya|dp|lunas|sim\s*a|sim\s*c|sim/gi, '').trim();
-        const matchName = cleanKet.replace(/^[-:\s]+/, '').replace(/[-:\s]+$/, '');
-        if (matchName.length >= 2) {
-          extractedName = matchName;
+      // Jika ekstraksi dari keterangan kosong/terlalu pendek, gunakan pic_nama hanya bila bukan staf finance
+      if (!extractedName || extractedName.length < 2) {
+        if (row.pic_nama) {
+          const pic = row.pic_nama.trim();
+          if (!/(finance|admin|kasir|staff|sys)/i.test(pic)) {
+            extractedName = pic;
+          }
         }
       }
 
-      if (!extractedName) {
+      if (!extractedName || extractedName.length < 2) {
         extractedName = row.keterangan || 'Peserta SIM';
       }
 
       const cleanLowerName = extractedName.toLowerCase();
       const isAlreadyInSiswa = Array.from(existingNamesSet).some(
-        (existingName) => existingName.includes(cleanLowerName) || cleanLowerName.includes(existingName)
+        (existingName) => existingName.length >= 2 && (existingName.includes(cleanLowerName) || cleanLowerName.includes(existingName))
       );
 
       if (!isAlreadyInSiswa) {
