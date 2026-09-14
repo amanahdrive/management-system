@@ -5,7 +5,16 @@ import Link from 'next/link';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { Siswa, Paket } from '@/types/database';
-import { getSimSiswaList, getSimMetricsSummary, updateStatusSim, executeBatchSim, SimMetricsSummary } from '@/lib/actions/sim';
+import {
+  getSimSiswaList,
+  getSimMetricsSummary,
+  updateStatusSim,
+  executeBatchSim,
+  analyzeUnregisteredKasSimTransactions,
+  addNonSiswaSimParticipant,
+  SimMetricsSummary,
+  KasSimCandidate,
+} from '@/lib/actions/sim';
 import { getPaketList } from '@/lib/actions/master-data';
 import { formatDateIndo, getTodayDateString, addDaysToDateStr, formatHariTanggalLongIndo } from '@/lib/utils/date';
 import { formatRupiah } from '@/lib/utils/currency';
@@ -40,7 +49,9 @@ import {
   CheckSquare,
   Square,
   Filter,
+  UserPlus,
 } from 'lucide-react';
+
 
 
 type TabView = 'active' | 'archived' | 'all';
@@ -135,8 +146,27 @@ export default function ManajemenSimPage() {
   const [eksekusiError, setEksekusiError] = React.useState<string | null>(null);
   const [eksekusiSuccessMsg, setEksekusiSuccessMsg] = React.useState<string | null>(null);
 
+  // Modal State for Adding Non-Siswa Participant
+  const [isNonSiswaModalOpen, setIsNonSiswaModalOpen] = React.useState(false);
+  const [nonSiswaNama, setNonSiswaNama] = React.useState('');
+  const [nonSiswaWa, setNonSiswaWa] = React.useState('');
+  const [nonSiswaJenisSim, setNonSiswaJenisSim] = React.useState<'SIM A' | 'SIM C'>('SIM A');
+  const [nonSiswaHarga, setNonSiswaHarga] = React.useState<number>(850000);
+  const [nonSiswaStatusBayar, setNonSiswaStatusBayar] = React.useState<'lunas' | 'dp' | 'belum_bayar'>('lunas');
+  const [nonSiswaCatatKas, setNonSiswaCatatKas] = React.useState(true);
+  const [nonSiswaLinkedKasId, setNonSiswaLinkedKasId] = React.useState<string | undefined>(undefined);
+  const [nonSiswaCatatan, setNonSiswaCatatan] = React.useState('');
+  const [savingNonSiswa, setSavingNonSiswa] = React.useState(false);
+  const [nonSiswaError, setNonSiswaError] = React.useState<string | null>(null);
+  const [nonSiswaSuccess, setNonSiswaSuccess] = React.useState(false);
+
+  // Automatic Kas Analysis Candidates
+  const [kasCandidates, setKasCandidates] = React.useState<KasSimCandidate[]>([]);
+  const [loadingKasCandidates, setLoadingKasCandidates] = React.useState(false);
+
   // Tab View: 'active' (belum selesai), 'archived' (selesai), 'all' (semua)
   const [currentTab, setCurrentTab] = React.useState<TabView>('active');
+
 
   // Filters
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -365,6 +395,91 @@ export default function ManajemenSimPage() {
       setExecutingBatch(false);
     }
   };
+
+  const handleOpenNonSiswaModal = async () => {
+    setIsNonSiswaModalOpen(true);
+    setNonSiswaNama('');
+    setNonSiswaWa('');
+    setNonSiswaJenisSim('SIM A');
+    setNonSiswaHarga(simConfig.hargaDefault || 850000);
+    setNonSiswaStatusBayar('lunas');
+    setNonSiswaCatatKas(true);
+    setNonSiswaLinkedKasId(undefined);
+    setNonSiswaCatatan('');
+    setNonSiswaError(null);
+    setNonSiswaSuccess(false);
+
+    setLoadingKasCandidates(true);
+    try {
+      const candidates = await analyzeUnregisteredKasSimTransactions();
+      setKasCandidates(candidates);
+    } catch (err) {
+      console.error('Error fetching kas candidates:', err);
+    } finally {
+      setLoadingKasCandidates(false);
+    }
+  };
+
+  const handleSelectKasCandidate = (candidateId: string) => {
+    if (!candidateId) {
+      setNonSiswaLinkedKasId(undefined);
+      return;
+    }
+    const found = kasCandidates.find((c) => c.id === candidateId);
+    if (found) {
+      setNonSiswaNama(found.namaExtracted);
+      setNonSiswaHarga(found.nominal > 0 ? found.nominal : simConfig.hargaDefault || 850000);
+      setNonSiswaLinkedKasId(found.id);
+      setNonSiswaCatatKas(false);
+      setNonSiswaCatatan(`Ditautkan dari Pemasukan Kas (${formatDateIndo(found.tanggal)}: ${found.keterangan})`);
+    }
+  };
+
+  const handleSaveNonSiswaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nonSiswaNama.trim()) {
+      setNonSiswaError('Nama peserta non-siswa wajib diisi.');
+      return;
+    }
+    if (!nonSiswaHarga || nonSiswaHarga <= 0) {
+      setNonSiswaError('Nominal biaya pelatihan SIM harus lebih besar dari 0.');
+      return;
+    }
+
+    setSavingNonSiswa(true);
+    setNonSiswaError(null);
+
+    try {
+      const res = await addNonSiswaSimParticipant({
+        nama: nonSiswaNama.trim(),
+        noWhatsapp: nonSiswaWa.trim(),
+        jenisSim: nonSiswaJenisSim,
+        hargaFinal: nonSiswaHarga,
+        statusPembayaran: nonSiswaStatusBayar,
+        tanggalBooking: getTodayDateString(),
+        catatan: nonSiswaCatatan.trim() || 'Peserta SIM Non-Siswa (Input Langsung)',
+        catatKeKas: nonSiswaCatatKas,
+        linkedKasId: nonSiswaLinkedKasId,
+      });
+
+      if (res.success) {
+        setNonSiswaSuccess(true);
+        setTimeout(() => {
+          setIsNonSiswaModalOpen(false);
+          setNonSiswaSuccess(false);
+          loadData();
+        }, 1200);
+      } else {
+        setNonSiswaError(res.error || 'Gagal menambahkan peserta SIM non-siswa.');
+      }
+    } catch (err: any) {
+      console.error('Error saving non-siswa SIM:', err);
+      setNonSiswaError(err.message || 'Terjadi kesalahan sistem.');
+    } finally {
+      setSavingNonSiswa(false);
+    }
+  };
+
 
 
   React.useEffect(() => {
@@ -619,7 +734,16 @@ export default function ManajemenSimPage() {
               <Zap className="w-3.5 h-3.5 fill-current" />
               <span>Eksekusi Pelatihan SIM</span>
             </button>
+            <button
+              type="button"
+              onClick={handleOpenNonSiswaModal}
+              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm hover:-translate-y-0.5"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>+ Tambah Non-Siswa</span>
+            </button>
             <ExportButton
+
               data={sortedStudents}
               columns={exportSimColumns}
               filename={`amanahdrive_layanan_sim_${currentTab}`}
@@ -1874,7 +1998,250 @@ export default function ManajemenSimPage() {
           </div>
         </div>
       )}
+
+      {/* Modal Input Peserta SIM Non-Siswa */}
+
+      {isNonSiswaModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[var(--bg)] rounded-2xl border border-[var(--border)] p-6 shadow-2xl space-y-4">
+            {/* Header Modal */}
+            <div className="border-b border-[var(--border)] pb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-[var(--text-primary)]">
+                    Input Peserta SIM Non-Siswa
+                  </h3>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Pendaftaran peserta SIM di luar siswa reguler kursus
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsNonSiswaModalOpen(false)}
+                className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl hover:bg-[var(--surface-hover)] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Notification / Error Alerts */}
+            {nonSiswaError && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{nonSiswaError}</span>
+              </div>
+            )}
+
+            {nonSiswaSuccess && (
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 text-emerald-600 dark:text-emerald-300 text-xs flex items-center gap-2 font-bold animate-fadeIn">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span>Peserta SIM non-siswa berhasil ditambahkan!</span>
+              </div>
+            )}
+
+            {/* Analisa Kas Otomatis Suggestion Banner / Dropdown */}
+            {loadingKasCandidates ? (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 text-xs flex items-center gap-2 font-medium">
+                <Sparkles className="w-4 h-4 animate-spin shrink-0 text-amber-500" />
+                <span>Memindai transaksi kas masuk SIM...</span>
+              </div>
+            ) : kasCandidates.length > 0 ? (
+              <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 space-y-2 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
+                  <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span>Analisa Kas Otomatis Terdeteksi!</span>
+                </div>
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  Ditemukan {kasCandidates.length} transaksi pemasukan SIM di kas yang belum terdata di sistem:
+                </p>
+                <select
+                  value={nonSiswaLinkedKasId || ''}
+                  onChange={(e) => handleSelectKasCandidate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-amber-300 dark:border-amber-800 bg-[var(--bg)] font-semibold text-[var(--text-primary)] focus:outline-none focus:border-amber-500 cursor-pointer"
+                >
+                  <option value="">-- Pilih dari Saran Transaksi Kas (Opsional) --</option>
+                  {kasCandidates.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      [{formatDateIndo(c.tanggal)}] {c.namaExtracted} - {formatRupiah(c.nominal)} ({c.keterangan})
+                    </option>
+                  ))}
+                </select>
+                {nonSiswaLinkedKasId && (
+                  <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Ditautkan ke transaksi Kas. Pemasukan tidak akan diduplikasi di kas.</span>
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            {/* Form Fields */}
+            <form onSubmit={handleSaveNonSiswaSubmit} className="space-y-4 text-xs">
+              {/* Nama Lengkap */}
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                  Nama Lengkap Peserta SIM *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Budi Santoso"
+                  value={nonSiswaNama}
+                  onChange={(e) => setNonSiswaNama(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] font-semibold text-xs focus:outline-none focus:border-[var(--brand-primary)]"
+                />
+              </div>
+
+              {/* WhatsApp */}
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                  Nomor WhatsApp (Opsional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: 081234567890"
+                  value={nonSiswaWa}
+                  onChange={(e) => setNonSiswaWa(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] font-medium text-xs focus:outline-none focus:border-[var(--brand-primary)]"
+                />
+              </div>
+
+              {/* Grid: Jenis SIM & Status Pembayaran */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Jenis SIM */}
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                    Jenis SIM *
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setNonSiswaJenisSim('SIM A')}
+                      className={`p-2 rounded-xl border font-bold text-xs transition-all ${
+                        nonSiswaJenisSim === 'SIM A'
+                          ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] border-[var(--brand-primary)] shadow-xs'
+                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      SIM A (Mobil)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNonSiswaJenisSim('SIM C')}
+                      className={`p-2 rounded-xl border font-bold text-xs transition-all ${
+                        nonSiswaJenisSim === 'SIM C'
+                          ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] border-[var(--brand-primary)] shadow-xs'
+                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
+                      }`}
+                    >
+                      SIM C (Motor)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Status Pembayaran */}
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                    Status Pembayaran *
+                  </label>
+                  <select
+                    value={nonSiswaStatusBayar}
+                    onChange={(e) => setNonSiswaStatusBayar(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] font-bold text-xs cursor-pointer"
+                  >
+                    <option value="lunas">LUNAS (Siap Diterbitkan)</option>
+                    <option value="dp">DP Saja</option>
+                    <option value="belum_bayar">BELUM BAYAR</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Biaya Pelatihan SIM (Customizable) */}
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                  Biaya Pelatihan SIM (Dapat Diubah) *
+                </label>
+                <CurrencyInput
+                  value={nonSiswaHarga}
+                  onChange={(val) => setNonSiswaHarga(val)}
+                  className="w-full text-base font-bold"
+                />
+                <span className="text-[10px] text-[var(--text-secondary)] block mt-1">
+                  Nominal biaya tidak mengikat standar 850k (bebas disesuaikan).
+                </span>
+              </div>
+
+              {/* Checkbox Opsi Pencatatan Kas */}
+              <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl space-y-1 select-none">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={nonSiswaCatatKas}
+                    onChange={(e) => setNonSiswaCatatKas(e.target.checked)}
+                    disabled={Boolean(nonSiswaLinkedKasId)}
+                    className="rounded border-[var(--border)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)] cursor-pointer"
+                  />
+                  <span className="font-bold text-xs text-[var(--text-primary)]">
+                    Catat Pemasukan ke Kas Transaksi
+                  </span>
+                </label>
+                <p className="text-[10px] text-[var(--text-secondary)] pl-6">
+                  {nonSiswaLinkedKasId
+                    ? 'Telah ditautkan ke transaksi Kas yang dipilih di atas (tidak menambah mutasi baru).'
+                    : nonSiswaCatatKas
+                    ? 'Mutasi pemasukan kas baru sebesar nominal biaya akan otomatis dibuat.'
+                    : 'Pendaftaran disimpan tanpa mencatat mutasi baru di kas.'}
+                </p>
+              </div>
+
+              {/* Catatan / Keterangan */}
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                  Catatan / Keterangan (Opsional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Pendaftaran SIM Non-Siswa dari Instansi / Referensi"
+                  value={nonSiswaCatatan}
+                  onChange={(e) => setNonSiswaCatatan(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] text-xs"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => setIsNonSiswaModalOpen(false)}
+                  className="px-4 py-2 font-semibold text-xs rounded-xl border border-[var(--border)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] transition-colors"
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={savingNonSiswa}
+                  className="px-5 py-2 font-extrabold text-xs rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white shadow-xs transition-all flex items-center gap-1.5"
+                >
+                  {savingNonSiswa ? (
+                    <span>Menyimpan Data...</span>
+                  ) : (
+                    <>
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Simpan Peserta Non-Siswa</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 
