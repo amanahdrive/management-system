@@ -49,7 +49,22 @@ interface DayItem {
   persentase: number;
 }
 
-const PALETTE = ['#0F7A73', '#2563EB', '#D97706', '#7C3AED', '#DC2626', '#059669'];
+interface PackageItem {
+  namaPaket: string;
+  termasukSim: boolean;
+  totalTerjual: number;
+  totalOmzet: number;
+  persentase: number;
+}
+
+interface InstructorCapacityItem {
+  nama: string;
+  capacityUtilization: number;
+  sesiSelesai: number;
+  sesiBatal: number;
+}
+
+const PALETTE = ['#0F7A73', '#2563EB', '#D97706', '#7C3AED', '#DC2626', '#059669', '#EC4899', '#8B5CF6'];
 
 export function AnalitikCashflowChart({
   data,
@@ -62,7 +77,6 @@ export function AnalitikCashflowChart({
     return <div className="h-64 flex items-center justify-center text-xs text-[var(--text-secondary)]">Tidak ada data arus kas</div>;
   }
 
-  // Ensure every item has a display label
   const formattedData = data.map((item) => ({
     ...item,
     displayLabel: item.dateLabel || item.bulanLabel || item.dateKey || item.bulanKey || '',
@@ -107,13 +121,13 @@ export function AnalitikCashflowChart({
           <Tooltip
             formatter={(value: any, name: any) => [
               formatRupiah(Number(value) || 0),
-              name === 'pemasukan' ? 'Pemasukan' : name === 'pengeluaran' ? 'Pengeluaran' : 'Laba Bersih',
+              name === 'pemasukan' ? 'Pemasukan Kas' : name === 'pengeluaran' ? 'Pengeluaran Kas' : 'Laba Bersih',
             ]}
             labelFormatter={(label) => `Periode: ${label}`}
             contentStyle={{
               backgroundColor: 'var(--bg)',
               borderColor: 'var(--border)',
-              borderRadius: '14px',
+              borderRadius: '12px',
               boxShadow: 'var(--shadow-md)',
               color: 'var(--text-primary)',
               fontSize: '11px',
@@ -144,13 +158,13 @@ export function AnalitikChannelChart({ data }: { data: ChannelItem[] }) {
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
           <XAxis type="number" stroke="var(--text-muted)" fontSize={10} tickLine={false} />
-          <YAxis dataKey="channel" type="category" stroke="var(--text-muted)" fontSize={10} tickLine={false} width={80} />
+          <YAxis dataKey="channel" type="category" stroke="var(--text-muted)" fontSize={10} tickLine={false} width={85} />
           <Tooltip
             formatter={(value: any) => [`${value} Siswa`, 'Total Siswa']}
             contentStyle={{
               backgroundColor: 'var(--bg)',
               borderColor: 'var(--border)',
-              borderRadius: '14px',
+              borderRadius: '12px',
               boxShadow: 'var(--shadow-md)',
               color: 'var(--text-primary)',
               fontSize: '11px',
@@ -186,7 +200,7 @@ export function AnalitikSlotChart({ data }: { data: SlotItem[] }) {
             contentStyle={{
               backgroundColor: 'var(--bg)',
               borderColor: 'var(--border)',
-              borderRadius: '14px',
+              borderRadius: '12px',
               boxShadow: 'var(--shadow-md)',
               color: 'var(--text-primary)',
               fontSize: '11px',
@@ -218,7 +232,7 @@ export function AnalitikDayChart({ data }: { data: DayItem[] }) {
             contentStyle={{
               backgroundColor: 'var(--bg)',
               borderColor: 'var(--border)',
-              borderRadius: '14px',
+              borderRadius: '12px',
               boxShadow: 'var(--shadow-md)',
               color: 'var(--text-primary)',
               fontSize: '11px',
@@ -228,6 +242,92 @@ export function AnalitikDayChart({ data }: { data: DayItem[] }) {
             labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
           />
           <Bar dataKey="totalSesi" fill="#0F7A73" radius={[6, 6, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+export function AnalitikPackageDonutChart({ data }: { data: PackageItem[] }) {
+  if (!data || data.length === 0) {
+    return <div className="h-64 flex items-center justify-center text-xs text-[var(--text-secondary)]">Tidak ada data paket</div>;
+  }
+
+  return (
+    <div className="h-64 w-full flex flex-col items-center justify-center">
+      <ResponsiveContainer width="100%" height="80%">
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            innerRadius={48}
+            outerRadius={75}
+            paddingAngle={3}
+            dataKey="totalTerjual"
+            nameKey="namaPaket"
+          >
+            {data.map((_, index) => (
+              <Cell key={`cell-pkg-${index}`} fill={PALETTE[index % PALETTE.length]} />
+            ))}
+          </Pie>
+          <Tooltip
+            formatter={(value: any, name: any) => [`${value} Siswa`, String(name)]}
+            contentStyle={{
+              backgroundColor: 'var(--bg)',
+              borderColor: 'var(--border)',
+              borderRadius: '12px',
+              boxShadow: 'var(--shadow-md)',
+              color: 'var(--text-primary)',
+              fontSize: '11px',
+              fontFamily: 'monospace',
+            }}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="flex flex-wrap items-center justify-center gap-2 text-[10px] text-[var(--text-secondary)] mt-1">
+        {data.slice(0, 4).map((p, idx) => (
+          <span key={idx} className="flex items-center gap-1 font-mono">
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: PALETTE[idx % PALETTE.length] }} />
+            <span>{p.namaPaket}: {p.totalTerjual} ({p.persentase}%)</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function AnalitikInstructorCapacityChart({ data }: { data: InstructorCapacityItem[] }) {
+  if (!data || data.length === 0) {
+    return <div className="h-64 flex items-center justify-center text-xs text-[var(--text-secondary)]">Tidak ada data kapasitas instruktur</div>;
+  }
+
+  return (
+    <div className="h-64 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 30, bottom: 5 }}>
+          <XAxis type="number" stroke="var(--text-muted)" fontSize={10} tickLine={false} domain={[0, 100]} unit="%" />
+          <YAxis dataKey="nama" type="category" stroke="var(--text-muted)" fontSize={10} tickLine={false} width={85} />
+          <Tooltip
+            formatter={(value: any) => [`${value}% Beban Kapasitas`, 'Utilisasi']}
+            contentStyle={{
+              backgroundColor: 'var(--bg)',
+              borderColor: 'var(--border)',
+              borderRadius: '12px',
+              boxShadow: 'var(--shadow-md)',
+              color: 'var(--text-primary)',
+              fontSize: '11px',
+              fontFamily: 'monospace',
+            }}
+          />
+          <Bar dataKey="capacityUtilization" fill="#2563EB" radius={[0, 6, 6, 0]}>
+            {data.map((item, index) => (
+              <Cell
+                key={`cell-cap-${index}`}
+                fill={item.capacityUtilization > 85 ? '#EF4444' : item.capacityUtilization > 60 ? '#10B981' : '#3B82F6'}
+              />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>

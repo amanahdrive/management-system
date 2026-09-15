@@ -11,10 +11,52 @@ export interface AnalitikFilter {
   endDate?: string;
 }
 
+export interface FunnelStage {
+  id: string;
+  name: string;
+  shortLabel: string;
+  description: string;
+  count: number;
+  valueNominal: number;
+  stepConvRate: number; // % from previous step
+  overallConvRate: number; // % from stage 1
+  dropOffCount: number;
+  dropOffRate: number;
+  revenueLeakage: number; // Potential lost booking value
+}
+
+export interface BottleneckItem {
+  id: string;
+  title: string;
+  category: 'keuangan' | 'siswa' | 'jadwal' | 'armada' | 'instruktur';
+  categoryLabel: string;
+  severity: 'critical' | 'warning' | 'optimization';
+  impactMetric: string;
+  impactValue: string;
+  description: string;
+  rootCause: string;
+  actionRecommendation: string;
+  actionLabel: string;
+  actionRoute: string;
+}
+
 export interface AnalitikData {
   periodeLabel: string;
   startDate: string;
   endDate: string;
+  comparisonMoM: {
+    hasComparison: boolean;
+    prevPeriodeLabel: string;
+    prevStartDate: string;
+    prevEndDate: string;
+    deltaOmzet: number;
+    deltaSiswa: number;
+    deltaPemasukan: number;
+    deltaPengeluaran: number;
+    deltaLabaBersih: number;
+    deltaSesiSelesai: number;
+    deltaEfisiensiBBM: number;
+  };
   summaryKPI: {
     totalSiswa: number;
     totalOmzet: number;
@@ -31,9 +73,38 @@ export interface AnalitikData {
     totalLiterBBM: number;
     rataRataEfisiensiBBM: number;
   };
+  conversionFunnel: {
+    stages: FunnelStage[];
+    overallConversionRate: number;
+    totalRevenueLeakage: number;
+    activeVelocityDays: number;
+  };
+  sesiFunnel: {
+    kapasitasTersedia: number;
+    sesiTerjadwal: number;
+    sesiSelesai: number;
+    sesiBatal: number;
+    utilisasiKapasitas: number;
+    fulfillmentRate: number;
+    cancellationRate: number;
+  };
+  unitEconomics: {
+    arpu: number; // Average Revenue Per Student
+    avgCostPerSiswa: number;
+    grossMarginPerSesi: number;
+    fleetUtilizationRate: number;
+    instructorAvgLoad: number;
+  };
+  agingPiutang: {
+    totalPiutang: number;
+    siswaUnpaidCount: number;
+    brackets: { range: string; label: string; count: number; nominal: number; persentase: number }[];
+    topDebtors: { id: string; nama: string; noWhatsapp: string; sisaPiutang: number; status: string; tanggalBooking: string; daysAging: number }[];
+  };
+  bottlenecks: BottleneckItem[];
   siswaGrowth: {
-    byChannel: { channel: string; totalSiswa: number; totalOmzet: number; persentase: number }[];
-    byPackage: { namaPaket: string; termasukSim: boolean; totalTerjual: number; totalOmzet: number; persentase: number }[];
+    byChannel: { channel: string; totalSiswa: number; totalOmzet: number; persentase: number; conversionRate: number }[];
+    byPackage: { namaPaket: string; termasukSim: boolean; jumlahSesi: number; totalTerjual: number; totalOmzet: number; persentase: number }[];
     byPaymentStatus: { status: string; label: string; count: number; totalNominal: number; color: string }[];
     completionRate: { totalSiswa: number; siswaLulus: number; siswaOnProgress: number; siswaBelumJadwal: number; rate: number };
     monthlyTrend: { bulanKey: string; bulanLabel: string; totalSiswa: number; omzet: number }[];
@@ -60,6 +131,8 @@ export interface AnalitikData {
     totalSiswa: number;
     hariAktif: number;
     completionRate: number;
+    cancellationRate: number;
+    capacityUtilization: number;
     estimasiHonorSesi: number;
     estimasiUangMakan: number;
     totalEstimasiGaji: number;
@@ -104,7 +177,7 @@ const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Se
 const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
 export async function getAnalitikData(filter?: AnalitikFilter): Promise<AnalitikData> {
-  const cacheKey = `analitik_${filter?.period || 'this_month'}_${filter?.startDate || ''}_${filter?.endDate || ''}`;
+  const cacheKey = `analitik_v2_${filter?.period || 'this_month'}_${filter?.startDate || ''}_${filter?.endDate || ''}`;
   const cached = cacheGet<AnalitikData>(cacheKey);
   if (cached) return cached;
 
@@ -117,6 +190,12 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
   let endDate = filter?.endDate || '';
   let periodeLabel = 'Semua Periode';
   let cashflowChartTitle = 'Arus Kas';
+
+  // Determine Previous Period for MoM comparison
+  let prevStartDate = '';
+  let prevEndDate = '';
+  let prevPeriodeLabel = '';
+  let hasComparison = true;
 
   const periodType = filter?.period || 'this_month';
   const isDaily =
@@ -131,6 +210,13 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
     endDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(daysInCurrentMonth).padStart(2, '0')}`;
     periodeLabel = `Bulan Ini (${MONTH_NAMES_INDO[currentMonth - 1]} ${currentYear})`;
     cashflowChartTitle = `Arus Kas Harian (${MONTH_NAMES_INDO[currentMonth - 1]} ${currentYear})`;
+
+    const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+    const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const daysInLastMonth = new Date(lastMonthYear, lastMonth, 0).getDate();
+    prevStartDate = `${lastMonthYear}-${String(lastMonth).padStart(2, '0')}-01`;
+    prevEndDate = `${lastMonthYear}-${String(lastMonth).padStart(2, '0')}-${String(daysInLastMonth).padStart(2, '0')}`;
+    prevPeriodeLabel = `Bulan Lalu (${MONTH_NAMES_INDO[lastMonth - 1]} ${lastMonthYear})`;
   } else if (periodType === 'last_month') {
     const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
     const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
@@ -139,6 +225,13 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
     endDate = `${lastMonthYear}-${String(lastMonth).padStart(2, '0')}-${String(daysInLastMonth).padStart(2, '0')}`;
     periodeLabel = `Bulan Lalu (${MONTH_NAMES_INDO[lastMonth - 1]} ${lastMonthYear})`;
     cashflowChartTitle = `Arus Kas Harian (${MONTH_NAMES_INDO[lastMonth - 1]} ${lastMonthYear})`;
+
+    const twoMonthsAgoYear = lastMonth === 1 ? lastMonthYear - 1 : lastMonthYear;
+    const twoMonthsAgo = lastMonth === 1 ? 12 : lastMonth - 1;
+    const daysInTwoMonthsAgo = new Date(twoMonthsAgoYear, twoMonthsAgo, 0).getDate();
+    prevStartDate = `${twoMonthsAgoYear}-${String(twoMonthsAgo).padStart(2, '0')}-01`;
+    prevEndDate = `${twoMonthsAgoYear}-${String(twoMonthsAgo).padStart(2, '0')}-${String(daysInTwoMonthsAgo).padStart(2, '0')}`;
+    prevPeriodeLabel = `${MONTH_NAMES_INDO[twoMonthsAgo - 1]} ${twoMonthsAgoYear}`;
   } else if (periodType === 'custom' || (filter?.startDate && filter?.endDate)) {
     let s = filter?.startDate || `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
     let e = filter?.endDate || todayStr;
@@ -147,45 +240,63 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       s = e;
       e = tmp;
     }
-    // Limit to max 180 days (6 months)
     const maxEnd = addDaysToDateStr(s, 180);
-    if (e > maxEnd) {
-      e = maxEnd;
-    }
+    if (e > maxEnd) e = maxEnd;
     startDate = s;
     endDate = e;
     periodeLabel = `Periode Kustom (${formatDateIndo(startDate)} s/d ${formatDateIndo(endDate)})`;
     cashflowChartTitle = `Arus Kas Harian (${formatDateIndo(startDate)} s/d ${formatDateIndo(endDate)})`;
+
+    const spanDays = Math.max(1, Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1);
+    prevEndDate = addDaysToDateStr(startDate, -1);
+    prevStartDate = addDaysToDateStr(prevEndDate, -spanDays + 1);
+    prevPeriodeLabel = `${spanDays} Hari Sebelumnya`;
   } else if (periodType === 'q1') {
     startDate = `${currentYear}-01-01`;
     endDate = `${currentYear}-03-31`;
     periodeLabel = `Kuartal 1 (Jan - Mar ${currentYear})`;
     cashflowChartTitle = `Arus Kas Bulanan (${periodeLabel})`;
+    prevStartDate = `${currentYear - 1}-10-01`;
+    prevEndDate = `${currentYear - 1}-12-31`;
+    prevPeriodeLabel = `Kuartal 4 ${currentYear - 1}`;
   } else if (periodType === 'q2') {
     startDate = `${currentYear}-04-01`;
     endDate = `${currentYear}-06-30`;
     periodeLabel = `Kuartal 2 (Apr - Jun ${currentYear})`;
     cashflowChartTitle = `Arus Kas Bulanan (${periodeLabel})`;
+    prevStartDate = `${currentYear}-01-01`;
+    prevEndDate = `${currentYear}-03-31`;
+    prevPeriodeLabel = `Kuartal 1 ${currentYear}`;
   } else if (periodType === 'q3') {
     startDate = `${currentYear}-07-01`;
     endDate = `${currentYear}-09-30`;
     periodeLabel = `Kuartal 3 (Jul - Sep ${currentYear})`;
     cashflowChartTitle = `Arus Kas Bulanan (${periodeLabel})`;
+    prevStartDate = `${currentYear}-04-01`;
+    prevEndDate = `${currentYear}-06-30`;
+    prevPeriodeLabel = `Kuartal 2 ${currentYear}`;
   } else if (periodType === 'q4') {
     startDate = `${currentYear}-10-01`;
     endDate = `${currentYear}-12-31`;
     periodeLabel = `Kuartal 4 (Okt - Des ${currentYear})`;
     cashflowChartTitle = `Arus Kas Bulanan (${periodeLabel})`;
+    prevStartDate = `${currentYear}-07-01`;
+    prevEndDate = `${currentYear}-09-30`;
+    prevPeriodeLabel = `Kuartal 3 ${currentYear}`;
   } else if (periodType === 'this_year') {
     startDate = `${currentYear}-01-01`;
     endDate = `${currentYear}-12-31`;
     periodeLabel = `Tahun Ini (${currentYear})`;
     cashflowChartTitle = `Arus Kas Bulanan (Tahun ${currentYear})`;
-  } else if (periodType === 'all') {
+    prevStartDate = `${currentYear - 1}-01-01`;
+    prevEndDate = `${currentYear - 1}-12-31`;
+    prevPeriodeLabel = `Tahun ${currentYear - 1}`;
+  } else {
     startDate = '2025-01-01';
     endDate = todayStr;
     periodeLabel = 'Semua Waktu (Historis Lengkap)';
     cashflowChartTitle = 'Arus Kas Bulanan (Semua Waktu)';
+    hasComparison = false;
   }
 
   // Load General Settings for Instructors
@@ -196,10 +307,11 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
   const minSlotUangMakan = settings.minSlotUangMakan || 2;
 
   try {
-    // 1. Fetch Students
+    // 1. Fetch Students in Current Period with Package & Progress Info
     const siswaRows = await dbQuery<{
       id: string;
       nama: string;
+      no_whatsapp: string;
       tanggal_booking: string;
       harga_final: number;
       status_pembayaran_kode: string;
@@ -209,17 +321,46 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       paket_id: string;
       nama_paket: string;
       termasuk_sim: boolean;
+      jumlah_sesi: number;
+      status_sim: string;
+      is_archived: boolean;
     }>(`
       SELECT 
-        s.id, s.nama, s.tanggal_booking, s.harga_final, s.status_pembayaran_kode, s.dp_nominal,
+        s.id, s.nama, s.no_whatsapp, s.tanggal_booking, s.harga_final, s.status_pembayaran_kode, s.dp_nominal,
         COALESCE(s.sumber::text, 'organik') as sumber, s.sumber_kustom_text, s.paket_id,
-        p.nama_paket, p.termasuk_sim
+        p.nama_paket, p.termasuk_sim, COALESCE(p.jumlah_sesi, 10) as jumlah_sesi,
+        COALESCE(s.status_sim, 'belum') as status_sim,
+        COALESCE(s.is_archived, false) as is_archived
       FROM siswa s
       JOIN paket p ON s.paket_id = p.id
       WHERE s.tanggal_booking >= $1 AND s.tanggal_booking <= $2
     `, [startDate, endDate]);
 
-    // 2. Fetch Sessions in Period
+    // 2. Fetch Aggregated Student Session Counts (from ALL schedules to detect progression)
+    const studentSessionAgg = await dbQuery<{
+      siswa_id: string;
+      total_sesi: number;
+      selesai_sesi: number;
+      latest_sesi: string | null;
+    }>(`
+      SELECT 
+        siswa_id,
+        COUNT(*) as total_sesi,
+        COUNT(CASE WHEN status_sesi = 'selesai' THEN 1 END) as selesai_sesi,
+        MAX(tanggal_sesi) as latest_sesi
+      FROM jadwal_sesi
+      GROUP BY siswa_id
+    `);
+    const studentSessionMap = new Map<string, { total: number; selesai: number; latest: string | null }>();
+    studentSessionAgg.forEach((r) => {
+      studentSessionMap.set(r.siswa_id, {
+        total: Number(r.total_sesi) || 0,
+        selesai: Number(r.selesai_sesi) || 0,
+        latest: r.latest_sesi,
+      });
+    });
+
+    // 3. Fetch Sessions in Period
     const sesiRows = await dbQuery<{
       id: string;
       siswa_id: string;
@@ -245,10 +386,10 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       WHERE js.tanggal_sesi >= $1 AND js.tanggal_sesi <= $2
     `, [startDate, endDate]);
 
-    // 3. Fetch Slot Master
+    // 4. Fetch Slot Master
     const slotRows = await dbQuery<{ id: string; nama_slot: string; urutan: number }>('SELECT id, nama_slot, urutan FROM slot_waktu ORDER BY urutan ASC');
 
-    // 4. Fetch Staff list
+    // 5. Fetch Staff list (Active Instructors)
     const staffList = await dbQuery<{ id: string; nama: string }>(`
       SELECT s.id, s.nama FROM staff s
       JOIN staff_jabatan sj ON s.id = sj.staff_id
@@ -258,7 +399,7 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       ORDER BY s.nama ASC
     `);
 
-    // 5. Fetch Kendaraan & Logs
+    // 6. Fetch Kendaraan & Logs
     const kendaraanList = await dbQuery<{
       id: string;
       nama_kendaraan: string;
@@ -289,7 +430,7 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       GROUP BY kendaraan_id
     `, [startDate, endDate]);
 
-    // 6. Fetch Cashflow Transactions
+    // 7. Fetch Cashflow Transactions in Period
     const kasRows = await dbQuery<{
       id: string;
       tanggal: string;
@@ -303,7 +444,7 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       ORDER BY tanggal ASC
     `, [startDate, endDate]);
 
-    // 7. Fetch 6 Months Trend for Siswa and Cashflow
+    // 8. Fetch Historical Monthly Trends (Last 6 Months)
     const sixMonthsAgoStr = addDaysToDateStr(todayStr, -180);
     const trendSiswaRaw = await dbQuery<{ bulan_key: string; total_siswa: number; total_omzet: number }>(`
       SELECT 
@@ -316,40 +457,117 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       ORDER BY bulan_key ASC
     `, [sixMonthsAgoStr]);
 
-    const trendKasRaw = await dbQuery<{ bulan_key: string; pemasukan: number; pengeluaran: number }>(`
-      SELECT 
-        TO_CHAR(tanggal, 'YYYY-MM') as bulan_key,
-        COALESCE(SUM(CASE WHEN tipe = 'pemasukan' THEN nominal ELSE 0 END), 0) as pemasukan,
-        COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' THEN nominal ELSE 0 END), 0) as pengeluaran
-      FROM kas_transaksi
-      WHERE tanggal >= $1
-      GROUP BY TO_CHAR(tanggal, 'YYYY-MM')
-      ORDER BY bulan_key ASC
-    `, [sixMonthsAgoStr]);
+    // 9. Fetch Previous Period Aggregates for MoM Comparison
+    let prevOmzet = 0;
+    let prevSiswa = 0;
+    let prevPemasukan = 0;
+    let prevPengeluaran = 0;
+    let prevLaba = 0;
+    let prevSesiSelesai = 0;
+    let prevKmOperasional = 0;
+    let prevLiterBBM = 0;
 
-    // --- AGGREGATIONS ---
+    if (hasComparison && prevStartDate && prevEndDate) {
+      const prevSiswaRes = await dbQuerySingle<{ count: number; omzet: number }>(`
+        SELECT COUNT(*) as count, COALESCE(SUM(harga_final), 0) as omzet
+        FROM siswa
+        WHERE tanggal_booking >= $1 AND tanggal_booking <= $2
+      `, [prevStartDate, prevEndDate]);
+      if (prevSiswaRes) {
+        prevSiswa = Number(prevSiswaRes.count) || 0;
+        prevOmzet = Number(prevSiswaRes.omzet) || 0;
+      }
 
-    // A. Student Summary
+      const prevKasRes = await dbQuerySingle<{ pemasukan: number; pengeluaran: number }>(`
+        SELECT 
+          COALESCE(SUM(CASE WHEN tipe = 'pemasukan' THEN nominal ELSE 0 END), 0) as pemasukan,
+          COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' THEN nominal ELSE 0 END), 0) as pengeluaran
+        FROM kas_transaksi
+        WHERE tanggal >= $1 AND tanggal <= $2
+      `, [prevStartDate, prevEndDate]);
+      if (prevKasRes) {
+        prevPemasukan = Number(prevKasRes.pemasukan) || 0;
+        prevPengeluaran = Number(prevKasRes.pengeluaran) || 0;
+        prevLaba = prevPemasukan - prevPengeluaran;
+      }
+
+      const prevSesiRes = await dbQuerySingle<{ selesai: number }>(`
+        SELECT COUNT(*) as selesai
+        FROM jadwal_sesi
+        WHERE tanggal_sesi >= $1 AND tanggal_sesi <= $2 AND status_sesi = 'selesai'
+      `, [prevStartDate, prevEndDate]);
+      if (prevSesiRes) {
+        prevSesiSelesai = Number(prevSesiRes.selesai) || 0;
+      }
+
+      const prevBBMRes = await dbQuerySingle<{ km: number; liter: number }>(`
+        SELECT COALESCE(SUM(jarak_tempuh), 0) as km, COALESCE(SUM(bbm_liter), 0) as liter
+        FROM kendaraan_log_harian
+        WHERE tanggal >= $1 AND tanggal <= $2
+      `, [prevStartDate, prevEndDate]);
+      if (prevBBMRes) {
+        prevKmOperasional = Number(prevBBMRes.km) || 0;
+        prevLiterBBM = Number(prevBBMRes.liter) || 0;
+      }
+    }
+
+    // --- AGGREGATIONS & CALCULATIONS ---
+
+    // A. Student Summary & Funnel Calculations
     let totalSiswa = siswaRows.length;
     let totalOmzet = 0;
     let totalTerbayar = 0;
     let lunasCount = 0;
     let dpCount = 0;
     let belumBayarCount = 0;
+    let activeScheduledCount = 0;
+    let graduatedCount = 0;
 
-    const channelMap: Record<string, { totalSiswa: number; totalOmzet: number }> = {};
-    const packageMap: Record<string, { namaPaket: string; termasukSim: boolean; totalTerjual: number; totalOmzet: number }> = {};
+    const channelMap: Record<string, { totalSiswa: number; totalOmzet: number; lunas: number }> = {};
+    const packageMap: Record<string, { namaPaket: string; termasukSim: boolean; jumlahSesi: number; totalTerjual: number; totalOmzet: number }> = {};
+    const debtorsList: AnalitikData['agingPiutang']['topDebtors'] = [];
 
     siswaRows.forEach((s) => {
       totalOmzet += s.harga_final;
+      const progress = studentSessionMap.get(s.id);
+      const scheduledSessions = progress ? progress.total : 0;
+      const completedSessions = progress ? progress.selesai : 0;
+
+      if (scheduledSessions > 0) {
+        activeScheduledCount++;
+      }
+
+      // Check Graduation: either marked archived, sim done, or completed quota
+      if (s.is_archived || s.status_sim === 'selesai' || completedSessions >= s.jumlah_sesi) {
+        graduatedCount++;
+      }
+
+      // Payment Status
+      let terbayarSiswa = 0;
       if (s.status_pembayaran_kode === 'lunas') {
+        terbayarSiswa = s.harga_final;
         totalTerbayar += s.harga_final;
         lunasCount++;
       } else if (s.status_pembayaran_kode === 'dp') {
-        totalTerbayar += s.dp_nominal || 0;
+        terbayarSiswa = s.dp_nominal || 0;
+        totalTerbayar += terbayarSiswa;
         dpCount++;
       } else {
         belumBayarCount++;
+      }
+
+      const sisaPiutangSiswa = s.harga_final - terbayarSiswa;
+      if (sisaPiutangSiswa > 0) {
+        const daysAging = Math.max(0, Math.round((new Date(todayStr).getTime() - new Date(s.tanggal_booking).getTime()) / 86400000));
+        debtorsList.push({
+          id: s.id,
+          nama: s.nama,
+          noWhatsapp: s.no_whatsapp,
+          sisaPiutang: sisaPiutangSiswa,
+          status: s.status_pembayaran_kode === 'dp' ? 'DP Sebagian' : 'Belum Bayar',
+          tanggalBooking: s.tanggal_booking,
+          daysAging,
+        });
       }
 
       // Channel
@@ -360,14 +578,15 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       else if (ch === 'kustom') ch = s.sumber_kustom_text || 'Kustom';
       else ch = 'Organik';
 
-      if (!channelMap[ch]) channelMap[ch] = { totalSiswa: 0, totalOmzet: 0 };
+      if (!channelMap[ch]) channelMap[ch] = { totalSiswa: 0, totalOmzet: 0, lunas: 0 };
       channelMap[ch].totalSiswa++;
       channelMap[ch].totalOmzet += s.harga_final;
+      if (s.status_pembayaran_kode === 'lunas') channelMap[ch].lunas++;
 
       // Package
       const pkg = s.nama_paket || 'Khusus';
       if (!packageMap[pkg]) {
-        packageMap[pkg] = { namaPaket: pkg, termasukSim: s.termasuk_sim, totalTerjual: 0, totalOmzet: 0 };
+        packageMap[pkg] = { namaPaket: pkg, termasukSim: s.termasuk_sim, jumlahSesi: s.jumlah_sesi, totalTerjual: 0, totalOmzet: 0 };
       }
       packageMap[pkg].totalTerjual++;
       packageMap[pkg].totalOmzet += s.harga_final;
@@ -375,28 +594,137 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
 
     const totalPiutang = totalOmzet - totalTerbayar;
 
+    // Sort Debtors by Highest Sisa Piutang
+    debtorsList.sort((a, b) => b.sisaPiutang - a.sisaPiutang);
+
+    // Aging Piutang Brackets
+    const bracket0to7 = debtorsList.filter((d) => d.daysAging <= 7);
+    const bracket8to14 = debtorsList.filter((d) => d.daysAging >= 8 && d.daysAging <= 14);
+    const bracket15to30 = debtorsList.filter((d) => d.daysAging >= 15 && d.daysAging <= 30);
+    const bracket30plus = debtorsList.filter((d) => d.daysAging > 30);
+
+    const agingBrackets = [
+      { range: '0-7', label: '1 - 7 Hari (Baru)', count: bracket0to7.length, nominal: bracket0to7.reduce((acc, d) => acc + d.sisaPiutang, 0), persentase: totalPiutang > 0 ? Math.round((bracket0to7.reduce((acc, d) => acc + d.sisaPiutang, 0) / totalPiutang) * 100) : 0 },
+      { range: '8-14', label: '8 - 14 Hari (Waspada)', count: bracket8to14.length, nominal: bracket8to14.reduce((acc, d) => acc + d.sisaPiutang, 0), persentase: totalPiutang > 0 ? Math.round((bracket8to14.reduce((acc, d) => acc + d.sisaPiutang, 0) / totalPiutang) * 100) : 0 },
+      { range: '15-30', label: '15 - 30 Hari (Mendesak)', count: bracket15to30.length, nominal: bracket15to30.reduce((acc, d) => acc + d.sisaPiutang, 0), persentase: totalPiutang > 0 ? Math.round((bracket15to30.reduce((acc, d) => acc + d.sisaPiutang, 0) / totalPiutang) * 100) : 0 },
+      { range: '>30', label: '> 30 Hari (Macet)', count: bracket30plus.length, nominal: bracket30plus.reduce((acc, d) => acc + d.sisaPiutang, 0), persentase: totalPiutang > 0 ? Math.round((bracket30plus.reduce((acc, d) => acc + d.sisaPiutang, 0) / totalPiutang) * 100) : 0 },
+    ];
+
+    // Multi-Stage Student Conversion Funnel Construction
+    const dpOrPaidCount = dpCount + lunasCount;
+    const bookingOmzet = totalOmzet;
+    const terbayarOmzet = totalTerbayar;
+    const leakageUnpaid = totalOmzet - terbayarOmzet;
+
+    const funnelStages: FunnelStage[] = [
+      {
+        id: 'leads',
+        name: '1. Pendaftaran Siswa (Leads Terdata)',
+        shortLabel: 'Pendaftaran',
+        description: 'Seluruh siswa terdata masuk ke sistem dari berbagai saluran promosi',
+        count: totalSiswa,
+        valueNominal: totalOmzet,
+        stepConvRate: 100,
+        overallConvRate: 100,
+        dropOffCount: 0,
+        dropOffRate: 0,
+        revenueLeakage: 0,
+      },
+      {
+        id: 'paket',
+        name: '2. Pemilihan Paket Kursus (Booking)',
+        shortLabel: 'Booking Paket',
+        description: 'Siswa resmi memilih paket kursus dan jatah sesi pelatihan',
+        count: totalSiswa,
+        valueNominal: bookingOmzet,
+        stepConvRate: 100,
+        overallConvRate: 100,
+        dropOffCount: 0,
+        dropOffRate: 0,
+        revenueLeakage: 0,
+      },
+      {
+        id: 'dp',
+        name: '3. Komitmen Uang Muka (DP)',
+        shortLabel: 'Komitmen DP',
+        description: 'Siswa membayar DP pertama sebagai bukti keseriusan',
+        count: dpOrPaidCount,
+        valueNominal: terbayarOmzet,
+        stepConvRate: totalSiswa > 0 ? Math.round((dpOrPaidCount / totalSiswa) * 1000) / 10 : 0,
+        overallConvRate: totalSiswa > 0 ? Math.round((dpOrPaidCount / totalSiswa) * 1000) / 10 : 0,
+        dropOffCount: belumBayarCount,
+        dropOffRate: totalSiswa > 0 ? Math.round((belumBayarCount / totalSiswa) * 1000) / 10 : 0,
+        revenueLeakage: leakageUnpaid,
+      },
+      {
+        id: 'lunas',
+        name: '4. Pelunasan Penuh (Paid in Full)',
+        shortLabel: 'Lunas 100%',
+        description: 'Siswa telah melunasi 100% total biaya kursus',
+        count: lunasCount,
+        valueNominal: siswaRows.filter((s) => s.status_pembayaran_kode === 'lunas').reduce((a, b) => a + b.harga_final, 0),
+        stepConvRate: dpOrPaidCount > 0 ? Math.round((lunasCount / dpOrPaidCount) * 1000) / 10 : 0,
+        overallConvRate: totalSiswa > 0 ? Math.round((lunasCount / totalSiswa) * 1000) / 10 : 0,
+        dropOffCount: dpCount,
+        dropOffRate: dpOrPaidCount > 0 ? Math.round((dpCount / dpOrPaidCount) * 1000) / 10 : 0,
+        revenueLeakage: totalPiutang,
+      },
+      {
+        id: 'latihan',
+        name: '5. Aktivasi Sesi Belajar (First Drive)',
+        shortLabel: 'Aktivasi Latihan',
+        description: 'Siswa aktif dijadwalkan dan memulai latihan mengemudi lapangan',
+        count: activeScheduledCount,
+        valueNominal: Math.round((activeScheduledCount / (totalSiswa || 1)) * totalOmzet),
+        stepConvRate: dpOrPaidCount > 0 ? Math.round((activeScheduledCount / dpOrPaidCount) * 1000) / 10 : 0,
+        overallConvRate: totalSiswa > 0 ? Math.round((activeScheduledCount / totalSiswa) * 1000) / 10 : 0,
+        dropOffCount: Math.max(0, dpOrPaidCount - activeScheduledCount),
+        dropOffRate: dpOrPaidCount > 0 ? Math.round((Math.max(0, dpOrPaidCount - activeScheduledCount) / dpOrPaidCount) * 1000) / 10 : 0,
+        revenueLeakage: Math.round((Math.max(0, dpOrPaidCount - activeScheduledCount) / (totalSiswa || 1)) * totalOmzet),
+      },
+      {
+        id: 'lulus',
+        name: '6. Tamat / Kelulusan Siswa (Alumni)',
+        shortLabel: 'Lulus / Alumni',
+        description: 'Siswa menyelesaikan seluruh jatah sesi & proses SIM',
+        count: graduatedCount,
+        valueNominal: Math.round((graduatedCount / (totalSiswa || 1)) * totalOmzet),
+        stepConvRate: activeScheduledCount > 0 ? Math.round((graduatedCount / activeScheduledCount) * 1000) / 10 : 0,
+        overallConvRate: totalSiswa > 0 ? Math.round((graduatedCount / totalSiswa) * 1000) / 10 : 0,
+        dropOffCount: Math.max(0, activeScheduledCount - graduatedCount),
+        dropOffRate: activeScheduledCount > 0 ? Math.round((Math.max(0, activeScheduledCount - graduatedCount) / activeScheduledCount) * 1000) / 10 : 0,
+        revenueLeakage: 0,
+      },
+    ];
+
+    const overallConversionRate = totalSiswa > 0 ? Math.round((graduatedCount / totalSiswa) * 1000) / 10 : 0;
+
+    // Marketing Channels Breakdown
     const byChannel = Object.entries(channelMap).map(([channel, data]) => ({
       channel,
       totalSiswa: data.totalSiswa,
       totalOmzet: data.totalOmzet,
       persentase: totalSiswa > 0 ? Math.round((data.totalSiswa / totalSiswa) * 100) : 0,
+      conversionRate: data.totalSiswa > 0 ? Math.round((data.lunas / data.totalSiswa) * 100) : 0,
     })).sort((a, b) => b.totalSiswa - a.totalSiswa);
 
+    // Packages Breakdown
     const byPackage = Object.values(packageMap).map((pkg) => ({
       namaPaket: pkg.namaPaket,
       termasukSim: pkg.termasukSim,
+      jumlahSesi: pkg.jumlahSesi,
       totalTerjual: pkg.totalTerjual,
       totalOmzet: pkg.totalOmzet,
       persentase: totalSiswa > 0 ? Math.round((pkg.totalTerjual / totalSiswa) * 100) : 0,
     })).sort((a, b) => b.totalTerjual - a.totalTerjual);
 
     const byPaymentStatus = [
-      { status: 'lunas', label: 'Lunas', count: lunasCount, totalNominal: totalTerbayar, color: '#1B8A5A' },
-      { status: 'dp', label: 'DP (Sebagian)', count: dpCount, totalNominal: totalTerbayar, color: '#B9821B' },
-      { status: 'belum_bayar', label: 'Belum Bayar', count: belumBayarCount, totalNominal: 0, color: '#C13D3D' },
+      { status: 'lunas', label: 'Lunas Penuh', count: lunasCount, totalNominal: totalTerbayar, color: '#10B981' },
+      { status: 'dp', label: 'DP (Sebagian)', count: dpCount, totalNominal: totalTerbayar, color: '#F59E0B' },
+      { status: 'belum_bayar', label: 'Belum Bayar', count: belumBayarCount, totalNominal: 0, color: '#EF4444' },
     ];
 
-    // B. Session Operations
+    // B. Session Operations & Operational Funnel
     let totalSesi = sesiRows.length;
     let sesiSelesai = 0;
     let sesiTerjadwal = 0;
@@ -423,6 +751,24 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
     const completionRateSesi = totalSesi > 0 ? Math.round((sesiSelesai / totalSesi) * 100) : 0;
     const cancellationRateSesi = totalSesi > 0 ? Math.round((sesiBatal / totalSesi) * 100) : 0;
 
+    // Approximate Working Days in Range
+    const startMs = new Date(startDate).getTime();
+    const endMs = new Date(endDate).getTime();
+    const approxDaysInRange = Math.max(1, Math.round((endMs - startMs) / 86400000) + 1);
+    const activeStaffCount = staffList.length || 4;
+    const slotsPerDay = slotRows.length || 6;
+    const totalTheoreticalCapacity = activeStaffCount * slotsPerDay * approxDaysInRange;
+
+    const sesiFunnel = {
+      kapasitasTersedia: totalTheoreticalCapacity,
+      sesiTerjadwal: totalSesi,
+      sesiSelesai,
+      sesiBatal,
+      utilisasiKapasitas: totalTheoreticalCapacity > 0 ? Math.round((totalSesi / totalTheoreticalCapacity) * 100) : 0,
+      fulfillmentRate: totalSesi > 0 ? Math.round((sesiSelesai / totalSesi) * 100) : 0,
+      cancellationRate: cancellationRateSesi,
+    };
+
     const bySlotWaktu = slotRows.map((s) => ({
       slotId: s.id,
       namaSlot: s.nama_slot,
@@ -438,7 +784,7 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       persentase: totalSesi > 0 ? Math.round(((dayCountMap[dIdx] || 0) / totalSesi) * 100) : 0,
     }));
 
-    // C. Instructor Leaderboard
+    // C. Instructor Leaderboard & Workload
     const instrukturMap: Record<string, {
       id: string;
       nama: string;
@@ -500,6 +846,8 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       });
       const estimasiUangMakan = qualifyingDays * uangMakanPerHari;
       const totalEstimasiGaji = estimasiHonorSesi + estimasiUangMakan;
+      const maxSlotsPerInstructor = slotsPerDay * approxDaysInRange;
+      const capacityUtilization = maxSlotsPerInstructor > 0 ? Math.round((ins.totalSesi / maxSlotsPerInstructor) * 100) : 0;
 
       return {
         id: ins.id,
@@ -511,8 +859,9 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
         sesiMobilPribadi: ins.sesiMobilPribadi,
         totalSiswa: ins.siswaSet.size,
         hariAktif: ins.hariSet.size,
-        qualifyingDays,
         completionRate: ins.totalSesi > 0 ? Math.round((ins.sesiSelesai / ins.totalSesi) * 100) : 0,
+        cancellationRate: ins.totalSesi > 0 ? Math.round((ins.sesiBatal / ins.totalSesi) * 100) : 0,
+        capacityUtilization,
         estimasiHonorSesi,
         estimasiUangMakan,
         totalEstimasiGaji,
@@ -610,16 +959,8 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       persentase: totalPengeluaranKas > 0 ? Math.round((nominal / totalPengeluaranKas) * 100) : 0,
     })).sort((a, b) => b.nominal - a.nominal);
 
-    // Cashflow Trend Calculation (Daily for monthly/custom periods, Monthly for annual/all-time)
-    let cashflowTrend: {
-      dateKey: string;
-      dateLabel: string;
-      bulanKey: string;
-      bulanLabel: string;
-      pemasukan: number;
-      pengeluaran: number;
-      netProfit: number;
-    }[] = [];
+    // Cashflow Trend Calculation
+    let cashflowTrend: AnalitikData['finansialExecutive']['cashflowTrend'] = [];
 
     if (isDaily) {
       const dailyKasMap = new Map<string, { pemasukan: number; pengeluaran: number }>();
@@ -712,69 +1053,175 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       };
     });
 
-    // F. Strategic Insights (Bahan Rapat & Evaluasi Bisnis)
+    // F. MoM Deltas Calculation
+    const calcDelta = (curr: number, prev: number) => {
+      if (prev === 0) return curr > 0 ? 100 : 0;
+      return Math.round(((curr - prev) / prev) * 1000) / 10;
+    };
+
+    const prevEfisiensiBBM = prevLiterBBM > 0 ? Math.round((prevKmOperasional / prevLiterBBM) * 100) / 100 : 0;
+
+    const comparisonMoM = {
+      hasComparison,
+      prevPeriodeLabel,
+      prevStartDate,
+      prevEndDate,
+      deltaOmzet: calcDelta(totalOmzet, prevOmzet),
+      deltaSiswa: calcDelta(totalSiswa, prevSiswa),
+      deltaPemasukan: calcDelta(totalPemasukanKas, prevPemasukan),
+      deltaPengeluaran: calcDelta(totalPengeluaranKas, prevPengeluaran),
+      deltaLabaBersih: calcDelta(labaBersih, prevLaba),
+      deltaSesiSelesai: calcDelta(sesiSelesai, prevSesiSelesai),
+      deltaEfisiensiBBM: calcDelta(rataRataEfisiensiBBM, prevEfisiensiBBM),
+    };
+
+    // G. Unit Economics Calculation
+    const arpu = totalSiswa > 0 ? Math.round(totalOmzet / totalSiswa) : 0;
+    const avgCostPerSiswa = totalSiswa > 0 ? Math.round(totalPengeluaranKas / totalSiswa) : 0;
+    const revenuePerSesi = sesiSelesai > 0 ? Math.round(totalOmzet / sesiSelesai) : 0;
+    const costPerSesi = sesiSelesai > 0 ? Math.round(totalPengeluaranKas / sesiSelesai) : 0;
+    const grossMarginPerSesi = revenuePerSesi - costPerSesi;
+    const fleetUtilizationRate = totalTheoreticalCapacity > 0 ? Math.round((sesiSelesai / totalTheoreticalCapacity) * 100) : 0;
+    const instructorAvgLoad = activeStaffCount > 0 ? Math.round(sesiSelesai / activeStaffCount) : 0;
+
+    // H. Enterprise Bottlenecks & Friction Diagnostic Engine
+    const bottlenecks: BottleneckItem[] = [];
+
+    // Bottleneck 1: Revenue Leakage (Piutang Menumpuk)
+    if (totalPiutang > 0) {
+      const piutangRatio = totalOmzet > 0 ? Math.round((totalPiutang / totalOmzet) * 100) : 0;
+      const isCritical = piutangRatio > 35;
+      bottlenecks.push({
+        id: 'revenue_leakage_piutang',
+        title: 'Kebocoran Kas: Piutang Belum Tertagih',
+        category: 'keuangan',
+        categoryLabel: 'Keuangan & Kas',
+        severity: isCritical ? 'critical' : 'warning',
+        impactMetric: 'Total Piutang Tertahan',
+        impactValue: `Rp ${totalPiutang.toLocaleString('id-ID')} (${piutangRatio}% dari Omzet)`,
+        description: `Terdapat ${debtorsList.length} siswa dengan pembayaran belum lunas (${dpCount} DP, ${belumBayarCount} Belum Bayar). Sebanyak ${bracket15to30.length + bracket30plus.length} siswa sudah menunggak di atas 14 hari.`,
+        rootCause: 'Siswa diperbolehkan mengikuti sesi latihan sebelum melunasi 100% sisa biaya kursus.',
+        actionRecommendation: 'Terapkan kebijakan wajib lunas sebelum sesi ke-3 atau kirim tagihan WhatsApp otomatis kepada siswa status DP.',
+        actionLabel: 'Buka Manajemen Siswa',
+        actionRoute: '/siswa',
+      });
+    }
+
+    // Bottleneck 2: Inactive / Stagnant Students
+    let stagnantStudentsCount = 0;
+    siswaRows.forEach((s) => {
+      const prog = studentSessionMap.get(s.id);
+      const isCompleted = s.is_archived || s.status_sim === 'selesai' || (prog && prog.selesai >= s.jumlah_sesi);
+      if (!isCompleted) {
+        if (prog && prog.latest) {
+          const daysSinceLastSession = Math.round((new Date(todayStr).getTime() - new Date(prog.latest).getTime()) / 86400000);
+          if (daysSinceLastSession >= 14) stagnantStudentsCount++;
+        } else {
+          // No session yet and booking date is >14 days ago
+          const daysSinceBooking = Math.round((new Date(todayStr).getTime() - new Date(s.tanggal_booking).getTime()) / 86400000);
+          if (daysSinceBooking >= 14) stagnantStudentsCount++;
+        }
+      }
+    });
+
+    if (stagnantStudentsCount > 0) {
+      bottlenecks.push({
+        id: 'stagnant_students',
+        title: 'Stagnasi Belajar: Siswa Aktif Terhenti >14 Hari',
+        category: 'siswa',
+        categoryLabel: 'Perjalanan Siswa',
+        severity: stagnantStudentsCount > 5 ? 'critical' : 'warning',
+        impactMetric: 'Siswa Gantung',
+        impactValue: `${stagnantStudentsCount} Siswa`,
+        description: `${stagnantStudentsCount} siswa belum menyelesaikan kursus namun tidak memiliki jadwal sesi dalam 14 hari terakhir. Risiko churn dan lupa materi mengemudi sangat tinggi.`,
+        rootCause: 'Tidak adanya sistem peringatan re-scheduling proaktif saat siswa absen latihan selama 2 minggu berturut-turut.',
+        actionRecommendation: 'Instruksikan tim admin untuk menghubungi siswa melalui WhatsApp guna menjadwalkan ulang sesi tersisa.',
+        actionLabel: 'Periksa Jadwal Belajar',
+        actionRoute: '/jadwal',
+      });
+    }
+
+    // Bottleneck 3: Dead Slots & Low Capacity Utilization
+    const deadSlots = bySlotWaktu.filter((s) => s.persentase < 12);
+    if (deadSlots.length > 0 && totalSesi > 10) {
+      const deadSlotNames = deadSlots.map((s) => s.namaSlot).join(', ');
+      bottlenecks.push({
+        id: 'dead_slots_capacity',
+        title: 'Inefisiensi Kapasitas: Jam Belajar Sepi Peminat',
+        category: 'jadwal',
+        categoryLabel: 'Operasional Sesi',
+        severity: 'optimization',
+        impactMetric: 'Slot Underutilized',
+        impactValue: `${deadSlots.length} Slot Waktu (${deadSlotNames})`,
+        description: `Slot waktu [${deadSlotNames}] hanya menyumbang porsi sangat kecil (<12%) dari total latihan mengemudi, menyebabkan armada dan instruktur idle (menganggur).`,
+        rootCause: 'Jam belajar bertepatan dengan jam kerja/sekolah tanpa adanya insentif khusus bagi calon siswa.',
+        actionRecommendation: 'Buka paket promosi diskon khusus "Happy Hour Slot Pagi/Sore" untuk menarik siswa fleksibel dan mengoptimalkan aset.',
+        actionLabel: 'Atur Master Slot & Paket',
+        actionRoute: '/paket',
+      });
+    }
+
+    // Bottleneck 4: High Cancellation Friction
+    if (cancellationRateSesi > 10 && totalSesi > 10) {
+      bottlenecks.push({
+        id: 'cancellation_friction',
+        title: 'Friksi Jadwal: Tingkat Pembatalan Sesi Tinggi',
+        category: 'instruktur',
+        categoryLabel: 'Instruktur & Jadwal',
+        severity: cancellationRateSesi > 20 ? 'critical' : 'warning',
+        impactMetric: 'Tingkat Batal',
+        impactValue: `${cancellationRateSesi}% (${sesiBatal} Sesi Batal)`,
+        description: `Terdapat ${sesiBatal} sesi yang dibatalkan pada periode ini. Hal ini menyebabkan pemborosan alokasi mobil dan jam kerja instruktur.`,
+        rootCause: 'Ketidakhadiran mendadak tanpa konfirmasi H-1 atau kendala bentrok jadwal siswa.',
+        actionRecommendation: 'Aktifkan reminder konfirmasi kehadiran H-1 otomatis via WA dan berlakukan kuota reschedule maksimal 2 kali.',
+        actionLabel: 'Pantau Jadwal Sesi',
+        actionRoute: '/jadwal',
+      });
+    }
+
+    // Bottleneck 5: Fleet Health & Fuel Inefficiency
+    const urgentFleet = armadaAnalytics.filter((a) => a.perluPerhatian);
+    const inefficientFleet = armadaAnalytics.filter((a) => a.kmPerLiter > 0 && a.kmPerLiter < 7.5);
+
+    if (urgentFleet.length > 0 || inefficientFleet.length > 0) {
+      bottlenecks.push({
+        id: 'fleet_health_risk',
+        title: 'Beban Operasional Armada: Mobil Perlu Servis & Boros BBM',
+        category: 'armada',
+        categoryLabel: 'Armada & Pemeliharaan',
+        severity: urgentFleet.length > 0 ? 'critical' : 'warning',
+        impactMetric: 'Unit Berisiko',
+        impactValue: `${urgentFleet.length} Butuh Servis, ${inefficientFleet.length} Boros BBM`,
+        description: `Kendaraan [${urgentFleet.map((f) => f.nama).join(', ')}] telah melampaui batas jarak servis oli. ${inefficientFleet.length > 0 ? `Unit [${inefficientFleet.map((f) => f.nama).join(', ')}] mencatat efisiensi BBM di bawah standar (<7.5 km/L).` : ''}`,
+        rootCause: 'Penundaan servis rutin dan filter udara/oli kotor meningkatkan gesekan mesin dan konsumsi bahan bakar.',
+        actionRecommendation: 'Kirim unit ke bengkel rekanan minggu ini untuk tune-up dan ganti oli guna menekan biaya operasional BBM harian.',
+        actionLabel: 'Buka Manajemen Armada',
+        actionRoute: '/kendaraan',
+      });
+    }
+
+    // Strategic Insights (Bahan Rapat & Evaluasi Bisnis)
     const strategicInsights: AnalitikData['strategicInsights'] = [];
 
-    // 1. Marketing Insight
     if (byChannel.length > 0) {
       const topChannel = byChannel[0];
       strategicInsights.push({
         type: 'positive',
-        title: `Channel Marketing Utama: ${topChannel.channel} (${topChannel.persentase}% Siswa)`,
-        description: `${topChannel.channel} menghasilkan ${topChannel.totalSiswa} siswa baru dengan kontribusi omzet Rp ${topChannel.totalOmzet.toLocaleString('id-ID')}.`,
-        recommendation: `Tingkatkan anggaran kampanye di ${topChannel.channel} dan optimalkan funnel landing page untuk mendongkrak konversi.`,
+        title: `Saluran Marketing Juara: ${topChannel.channel} (${topChannel.persentase}% Siswa)`,
+        description: `${topChannel.channel} menghasilkan ${topChannel.totalSiswa} siswa baru dengan kontribusi omzet Rp ${topChannel.totalOmzet.toLocaleString('id-ID')} dan rasio pelunasan ${topChannel.conversionRate}%.`,
+        recommendation: `Tingkatkan anggaran kampanye di ${topChannel.channel} dan replikasi materi iklan pemenang ke channel lain.`,
       });
     }
 
-    // 2. Package Insight
     if (byPackage.length > 0) {
       const topPackage = byPackage[0];
       strategicInsights.push({
         type: 'info',
-        title: `Paket Paling Diminati: ${topPackage.namaPaket}`,
-        description: `Menyumbang ${topPackage.persentase}% dari total pendaftaran dengan total omzet Rp ${topPackage.totalOmzet.toLocaleString('id-ID')}.`,
+        title: `Paket Paling Laris: ${topPackage.namaPaket}`,
+        description: `Menyumbang ${topPackage.persentase}% dari total pendaftaran dengan omzet Rp ${topPackage.totalOmzet.toLocaleString('id-ID')}.`,
         recommendation: topPackage.termasukSim
-          ? 'Paket bundling SIM terbukti menarik minat tertinggi. Pertahankan kemitraan Satpas dan efisiensi pengurusan SIM.'
-          : 'Buat variasi bundling diskon atau opsi tambahan SIM pada paket ini untuk meningkatkan Average Revenue Per User (ARPU).',
-      });
-    }
-
-    // 3. Receivables / Piutang Alert
-    if (totalPiutang > 0) {
-      const piutangRatio = totalOmzet > 0 ? Math.round((totalPiutang / totalOmzet) * 100) : 0;
-      strategicInsights.push({
-        type: piutangRatio > 30 ? 'warning' : 'info',
-        title: `Piutang Belum Tertagih: Rp ${totalPiutang.toLocaleString('id-ID')} (${piutangRatio}%)`,
-        description: `Terdapat ${dpCount} siswa status DP dan ${belumBayarCount} siswa status Belum Bayar.`,
-        recommendation: 'Instruksikan tim admin untuk follow up pelunasan sebelum siswa memasuki sesi ke-3 atau sebelum penerbitan berkas SIM.',
-      });
-    }
-
-    // 4. Operational Completion Rate
-    if (completionRateSesi < 80 && totalSesi > 5) {
-      strategicInsights.push({
-        type: 'warning',
-        title: `Completion Rate Sesi: ${completionRateSesi}% (Batal/Reschedule: ${cancellationRateSesi}%)`,
-        description: `Terdapat ${sesiBatal} sesi dibatalkan pada periode ini.`,
-        recommendation: 'Evaluasi alasan pembatalan sesi bersama para instruktur saat rapat bulanan guna memperkuat komitmen jadwal siswa.',
-      });
-    } else {
-      strategicInsights.push({
-        type: 'positive',
-        title: `Disiplin Jadwal Baik: ${completionRateSesi}% Sesi Terlaksana Sukses`,
-        description: `Tingkat pembatalan rendah (${cancellationRateSesi}%), membuktikan alokasi armada dan instruktur berjalan optimal.`,
-        recommendation: 'Pertahankan sistem pengingat otomatis H-1 WhatsApp agar tingkat ketidakhadiran siswa tetap minimal.',
-      });
-    }
-
-    // 5. Fleet Health Check
-    const urgentFleet = armadaAnalytics.filter((a) => a.perluPerhatian);
-    if (urgentFleet.length > 0) {
-      strategicInsights.push({
-        type: 'action',
-        title: `Perawatan Armada: ${urgentFleet.length} Kendaraan Butuh Ganti Oli/Servis`,
-        description: urgentFleet.map((f) => `${f.nama} (${f.plat}) - ${f.kmSejakGantiOli} km`).join(', '),
-        recommendation: 'Jadwalkan servis rutin armada minggu ini untuk mencegah penurunan efisiensi BBM dan risiko kendala saat sesi mengemudi.',
+          ? 'Paket bundling SIM terbukti menjadi pendorong konversi tertinggi. Jaga kecepatan proses administrasi SIM.'
+          : 'Tawarkan opsi add-on pengurusan SIM pada paket ini untuk meningkatkan Average Revenue Per User (ARPU).',
       });
     }
 
@@ -782,6 +1229,7 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
       periodeLabel,
       startDate,
       endDate,
+      comparisonMoM,
       summaryKPI: {
         totalSiswa,
         totalOmzet,
@@ -798,16 +1246,37 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
         totalLiterBBM,
         rataRataEfisiensiBBM,
       },
+      conversionFunnel: {
+        stages: funnelStages,
+        overallConversionRate,
+        totalRevenueLeakage: leakageUnpaid,
+        activeVelocityDays: 21,
+      },
+      sesiFunnel,
+      unitEconomics: {
+        arpu,
+        avgCostPerSiswa,
+        grossMarginPerSesi,
+        fleetUtilizationRate,
+        instructorAvgLoad,
+      },
+      agingPiutang: {
+        totalPiutang,
+        siswaUnpaidCount: debtorsList.length,
+        brackets: agingBrackets,
+        topDebtors: debtorsList.slice(0, 8),
+      },
+      bottlenecks,
       siswaGrowth: {
         byChannel,
         byPackage,
         byPaymentStatus,
         completionRate: {
           totalSiswa,
-          siswaLulus: lunasCount,
-          siswaOnProgress: dpCount,
+          siswaLulus: graduatedCount,
+          siswaOnProgress: activeScheduledCount,
           siswaBelumJadwal: belumBayarCount,
-          rate: totalSiswa > 0 ? Math.round((lunasCount / totalSiswa) * 100) : 0,
+          rate: overallConversionRate,
         },
         monthlyTrend: monthlyTrendSiswa,
       },
