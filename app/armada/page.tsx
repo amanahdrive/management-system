@@ -34,6 +34,9 @@ import {
   Calendar,
   Layers,
   Zap,
+  ArrowRight,
+  Check,
+  Plus,
 } from 'lucide-react';
 
 type ArmadaTab = 'armada' | 'trip' | 'bbm' | 'perawatan' | 'inspeksi';
@@ -62,6 +65,7 @@ export default function ArmadaPwaPage() {
 
   const [loading, setLoading] = React.useState(true);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [toast, setToast] = React.useState<string | null>(null);
 
   // Modals & Drawers State
   const [showIncidentModal, setShowIncidentModal] = React.useState(false);
@@ -71,6 +75,11 @@ export default function ArmadaPwaPage() {
   // PWA Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
   const [showInstallModal, setShowInstallModal] = React.useState(false);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
 
   // Load All Fleet Data
   const loadFleetData = React.useCallback(async () => {
@@ -151,10 +160,21 @@ export default function ArmadaPwaPage() {
   ];
 
   return (
-    <div className="min-h-screen pb-24 relative selection:bg-emerald-500/20">
-      {/* 1. Header Cockpit dengan Live WIB Theme Scheduler */}
+    <div className="min-h-screen bg-[var(--bg-subtle)] text-[var(--text-primary)] pb-32 relative selection:bg-emerald-500/20">
+      {/* Toast Notification (Mirip PWA Finance) */}
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-emerald-950/90 backdrop-blur-md text-emerald-200 text-xs font-bold rounded-full shadow-2xl border border-emerald-500/40 flex items-center gap-2 animate-fadeIn">
+          <Check className="w-3.5 h-3.5 text-emerald-400" />
+          <span>{toast}</span>
+        </div>
+      )}
+
+      {/* 1. Header Cockpit dengan Sapaan "Selamat Pagi, Alfi" & Live WIB Theme Switcher */}
       <FleetCockpitHeader
-        onRefresh={loadFleetData}
+        onRefresh={() => {
+          loadFleetData();
+          showToast('Data armada berhasil disinkronkan!');
+        }}
         isRefreshing={isRefreshing}
         onOpenIncident={() => {
           sound.click();
@@ -171,71 +191,140 @@ export default function ArmadaPwaPage() {
         canInstall={!!deferredPrompt}
       />
 
-      <main className="max-w-4xl mx-auto px-3.5 pt-3.5 space-y-4">
-        {/* 2. Quick KPI / Telemetry Summary Bar */}
-        <div className="grid grid-cols-4 gap-2">
-          {/* Card 1: Armada Siap / Jalan */}
-          <div className="p-2.5 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] shadow-xs space-y-0.5">
-            <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">
-              <Car className="w-3 h-3 text-emerald-500" />
-              <span className="truncate">Armada</span>
+      {/* Main Content Area Container (Max-W-MD Mirip Finance & Console Mobile) */}
+      <main className="max-w-md mx-auto p-4 space-y-4">
+        {/* 2. Hero Cockpit Card (Mirip Hero Card Saldo di PWA Finance) */}
+        <div className="p-6 rounded-3xl bg-linear-to-br from-[#0F7A73] via-[#0D6B65] to-[#084844] text-white shadow-[0_16px_40px_rgba(15,122,115,0.22),_inset_0_1.5px_1.5px_rgba(255,255,255,0.3)] border border-white/20 space-y-4 animate-fadeIn">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold tracking-wider uppercase opacity-85">
+              Status Armada Operasional
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full text-[9.5px] font-extrabold bg-white/20 backdrop-blur-xs flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Realtime • WIB</span>
+            </span>
+          </div>
+
+          <div
+            onClick={() => {
+              sound.click();
+              setActiveTab('trip');
+            }}
+            className="cursor-pointer group"
+            title="Klik untuk melihat log trip & odometer harian"
+          >
+            <div className="flex items-center justify-between">
+              <div className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums font-mono group-hover:underline">
+                +{telemetry.totalKmHariIni}{' '}
+                <span className="text-sm font-normal opacity-85">KM</span>
+              </div>
+              <span className="text-[10px] font-bold bg-white/20 px-2.5 py-0.5 rounded-full backdrop-blur-xs">
+                {telemetry.unitSiapJalan}/{telemetry.totalUnit} Siap Jalan
+              </span>
             </div>
-            <div className="text-sm font-black font-mono text-[var(--text-primary)]">
-              {telemetry.unitSiapJalan}
-              <span className="text-[10px] font-medium text-[var(--text-muted)] ml-0.5">/{telemetry.totalUnit}</span>
-            </div>
-            <div className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 truncate">
-              {telemetry.unitSedangTrip > 0 ? `${telemetry.unitSedangTrip} Di Jalan` : 'Siap Jalan'}
+            <div className="text-[11px] opacity-80 mt-1 font-medium">
+              {telemetry.unitSedangTrip > 0
+                ? `${telemetry.unitSedangTrip} unit armada sedang dipakai di lapangan`
+                : 'Semua armada standby di basecamp'}
             </div>
           </div>
 
-          {/* Card 2: KM Hari Ini */}
-          <div className="p-2.5 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] shadow-xs space-y-0.5">
-            <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">
-              <TrendingUp className="w-3 h-3 text-[var(--brand-primary)]" />
-              <span className="truncate">KM Hari Ini</span>
-            </div>
-            <div className="text-sm font-black font-mono text-[var(--text-primary)]">
-              +{telemetry.totalKmHariIni}
-              <span className="text-[9px] font-bold text-[var(--text-muted)] ml-0.5">KM</span>
-            </div>
-            <div className="text-[9px] text-[var(--text-muted)] truncate">Trip harian</div>
-          </div>
-
-          {/* Card 3: BBM Hari Ini */}
-          <div className="p-2.5 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] shadow-xs space-y-0.5">
-            <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">
-              <Fuel className="w-3 h-3 text-cyan-500" />
-              <span className="truncate">BBM Hari Ini</span>
-            </div>
-            <div className="text-sm font-black font-mono text-[var(--text-primary)] truncate">
-              {telemetry.bbmHariIniNominal > 0 ? formatRupiah(telemetry.bbmHariIniNominal) : 'Rp 0'}
-            </div>
-            <div className="text-[9px] text-[var(--text-muted)] truncate">
-              {telemetry.bbmHariIniLiter > 0 ? `${telemetry.bbmHariIniLiter} L` : 'Belum ada'}
-            </div>
-          </div>
-
-          {/* Card 4: Status Peringatan Servis / Cuci */}
-          <div className="p-2.5 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] shadow-xs space-y-0.5">
-            <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">
-              <Wrench className="w-3 h-3 text-amber-500" />
-              <span className="truncate">Servis</span>
-            </div>
-            <div className="text-sm font-black font-mono text-[var(--text-primary)]">
-              {telemetry.unitButuhServis > 0 ? (
-                <span className="text-rose-600 dark:text-rose-400 flex items-center gap-0.5">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  {telemetry.unitButuhServis}
+          {/* Sub-cards: BBM Hari Ini vs Status Servis (Mirip Saldo Tunai vs Bank di Finance) */}
+          <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/20 text-xs">
+            {/* Sub-Card 1: BBM Hari Ini */}
+            <div
+              onClick={() => {
+                sound.click();
+                setActiveTab('bbm');
+              }}
+              className="bg-black/20 hover:bg-black/30 rounded-2xl p-3 cursor-pointer transition-all border border-white/10 space-y-1"
+              title="Klik untuk input pengisian BBM armada"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] opacity-80 font-medium">BBM Hari Ini</span>
+                <span className="text-[9px] bg-white/20 px-1.5 py-0.2 rounded-full font-bold inline-flex items-center gap-0.5">
+                  <span>Isi</span>
+                  <ArrowRight className="w-2.5 h-2.5" />
                 </span>
-              ) : (
-                <span className="text-emerald-600 dark:text-emerald-400">Aman</span>
-              )}
+              </div>
+              <div className="font-bold text-sm tabular-nums truncate">
+                {telemetry.bbmHariIniNominal > 0 ? formatRupiah(telemetry.bbmHariIniNominal) : 'Rp 0'}
+              </div>
+              <div className="text-[9px] opacity-75 truncate">
+                {telemetry.bbmHariIniLiter > 0 ? `${telemetry.bbmHariIniLiter} Liter` : 'Belum ada isi bensin'}
+              </div>
             </div>
-            <div className="text-[9px] text-[var(--text-muted)] truncate">
-              {telemetry.cuciPerluTindakan > 0 ? `${telemetry.cuciPerluTindakan} Perlu Cuci` : 'Semua Bersih'}
+
+            {/* Sub-Card 2: Status Servis & Cuci */}
+            <div
+              onClick={() => {
+                sound.click();
+                setActiveTab('perawatan');
+              }}
+              className="bg-black/20 hover:bg-black/30 rounded-2xl p-3 cursor-pointer transition-all border border-white/10 space-y-1"
+              title="Klik untuk cek status servis oli & cuci"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] opacity-80 font-medium">Servis & Ban</span>
+                <span className="text-[9px] bg-white/20 px-1.5 py-0.2 rounded-full font-bold inline-flex items-center gap-0.5">
+                  <span>Cek</span>
+                  <ArrowRight className="w-2.5 h-2.5" />
+                </span>
+              </div>
+              <div className="font-bold text-sm truncate">
+                {telemetry.unitButuhServis > 0 ? (
+                  <span className="text-amber-300 flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    {telemetry.unitButuhServis} Perlu Servis
+                  </span>
+                ) : (
+                  <span className="text-emerald-200">Semua Prima</span>
+                )}
+              </div>
+              <div className="text-[9px] opacity-75 truncate">
+                {telemetry.cuciPerluTindakan > 0 ? `${telemetry.cuciPerluTindakan} Perlu Dicuci` : 'Kondisi Bersih'}
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* Quick 1-Tap Action Pills (Thumb-Friendly Bar) */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+          <button
+            type="button"
+            onClick={() => {
+              sound.click();
+              setShowScheduleDrawer(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--card-bg)] hover:bg-black/5 dark:hover:bg-white/5 border border-[var(--border)] text-xs font-bold text-[var(--text-primary)] shrink-0 transition-all active:scale-95 shadow-2xs"
+          >
+            <Calendar className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+            <span>Jadwal Mobil</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              sound.click();
+              setActiveTab('inspeksi');
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--card-bg)] hover:bg-black/5 dark:hover:bg-white/5 border border-[var(--border)] text-xs font-bold text-[var(--text-primary)] shrink-0 transition-all active:scale-95 shadow-2xs"
+          >
+            <ClipboardCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Checklist Fisik</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              sound.click();
+              setShowIncidentModal(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/15 border border-rose-500/30 text-xs font-bold text-rose-600 dark:text-rose-400 shrink-0 transition-all active:scale-95 shadow-2xs"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
+            <span>Lapor Insiden</span>
+          </button>
         </div>
 
         {/* 3. Sub-Menu View Tabs (Segmented Control Futuristik) */}
@@ -250,7 +339,7 @@ export default function ArmadaPwaPage() {
                   sound.click();
                   setActiveTab(t.id);
                 }}
-                className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all active:scale-95 whitespace-nowrap ${
+                className={`flex-1 py-2 px-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all active:scale-95 whitespace-nowrap ${
                   isActive
                     ? 'bg-[var(--card-bg)] text-[var(--text-primary)] shadow-sm border border-[var(--border)]'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
@@ -274,7 +363,7 @@ export default function ArmadaPwaPage() {
             ))}
           </div>
         ) : (
-          <div>
+          <div className="animate-fadeIn">
             {/* SUB-MENU 1: STATUS & TELEMETRI ARMADA */}
             {activeTab === 'armada' && (
               <FleetTelemetryCards
@@ -331,9 +420,9 @@ export default function ArmadaPwaPage() {
         )}
       </main>
 
-      {/* 5. Liquid Glass Bottom Navigation Dock */}
+      {/* 5. Liquid Glass Bottom Navigation Dock (Mirip PWA Finance & Amanah Drive Mobile) */}
       <nav className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] inset-x-0 z-40 flex justify-center px-3 pointer-events-none select-none">
-        <div className="pointer-events-auto relative w-full max-w-sm h-14 bg-[var(--liquid-glass-dock-bg)] backdrop-blur-2xl rounded-2xl border border-[var(--border)] shadow-xl flex items-center justify-around px-2">
+        <div className="pointer-events-auto relative w-full max-w-md h-16 bg-[var(--liquid-glass-dock-bg)] backdrop-blur-2xl rounded-3xl border border-[var(--liquid-glass-border)] shadow-[0_12px_36px_rgba(0,0,0,0.18)] flex items-center justify-around px-2">
           {TABS.map((t) => {
             const isActive = activeTab === t.id;
             return (
@@ -344,17 +433,17 @@ export default function ArmadaPwaPage() {
                   sound.click();
                   setActiveTab(t.id);
                 }}
-                className={`relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all active:scale-95 ${
+                className={`relative flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl transition-all active:scale-95 ${
                   isActive
                     ? 'text-emerald-600 dark:text-emerald-400 font-black'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] font-semibold'
                 }`}
               >
                 {isActive && (
-                  <span className="absolute -top-1 w-5 h-1 bg-emerald-500 rounded-full shadow-glow" />
+                  <span className="absolute -top-1 w-6 h-1 bg-emerald-500 rounded-full shadow-[0_0_12px_rgba(16,185,129,0.8)]" />
                 )}
                 <div className="w-5 h-5 flex items-center justify-center">{t.icon}</div>
-                <span className="text-[10px] tracking-tight">{t.label}</span>
+                <span className="text-[10px] tracking-tight mt-0.5">{t.label}</span>
               </button>
             );
           })}
