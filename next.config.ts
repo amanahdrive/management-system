@@ -4,10 +4,18 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
+  productionBrowserSourceMaps: false,
   serverExternalPackages: ['pg'],
   experimental: {
     cpus: 4,
     optimizePackageImports: ['lucide-react', 'recharts'],
+  },
+  outputFileTracingExcludes: {
+    '*': [
+      'node_modules/@swc/core-win32-x64-msvc',
+      'node_modules/@esbuild',
+      'node_modules/webpack',
+    ],
   },
   images: {
     formats: ['image/avif', 'image/webp'],

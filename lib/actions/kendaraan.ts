@@ -3,7 +3,7 @@
 import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheInvalidate } from '@/lib/utils/cache';
 import { getTodayDateString, addDaysToDateStr } from '@/lib/utils/date';
-import { KendaraanBan, HargaBBM, KendaraanLogHarian } from '@/types/database';
+import { KendaraanBan, HargaBBM, KendaraanLogHarian, KendaraanInspeksi, Kendaraan } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 
 function safeRevalidatePath(path: string) {
@@ -1105,5 +1105,355 @@ export async function getArmadaOperasionalMonthlyStats(
     };
   }
 }
+
+// ============================================================
+// PIC ARMADA — INSPEKSI FISIK & TELEMETRI HARIAN
+// ============================================================
+
+export interface FleetPicTelemetrySummary {
+  totalUnit: number;
+  unitSiapJalan: number;
+  unitSedangTrip: number;
+  unitButuhServis: number;
+  totalKmHariIni: number;
+  bbmHariIniNominal: number;
+  bbmHariIniLiter: number;
+  insidenPending: number;
+  cuciPerluTindakan: number;
+  activeTripUnits: {
+    kendaraanId: string;
+    namaKendaraan: string;
+    platNomor: string;
+    logId: string;
+    tanggal: string;
+    odometerOut: number;
+  }[];
+}
+
+/**
+ * Mengambil daftar checklist inspeksi fisik armada
+ */
+export async function getKendaraanInspeksiList(filter?: {
+  kendaraanId?: string;
+  tanggal?: string;
+  limit?: number;
+}): Promise<KendaraanInspeksi[]> {
+  try {
+    let query = `
+      SELECT 
+        i.*,
+        json_build_object(
+          'id', k.id,
+          'nama_kendaraan', k.nama_kendaraan,
+          'plat_nomor', k.plat_nomor,
+          'tipe_transmisi', k.tipe_transmisi,
+          'warna', k.warna
+        ) AS kendaraan
+      FROM kendaraan_inspeksi i
+      JOIN kendaraan k ON i.kendaraan_id = k.id
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+
+    if (filter?.kendaraanId && filter.kendaraanId !== 'semua') {
+      params.push(filter.kendaraanId);
+      query += ` AND i.kendaraan_id = $${params.length}`;
+    }
+
+    if (filter?.tanggal) {
+      params.push(filter.tanggal);
+      query += ` AND i.tanggal = $${params.length}`;
+    }
+
+    query += ` ORDER BY i.tanggal DESC, i.created_at DESC`;
+
+    if (filter?.limit) {
+      params.push(filter.limit);
+      query += ` LIMIT $${params.length}`;
+    }
+
+    const rows = await dbQuery<KendaraanInspeksi>(query, params);
+    return rows;
+  } catch (err) {
+    console.error('Error in getKendaraanInspeksiList:', err);
+    return [];
+  }
+}
+
+/**
+ * Menyimpan catatan checklist inspeksi harian armada
+ */
+export async function saveKendaraanInspeksi(
+  data: Partial<KendaraanInspeksi> & { kendaraan_id: string; pic_nama: string }
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const tanggal = data.tanggal || getTodayDateString();
+    const waktuShift = data.waktu_shift || 'pagi';
+    const picNama = data.pic_nama.trim() || 'PIC Armada';
+    const odo = data.odometer_inspeksi ? Number(data.odometer_inspeksi) : null;
+    const kondisiMesin = data.kondisi_mesin || 'baik';
+    const kondisiRem = data.kondisi_rem || 'baik';
+    const kondisiBan = data.kondisi_ban || 'baik';
+    const kondisiKelistrikan = data.kondisi_kelistrikan || 'baik';
+    const kondisiAc = data.kondisi_ac || 'baik';
+    const kondisiPedalGanda = data.kondisi_pedal_ganda || 'baik';
+    const kebersihan = data.kebersihan || 'bersih';
+    const stnkLengkap = data.stnk_lengkap ?? true;
+    const p3kDanAlat = data.p3k_dan_alat ?? true;
+    const statusKelayakan = data.status_kelayakan || 'siap_jalan';
+    const catatan = data.catatan || null;
+    const itemsChecklist = JSON.stringify(data.items_checklist || {});
+
+    let res: { id: string } | null = null;
+
+    if (data.id) {
+      await dbQuery(
+        `UPDATE kendaraan_inspeksi
+         SET 
+           kendaraan_id = $1,
+           tanggal = $2,
+           waktu_shift = $3,
+           pic_nama = $4,
+           odometer_inspeksi = $5,
+           kondisi_mesin = $6,
+           kondisi_rem = $7,
+           kondisi_ban = $8,
+           kondisi_kelistrikan = $9,
+           kondisi_ac = $10,
+           kondisi_pedal_ganda = $11,
+           kebersihan = $12,
+           stnk_lengkap = $13,
+           p3k_dan_alat = $14,
+           status_kelayakan = $15,
+           catatan = $16,
+           items_checklist = $17::jsonb,
+           updated_at = NOW()
+         WHERE id = $18`,
+        [
+          data.kendaraan_id,
+          tanggal,
+          waktuShift,
+          picNama,
+          odo,
+          kondisiMesin,
+          kondisiRem,
+          kondisiBan,
+          kondisiKelistrikan,
+          kondisiAc,
+          kondisiPedalGanda,
+          kebersihan,
+          stnkLengkap,
+          p3kDanAlat,
+          statusKelayakan,
+          catatan,
+          itemsChecklist,
+          data.id,
+        ]
+      );
+      res = { id: data.id };
+    } else {
+      res = await dbQuerySingle<{ id: string }>(
+        `INSERT INTO kendaraan_inspeksi (
+           kendaraan_id, tanggal, waktu_shift, pic_nama, odometer_inspeksi,
+           kondisi_mesin, kondisi_rem, kondisi_ban, kondisi_kelistrikan, kondisi_ac, kondisi_pedal_ganda,
+           kebersihan, stnk_lengkap, p3k_dan_alat, status_kelayakan, catatan, items_checklist
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb)
+         RETURNING id`,
+        [
+          data.kendaraan_id,
+          tanggal,
+          waktuShift,
+          picNama,
+          odo,
+          kondisiMesin,
+          kondisiRem,
+          kondisiBan,
+          kondisiKelistrikan,
+          kondisiAc,
+          kondisiPedalGanda,
+          kebersihan,
+          stnkLengkap,
+          p3kDanAlat,
+          statusKelayakan,
+          catatan,
+          itemsChecklist,
+        ]
+      );
+    }
+
+    // Jika odometer inspeksi diisi dan lebih tinggi dari odometer sekarang, update status terkini
+    if (odo !== null && odo > 0) {
+      await dbQuery(
+        `UPDATE kendaraan_status
+         SET odometer_terkini = GREATEST(COALESCE(odometer_terkini, 0), $1), updated_at = NOW()
+         WHERE kendaraan_id = $2`,
+        [odo, data.kendaraan_id]
+      );
+    }
+
+    cacheInvalidate('kendaraan*');
+    safeRevalidatePath('/armada');
+    safeRevalidatePath('/kendaraan');
+
+    return { success: true, id: res?.id };
+  } catch (err: any) {
+    console.error('Error in saveKendaraanInspeksi:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Hapus catatan inspeksi
+ */
+export async function deleteKendaraanInspeksi(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    await dbQuery('DELETE FROM kendaraan_inspeksi WHERE id = $1', [id]);
+    safeRevalidatePath('/armada');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Ringkasan telemetri terpadu untuk Dashboard PWA PIC Armada
+ */
+export async function getFleetPicTelemetrySummary(): Promise<FleetPicTelemetrySummary> {
+  try {
+    const today = getTodayDateString();
+
+    // 1. Ambil daftar armada dan statusnya
+    const vehicles = await dbQuery<{
+      id: string;
+      nama_kendaraan: string;
+      plat_nomor: string;
+      aktif: boolean;
+      odometer_terkini: number;
+      oli_km_terakhir: number | null;
+      cuci_tanggal_terakhir: string | null;
+    }>(`
+      SELECT 
+        k.id, k.nama_kendaraan, k.plat_nomor, k.aktif,
+        COALESCE(ks.odometer_terkini, 0) AS odometer_terkini,
+        ks.oli_km_terakhir,
+        ks.cuci_tanggal_terakhir
+      FROM kendaraan k
+      LEFT JOIN kendaraan_status ks ON k.id = ks.kendaraan_id
+      WHERE k.aktif = true
+      ORDER BY k.nama_kendaraan ASC
+    `);
+
+    // 2. Ambil trip yang sedang berjalan hari ini / terbaru (odometer_basecamp_out ada, tapi in null)
+    const activeTrips = await dbQuery<{
+      kendaraan_id: string;
+      id: string;
+      tanggal: string;
+      odometer_basecamp_out: number;
+      nama_kendaraan: string;
+      plat_nomor: string;
+    }>(`
+      SELECT 
+        l.kendaraan_id, l.id, l.tanggal, l.odometer_basecamp_out,
+        k.nama_kendaraan, k.plat_nomor
+      FROM kendaraan_log_harian l
+      JOIN kendaraan k ON l.kendaraan_id = k.id
+      WHERE l.odometer_basecamp_out IS NOT NULL 
+        AND l.odometer_basecamp_in IS NULL
+      ORDER BY l.tanggal DESC, l.created_at DESC
+    `);
+
+    // 3. Hitung total jarak tempuh hari ini
+    const todayKmRes = await dbQuerySingle<{ total_km: number }>(`
+      SELECT COALESCE(SUM(jarak_tempuh), 0)::integer AS total_km
+      FROM kendaraan_log_harian
+      WHERE tanggal = $1
+    `, [today]);
+    const totalKmHariIni = Number(todayKmRes?.total_km || 0);
+
+    // 4. Hitung BBM hari ini
+    const todayBbmRes = await dbQuerySingle<{ total_nom: number; total_lit: number }>(`
+      SELECT 
+        COALESCE(SUM(bbm_nominal), 0)::integer AS total_nom,
+        COALESCE(SUM(bbm_liter), 0)::numeric AS total_lit
+      FROM kendaraan_log_harian
+      WHERE tanggal = $1
+    `, [today]);
+    const bbmHariIniNominal = Number(todayBbmRes?.total_nom || 0);
+    const bbmHariIniLiter = Number(todayBbmRes?.total_lit || 0);
+
+    // 5. Insiden pending / dilaporkan
+    const incidentRes = await dbQuerySingle<{ count: number }>(`
+      SELECT COUNT(*)::integer AS count
+      FROM insiden
+      WHERE status_penanganan IN ('dilaporkan', 'investigasi', 'proses_perbaikan')
+    `);
+    const insidenPending = Number(incidentRes?.count || 0);
+
+    // 6. Analisis servis oli & cuci per unit
+    let unitButuhServis = 0;
+    let cuciPerluTindakan = 0;
+
+    const todayDateObj = new Date(today);
+
+    for (const v of vehicles) {
+      // Oli interval 5.000 km
+      if (v.oli_km_terakhir !== null) {
+        const diffOli = v.odometer_terkini - v.oli_km_terakhir;
+        if (diffOli >= 4500) {
+          unitButuhServis++;
+        }
+      }
+
+      // Cuci > 7 hari yang lalu atau null
+      if (!v.cuci_tanggal_terakhir) {
+        cuciPerluTindakan++;
+      } else {
+        const cuciDate = new Date(v.cuci_tanggal_terakhir);
+        const daysSinceWash = Math.floor((todayDateObj.getTime() - cuciDate.getTime()) / (1000 * 3600 * 24));
+        if (daysSinceWash >= 7) {
+          cuciPerluTindakan++;
+        }
+      }
+    }
+
+    const unitSedangTrip = activeTrips.length;
+    const unitSiapJalan = Math.max(0, vehicles.length - unitSedangTrip);
+
+    return {
+      totalUnit: vehicles.length,
+      unitSiapJalan,
+      unitSedangTrip,
+      unitButuhServis,
+      totalKmHariIni,
+      bbmHariIniNominal,
+      bbmHariIniLiter,
+      insidenPending,
+      cuciPerluTindakan,
+      activeTripUnits: activeTrips.map((t) => ({
+        kendaraanId: t.kendaraan_id,
+        namaKendaraan: t.nama_kendaraan,
+        platNomor: t.plat_nomor,
+        logId: t.id,
+        tanggal: t.tanggal,
+        odometerOut: Number(t.odometer_basecamp_out),
+      })),
+    };
+  } catch (err) {
+    console.error('Error in getFleetPicTelemetrySummary:', err);
+    return {
+      totalUnit: 0,
+      unitSiapJalan: 0,
+      unitSedangTrip: 0,
+      unitButuhServis: 0,
+      totalKmHariIni: 0,
+      bbmHariIniNominal: 0,
+      bbmHariIniLiter: 0,
+      insidenPending: 0,
+      cuciPerluTindakan: 0,
+      activeTripUnits: [],
+    };
+  }
+}
+
 
 

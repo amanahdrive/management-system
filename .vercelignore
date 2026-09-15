@@ -1,0 +1,23 @@
+# Vercel Deployment Optimization - Ignore non-production & heavy files
+# This prevents uploading unnecessary files to Vercel build container,
+# reducing build archive size and deployment storage footprint.
+
+# Dev & AI config
+.agents
+.cursor
+.git
+
+# Standalone mobile app (Expo / React Native)
+mobile-finance/
+
+# Documentation
+docs/
+scripts/
+*.md
+
+# Root design files (served via CDN or public/ folder)
+assets/
+staff_models/
+
+# Temporary / audit reports
+public/audit_report.html

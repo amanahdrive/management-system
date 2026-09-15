@@ -213,6 +213,30 @@ export interface KendaraanLogHarian {
   kendaraan?: Kendaraan;
 }
 
+export interface KendaraanInspeksi {
+  id: string;
+  kendaraan_id: string;
+  tanggal: string;
+  waktu_shift: 'pagi' | 'sore' | 'malam';
+  pic_nama: string;
+  odometer_inspeksi: number | null;
+  kondisi_mesin: 'baik' | 'waspada' | 'perlu_tindakan';
+  kondisi_rem: 'baik' | 'waspada' | 'perlu_tindakan';
+  kondisi_ban: 'baik' | 'waspada' | 'perlu_tindakan';
+  kondisi_kelistrikan: 'baik' | 'waspada' | 'perlu_tindakan';
+  kondisi_ac: 'baik' | 'waspada' | 'perlu_tindakan';
+  kondisi_pedal_ganda: 'baik' | 'waspada' | 'perlu_tindakan';
+  kebersihan: 'bersih' | 'cukup' | 'kotor';
+  stnk_lengkap: boolean;
+  p3k_dan_alat: boolean;
+  status_kelayakan: 'siap_jalan' | 'waspada' | 'tidak_layak';
+  catatan: string | null;
+  items_checklist?: Record<string, boolean>;
+  created_at: string;
+  updated_at: string;
+  kendaraan?: Kendaraan;
+}
+
 export interface JadwalSesi {
   id: string;
   siswa_id: string;

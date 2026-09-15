@@ -162,6 +162,23 @@ class SoundEngine {
       // Ignore
     }
   }
+
+  // Convenient aliases for UI micro-interactions
+  public click() {
+    this.playTactileClick();
+  }
+
+  public pop() {
+    this.playMechanicalTick();
+  }
+
+  public chime() {
+    this.playConfirmChime();
+  }
+
+  public trash() {
+    this.playMechanicalTick();
+  }
 }
 
 export const sound = new SoundEngine();

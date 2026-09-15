@@ -12,7 +12,7 @@ import { FleetOperationalOverview } from '@/components/kendaraan/FleetOperationa
 import { FleetSettingsModal } from '@/components/kendaraan/FleetSettingsModal';
 import {
   Car, Fuel, Gauge, Wrench, ArrowRight, AlertOctagon,
-  Settings2, BarChart3, ListOrdered,
+  Settings2, BarChart3, ListOrdered, Smartphone,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -58,6 +58,16 @@ export default function KendaraanPage() {
         description="Pantau total biaya per km, per sesi, cadangan maintenance, dan efisiensi BBM seluruh armada"
         actions={
           <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              href="/armada"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95"
+              title="Buka PWA PIC Armada khusus perangkat mobile / operasional lapangan"
+            >
+              <Smartphone className="w-4 h-4" />
+              <span>Buka PWA PIC Armada</span>
+            </Link>
             <button
               type="button"
               onClick={() => setIsSettingsOpen(true)}

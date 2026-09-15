@@ -1,0 +1,52 @@
+{
+  "id": "/armada",
+  "name": "Portal PIC Armada — Amanah Drive",
+  "short_name": "Armada AD",
+  "description": "PWA Manajemen Operasional, Telemetri, Odometer & Servis Armada Amanah Drive",
+  "start_url": "/armada",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#080B12",
+  "theme_color": "#0F7A73",
+  "categories": ["business", "utilities", "productivity"],
+  "icons": [
+    {
+      "src": "/assets/app-icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "256x256",
+      "type": "image/x-icon"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Catat Odometer",
+      "short_name": "Odometer",
+      "description": "Catat Odometer Keluar / Masuk Armada",
+      "url": "/armada?tab=trip"
+    },
+    {
+      "name": "Isi BBM",
+      "short_name": "BBM",
+      "description": "Catat Pengisian Bensin Armada",
+      "url": "/armada?tab=bbm"
+    },
+    {
+      "name": "Inspeksi Fisik",
+      "short_name": "Inspeksi",
+      "description": "Checklist Inspeksi Harian Kendaraan",
+      "url": "/armada?tab=inspeksi"
+    }
+  ]
+}

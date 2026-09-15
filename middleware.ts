@@ -53,6 +53,35 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // Matches armada. subdomain OR armada- project URL on Vercel
+  if (
+    hostname.startsWith('armada.') ||
+    hostname.startsWith('armada-') ||
+    hostname.includes('armada.management-amanahdrive.vercel.app') ||
+    hostname.includes('armada-management-amanahdrive.vercel.app')
+  ) {
+    const url = request.nextUrl.clone();
+    if (url.pathname === '/') {
+      url.pathname = '/armada';
+      return NextResponse.rewrite(url);
+    }
+    const isAllowedArmadaRoute =
+      url.pathname === '/armada' ||
+      url.pathname.startsWith('/armada/') ||
+      url.pathname === '/kendaraan' ||
+      url.pathname.startsWith('/kendaraan/') ||
+      url.pathname === '/insiden' ||
+      url.pathname.startsWith('/insiden/') ||
+      url.pathname.startsWith('/api') ||
+      url.pathname.startsWith('/_next') ||
+      url.pathname.startsWith('/assets');
+
+    if (!isAllowedArmadaRoute) {
+      url.pathname = '/armada';
+      return NextResponse.redirect(url);
+    }
+  }
+
   return NextResponse.next();
 }
 
