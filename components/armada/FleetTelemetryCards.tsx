@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Kendaraan, KendaraanStatus } from '@/types/database';
-import { formatRupiah } from '@/lib/utils/currency';
+import Image from 'next/image';
+import { Kendaraan } from '@/types/database';
 import { formatDateIndo } from '@/lib/utils/date';
 import { sound } from '@/lib/sound/SoundFX';
 import {
@@ -11,13 +11,7 @@ import {
   Wrench,
   Fuel,
   Sparkles,
-  Disc,
-  Clock,
-  AlertTriangle,
-  CheckCircle2,
-  ChevronRight,
   Plus,
-  Zap,
 } from 'lucide-react';
 
 interface FleetTelemetryCardsProps {
@@ -26,8 +20,8 @@ interface FleetTelemetryCardsProps {
   onOpenBbmModal: (k: Kendaraan) => void;
   onOpenOliModal: (k: Kendaraan) => void;
   onOpenCuciModal: (k: Kendaraan) => void;
-  onOpenBanModal: (k: Kendaraan) => void;
-  onOpenInspeksiModal: (k: Kendaraan) => void;
+  onOpenBanModal?: (k: Kendaraan) => void;
+  onOpenInspeksiModal?: (k: Kendaraan) => void;
 }
 
 export function FleetTelemetryCards({
@@ -36,272 +30,193 @@ export function FleetTelemetryCards({
   onOpenBbmModal,
   onOpenOliModal,
   onOpenCuciModal,
-  onOpenBanModal,
-  onOpenInspeksiModal,
 }: FleetTelemetryCardsProps) {
-  const [selectedTransmission, setSelectedTransmission] = React.useState<'semua' | 'manual' | 'matic'>('semua');
-
-  const filtered = kendaraanList.filter((k) => {
-    if (selectedTransmission === 'semua') return true;
-    return k.tipe_transmisi === selectedTransmission;
-  });
-
   return (
-    <div className="space-y-4">
-      {/* Filter Transmisi & Ringkasan Unit */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-1.5 p-1 bg-black/5 dark:bg-white/5 rounded-xl border border-[var(--border)]">
-          {(['semua', 'manual', 'matic'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => {
-                sound.click();
-                setSelectedTransmission(t);
-              }}
-              className={`px-3 py-1 text-xs font-bold rounded-lg capitalize transition-all active:scale-95 ${
-                selectedTransmission === t
-                  ? 'bg-[var(--card-bg)] text-[var(--text-primary)] shadow-xs border border-[var(--border)]'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              {t === 'semua' ? `Semua (${kendaraanList.length})` : t}
-            </button>
-          ))}
-        </div>
-
-        <span className="text-[11px] font-medium text-[var(--text-muted)]">
-          {filtered.length} Unit Armada Terpantau
+    <div className="space-y-3 font-sans">
+      <div className="flex items-center justify-between text-xs text-[var(--text-secondary)] px-1">
+        <span className="font-semibold text-[var(--text-primary)]">
+          Status Armada Aktif ({kendaraanList.length})
         </span>
+        <span>Operasional Harian</span>
       </div>
 
-      {/* Grid Kartu Armada (Compact & Futuristik) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-        {filtered.map((k) => {
+      <div className="space-y-3">
+        {kendaraanList.map((k) => {
           const status = k.status;
           const currentOdo = status?.odometer_terkini || 0;
           const lastOliKm = status?.oli_km_terakhir || null;
           const kmSinceOli = lastOliKm !== null ? Math.max(0, currentOdo - lastOliKm) : 0;
-          const oilAlert = lastOliKm !== null && kmSinceOli >= 4500;
-          const oilCritical = lastOliKm !== null && kmSinceOli >= 5000;
+          const sisaOliKm = lastOliKm !== null ? Math.max(0, 5000 - kmSinceOli) : null;
 
           return (
             <div
               key={k.id}
-              className="card-container relative overflow-hidden bg-[var(--card-bg)] border border-[var(--border)] rounded-2xl p-4 shadow-sm hover:border-emerald-500/40 transition-all space-y-3.5 group"
+              className="bg-[var(--card-bg)] border border-[var(--border)] rounded-2xl p-4 shadow-xs space-y-3 transition-colors"
             >
-              {/* Subtle top indicator bar */}
-              <div
-                className={`absolute top-0 inset-x-0 h-1 ${
-                  oilCritical
-                    ? 'bg-rose-500 animate-pulse'
-                    : oilAlert
-                    ? 'bg-amber-500'
-                    : 'bg-emerald-500'
-                }`}
-              />
-
-              {/* Header Kartu: Plat Nomor & Model */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black border border-emerald-500/20 shrink-0">
-                    <Car className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <h4 className="text-base font-black tracking-tight text-[var(--text-primary)]">
-                        {k.plat_nomor}
-                      </h4>
-                      <span
-                        className={`px-1.5 py-0.5 text-[10px] font-extrabold uppercase rounded-md ${
-                          k.tipe_transmisi === 'manual'
-                            ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                            : 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20'
-                        }`}
-                      >
+              {/* Header Mobil: Foto WebP Realistis, Nama, Plat & Tombol Input Odo */}
+              <div className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--border)]">
+                <div className="flex items-center gap-3 min-w-0">
+                  {k.foto_url ? (
+                    <div className="w-14 h-10 relative shrink-0">
+                      <Image
+                        src={k.foto_url}
+                        alt={k.nama_kendaraan}
+                        fill
+                        className="object-contain"
+                        sizes="60px"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-black/5 dark:bg-white/5 flex items-center justify-center shrink-0">
+                      <Car className="w-5 h-5 text-[var(--brand-primary)]" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-sm text-[var(--text-primary)] truncate">
+                        {k.nama_kendaraan}
+                      </h3>
+                      <span className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">
                         {k.tipe_transmisi}
                       </span>
                     </div>
-                    <p className="text-xs text-[var(--text-secondary)] font-medium">
-                      {k.nama_kendaraan} • {k.tahun_produksi || 'Operasional'}
-                    </p>
+                    <div className="text-xs font-mono font-bold text-[var(--brand-primary)]">
+                      {k.plat_nomor}
+                    </div>
                   </div>
                 </div>
 
-                {/* Status Badge */}
-                <div className="text-right">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    Siap Jalan
-                  </span>
-                </div>
-              </div>
-
-              {/* Odometer Banner (Angka Tabular Futuristik) */}
-              <div className="p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-[var(--border)] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Gauge className="w-4 h-4 text-[var(--brand-primary)]" />
-                  <span className="text-[11px] font-medium text-[var(--text-muted)]">Odometer Terkini</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-base font-black font-mono tracking-tight text-[var(--text-primary)]">
-                    {currentOdo.toLocaleString('id-ID')}
-                  </span>
-                  <span className="text-[10px] font-bold text-[var(--text-muted)] ml-1">KM</span>
-                </div>
-              </div>
-
-              {/* 4 Telemetry Mini Tiles */}
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {/* 1. Servis Oli */}
-                <div
-                  className={`p-2 rounded-xl border transition-all ${
-                    oilCritical
-                      ? 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400'
-                      : oilAlert
-                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400'
-                      : 'bg-black/5 dark:bg-white/5 border-[var(--border)] text-[var(--text-secondary)]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-bold flex items-center gap-1">
-                      <Wrench className="w-3 h-3" />
-                      Servis Oli
-                    </span>
-                    {oilCritical && <AlertTriangle className="w-3 h-3 animate-bounce" />}
-                  </div>
-                  <div className="font-mono font-bold text-[11px]">
-                    {lastOliKm !== null ? `${kmSinceOli.toLocaleString('id-ID')} km / 5.000` : 'Belum tercatat'}
-                  </div>
-                  <div className="text-[9px] opacity-75 truncate">
-                    {oilCritical
-                      ? '⚠️ Lewat 5.000 km!'
-                      : oilAlert
-                      ? 'Mendekati Servis'
-                      : lastOliKm !== null
-                      ? `Sisa ${(5000 - kmSinceOli).toLocaleString('id-ID')} km`
-                      : 'Perlu Input Odo Servis'}
-                  </div>
-                </div>
-
-                {/* 2. Pengisian BBM */}
-                <div className="p-2 rounded-xl border border-[var(--border)] bg-black/5 dark:bg-white/5 text-[var(--text-secondary)]">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-bold flex items-center gap-1">
-                      <Fuel className="w-3 h-3 text-emerald-500" />
-                      BBM Terakhir
-                    </span>
-                  </div>
-                  <div className="font-mono font-bold text-[11px] truncate">
-                    {status?.bensin_nominal_terakhir
-                      ? formatRupiah(status.bensin_nominal_terakhir)
-                      : 'Belum terisi'}
-                  </div>
-                  <div className="text-[9px] text-[var(--text-muted)] truncate">
-                    {status?.bensin_liter_terakhir
-                      ? `${status.bensin_liter_terakhir} L (${status.bensin_jenis_terakhir || 'Pertalite'})`
-                      : 'Belum ada log BBM'}
-                  </div>
-                </div>
-
-                {/* 3. Cuci Mobil */}
-                <div className="p-2 rounded-xl border border-[var(--border)] bg-black/5 dark:bg-white/5 text-[var(--text-secondary)]">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-bold flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-cyan-500" />
-                      Cuci Mobil
-                    </span>
-                  </div>
-                  <div className="font-bold text-[11px] truncate">
-                    {status?.cuci_tanggal_terakhir
-                      ? formatDateIndo(status.cuci_tanggal_terakhir)
-                      : 'Belum dicuci'}
-                  </div>
-                  <div className="text-[9px] text-[var(--text-muted)]">
-                    {status?.cuci_tanggal_terakhir ? 'Bersih & Prima' : 'Jadwalkan Cuci'}
-                  </div>
-                </div>
-
-                {/* 4. Kondisi Ban */}
-                <div className="p-2 rounded-xl border border-[var(--border)] bg-black/5 dark:bg-white/5 text-[var(--text-secondary)]">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-bold flex items-center gap-1">
-                      <Disc className="w-3 h-3 text-indigo-500" />
-                      Kondisi Ban
-                    </span>
-                  </div>
-                  <div className="font-bold text-[11px] truncate">
-                    5 Titik Roda
-                  </div>
-                  <div className="text-[9px] text-emerald-600 dark:text-emerald-400 font-medium">
-                    ✓ Siap Dipakai
-                  </div>
-                </div>
-              </div>
-
-              {/* Compact Quick Action Buttons Row (Thumb-Friendly) */}
-              <div className="pt-1 flex items-center gap-1.5 flex-wrap">
+                {/* Tombol Cepat 1-Klik: Input Odometer untuk mobil ini */}
                 <button
                   type="button"
                   onClick={() => {
                     sound.click();
                     onOpenOdoModal(k);
                   }}
-                  className="flex-1 min-w-[75px] py-1.5 px-2 rounded-xl bg-[var(--bg)] hover:bg-black/5 dark:hover:bg-white/5 border border-[var(--border)] text-[11px] font-bold text-[var(--text-primary)] flex items-center justify-center gap-1 transition-all active:scale-95 shadow-xs"
+                  className="px-3 py-1.5 rounded-xl bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all active:scale-95 shadow-xs"
                 >
-                  <Gauge className="w-3 h-3 text-[var(--brand-primary)]" />
-                  <span>+ Odo</span>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Input Odo</span>
                 </button>
+              </div>
 
+              {/* 4 Data Kunci: Penyebutan Sama Persis dengan Console Utama (/kendaraan) */}
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                {/* 1. Odometer Terkini */}
+                <div className="flex items-start gap-2">
+                  <Gauge className="w-4 h-4 text-[var(--text-secondary)] shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-[var(--text-secondary)] block">
+                      Odometer Terkini
+                    </span>
+                    <span className="font-bold font-mono text-[var(--text-primary)] text-sm">
+                      {currentOdo.toLocaleString('id-ID')} km
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. Oli Terakhir */}
+                <div className="flex items-start gap-2">
+                  <Wrench className="w-4 h-4 text-[var(--text-secondary)] shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-[var(--text-secondary)] block">
+                      Oli Terakhir
+                    </span>
+                    <span className="font-semibold text-[var(--text-primary)] truncate block">
+                      {formatDateIndo(status?.oli_tanggal_terakhir)}
+                    </span>
+                    {sisaOliKm !== null && (
+                      <span className="text-[9.5px] text-[var(--text-muted)] block">
+                        Sisa {sisaOliKm.toLocaleString('id-ID')} km
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Cuci Mobil Terakhir */}
+                <div className="flex items-start gap-2 pt-2 border-t border-[var(--border)]">
+                  <Sparkles className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-[var(--text-secondary)] block">
+                      Cuci Mobil Terakhir
+                    </span>
+                    <span className="font-semibold text-[var(--text-primary)] truncate block">
+                      {status?.cuci_tanggal_terakhir
+                        ? formatDateIndo(status.cuci_tanggal_terakhir)
+                        : '-'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 4. BBM Terakhir (Compact) */}
+                <div className="flex items-start gap-2 pt-2 border-t border-[var(--border)]">
+                  <Fuel className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-[var(--text-secondary)] block">
+                        BBM Terakhir
+                      </span>
+                      {status?.bensin_tanggal_terakhir && (
+                        <span className="text-[9.5px] text-[var(--text-secondary)]">
+                          {formatDateIndo(status.bensin_tanggal_terakhir)}
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400 truncate block text-[11px]">
+                      {status?.bensin_nominal_terakhir || status?.bensin_liter_terakhir ? (
+                        <>
+                          {status.bensin_jenis_terakhir
+                            ? status.bensin_jenis_terakhir.toUpperCase()
+                            : 'BBM'}
+                          {status.bensin_liter_terakhir ? ` (${status.bensin_liter_terakhir} L)` : ''}
+                          {status.bensin_nominal_terakhir
+                            ? ` • Rp ${Number(status.bensin_nominal_terakhir).toLocaleString('id-ID')}`
+                            : ''}
+                        </>
+                      ) : (
+                        '-'
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub-actions Cepat: BBM, Servis & Cuci */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)] text-[11px]">
                 <button
                   type="button"
                   onClick={() => {
                     sound.click();
                     onOpenBbmModal(k);
                   }}
-                  className="flex-1 min-w-[75px] py-1.5 px-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/25 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1 transition-all active:scale-95 shadow-xs"
+                  className="text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-1"
                 >
-                  <Fuel className="w-3 h-3 text-emerald-500" />
+                  <Fuel className="w-3 h-3" />
                   <span>+ BBM</span>
                 </button>
-
+                <span className="text-[var(--border)]">•</span>
                 <button
                   type="button"
                   onClick={() => {
                     sound.click();
                     onOpenOliModal(k);
                   }}
-                  className="py-1.5 px-2.5 rounded-xl bg-[var(--bg)] hover:bg-black/5 dark:hover:bg-white/5 border border-[var(--border)] text-[11px] font-bold text-[var(--text-primary)] flex items-center gap-1 transition-all active:scale-95 shadow-xs"
-                  title="Servis Oli"
+                  className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-semibold flex items-center gap-1"
                 >
-                  <Wrench className="w-3 h-3 text-amber-500" />
-                  <span>Oli</span>
+                  <Wrench className="w-3 h-3" />
+                  <span>Servis Oli</span>
                 </button>
-
+                <span className="text-[var(--border)]">•</span>
                 <button
                   type="button"
                   onClick={() => {
                     sound.click();
                     onOpenCuciModal(k);
                   }}
-                  className="py-1.5 px-2.5 rounded-xl bg-[var(--bg)] hover:bg-black/5 dark:hover:bg-white/5 border border-[var(--border)] text-[11px] font-bold text-[var(--text-primary)] flex items-center gap-1 transition-all active:scale-95 shadow-xs"
-                  title="Catat Cuci Mobil"
+                  className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-semibold flex items-center gap-1"
                 >
-                  <Sparkles className="w-3 h-3 text-cyan-500" />
-                  <span>Cuci</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.click();
-                    onOpenInspeksiModal(k);
-                  }}
-                  className="py-1.5 px-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/15 border border-indigo-500/25 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 transition-all active:scale-95 shadow-xs"
-                  title="Inspeksi Fisik"
-                >
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>Inspeksi</span>
+                  <Sparkles className="w-3 h-3" />
+                  <span>Catat Cuci</span>
                 </button>
               </div>
             </div>

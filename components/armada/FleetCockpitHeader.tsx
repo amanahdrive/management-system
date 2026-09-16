@@ -1,9 +1,8 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
-import { WibThemeToggle } from './WibThemeToggle';
+import { useTheme } from 'next-themes';
 import { sound } from '@/lib/sound/SoundFX';
 import {
   Volume2,
@@ -11,16 +10,15 @@ import {
   RefreshCw,
   Download,
   ArrowLeft,
-  Calendar,
-  ShieldAlert,
-  Car,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 interface FleetCockpitHeaderProps {
   onRefresh: () => void;
   isRefreshing: boolean;
-  onOpenIncident: () => void;
-  onOpenSchedule: () => void;
+  onOpenIncident?: () => void;
+  onOpenSchedule?: () => void;
   onInstallPwa?: () => void;
   canInstall?: boolean;
 }
@@ -28,17 +26,32 @@ interface FleetCockpitHeaderProps {
 export function FleetCockpitHeader({
   onRefresh,
   isRefreshing,
-  onOpenIncident,
-  onOpenSchedule,
   onInstallPwa,
   canInstall = false,
 }: FleetCockpitHeaderProps) {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = React.useState(false);
   const [isMuted, setIsMuted] = React.useState(sound.getMuted());
+
+  React.useEffect(() => {
+    setMounted(true);
+    // Background auto-switch sesuai jam WIB (18:00 WIB dark, 06:00 WIB light) jika belum ada preference
+    try {
+      const saved = localStorage.getItem('amanah_armada_theme_mode');
+      if (!saved) {
+        const now = new Date();
+        const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+        const wib = new Date(utc + 7 * 3600000);
+        const h = wib.getHours();
+        const scheduled = h >= 6 && h < 18 ? 'light' : 'dark';
+        setTheme(scheduled);
+      }
+    } catch {}
+  }, [setTheme]);
 
   // Dynamic WIB Greeting (Selamat Pagi / Siang / Sore / Malam)
   const greeting = React.useMemo(() => {
     const now = new Date();
-    // Convert to Jakarta WIB (UTC+7)
     const utc = now.getTime() + now.getTimezoneOffset() * 60000;
     const wib = new Date(utc + 7 * 3600000);
     const h = wib.getHours();
@@ -48,6 +61,15 @@ export function FleetCockpitHeader({
     return 'Selamat Malam';
   }, []);
 
+  const toggleTheme = () => {
+    sound.click();
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    try {
+      localStorage.setItem('amanah_armada_theme_mode', next);
+    } catch {}
+  };
+
   const toggleAudio = () => {
     const next = sound.toggleMute();
     setIsMuted(next);
@@ -56,77 +78,88 @@ export function FleetCockpitHeader({
     }
   };
 
+  const isDark = mounted && theme === 'dark';
+
   return (
-    <header className="sticky top-0 z-30 bg-[var(--liquid-glass-bg)] backdrop-blur-2xl border-b border-[var(--liquid-glass-border)] px-4 py-3 shadow-xs transition-colors duration-200">
-      <div className="max-w-md mx-auto flex items-center justify-between gap-2">
-        {/* Sisi Kiri: Logo + Sapaan "Selamat Pagi, Alfi" Mirip PWA Finance */}
+    <header className="sticky top-0 z-30 bg-[var(--bg)]/90 backdrop-blur-md border-b border-[var(--border)] px-4 py-2.5 transition-colors">
+      <div className="max-w-md mx-auto flex items-center justify-between gap-3">
+        {/* Sisi Kiri: Sapaan Alfi + Identitas Armada */}
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#0F7A73] to-[#0A5954] border border-white/20 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[var(--brand-primary)] text-white flex items-center justify-center font-bold text-xs shrink-0 tracking-tight">
             AD
           </div>
           <div className="min-w-0">
-            <div className="text-[10px] text-[var(--text-secondary)] font-semibold flex items-center gap-1 truncate">
+            <div className="text-[11px] text-[var(--text-secondary)] font-medium flex items-center gap-1.5 truncate">
               <span>{greeting}, Alfi</span>
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
             </div>
-            <h1 className="text-xs font-black tracking-tight text-[var(--brand-primary)] uppercase truncate">
-              Amanah Drive Armada
+            <h1 className="text-xs font-bold tracking-tight text-[var(--text-primary)] uppercase truncate">
+              PIC Armada
             </h1>
           </div>
         </div>
 
-        {/* Sisi Kanan: Tombol Admin, Refresh, Theme WIB & Suara */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Tombol Cepat Kembali ke Admin Console (Mirip PWA Finance) */}
+        {/* Sisi Kanan: Tombol Admin, Refresh, Theme Toggle Sederhana & Audio */}
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Link ke Dashboard Admin Kendaraan */}
           <Link
             href="/kendaraan"
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-emerald-500/10 text-[var(--text-secondary)] hover:text-emerald-700 dark:hover:text-emerald-300 text-[11px] font-semibold transition-all active:scale-95 cursor-pointer"
-            title="Kembali ke Dashboard Manajemen Armada"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5 text-[11px] font-semibold transition-all active:scale-95"
+            title="Buka Console Manajemen Armada"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline">Admin</span>
+            <span>Admin</span>
           </Link>
 
-          {/* Tombol Install PWA jika tersedia */}
-          {canInstall && onInstallPwa && (
-            <button
-              type="button"
-              onClick={onInstallPwa}
-              className="p-2 rounded-xl border border-emerald-500/30 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all active:scale-95"
-              title="Pasang Aplikasi ke Layar Utama"
-            >
-              <Download className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          {/* Tombol Refresh Data */}
+          {/* Tombol Refresh */}
           <button
             type="button"
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="p-2 rounded-xl border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 text-[var(--text-secondary)] transition-all active:scale-95"
-            title="Perbarui Data Armada"
+            className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5 transition-all active:scale-95"
+            title="Perbarui Data"
+            aria-label="Perbarui Data"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[var(--brand-primary)]' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[var(--brand-primary)]' : ''}`} />
           </button>
 
-          {/* WIB Scheduled Theme Toggle */}
-          <WibThemeToggle compact />
+          {/* Ikon Tema Sederhana (Sun/Moon - Tanpa Indikator WIB / Dropdown) */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5 transition-all active:scale-95"
+            title={isDark ? 'Beralih ke Mode Terang' : 'Beralih ke Mode Gelap'}
+            aria-label="Toggle Theme"
+          >
+            {isDark ? (
+              <Sun className="w-4 h-4 text-amber-400" />
+            ) : (
+              <Moon className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+            )}
+          </button>
 
-          {/* Tombol Audio / Sound FX */}
+          {/* Audio Toggle */}
           <button
             type="button"
             onClick={toggleAudio}
-            className={`p-2 rounded-xl border text-[var(--text-secondary)] transition-all active:scale-95 shadow-xs ${
-              isMuted
-                ? 'border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 opacity-60'
-                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-            }`}
-            title={isMuted ? 'Aktifkan Efek Suara Haptic' : 'Matikan Suara'}
-            aria-label="Toggle Sound"
+            className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5 transition-all active:scale-95"
+            title={isMuted ? 'Aktifkan Suara' : 'Matikan Suara'}
+            aria-label="Toggle Audio"
           >
-            {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            {isMuted ? <VolumeX className="w-4 h-4 opacity-50" /> : <Volume2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
           </button>
+
+          {/* Install PWA (jika tersedia) */}
+          {canInstall && onInstallPwa && (
+            <button
+              type="button"
+              onClick={onInstallPwa}
+              className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-all active:scale-95"
+              title="Pasang PWA"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     </header>
