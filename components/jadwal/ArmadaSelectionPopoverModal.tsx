@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import { Kendaraan } from '@/types/database';
 import { getKendaraanImage } from '@/lib/utils/vehicle';
 import { sound } from '@/lib/sound/SoundFX';
@@ -142,14 +141,21 @@ export function ArmadaSelectionPopoverModal({
                       : 'border-[var(--border)] bg-[var(--card-bg)] hover:border-emerald-500/50 hover:bg-black/5 dark:hover:bg-white/5'
                   }`}
                 >
-                  {/* Visual Gambar Realistik Mobil */}
-                  <div className="relative w-24 h-16 sm:w-28 sm:h-18 shrink-0 rounded-xl overflow-hidden bg-gradient-to-b from-white/40 to-transparent dark:from-white/5 flex items-center justify-center p-1">
-                    <Image
+                  {/* Visual Gambar Realistik Mobil (WebP Ringan & Bebas Background) */}
+                  <div className="relative w-24 h-16 sm:w-28 sm:h-20 shrink-0 rounded-2xl overflow-hidden bg-gradient-to-b from-black/5 to-transparent dark:from-white/5 border border-[var(--border)] flex items-center justify-center p-1">
+                    <img
                       src={carImg}
                       alt={k.nama_kendaraan}
-                      width={120}
-                      height={80}
-                      className="w-full h-full object-contain filter drop-shadow-md group-hover:scale-105 transition-transform duration-200"
+                      className="w-full h-full object-contain filter drop-shadow-md group-hover:scale-105 transition-transform duration-200 select-none"
+                      loading="eager"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        const isAyla = k.nama_kendaraan.toLowerCase().includes('ayla');
+                        const fallbackUrl = isAyla ? '/assets/gambar-ayla.webp' : '/assets/gambar-xenia.webp';
+                        if (target.src !== fallbackUrl) {
+                          target.src = fallbackUrl;
+                        }
+                      }}
                     />
                   </div>
 
