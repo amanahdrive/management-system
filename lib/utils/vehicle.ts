@@ -93,3 +93,22 @@ export function formatCarOptionsLabel(jenisMobil?: string[]): string {
 
   return parts.length > 0 ? parts.join(', ') : 'Semua Mobil';
 }
+
+/**
+ * Mendapatkan path gambar realistis untuk armada kendaraan berdasarkan foto_url atau nama kendaraan
+ * (gambar realistis yang telah disiapkan di assets: /assets/gambar-ayla.png dan /assets/gambar-xenia.png)
+ */
+export function getKendaraanImage(kendaraan?: { nama_kendaraan?: string; foto_url?: string | null } | null): string {
+  if (kendaraan?.foto_url && kendaraan.foto_url.trim().length > 0) {
+    return kendaraan.foto_url;
+  }
+  const name = (kendaraan?.nama_kendaraan || '').toLowerCase();
+  if (name.includes('xenia') || name.includes('avanza') || name.includes('innova')) {
+    return '/assets/gambar-xenia.png';
+  }
+  if (name.includes('ayla') || name.includes('agya') || name.includes('brio') || name.includes('calya')) {
+    return '/assets/gambar-ayla.png';
+  }
+  return '/assets/gambar-ayla.png';
+}
+

@@ -951,9 +951,6 @@ export default function JadwalDetailPage() {
                                 checked={!isPribadi}
                                 onChange={() => {
                                   handleFieldChange(sesi.id, 'tipe_kendaraan', 'operasional');
-                                  if (!workingData.kendaraan_id) {
-                                    handleFieldChange(sesi.id, 'kendaraan_id', kendaraanList[0]?.id || null);
-                                  }
                                 }}
                                 className="sr-only"
                               />
@@ -993,9 +990,10 @@ export default function JadwalDetailPage() {
                             </label>
                             <select
                               value={workingData.kendaraan_id || ''}
-                              onChange={(e) => handleFieldChange(sesi.id, 'kendaraan_id', e.target.value)}
+                              onChange={(e) => handleFieldChange(sesi.id, 'kendaraan_id', e.target.value || null)}
                               className="w-full px-3 py-1.5 rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
                             >
+                              <option value="">-- Belum Dipilih (Dipilih saat Sesi Selesai) --</option>
                               {kendaraanList.map((k) => (
                                 <option key={k.id} value={k.id}>
                                   {k.nama_kendaraan} — {k.plat_nomor}
@@ -1367,10 +1365,11 @@ export default function JadwalDetailPage() {
                         <select
                           value={bulkFormData.kendaraan_id || ''}
                           onChange={(e) =>
-                            setBulkFormData((prev) => ({ ...prev, kendaraan_id: e.target.value }))
+                            setBulkFormData((prev) => ({ ...prev, kendaraan_id: e.target.value || null }))
                           }
                           className="w-full px-3 py-1.5 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
                         >
+                          <option value="">-- Belum Dipilih (Dipilih saat Sesi Selesai) --</option>
                           {kendaraanList.map((k) => (
                             <option key={k.id} value={k.id}>
                               {k.nama_kendaraan} — {k.plat_nomor}

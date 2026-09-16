@@ -23,6 +23,7 @@ import {
   generateWhatsAppRecapText,
 } from '@/lib/actions/jadwal';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { ArmadaSelectionPopoverModal } from '@/components/jadwal/ArmadaSelectionPopoverModal';
 import { getInstrukturList, getSlotWaktuList, getKendaraanMasterList } from '@/lib/actions/master-data';
 import { getSiswaList } from '@/lib/actions/siswa';
 import {
@@ -146,6 +147,7 @@ export default function JadwalPage() {
   const [progressSlotWaktuId, setProgressSlotWaktuId] = React.useState<string>('');
   const [isReschedulingProgress, setIsReschedulingProgress] = React.useState<boolean>(false);
   const [rescheduleShiftDays, setRescheduleShiftDays] = React.useState<number>(1);
+  const [isArmadaPopoverOpen, setIsArmadaPopoverOpen] = React.useState<boolean>(false);
 
   // Bulk Progress Update State
   const [selectedSesiIds, setSelectedSesiIds] = React.useState<string[]>([]);
@@ -162,7 +164,7 @@ export default function JadwalPage() {
   const [formData, setFormData] = React.useState<Partial<JadwalSesi>>({
     tanggal_sesi: getTodayDateString(),
     tipe_kendaraan: 'operasional',
-    kendaraan_id: '',
+    kendaraan_id: null as any,
     jenis_mobil: 'manual',
     total_sesi_paket: 10,
     status_sesi: 'terjadwal',
@@ -703,7 +705,7 @@ export default function JadwalPage() {
       staff_id: firstIns?.id || '',
       slot_waktu_id: firstSlot?.id || '',
       tipe_kendaraan: 'operasional',
-      kendaraan_id: kendaraanList[0]?.id || '',
+      kendaraan_id: null as any,
       jenis_mobil: 'manual',
       total_sesi_paket: totalSesi,
       status_sesi: 'terjadwal',
@@ -721,6 +723,7 @@ export default function JadwalPage() {
     setProgressSlotWaktuId(jadwal.slot_waktu_id || '');
     setIsReschedulingProgress(false);
     setRescheduleShiftDays(1);
+    setIsArmadaPopoverOpen(false);
   };
 
   // Switch session number inside progress modal and preload its respective date, instructor, and slot
@@ -738,8 +741,12 @@ export default function JadwalPage() {
     }
   };
 
-  // Save Progress Action (updates status, date, instructor, slot in database and history)
-  const handleSaveProgressStatus = async (status: 'selesai' | 'batal' | 'terjadwal') => {
+  // Save Progress Action (updates status, date, instructor, slot, vehicle in database and history)
+  const handleSaveProgressStatus = async (
+    status: 'selesai' | 'batal' | 'terjadwal',
+    kendaraanId?: string | null,
+    tipeKendaraan?: 'operasional' | 'pribadi'
+  ) => {
     if (!progressModalJadwal || !progressModalJadwal.siswa_id) return;
 
     await updateSesiProgress(
@@ -750,11 +757,14 @@ export default function JadwalPage() {
       {
         staff_id: progressStaffId || null,
         slot_waktu_id: progressSlotWaktuId || null,
+        kendaraan_id: kendaraanId !== undefined ? kendaraanId : (status === 'selesai' ? (progressModalJadwal.kendaraan_id || null) : null),
+        tipe_kendaraan: tipeKendaraan !== undefined ? tipeKendaraan : (progressModalJadwal.tipe_kendaraan || 'operasional'),
       }
     );
 
     setProgressModalJadwal(null);
     setIsReschedulingProgress(false);
+    setIsArmadaPopoverOpen(false);
     loadData();
   };
 
@@ -1902,8 +1912,9 @@ export default function JadwalPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <button
                   type="button"
-                  onClick={() => handleSaveProgressStatus('selesai')}
-                  className="px-2.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg flex items-center justify-center gap-1 shadow-sm"
+                  onClick={() => setIsArmadaPopoverOpen(true)}
+                  className="px-2.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg flex items-center justify-center gap-1 shadow-sm transition-all active:scale-95 cursor-pointer"
+                  title="Tandai Selesai & Pilih Armada Mobil Realistik"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Selesai</span>
@@ -2027,6 +2038,27 @@ export default function JadwalPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Popover / Modal Pilihan Armada Realistik untuk Progress Sesi Selesai di Console Utama */}
+      {isArmadaPopoverOpen && progressModalJadwal && (
+        <ArmadaSelectionPopoverModal
+          isOpen={isArmadaPopoverOpen}
+          onClose={() => setIsArmadaPopoverOpen(false)}
+          onConfirm={async (kId, tipe) => {
+            await handleSaveProgressStatus('selesai', kId, tipe);
+          }}
+          kendaraanList={kendaraanList}
+          sessionInfo={{
+            namaSiswa: progressModalJadwal.siswa?.nama,
+            nomorSesi: progressSesiKe,
+            totalSesi: progressModalJadwal.total_sesi_paket,
+            slotWaktu: slotList.find((s) => s.id === progressSlotWaktuId)?.nama_slot,
+            tanggal: formatDateIndo(progressTanggal),
+          }}
+          initialKendaraanId={progressModalJadwal.kendaraan_id}
+          initialTipeKendaraan={progressModalJadwal.tipe_kendaraan || 'operasional'}
+        />
       )}
 
       {/* MODAL COPY WA SCHEDULE (HARIAN, MINGGUAN MINGGU-SABTU, RENTANG TANGGAL, & REKAP SLOT) */}
@@ -2589,88 +2621,76 @@ export default function JadwalPage() {
                 </div>
               </div>
 
-              {/* 3. Pilihan Mobil Operasional vs Mobil Pribadi & Dropdown Armada */}
-              <div className="p-3 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-xl space-y-2.5">
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">
-                    Tipe Kendaraan Operasional / Pribadi *
+              {/* 3. Tipe Mobil (Operasional vs Pribadi) - Pilihan armada spesifik tidak diperlukan lagi di awal */}
+              <div className="p-3.5 bg-[var(--bg-subtle)] border border-[var(--border)] rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-[var(--text-primary)]">
+                    Tipe Kendaraan Latihan *
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <label
-                      className={`flex items-center justify-center gap-2 p-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
-                        (formData.tipe_kendaraan || 'operasional') === 'operasional'
-                          ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] shadow-xs'
-                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="tipe_kendaraan"
-                        value="operasional"
-                        checked={(formData.tipe_kendaraan || 'operasional') === 'operasional'}
-                        onChange={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            tipe_kendaraan: 'operasional',
-                            kendaraan_id: prev.kendaraan_id || kendaraanList[0]?.id || '',
-                          }))
-                        }
-                        className="sr-only"
-                      />
-                      <Car className="w-4 h-4" />
-                      <span>Mobil Operasional</span>
-                    </label>
-
-                    <label
-                      className={`flex items-center justify-center gap-2 p-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
-                        formData.tipe_kendaraan === 'pribadi'
-                          ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shadow-xs'
-                          : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)]'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="tipe_kendaraan"
-                        value="pribadi"
-                        checked={formData.tipe_kendaraan === 'pribadi'}
-                        onChange={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            tipe_kendaraan: 'pribadi',
-                            kendaraan_id: null as any,
-                          }))
-                        }
-                        className="sr-only"
-                      />
-                      <UserCheck className="w-4 h-4" />
-                      <span>Mobil Pribadi / Siswa</span>
-                    </label>
-                  </div>
+                  <span className="text-[10.5px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    <span>Armada dipilih saat sesi selesai</span>
+                  </span>
                 </div>
 
-                {/* Dropdown Pilihan Armada Mobil (hanya jika Mobil Operasional) */}
-                {(formData.tipe_kendaraan || 'operasional') === 'operasional' && (
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">
-                      Pilih Armada Mobil Operasional *
-                    </label>
-                    <select
-                      value={formData.kendaraan_id || ''}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, kendaraan_id: e.target.value }))}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] font-bold text-[var(--text-primary)]"
-                    >
-                      {kendaraanList.length === 0 ? (
-                        <option value="">-- Belum ada armada kendaraan terdaftar --</option>
-                      ) : (
-                        kendaraanList.map((k) => (
-                          <option key={k.id} value={k.id}>
-                            {k.nama_kendaraan} — {k.plat_nomor} ({k.tipe_transmisi.toUpperCase()})
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </div>
-                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <label
+                    className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                      (formData.tipe_kendaraan || 'operasional') === 'operasional'
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] shadow-xs ring-1 ring-[var(--brand-primary)]/30'
+                        : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="tipe_kendaraan"
+                      value="operasional"
+                      checked={(formData.tipe_kendaraan || 'operasional') === 'operasional'}
+                      onChange={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          tipe_kendaraan: 'operasional',
+                          kendaraan_id: null as any,
+                        }))
+                      }
+                      className="sr-only"
+                    />
+                    <Car className="w-4 h-4" />
+                    <span>Mobil Operasional</span>
+                  </label>
+
+                  <label
+                    className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                      formData.tipe_kendaraan === 'pribadi'
+                        ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shadow-xs ring-1 ring-purple-500/30'
+                        : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="tipe_kendaraan"
+                      value="pribadi"
+                      checked={formData.tipe_kendaraan === 'pribadi'}
+                      onChange={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          tipe_kendaraan: 'pribadi',
+                          kendaraan_id: null as any,
+                        }))
+                      }
+                      className="sr-only"
+                    />
+                    <UserCheck className="w-4 h-4" />
+                    <span>Mobil Pribadi / Siswa</span>
+                  </label>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-start gap-2 leading-relaxed">
+                  <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <span>
+                    <strong>Pencatatan Armada Otomatis & Akurat:</strong> Pemilihan unit armada mobil spesifik tidak lagi dipilih saat membuat jadwal. Instruktur akan memilih mobil yang dipakai langsung di lapangan saat sesi selesai melalui popover armada realistik.
+                  </span>
+                </div>
               </div>
 
               {/* 4. MULTI-DATE PICKER MATRIX BERDASARKAN TOTAL SESI PAKET */}

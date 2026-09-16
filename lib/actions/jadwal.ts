@@ -204,7 +204,9 @@ export async function getJadwalConflictCheckList(): Promise<JadwalSesi[]> {
 export async function updateJadwalStatus(
   id: string,
   status_sesi: string,
-  catatan_sesi?: string
+  catatan_sesi?: string,
+  kendaraan_id?: string | null,
+  tipe_kendaraan?: 'operasional' | 'pribadi'
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const existing = await dbQuerySingle<{ siswa_id: string }>(
@@ -212,18 +214,37 @@ export async function updateJadwalStatus(
       [id]
     );
 
+    const updateFields: string[] = ['status_sesi = $1', 'catatan_sesi = $2', 'updated_at = NOW()'];
+    const values: any[] = [status_sesi, catatan_sesi || null];
+
+    if (kendaraan_id !== undefined) {
+      values.push(kendaraan_id || null);
+      updateFields.push(`kendaraan_id = $${values.length}`);
+    }
+    if (tipe_kendaraan !== undefined) {
+      values.push(tipe_kendaraan);
+      updateFields.push(`tipe_kendaraan = $${values.length}`);
+    }
+
+    values.push(id);
+
     await dbQuery(
-      'UPDATE jadwal_sesi SET status_sesi = $1, catatan_sesi = $2, updated_at = NOW() WHERE id = $3',
-      [status_sesi, catatan_sesi || null, id]
+      `UPDATE jadwal_sesi SET ${updateFields.join(', ')} WHERE id = $${values.length}`,
+      values
     );
 
     cacheInvalidate('dashboard*');
     cacheInvalidate('jadwal*');
+    cacheInvalidate('kendaraan*');
+    cacheInvalidate('analitik*');
+    cacheInvalidate('armada*');
 
     revalidatePath('/jadwal');
     revalidatePath('/instruktur');
     revalidatePath('/dashboard');
     revalidatePath('/siswa');
+    revalidatePath('/kendaraan');
+    revalidatePath('/armada');
     if (existing?.siswa_id) {
       revalidatePath(`/jadwal/${existing.siswa_id}`);
     }
@@ -498,6 +519,8 @@ export async function updateSesiProgress(
   options?: {
     staff_id?: string | null;
     slot_waktu_id?: string | null;
+    kendaraan_id?: string | null;
+    tipe_kendaraan?: 'operasional' | 'pribadi';
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -519,15 +542,30 @@ export async function updateSesiProgress(
     const targetSlotWaktuId = options?.slot_waktu_id !== undefined ? (options.slot_waktu_id || null) : (existing?.slot_waktu_id || null);
 
     if (existing) {
+      const updates: string[] = ['tanggal_sesi = $1', 'status_sesi = $2', 'staff_id = $3', 'slot_waktu_id = $4', 'updated_at = NOW()'];
+      const values: any[] = [tanggalSesi, statusSesi, targetStaffId, targetSlotWaktuId];
+
+      if (options?.kendaraan_id !== undefined) {
+        values.push(options.kendaraan_id || null);
+        updates.push(`kendaraan_id = $${values.length}`);
+      }
+      if (options?.tipe_kendaraan !== undefined) {
+        values.push(options.tipe_kendaraan);
+        updates.push(`tipe_kendaraan = $${values.length}`);
+      }
+
+      values.push(existing.id);
       await dbQuery(
-        'UPDATE jadwal_sesi SET tanggal_sesi = $1, status_sesi = $2, staff_id = $3, slot_waktu_id = $4, updated_at = NOW() WHERE id = $5',
-        [tanggalSesi, statusSesi, targetStaffId, targetSlotWaktuId, existing.id]
+        `UPDATE jadwal_sesi SET ${updates.join(', ')} WHERE id = $${values.length}`,
+        values
       );
     } else {
+      const kendaraanId = options?.kendaraan_id !== undefined ? (options.kendaraan_id || null) : null;
+      const tipeKendaraan = options?.tipe_kendaraan || 'operasional';
       await dbQuery(
-        `INSERT INTO jadwal_sesi (siswa_id, nomor_sesi_ke, tanggal_sesi, status_sesi, staff_id, slot_waktu_id, total_sesi_paket, jenis_mobil)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'manual')`,
-        [siswaId, nomorSesiKe, tanggalSesi, statusSesi, targetStaffId, targetSlotWaktuId, totalSesiPaket]
+        `INSERT INTO jadwal_sesi (siswa_id, nomor_sesi_ke, tanggal_sesi, status_sesi, staff_id, slot_waktu_id, total_sesi_paket, jenis_mobil, kendaraan_id, tipe_kendaraan)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'manual', $8, $9)`,
+        [siswaId, nomorSesiKe, tanggalSesi, statusSesi, targetStaffId, targetSlotWaktuId, totalSesiPaket, kendaraanId, tipeKendaraan]
       );
     }
 
@@ -537,6 +575,8 @@ export async function updateSesiProgress(
     cacheInvalidate('jadwal*');
     cacheInvalidate('staff*');
     cacheInvalidate('analitik*');
+    cacheInvalidate('kendaraan*');
+    cacheInvalidate('armada*');
 
     revalidatePath('/jadwal');
     revalidatePath(`/jadwal/${siswaId}`);
@@ -544,6 +584,8 @@ export async function updateSesiProgress(
     revalidatePath('/dashboard');
     revalidatePath('/siswa');
     revalidatePath('/analitik');
+    revalidatePath('/kendaraan');
+    revalidatePath('/armada');
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };

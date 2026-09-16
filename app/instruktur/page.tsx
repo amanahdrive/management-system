@@ -2,8 +2,8 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Staff, JadwalSesi } from '@/types/database';
-import { getInstrukturList } from '@/lib/actions/master-data';
+import { Staff, JadwalSesi, Kendaraan } from '@/types/database';
+import { getInstrukturList, getKendaraanMasterList } from '@/lib/actions/master-data';
 import {
   getJadwalByTanggal,
   getJadwalConflictCheckList,
@@ -12,6 +12,7 @@ import {
   getRekapMingguanInstruktur,
   RekapMingguanInstrukturResult,
 } from '@/lib/actions/jadwal';
+import { ArmadaSelectionPopoverModal } from '@/components/jadwal/ArmadaSelectionPopoverModal';
 import {
   getTodayDateString,
   formatDateIndo,
@@ -92,6 +93,10 @@ export default function InstrukturPortalPage() {
   const [rescheduleShiftDays, setRescheduleShiftDays] = React.useState<number>(1);
   const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
 
+  // Master Kendaraan & Armada Popover State
+  const [kendaraanList, setKendaraanList] = React.useState<Kendaraan[]>([]);
+  const [armadaModalJadwal, setArmadaModalJadwal] = React.useState<JadwalSesi | null>(null);
+
   // Weekly Recap State (Sunday to Saturday)
   const [weeklyRecap, setWeeklyRecap] = React.useState<RekapMingguanInstrukturResult | null>(null);
   const [weeklyAnchorDate, setWeeklyAnchorDate] = React.useState<string>(getTodayDateString());
@@ -99,12 +104,16 @@ export default function InstrukturPortalPage() {
 
   const scheduleRef = React.useRef<HTMLDivElement | null>(null);
 
-  // 1. Initial Load Instruktur List
+  // 1. Initial Load Instruktur List & Master Kendaraan
   React.useEffect(() => {
     async function init() {
       setLoadingInstruktur(true);
-      const list = await getInstrukturList();
+      const [list, kList] = await Promise.all([
+        getInstrukturList(),
+        getKendaraanMasterList(),
+      ]);
       setInstrukturList(list);
+      setKendaraanList(kList);
 
       const savedId = localStorage.getItem('amanah_instruktur_id');
       if (savedId && list.some((i) => i.id === savedId)) {
@@ -207,10 +216,16 @@ export default function InstrukturPortalPage() {
     setSelectedInstruktur(null);
   };
 
-  const handleStatusChange = async (jadwalId: string, newStatus: 'terjadwal' | 'selesai' | 'batal', catatan?: string) => {
+  const handleStatusChange = async (
+    jadwalId: string,
+    newStatus: 'terjadwal' | 'selesai' | 'batal',
+    catatan?: string,
+    kendaraanId?: string | null,
+    tipeKendaraan?: 'operasional' | 'pribadi'
+  ) => {
     setIsUpdatingStatus(true);
     try {
-      const res = await updateJadwalStatus(jadwalId, newStatus, catatan);
+      const res = await updateJadwalStatus(jadwalId, newStatus, catatan, kendaraanId, tipeKendaraan);
       if (res.success) {
         sound.playConfirmChime();
         showToast(`Status sesi berhasil diubah ke ${newStatus.toUpperCase()}!`);
@@ -219,6 +234,7 @@ export default function InstrukturPortalPage() {
           loadWeeklyRecap(),
         ]);
         setSelectedJadwalDetail(null);
+        setArmadaModalJadwal(null);
       } else {
         alert('Gagal update status: ' + res.error);
       }
@@ -600,12 +616,31 @@ export default function InstrukturPortalPage() {
                           </div>
                         </div>
 
-                        {jadwal.kendaraan && (
-                          <div className="flex items-center gap-1.5 font-mono text-[11px] text-[var(--text-secondary)]">
-                            <Car className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
-                            <span>Armada: {jadwal.kendaraan.nama_kendaraan} ({jadwal.kendaraan.plat_nomor})</span>
+                        {jadwal.kendaraan ? (
+                          <div
+                            onClick={() => {
+                              sound.playTactileClick();
+                              setArmadaModalJadwal(jadwal);
+                            }}
+                            className="flex items-center gap-1.5 font-mono text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl cursor-pointer hover:bg-emerald-500/20 transition-colors"
+                            title="Klik untuk ganti armada mobil"
+                          >
+                            <Car className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span className="font-bold truncate">Armada: {jadwal.kendaraan.nama_kendaraan} ({jadwal.kendaraan.plat_nomor})</span>
                           </div>
-                        )}
+                        ) : jadwal.tipe_kendaraan === 'pribadi' ? (
+                          <div
+                            onClick={() => {
+                              sound.playTactileClick();
+                              setArmadaModalJadwal(jadwal);
+                            }}
+                            className="flex items-center gap-1.5 font-mono text-[11px] text-purple-700 dark:text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-xl cursor-pointer hover:bg-purple-500/20 transition-colors"
+                            title="Klik untuk ganti tipe mobil"
+                          >
+                            <Car className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                            <span className="font-bold truncate">Mobil Pribadi Siswa</span>
+                          </div>
+                        ) : null}
 
                         {/* 4 Action Buttons Directly Outside on Card */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-[var(--border)]">
@@ -632,19 +667,24 @@ export default function InstrukturPortalPage() {
                             </button>
                           )}
 
-                          {/* 2. Sesi Selesai */}
+                          {/* 2. Sesi Selesai (Buka Popover Pilihan Armada jika belum selesai) */}
                           <button
                             disabled={isUpdatingStatus}
                             onClick={() => {
-                              sound.playConfirmChime();
-                              handleStatusChange(jadwal.id, isDone ? 'terjadwal' : 'selesai');
+                              if (isDone) {
+                                sound.playTactileClick();
+                                handleStatusChange(jadwal.id, 'terjadwal');
+                              } else {
+                                sound.playTactileClick();
+                                setArmadaModalJadwal(jadwal);
+                              }
                             }}
                             className={`py-2 px-2.5 rounded-xl font-mono text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-2xs active:scale-98 ${
                               isDone
                                 ? 'bg-emerald-700 text-white hover:bg-emerald-800'
                                 : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                             }`}
-                            title={isDone ? 'Klik untuk membatalkan status selesai' : 'Tandai sesi ini Selesai'}
+                            title={isDone ? 'Klik untuk membatalkan status selesai' : 'Tandai Selesai & Pilih Armada'}
                           >
                             <Check className="w-3.5 h-3.5 shrink-0" />
                             <span className="truncate">{isDone ? 'Selesai ✓' : 'Sesi Selesai'}</span>
@@ -1099,6 +1139,36 @@ export default function InstrukturPortalPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Popover / Modal Pilihan Armada Saat Sesi Selesai */}
+      {armadaModalJadwal && (
+        <ArmadaSelectionPopoverModal
+          isOpen={!!armadaModalJadwal}
+          onClose={() => setArmadaModalJadwal(null)}
+          onConfirm={(kendaraanId, tipeKendaraan) => {
+            handleStatusChange(
+              armadaModalJadwal.id,
+              'selesai',
+              undefined,
+              kendaraanId,
+              tipeKendaraan
+            );
+          }}
+          kendaraanList={kendaraanList}
+          sessionInfo={{
+            namaSiswa: armadaModalJadwal.siswa?.nama,
+            nomorSesi: armadaModalJadwal.nomor_sesi_ke,
+            totalSesi: armadaModalJadwal.total_sesi_paket,
+            slotWaktu: armadaModalJadwal.slot_waktu
+              ? `${armadaModalJadwal.slot_waktu.jam_mulai} - ${armadaModalJadwal.slot_waktu.jam_selesai}`
+              : undefined,
+            tanggal: formatDateIndo(armadaModalJadwal.tanggal_sesi),
+          }}
+          initialKendaraanId={armadaModalJadwal.kendaraan_id}
+          initialTipeKendaraan={armadaModalJadwal.tipe_kendaraan || 'operasional'}
+          isLoading={isUpdatingStatus}
+        />
       )}
 
       {/* 2. Floating Bottom Navigation Dock */}
