@@ -228,14 +228,23 @@ function ButtonFeedbackInner() {
         ripple.style.background = 'var(--brand-glow, rgba(16, 185, 129, 0.3))';
       }
 
-      if (!target.style.position || target.style.position === 'static') {
+      const computedPos = window.getComputedStyle(target).position;
+      const isStatic = computedPos === 'static';
+      if (isStatic) {
         target.style.position = 'relative';
       }
+      const prevOverflow = target.style.overflow;
       target.style.overflow = 'hidden';
 
       target.appendChild(ripple);
       setTimeout(() => {
         ripple.remove();
+        if (isStatic) {
+          target.style.position = '';
+        }
+        if (!prevOverflow) {
+          target.style.overflow = '';
+        }
       }, 550);
     };
 

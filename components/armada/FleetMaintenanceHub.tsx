@@ -26,6 +26,50 @@ interface FleetMaintenanceHubProps {
   initialKendaraanId?: string;
 }
 
+const POSISI_LABEL_MAP: Record<PosisiBanEnum, string> = {
+  depan_kiri: 'Depan Kiri (FL)',
+  depan_kanan: 'Depan Kanan (FR)',
+  belakang_kiri: 'Belakang Kiri (RL)',
+  belakang_kanan: 'Belakang Kanan (RR)',
+  serep: 'Ban Serep (SP)',
+};
+
+function WheelPill({
+  short,
+  label,
+  isSelected,
+  onClick,
+}: {
+  short: string;
+  label: string;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-28 py-2 px-2 rounded-xl text-center border font-mono transition-colors active:scale-95 shadow-xs cursor-pointer select-none ${
+        isSelected
+          ? 'bg-indigo-600 text-white border-indigo-500 shadow-md ring-2 ring-indigo-400/40 font-bold'
+          : 'bg-[var(--card-bg)] text-[var(--text-primary)] border-[var(--border)] hover:border-indigo-400 hover:bg-black/5 dark:hover:bg-white/5'
+      }`}
+    >
+      <div className="flex items-center justify-center gap-1">
+        <span className="text-xs font-black tracking-wide">{short}</span>
+        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 animate-pulse" />}
+      </div>
+      <div
+        className={`text-[9px] mt-0.5 whitespace-nowrap truncate ${
+          isSelected ? 'text-indigo-100 font-semibold' : 'text-[var(--text-secondary)]'
+        }`}
+      >
+        {label}
+      </div>
+    </button>
+  );
+}
+
 export function FleetMaintenanceHub({
   kendaraanList,
   onRefresh,
@@ -142,14 +186,6 @@ export function FleetMaintenanceHub({
       setIsSavingBan(false);
     }
   };
-
-  const TYRE_POSITIONS: { id: PosisiBanEnum; label: string; short: string; positionClass: string }[] = [
-    { id: 'depan_kiri', label: 'Depan Kiri', short: 'FL', positionClass: 'top-2 left-2' },
-    { id: 'depan_kanan', label: 'Depan Kanan', short: 'FR', positionClass: 'top-2 right-2' },
-    { id: 'belakang_kiri', label: 'Belakang Kiri', short: 'RL', positionClass: 'bottom-2 left-2' },
-    { id: 'belakang_kanan', label: 'Belakang Kanan', short: 'RR', positionClass: 'bottom-2 right-2' },
-    { id: 'serep', label: 'Ban Serep / Cadangan', short: 'SP', positionClass: 'bottom-16 left-1/2 -translate-x-1/2' },
-  ];
 
   return (
     <div className="space-y-4">
@@ -348,47 +384,102 @@ export function FleetMaintenanceHub({
             </div>
 
             {/* Visual Car Silhouette Chassis with 5 Wheels */}
-            <div className="relative w-full max-w-[260px] mx-auto h-52 bg-black/5 dark:bg-white/5 rounded-3xl border-2 border-dashed border-[var(--border)] p-3 flex flex-col justify-between items-center my-2">
-              <span className="text-[9px] font-black tracking-widest text-[var(--text-muted)] uppercase">
+            <div className="w-full max-w-[320px] mx-auto bg-black/5 dark:bg-white/5 rounded-3xl border border-[var(--border)] p-3.5 space-y-3 my-2 shadow-inner">
+              {/* Indikator Depan */}
+              <div className="text-center text-[9px] font-black tracking-widest text-[var(--text-muted)] uppercase">
                 ▲ DEPAN MOBIL ▲
-              </span>
+              </div>
 
-              {/* Central Vehicle Info */}
-              <div className="text-center">
-                <span className="text-xs font-black font-mono text-[var(--text-primary)] block">
+              {/* 1. Gandar Depan (Front Axle) */}
+              <div className="relative flex items-center justify-between">
+                {/* Axle Line */}
+                <div className="absolute left-10 right-10 top-1/2 -translate-y-1/2 h-0.5 bg-[var(--border)] -z-0" />
+
+                <WheelPill
+                  short="FL"
+                  label="Depan Kiri"
+                  isSelected={posisiBan === 'depan_kiri'}
+                  onClick={() => {
+                    sound.click();
+                    setPosisiBan('depan_kiri');
+                  }}
+                />
+
+                <div className="relative z-10 w-6 h-6 rounded-full bg-[var(--card-bg)] border border-[var(--border)] flex items-center justify-center shadow-xs">
+                  <Disc className="w-3.5 h-3.5 text-indigo-500" />
+                </div>
+
+                <WheelPill
+                  short="FR"
+                  label="Depan Kanan"
+                  isSelected={posisiBan === 'depan_kanan'}
+                  onClick={() => {
+                    sound.click();
+                    setPosisiBan('depan_kanan');
+                  }}
+                />
+              </div>
+
+              {/* 2. Badan Mobil / Plat Nomor */}
+              <div className="mx-6 py-2 px-3 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] text-center shadow-xs">
+                <span className="text-xs font-black font-mono text-[var(--text-primary)] block tracking-wider">
                   {selectedKendaraan.plat_nomor}
                 </span>
-                <span className="text-[10px] text-[var(--text-muted)] block">
+                <span className="text-[10px] text-[var(--text-muted)] block truncate">
                   {selectedKendaraan.nama_kendaraan}
                 </span>
               </div>
 
-              <span className="text-[9px] font-black tracking-widest text-[var(--text-muted)] uppercase">
-                ▼ BELAKANG MOBIL ▼
-              </span>
+              {/* 3. Gandar Belakang (Rear Axle) */}
+              <div className="relative flex items-center justify-between">
+                {/* Axle Line */}
+                <div className="absolute left-10 right-10 top-1/2 -translate-y-1/2 h-0.5 bg-[var(--border)] -z-0" />
 
-              {/* 5 Wheel Buttons */}
-              {TYRE_POSITIONS.map((pos) => {
-                const isSelected = posisiBan === pos.id;
-                return (
-                  <button
-                    key={pos.id}
-                    type="button"
-                    onClick={() => {
-                      sound.click();
-                      setPosisiBan(pos.id);
-                    }}
-                    className={`absolute ${pos.positionClass} px-2 py-1.5 rounded-xl text-center border font-mono transition-all active:scale-95 shadow-xs ${
-                      isSelected
-                        ? 'bg-indigo-600 text-white border-indigo-500 shadow-md ring-2 ring-indigo-400/40'
-                        : 'bg-[var(--card-bg)] text-[var(--text-primary)] border-[var(--border)] hover:border-indigo-400'
-                    }`}
-                  >
-                    <div className="text-[10px] font-black">{pos.short}</div>
-                    <div className="text-[8px] opacity-80 whitespace-nowrap">{pos.label}</div>
-                  </button>
-                );
-              })}
+                <WheelPill
+                  short="RL"
+                  label="Belakang Kiri"
+                  isSelected={posisiBan === 'belakang_kiri'}
+                  onClick={() => {
+                    sound.click();
+                    setPosisiBan('belakang_kiri');
+                  }}
+                />
+
+                <div className="relative z-10 w-6 h-6 rounded-full bg-[var(--card-bg)] border border-[var(--border)] flex items-center justify-center shadow-xs">
+                  <Disc className="w-3.5 h-3.5 text-indigo-500" />
+                </div>
+
+                <WheelPill
+                  short="RR"
+                  label="Belakang Kanan"
+                  isSelected={posisiBan === 'belakang_kanan'}
+                  onClick={() => {
+                    sound.click();
+                    setPosisiBan('belakang_kanan');
+                  }}
+                />
+              </div>
+
+              {/* 4. Dudukan Ban Serep */}
+              <div className="pt-2 border-t border-dashed border-[var(--border)] flex flex-col items-center">
+                <span className="text-[8px] font-bold text-[var(--text-muted)] mb-1 uppercase tracking-wider">
+                  Kompartemen Cadangan
+                </span>
+                <WheelPill
+                  short="SP"
+                  label="Ban Serep"
+                  isSelected={posisiBan === 'serep'}
+                  onClick={() => {
+                    sound.click();
+                    setPosisiBan('serep');
+                  }}
+                />
+              </div>
+
+              {/* Indikator Belakang */}
+              <div className="text-center text-[9px] font-black tracking-widest text-[var(--text-muted)] uppercase">
+                ▼ BELAKANG MOBIL ▼
+              </div>
             </div>
           </div>
 
@@ -402,8 +493,8 @@ export function FleetMaintenanceHub({
                 <Disc className="w-3.5 h-3.5 text-indigo-500" />
                 <span>Catat Penggantian Ban</span>
               </span>
-              <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 capitalize">
-                Posisi: {posisiBan.replace('_', ' ')}
+              <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                Posisi: {POSISI_LABEL_MAP[posisiBan] || posisiBan.replace('_', ' ')}
               </span>
             </h4>
 
