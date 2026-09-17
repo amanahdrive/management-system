@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import { sound } from '@/lib/sound/SoundFX';
 import {
@@ -9,7 +8,6 @@ import {
   VolumeX,
   RefreshCw,
   Download,
-  ArrowLeft,
   Sun,
   Moon,
 } from 'lucide-react';
@@ -99,17 +97,8 @@ export function FleetCockpitHeader({
           </div>
         </div>
 
-        {/* Sisi Kanan: Tombol Admin, Refresh, Theme Toggle Sederhana & Audio */}
+        {/* Sisi Kanan: Refresh, Theme Toggle Sederhana & Audio */}
         <div className="flex items-center gap-1 shrink-0">
-          {/* Link ke Dashboard Admin Kendaraan */}
-          <Link
-            href="/kendaraan"
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5 text-[11px] font-semibold transition-all active:scale-95"
-            title="Buka Console Manajemen Armada"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Admin</span>
-          </Link>
 
           {/* Tombol Refresh */}
           <button

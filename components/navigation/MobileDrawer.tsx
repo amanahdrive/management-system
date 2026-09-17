@@ -79,6 +79,7 @@ const MASTER_SUB_ITEMS = [
 const PWA_SUB_ITEMS = [
   { label: 'Portal Instruktur', href: '/instruktur', icon: ShieldCheck },
   { label: 'PWA Finance', href: '/finance', icon: Wallet },
+  { label: 'PWA Armada', href: '/armada', icon: Car },
 ];
 
 const SETTINGS_SUB_ITEMS = [
@@ -111,7 +112,10 @@ export function MobileDrawer() {
   const isMasterActive = pathname.startsWith('/master-data');
   const [masterExpanded, setMasterExpanded] = React.useState(isMasterActive);
 
-  const isPwaActive = pathname.startsWith('/instruktur') || pathname.startsWith('/finance');
+  const isPwaActive =
+    pathname.startsWith('/instruktur') ||
+    pathname.startsWith('/finance') ||
+    pathname.startsWith('/armada');
   const [pwaExpanded, setPwaExpanded] = React.useState(isPwaActive);
 
   const isSettingsActive = pathname.startsWith('/settings');

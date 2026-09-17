@@ -65,18 +65,15 @@ export function middleware(request: NextRequest) {
       url.pathname = '/armada';
       return NextResponse.rewrite(url);
     }
-    const isAllowedArmadaRoute =
-      url.pathname === '/armada' ||
-      url.pathname.startsWith('/armada/') ||
-      url.pathname === '/kendaraan' ||
-      url.pathname.startsWith('/kendaraan/') ||
-      url.pathname === '/insiden' ||
-      url.pathname.startsWith('/insiden/') ||
-      url.pathname.startsWith('/api') ||
-      url.pathname.startsWith('/_next') ||
-      url.pathname.startsWith('/assets');
-
-    if (!isAllowedArmadaRoute) {
+    // Block access to admin dashboard routes from armada subdomain (strictly independent like instruktur)
+    if (
+      url.pathname !== '/armada' &&
+      !url.pathname.startsWith('/armada/') &&
+      !url.pathname.startsWith('/api') &&
+      !url.pathname.startsWith('/_next') &&
+      !url.pathname.startsWith('/assets') &&
+      !url.pathname.startsWith('/manifest')
+    ) {
       url.pathname = '/armada';
       return NextResponse.redirect(url);
     }

@@ -19,25 +19,18 @@ import { FleetInspectionChecklist } from '@/components/armada/FleetInspectionChe
 import { FleetIncidentQuickModal } from '@/components/armada/FleetIncidentQuickModal';
 import { FleetScheduleDrawer } from '@/components/armada/FleetScheduleDrawer';
 import { FleetOdometerReportModal } from '@/components/armada/FleetOdometerReportModal';
+import { FloatingArmadaNav, ArmadaTab } from '@/components/armada/FloatingArmadaNav';
 import { PwaInstallModal } from '@/components/shared/PwaInstallModal';
 import { sound } from '@/lib/sound/SoundFX';
 import { formatDateIndo } from '@/lib/utils/date';
 import {
-  Car,
-  Gauge,
-  Fuel,
-  Wrench,
-  ClipboardCheck,
   ShieldAlert,
   Calendar,
   Check,
   Plus,
   ArrowRight,
-  User,
   History,
 } from 'lucide-react';
-
-type ArmadaTab = 'armada' | 'trip' | 'bbm' | 'perawatan' | 'inspeksi';
 
 export default function ArmadaPwaPage() {
   // Navigation Tab State
@@ -144,14 +137,6 @@ export default function ArmadaPwaPage() {
     setActiveTab('perawatan');
   };
 
-  const TABS: { id: ArmadaTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'armada', label: 'Armada', icon: <Car className="w-4 h-4" /> },
-    { id: 'trip', label: 'Log Trip', icon: <Gauge className="w-4 h-4" /> },
-    { id: 'bbm', label: 'BBM', icon: <Fuel className="w-4 h-4" /> },
-    { id: 'perawatan', label: 'Servis', icon: <Wrench className="w-4 h-4" /> },
-    { id: 'inspeksi', label: 'Inspeksi', icon: <ClipboardCheck className="w-4 h-4" /> },
-  ];
-
   return (
     <div className="min-h-screen bg-[var(--bg-subtle)] text-[var(--text-primary)] pb-28 relative font-sans">
       {/* Toast Notification */}
@@ -162,7 +147,7 @@ export default function ArmadaPwaPage() {
         </div>
       )}
 
-      {/* 1. Header Ringkas: Sapaan Alfi, Tombol Admin, Theme Icon Sun/Moon */}
+      {/* 1. Header Ringkas: Sapaan Alfi, Theme Icon Sun/Moon, Audio Toggle */}
       <FleetCockpitHeader
         onRefresh={() => {
           loadFleetData();
@@ -178,7 +163,7 @@ export default function ArmadaPwaPage() {
 
       {/* Main Content Area (Max-W-MD Mobile Centered) */}
       <main className="max-w-md mx-auto p-3.5 space-y-3.5">
-        {/* 2. Tombol Aksi Utama: Input Laporan Odometer Instruktur */}
+        {/* 2. Tombol Aksi Utama: Input Laporan Odometer */}
         <div className="space-y-2">
           <button
             type="button"
@@ -186,7 +171,7 @@ export default function ArmadaPwaPage() {
             className="w-full py-3 px-4 rounded-xl bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-xs cursor-pointer"
           >
             <Plus className="w-4 h-4 shrink-0" />
-            <span>Input Laporan Odometer Instruktur</span>
+            <span>Input Laporan Odometer</span>
           </button>
 
           {/* Quick Action Mini Row: Jadwal & Insiden */}
@@ -215,31 +200,6 @@ export default function ArmadaPwaPage() {
               <span>Lapor Insiden</span>
             </button>
           </div>
-        </div>
-
-        {/* 3. Sub-Menu View Tabs (Compact & Flat) */}
-        <div className="flex items-center border-b border-[var(--border)] gap-1 overflow-x-auto no-scrollbar pb-1">
-          {TABS.map((t) => {
-            const isActive = activeTab === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => {
-                  sound.click();
-                  setActiveTab(t.id);
-                }}
-                className={`py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap active:scale-95 ${
-                  isActive
-                    ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-bold'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                {t.icon}
-                <span>{t.label}</span>
-              </button>
-            );
-          })}
         </div>
 
         {/* 4. Active Tab Content Render */}
@@ -314,11 +274,10 @@ export default function ArmadaPwaPage() {
                                 </span>
                               </div>
 
-                              {/* Instruktur Pelapor & Catatan */}
+                              {/* Catatan Operasional */}
                               {l.catatan && (
-                                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5 truncate flex items-center gap-1">
-                                  <User className="w-3 h-3 text-[var(--brand-primary)] shrink-0" />
-                                  <span className="truncate">{l.catatan}</span>
+                                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5 truncate italic">
+                                  "{l.catatan}"
                                 </p>
                               )}
                             </div>
@@ -385,34 +344,14 @@ export default function ArmadaPwaPage() {
         )}
       </main>
 
-      {/* 5. Minimal Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 inset-x-0 z-40 bg-[var(--bg)]/95 backdrop-blur-md border-t border-[var(--border)] py-2">
-        <div className="max-w-md mx-auto flex items-center justify-around px-2">
-          {TABS.map((t) => {
-            const isActive = activeTab === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => {
-                  sound.click();
-                  setActiveTab(t.id);
-                }}
-                className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-all active:scale-95 ${
-                  isActive
-                    ? 'text-[var(--brand-primary)] font-bold'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] font-medium'
-                }`}
-              >
-                <div className="w-4 h-4 flex items-center justify-center">{t.icon}</div>
-                <span className="text-[10px] mt-0.5">{t.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      {/* 5. Floating Bottom Navigation Dock (Liquid Glass) */}
+      <FloatingArmadaNav
+        currentTab={activeTab}
+        onSelectTab={setActiveTab}
+        telemetry={telemetry}
+      />
 
-      {/* 6. Modal Lapor Odometer Instruktur */}
+      {/* 6. Modal Lapor Odometer Armada */}
       <FleetOdometerReportModal
         isOpen={showOdoModal}
         onClose={() => setShowOdoModal(false)}

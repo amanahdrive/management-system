@@ -4,7 +4,7 @@
   "short_name": "Armada AD",
   "description": "PWA Manajemen Operasional, Telemetri, Odometer & Servis Armada Amanah Drive",
   "start_url": "/armada",
-  "scope": "/",
+  "scope": "/armada",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#080B12",

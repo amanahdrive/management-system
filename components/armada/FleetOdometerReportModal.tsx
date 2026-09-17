@@ -2,15 +2,13 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Kendaraan, Staff } from '@/types/database';
-import { getStaffList } from '@/lib/actions/master-data';
+import { Kendaraan } from '@/types/database';
 import { upsertKendaraanLog } from '@/lib/actions/kendaraan';
 import { getTodayDateString } from '@/lib/utils/date';
 import { sound } from '@/lib/sound/SoundFX';
 import {
   X,
   Gauge,
-  User,
   Calendar,
   Check,
   AlertCircle,
@@ -36,30 +34,12 @@ export function FleetOdometerReportModal({
   const [selectedKendaraanId, setSelectedKendaraanId] = React.useState<string>(
     defaultKendaraanId || kendaraanList[0]?.id || ''
   );
-  const [staffList, setStaffList] = React.useState<Staff[]>([]);
-  const [selectedInstruktur, setSelectedInstruktur] = React.useState<string>('');
   const [tanggal, setTanggal] = React.useState<string>(getTodayDateString());
   const [tipeLaporan, setTipeLaporan] = React.useState<'masuk' | 'keluar'>('masuk');
   const [odoInput, setOdoInput] = React.useState<string>('');
   const [catatan, setCatatan] = React.useState<string>('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
-
-  // Load instructor staff list
-  React.useEffect(() => {
-    if (isOpen) {
-      getStaffList().then((staff) => {
-        const activeStaff = staff.filter((s) => s.aktif);
-        setStaffList(activeStaff);
-        if (activeStaff.length > 0 && !selectedInstruktur) {
-          const firstInstruktur = activeStaff.find((s) =>
-            s.jabatan_list?.some((j) => j?.nama_jabatan?.toLowerCase().includes('instruktur'))
-          );
-          setSelectedInstruktur(firstInstruktur?.nama || activeStaff[0].nama);
-        }
-      });
-    }
-  }, [isOpen, selectedInstruktur]);
 
   // Update default kendaraan jika prop berubah
   React.useEffect(() => {
@@ -96,16 +76,12 @@ export function FleetOdometerReportModal({
       setIsSubmitting(true);
       sound.click();
 
-      // Format catatan pelapor
-      const pelaporInfo = selectedInstruktur ? `Instruktur: ${selectedInstruktur}` : '';
-      const finalCatatan = [pelaporInfo, catatan.trim()].filter(Boolean).join('. ');
-
       const res = await upsertKendaraanLog({
         kendaraan_id: selectedKendaraanId,
         tanggal,
         odometer_basecamp_in: tipeLaporan === 'masuk' ? inputKmNum : null,
         odometer_basecamp_out: tipeLaporan === 'keluar' ? inputKmNum : (previousOdo > 0 ? previousOdo : null),
-        catatan: finalCatatan || null,
+        catatan: catatan.trim() || null,
       });
 
       if (res.success) {
@@ -134,7 +110,7 @@ export function FleetOdometerReportModal({
               Input Laporan Odometer
             </h2>
             <p className="text-[11px] text-[var(--text-secondary)]">
-              Laporan pembacaan KM harian dari instruktur
+              Catat pembacaan KM harian armada operasional
             </p>
           </div>
           <button
@@ -206,27 +182,7 @@ export function FleetOdometerReportModal({
             </div>
           </div>
 
-          {/* 2. Instruktur Pelapor */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1">
-              <User className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
-              <span>Instruktur Pelapor</span>
-            </label>
-            <select
-              value={selectedInstruktur}
-              onChange={(e) => setSelectedInstruktur(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs font-medium text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-primary)]"
-            >
-              <option value="">-- Pilih Instruktur Pelapor --</option>
-              {staffList.map((st) => (
-                <option key={st.id} value={st.nama}>
-                  {st.nama} ({st.jabatan_list?.map((j) => j?.nama_jabatan).join(', ') || 'Staff'})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* 3. Tipe Laporan & Tanggal */}
+          {/* 2. Tipe Laporan & Tanggal */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
               <label className="text-[11px] font-semibold text-[var(--text-secondary)] block">
@@ -272,7 +228,7 @@ export function FleetOdometerReportModal({
             </div>
           </div>
 
-          {/* 4. Input Angka Odometer */}
+          {/* 3. Input Angka Odometer */}
           <div className="space-y-1.5 pt-1 border-t border-[var(--border)]">
             <div className="flex items-center justify-between">
               <label className="text-[11px] font-bold text-[var(--text-primary)] flex items-center gap-1">
@@ -314,7 +270,7 @@ export function FleetOdometerReportModal({
             )}
           </div>
 
-          {/* 5. Catatan Opsional */}
+          {/* 4. Catatan Opsional */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-medium text-[var(--text-secondary)] block">
               Catatan Sesi / Rute (Opsional)

@@ -91,6 +91,12 @@ export function PwaHistoryIsolation() {
           return;
         }
 
+        // PWA Armada Isolation (Selalu bertahan di /armada)
+        if (currentPath === '/armada' || currentPath.startsWith('/armada')) {
+          window.history.pushState({ pwaTrapped: true, origin: 'pwa', isArmada: true }, '', window.location.href);
+          return;
+        }
+
         // Default PWA popstate (Portal Instruktur)
         window.history.pushState({ pwaTrapped: true, origin: 'pwa' }, '', window.location.href);
       };

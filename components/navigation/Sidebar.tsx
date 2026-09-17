@@ -80,6 +80,7 @@ const MASTER_SUB_ITEMS = [
 const PWA_SUB_ITEMS = [
   { label: 'Portal Instruktur', href: '/instruktur', icon: ShieldCheck, badge: 'PWA' },
   { label: 'PWA Finance', href: '/finance', icon: Wallet, badge: 'PWA' },
+  { label: 'PWA Armada', href: '/armada', icon: Car, badge: 'PWA' },
 ];
 
 const SETTINGS_SUB_ITEMS = [
@@ -112,7 +113,10 @@ export function Sidebar() {
   const isMasterActive = pathname.startsWith('/master-data');
   const [masterExpanded, setMasterExpanded] = React.useState(isMasterActive);
 
-  const isPwaActive = pathname.startsWith('/instruktur') || pathname.startsWith('/finance');
+  const isPwaActive =
+    pathname.startsWith('/instruktur') ||
+    pathname.startsWith('/finance') ||
+    pathname.startsWith('/armada');
   const [pwaExpanded, setPwaExpanded] = React.useState(isPwaActive);
 
   const isSettingsActive = pathname.startsWith('/settings');
