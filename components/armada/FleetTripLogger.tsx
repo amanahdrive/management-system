@@ -3,24 +3,20 @@
 import React from 'react';
 import { Kendaraan, KendaraanLogHarian } from '@/types/database';
 import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
-import { upsertKendaraanLog, quickInputBasecampIn, deleteKendaraanLog } from '@/lib/actions/kendaraan';
+import { upsertKendaraanLog, deleteKendaraanLog } from '@/lib/actions/kendaraan';
 import { sound } from '@/lib/sound/SoundFX';
 import {
   Gauge,
-  Plus,
-  ArrowRight,
   Car,
-  Clock,
   Calendar,
-  CheckCircle2,
   AlertCircle,
   TrendingUp,
   Trash2,
   Edit2,
-  X,
   Loader2,
   Send,
-  Navigation,
+  Fuel,
+  Filter,
 } from 'lucide-react';
 
 interface FleetTripLoggerProps {
@@ -39,23 +35,15 @@ export function FleetTripLogger({
   const [selectedKendaraanId, setSelectedKendaraanId] = React.useState<string>(
     initialKendaraanId || kendaraanList[0]?.id || ''
   );
+  const [filterKendaraanId, setFilterKendaraanId] = React.useState<string>('all');
   const [tanggal, setTanggal] = React.useState<string>(getTodayDateString());
   const [odoOut, setOdoOut] = React.useState<string>('');
   const [odoIn, setOdoIn] = React.useState<string>('');
   const [slotCount, setSlotCount] = React.useState<string>('');
   const [catatan, setCatatan] = React.useState<string>('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [editingLogId, setEditingLogId] = React.useState<string | null>(null);
-
-  // Quick In modal state for active out-trips
-  const [quickInLog, setQuickInLog] = React.useState<KendaraanLogHarian | null>(null);
-  const [quickInKm, setQuickInKm] = React.useState<string>('');
-  const [isQuickInLoading, setIsQuickInLoading] = React.useState(false);
-
-  // Temukan trip aktif (Odo Keluar terisi, Odo Masuk belum)
-  const activeTrips = logs.filter(
-    (l) => l.odometer_basecamp_out !== null && (l.odometer_basecamp_in === null || l.odometer_basecamp_in === undefined)
-  );
 
   // Set default odoOut jika memilih kendaraan
   React.useEffect(() => {
@@ -63,18 +51,120 @@ export function FleetTripLogger({
       const selectedV = kendaraanList.find((k) => k.id === selectedKendaraanId);
       if (selectedV?.status?.odometer_terkini) {
         setOdoOut(String(selectedV.status.odometer_terkini));
+      } else {
+        setOdoOut('');
       }
     }
   }, [selectedKendaraanId, kendaraanList, editingLogId]);
 
-  // Kalkulasi jarak tempuh otomatis
-  const outNum = parseFloat(odoOut) || 0;
-  const inNum = parseFloat(odoIn) || 0;
-  const jarakKalkulasi = inNum > outNum ? inNum - outNum : null;
+  // Kalkulasi jarak tempuh otomatis pada form input
+  const outNum = odoOut.trim() ? parseFloat(odoOut.replace(/\D/g, '')) : 0;
+  const inNum = odoIn.trim() ? parseFloat(odoIn.replace(/\D/g, '')) : 0;
+  const jarakKalkulasi = inNum > 0 && outNum > 0 && inNum >= outNum ? inNum - outNum : null;
+
+  // Logika Pemrosesan Log sama seperti Dashboard Admin Console (KendaraanLogManager)
+  const processedLogs = React.useMemo(() => {
+    if (!logs || logs.length === 0) return [];
+
+    const vehicleGroups = new Map<string, KendaraanLogHarian[]>();
+    for (const log of logs) {
+      if (!vehicleGroups.has(log.kendaraan_id)) {
+        vehicleGroups.set(log.kendaraan_id, []);
+      }
+      vehicleGroups.get(log.kendaraan_id)!.push(log);
+    }
+
+    const result: (KendaraanLogHarian & {
+      effectiveJarak: number;
+      isPeriodicDelta: boolean;
+      isInitialBaseline: boolean;
+      deltaFromDate?: string;
+    })[] = [];
+
+    for (const [, vLogs] of vehicleGroups.entries()) {
+      // Urutkan kronologis naik untuk akumulasi
+      vLogs.sort(
+        (a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime()
+      );
+
+      let lastKnownOdo: number | null = null;
+      let lastKnownDate: string | null = null;
+
+      for (const log of vLogs) {
+        const outKm = log.odometer_basecamp_out;
+        const inKm = log.odometer_basecamp_in;
+        const currOdo = inKm !== null ? inKm : outKm;
+
+        let effectiveJarak = 0;
+        let isPeriodicDelta = false;
+        let isInitialBaseline = false;
+        let deltaFromDate: string | undefined = undefined;
+
+        if (outKm !== null && inKm !== null && inKm > outKm) {
+          effectiveJarak = inKm - outKm;
+          lastKnownOdo = inKm;
+          lastKnownDate = log.tanggal;
+        } else if (currOdo !== null) {
+          if (lastKnownOdo !== null && currOdo > lastKnownOdo) {
+            effectiveJarak = currOdo - lastKnownOdo;
+            isPeriodicDelta = true;
+            deltaFromDate = lastKnownDate || undefined;
+            lastKnownOdo = currOdo;
+            lastKnownDate = log.tanggal;
+          } else if (lastKnownOdo === null) {
+            effectiveJarak = 0;
+            isInitialBaseline = true;
+            lastKnownOdo = currOdo;
+            lastKnownDate = log.tanggal;
+          } else {
+            effectiveJarak = 0;
+          }
+        }
+
+        result.push({
+          ...log,
+          effectiveJarak,
+          isPeriodicDelta,
+          isInitialBaseline,
+          deltaFromDate,
+        });
+      }
+    }
+
+    // Urutkan kembali terbaru di atas
+    result.sort((a, b) => {
+      const dateDiff = new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime();
+    });
+
+    return result;
+  }, [logs]);
+
+  // Filter logs berdasarkan armada jika dipilih
+  const displayedLogs = React.useMemo(() => {
+    if (filterKendaraanId === 'all') return processedLogs;
+    return processedLogs.filter((l) => l.kendaraan_id === filterKendaraanId);
+  }, [processedLogs, filterKendaraanId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedKendaraanId) return;
+    setErrorMsg(null);
+
+    if (!selectedKendaraanId) {
+      setErrorMsg('Pilih armada terlebih dahulu');
+      return;
+    }
+
+    if (!outNum || outNum <= 0) {
+      setErrorMsg('Odometer BC Out (km) wajib diisi');
+      return;
+    }
+
+    if (inNum > 0 && inNum < outNum) {
+      setErrorMsg('Odometer BC In tidak boleh lebih kecil dari Odometer BC Out');
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -84,8 +174,8 @@ export function FleetTripLogger({
         id: editingLogId || undefined,
         kendaraan_id: selectedKendaraanId,
         tanggal,
-        odometer_basecamp_out: odoOut ? Number(odoOut) : null,
-        odometer_basecamp_in: odoIn ? Number(odoIn) : null,
+        odometer_basecamp_out: outNum,
+        odometer_basecamp_in: inNum > 0 ? inNum : null,
         total_slot_selesai: slotCount ? Number(slotCount) : null,
         catatan: catatan.trim() || null,
       });
@@ -98,36 +188,12 @@ export function FleetTripLogger({
         setCatatan('');
         onRefresh();
       } else {
-        alert(res.error || 'Gagal menyimpan log trip');
+        setErrorMsg(res.error || 'Gagal menyimpan log trip');
       }
     } catch (err: any) {
-      alert(err.message || 'Terjadi kesalahan sistem');
+      setErrorMsg(err.message || 'Terjadi kesalahan sistem');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleQuickInSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickInLog || !quickInKm) return;
-
-    try {
-      setIsQuickInLoading(true);
-      sound.click();
-
-      const res = await quickInputBasecampIn(quickInLog.id, Number(quickInKm), getTodayDateString());
-      if (res.success) {
-        sound.pop();
-        setQuickInLog(null);
-        setQuickInKm('');
-        onRefresh();
-      } else {
-        alert(res.error || 'Gagal menyimpan Odometer Masuk');
-      }
-    } catch (err: any) {
-      alert(err.message || 'Terjadi kesalahan sistem');
-    } finally {
-      setIsQuickInLoading(false);
     }
   };
 
@@ -140,6 +206,7 @@ export function FleetTripLogger({
     setOdoIn(l.odometer_basecamp_in !== null ? String(l.odometer_basecamp_in) : '');
     setSlotCount(l.total_slot_selesai !== null ? String(l.total_slot_selesai) : '');
     setCatatan(l.catatan || '');
+    setErrorMsg(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -151,62 +218,8 @@ export function FleetTripLogger({
   };
 
   return (
-    <div className="space-y-4">
-      {/* 1. Quick-In Alert Banner jika ada mobil sedang jalan */}
-      {activeTrips.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
-            <Navigation className="w-3.5 h-3.5 animate-pulse" />
-            <span>Armada Sedang di Jalan ({activeTrips.length})</span>
-          </div>
-
-          <div className="grid grid-cols-1 gap-2.5">
-            {activeTrips.map((trip) => {
-              const car = trip.kendaraan || kendaraanList.find((k) => k.id === trip.kendaraan_id);
-              return (
-                <div
-                  key={trip.id}
-                  className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 shadow-xs"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                      <Car className="w-4.5 h-4.5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-black text-[var(--text-primary)]">
-                          {car?.plat_nomor || 'Armada'}
-                        </span>
-                        <span className="text-xs font-semibold text-[var(--text-secondary)]">
-                          ({car?.nama_kendaraan})
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-[var(--text-muted)] font-mono">
-                        Odo Out: <span className="font-bold">{trip.odometer_basecamp_out?.toLocaleString('id-ID')} KM</span> • {formatDateIndo(trip.tanggal)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      sound.click();
-                      setQuickInLog(trip);
-                      setQuickInKm(trip.odometer_basecamp_out ? String(trip.odometer_basecamp_out + 10) : '');
-                    }}
-                    className="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black shadow-sm transition-all active:scale-95 flex items-center gap-1 shrink-0"
-                  >
-                    <span>Input Odo In</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* 2. Form Catat Odometer Keluar / Masuk */}
+    <div className="space-y-4 font-sans">
+      {/* 1. Form Catat Odometer Keluar / Masuk (Out Wajib, In Opsional) */}
       <div className="card-container bg-[var(--card-bg)] border border-[var(--border)] rounded-2xl p-4 shadow-sm space-y-3.5">
         <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
           <div className="flex items-center gap-2">
@@ -217,7 +230,9 @@ export function FleetTripLogger({
               <h3 className="text-xs font-black uppercase tracking-wider text-[var(--text-primary)]">
                 {editingLogId ? 'Edit Log Odometer' : 'Catat Odometer Trip Armada'}
               </h3>
-              <p className="text-[10px] text-[var(--text-muted)]">Basecamp Out & Basecamp In Harian</p>
+              <p className="text-[10px] text-[var(--text-muted)]">
+                BC Out (Wajib) & BC In (Opsional seperti Admin Console)
+              </p>
             </div>
           </div>
 
@@ -229,6 +244,7 @@ export function FleetTripLogger({
                 setOdoIn('');
                 setSlotCount('');
                 setCatatan('');
+                setErrorMsg(null);
               }}
               className="px-2 py-1 text-[10px] font-bold text-rose-500 hover:bg-rose-500/10 rounded-lg"
             >
@@ -237,12 +253,19 @@ export function FleetTripLogger({
           )}
         </div>
 
+        {errorMsg && (
+          <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-3">
           {/* Row: Pilih Armada & Tanggal */}
           <div className="grid grid-cols-2 gap-2.5">
             <div>
               <label className="text-[11px] font-bold text-[var(--text-secondary)] block mb-1">
-                Pilih Armada
+                Pilih Armada *
               </label>
               <select
                 value={selectedKendaraanId}
@@ -260,7 +283,7 @@ export function FleetTripLogger({
 
             <div>
               <label className="text-[11px] font-bold text-[var(--text-secondary)] block mb-1">
-                Tanggal Trip
+                Tanggal Trip *
               </label>
               <input
                 type="date"
@@ -272,20 +295,22 @@ export function FleetTripLogger({
             </div>
           </div>
 
-          {/* Row: Odo Out & Odo In */}
+          {/* Row: Odo Out (Wajib) & Odo In (Opsional) */}
           <div className="grid grid-cols-2 gap-2.5">
             <div>
               <label className="text-[11px] font-bold text-[var(--text-secondary)] flex items-center justify-between mb-1">
-                <span>Odo Keluar (Out)</span>
-                <span className="text-[9px] text-[var(--text-muted)]">Basecamp</span>
+                <span>Odo BC Out (km) *</span>
+                <span className="text-[9px] text-[var(--text-muted)]">Keluar</span>
               </label>
               <div className="relative">
                 <input
                   type="number"
-                  placeholder="Contoh: 167900"
+                  inputMode="numeric"
+                  placeholder="Contoh: 45000"
                   value={odoOut}
                   onChange={(e) => setOdoOut(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[var(--bg)] border border-[var(--border)] text-xs font-mono font-bold text-[var(--text-primary)] focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--bg)] border border-[var(--border)] text-xs font-mono font-bold text-[var(--text-primary)] focus:outline-none focus:border-emerald-500 pr-10"
+                  required
                 />
                 <span className="absolute right-3 top-2.5 text-[10px] font-bold text-[var(--text-muted)]">KM</span>
               </div>
@@ -293,16 +318,17 @@ export function FleetTripLogger({
 
             <div>
               <label className="text-[11px] font-bold text-[var(--text-secondary)] flex items-center justify-between mb-1">
-                <span>Odo Masuk (In)</span>
-                <span className="text-[9px] text-[var(--text-muted)]">Opsional</span>
+                <span>Odo BC In (km)</span>
+                <span className="text-[9px] text-amber-600 dark:text-amber-400 font-normal">Opsional</span>
               </label>
               <div className="relative">
                 <input
                   type="number"
-                  placeholder="Contoh: 168050"
+                  inputMode="numeric"
+                  placeholder="Kosongkan jika jalan"
                   value={odoIn}
                   onChange={(e) => setOdoIn(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[var(--bg)] border border-[var(--border)] text-xs font-mono font-bold text-[var(--text-primary)] focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--bg)] border border-[var(--border)] text-xs font-mono font-bold text-[var(--text-primary)] focus:outline-none focus:border-emerald-500 pr-10"
                 />
                 <span className="absolute right-3 top-2.5 text-[10px] font-bold text-[var(--text-muted)]">KM</span>
               </div>
@@ -311,13 +337,13 @@ export function FleetTripLogger({
 
           {/* Preview Jarak Tempuh Otomatis */}
           {jarakKalkulasi !== null && (
-            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
               <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
                 <TrendingUp className="w-3.5 h-3.5" />
-                Jarak Tempuh Terhitung:
+                Kalkulasi Jarak Trip Selesai:
               </span>
               <span className="font-mono text-xs font-black text-emerald-600 dark:text-emerald-400">
-                +{jarakKalkulasi} KM
+                +{jarakKalkulasi.toLocaleString('id-ID')} KM
               </span>
             </div>
           )}
@@ -369,175 +395,181 @@ export function FleetTripLogger({
         </form>
       </div>
 
-      {/* 3. Modal Quick-In jika diklik dari banner atas */}
-      {quickInLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 animate-in fade-in">
-          <div className="bg-[var(--card-bg)] border border-[var(--border-strong)] rounded-2xl p-4 max-w-sm w-full shadow-2xl space-y-3.5 animate-in slide-in-from-bottom-3">
-            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center">
-                  <Navigation className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-black uppercase text-[var(--text-primary)]">
-                    Input Odometer Masuk
-                  </h4>
-                  <p className="text-[10px] text-[var(--text-muted)]">
-                    {quickInLog.kendaraan?.plat_nomor || 'Armada'} — {formatDateIndo(quickInLog.tanggal)}
-                  </p>
-                </div>
-              </div>
+      {/* 2. Filter & Daftar Riwayat Trip Odometer Harian */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <h4 className="text-xs font-black uppercase tracking-wider text-[var(--text-muted)]">
+            Riwayat Trip & Odometer Harian ({displayedLogs.length})
+          </h4>
+
+          {/* Quick Filter Armada Tabs */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setFilterKendaraanId('all')}
+              className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
+                filterKendaraanId === 'all'
+                  ? 'bg-[var(--brand-primary)] text-white'
+                  : 'bg-black/5 dark:bg-white/5 text-[var(--text-secondary)]'
+              }`}
+            >
+              Semua
+            </button>
+            {kendaraanList.map((k) => (
               <button
+                key={k.id}
                 type="button"
-                onClick={() => setQuickInLog(null)}
-                className="p-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-[var(--text-muted)]"
+                onClick={() => setFilterKendaraanId(k.id)}
+                className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all truncate max-w-[80px] ${
+                  filterKendaraanId === k.id
+                    ? 'bg-[var(--brand-primary)] text-white'
+                    : 'bg-black/5 dark:bg-white/5 text-[var(--text-secondary)]'
+                }`}
               >
-                <X className="w-4 h-4" />
+                {k.nama_kendaraan.split(' ')[0]}
               </button>
-            </div>
-
-            <form onSubmit={handleQuickInSubmit} className="space-y-3">
-              <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-[var(--border)] text-xs flex justify-between">
-                <span className="text-[var(--text-muted)]">Odometer Keluar:</span>
-                <span className="font-mono font-bold text-[var(--text-primary)]">
-                  {quickInLog.odometer_basecamp_out?.toLocaleString('id-ID')} KM
-                </span>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-[var(--text-secondary)] block mb-1">
-                  Odometer Masuk (Basecamp In)
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={quickInKm}
-                    onChange={(e) => setQuickInKm(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg)] border border-[var(--border)] text-xs font-mono font-bold text-[var(--text-primary)] focus:outline-none focus:border-emerald-500"
-                    placeholder="Contoh: 168020"
-                    required
-                    autoFocus
-                  />
-                  <span className="absolute right-3 top-2.5 text-[10px] font-bold text-[var(--text-muted)]">KM</span>
-                </div>
-              </div>
-
-              {quickInKm && quickInLog.odometer_basecamp_out && Number(quickInKm) > quickInLog.odometer_basecamp_out && (
-                <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs flex justify-between">
-                  <span className="text-emerald-700 dark:text-emerald-300 font-bold">Jarak Trip:</span>
-                  <span className="font-mono font-black text-emerald-600 dark:text-emerald-400">
-                    +{Number(quickInKm) - quickInLog.odometer_basecamp_out} KM
-                  </span>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setQuickInLog(null)}
-                  className="flex-1 py-2 rounded-xl border border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5 text-xs font-bold text-[var(--text-primary)]"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isQuickInLoading}
-                  className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-sm flex items-center justify-center gap-1"
-                >
-                  {isQuickInLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Selesaikan Trip'}
-                </button>
-              </div>
-            </form>
+            ))}
           </div>
         </div>
-      )}
 
-      {/* 4. Daftar Riwayat Trip Odometer */}
-      <div className="space-y-2.5">
-        <h4 className="text-xs font-black uppercase tracking-wider text-[var(--text-muted)] px-1">
-          Riwayat Trip & Odometer Harian ({logs.length})
-        </h4>
+        {displayedLogs.length === 0 ? (
+          <div className="p-8 text-center rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] text-xs text-[var(--text-muted)]">
+            Belum ada catatan odometer trip harian.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {displayedLogs.map((l) => {
+              const car = l.kendaraan || kendaraanList.find((k) => k.id === l.kendaraan_id);
 
-        <div className="space-y-2">
-          {logs.slice(0, 15).map((l) => {
-            const car = l.kendaraan || kendaraanList.find((k) => k.id === l.kendaraan_id);
-            const isTripDone = l.odometer_basecamp_in !== null;
+              return (
+                <div
+                  key={l.id}
+                  className="card-container p-3 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] shadow-xs hover:border-[var(--border-strong)] transition-all space-y-2.5"
+                >
+                  {/* Top Header: Car & Date */}
+                  <div className="flex items-center justify-between gap-2 border-b border-[var(--border)] pb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-black/5 dark:bg-white/5 flex items-center justify-center shrink-0">
+                        <Car className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-black text-[var(--text-primary)]">
+                            {car?.nama_kendaraan || 'Armada'}
+                          </span>
+                          <span className="text-[10px] font-mono font-bold text-[var(--brand-primary)]">
+                            {car?.plat_nomor}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-[var(--text-muted)] flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-[var(--text-secondary)]" />
+                          <span>{formatDateIndo(l.tanggal)}</span>
+                          {l.tanggal_akhir && l.tanggal_akhir !== l.tanggal && (
+                            <span> s/d {formatDateIndo(l.tanggal_akhir)}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
 
-            return (
-              <div
-                key={l.id}
-                className="card-container p-3 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] shadow-xs hover:border-[var(--border-strong)] transition-all flex items-center justify-between gap-2.5"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                      isTripDone
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                        : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                    }`}
-                  >
-                    <Car className="w-4 h-4" />
+                    {/* Action buttons (Edit & Delete) */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(l)}
+                        className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                        title="Edit Log"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(l.id)}
+                        className="p-1.5 rounded-lg hover:bg-rose-500/10 text-[var(--text-muted)] hover:text-rose-500 transition-colors"
+                        title="Hapus Log"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-black text-[var(--text-primary)]">
-                        {car?.plat_nomor || 'Armada'}
+
+                  {/* Middle Content: Odo Out, Odo In, & Jarak Tempuh */}
+                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                    {/* BC Out */}
+                    <div className="p-1.5 rounded-xl bg-black/5 dark:bg-white/5">
+                      <span className="text-[9.5px] text-[var(--text-muted)] block uppercase font-bold">
+                        BC Out
                       </span>
-                      <span className="text-[10px] text-[var(--text-muted)]">
-                        {formatDateIndo(l.tanggal)}
+                      <span className="font-mono font-bold text-[var(--text-primary)] text-xs">
+                        {l.odometer_basecamp_out !== null && l.odometer_basecamp_out !== undefined
+                          ? `${l.odometer_basecamp_out.toLocaleString('id-ID')} km`
+                          : '-'}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--text-secondary)] mt-0.5">
-                      <span>Out: {l.odometer_basecamp_out?.toLocaleString('id-ID') || '-'}</span>
-                      <span>→</span>
-                      <span>In: {l.odometer_basecamp_in?.toLocaleString('id-ID') || 'Di Jalan'}</span>
+                    {/* BC In */}
+                    <div className="p-1.5 rounded-xl bg-black/5 dark:bg-white/5">
+                      <span className="text-[9.5px] text-[var(--text-muted)] block uppercase font-bold">
+                        BC In
+                      </span>
+                      <span className="font-mono font-bold text-[var(--text-primary)] text-xs">
+                        {l.odometer_basecamp_in !== null && l.odometer_basecamp_in !== undefined
+                          ? `${l.odometer_basecamp_in.toLocaleString('id-ID')} km`
+                          : '-'}
+                      </span>
                     </div>
 
-                    {l.catatan && (
-                      <p className="text-[10px] text-[var(--text-muted)] truncate max-w-[200px] sm:max-w-xs mt-0.5">
-                        {l.catatan}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="text-right">
-                    {l.jarak_tempuh ? (
-                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-mono text-xs font-black">
-                        +{l.jarak_tempuh} KM
+                    {/* Jarak Tempuh */}
+                    <div className="p-1.5 rounded-xl bg-black/5 dark:bg-white/5 flex flex-col justify-center items-center">
+                      <span className="text-[9.5px] text-[var(--text-muted)] block uppercase font-bold">
+                        Jarak Tempuh
                       </span>
-                    ) : (
-                      <span className="px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[10px] font-bold">
-                        Di Jalan
-                      </span>
-                    )}
+                      {l.effectiveJarak > 0 ? (
+                        <div>
+                          <span className="font-mono font-black text-xs text-emerald-600 dark:text-emerald-400">
+                            +{l.effectiveJarak.toLocaleString('id-ID')} km
+                          </span>
+                          {l.isPeriodicDelta && l.deltaFromDate && (
+                            <div className="text-[8.5px] text-[var(--text-muted)] leading-tight">
+                              sejak {formatDateIndo(l.deltaFromDate).split(' ')[0]}
+                            </div>
+                          )}
+                        </div>
+                      ) : l.isInitialBaseline ? (
+                        <span className="text-[9.5px] text-blue-600 dark:text-blue-400 font-bold">
+                          Titik Awal
+                        </span>
+                      ) : (
+                        <span className="font-mono text-xs text-[var(--text-muted)]">0 km</span>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(l)}
-                      className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                      title="Edit Log"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(l.id)}
-                      className="p-1.5 rounded-lg hover:bg-rose-500/10 text-[var(--text-muted)] hover:text-rose-500"
-                      title="Hapus Log"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  {/* Optional info: Catatan / BBM */}
+                  {(l.catatan || l.bbm_liter || l.bbm_nominal) && (
+                    <div className="pt-1 flex flex-wrap items-center justify-between gap-1.5 text-[11px] text-[var(--text-secondary)] border-t border-[var(--border)]">
+                      {l.catatan ? (
+                        <span className="italic text-[10.5px] truncate max-w-[240px]">
+                          "{l.catatan}"
+                        </span>
+                      ) : (
+                        <span />
+                      )}
+
+                      {(l.bbm_liter || l.bbm_nominal) && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md">
+                          <Fuel className="w-3 h-3" />
+                          <span>
+                            {l.bbm_liter ? `${l.bbm_liter} L` : ''} {l.bbm_jenis?.toUpperCase() || 'BBM'}
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

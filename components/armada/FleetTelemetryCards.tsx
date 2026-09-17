@@ -17,7 +17,6 @@ import {
 interface FleetTelemetryCardsProps {
   kendaraanList: Kendaraan[];
   onOpenOdoModal: (k: Kendaraan) => void;
-  onOpenBbmModal: (k: Kendaraan) => void;
   onOpenOliModal: (k: Kendaraan) => void;
   onOpenCuciModal: (k: Kendaraan) => void;
   onOpenBanModal?: (k: Kendaraan) => void;
@@ -27,7 +26,6 @@ interface FleetTelemetryCardsProps {
 export function FleetTelemetryCards({
   kendaraanList,
   onOpenOdoModal,
-  onOpenBbmModal,
   onOpenOliModal,
   onOpenCuciModal,
 }: FleetTelemetryCardsProps) {
@@ -181,20 +179,8 @@ export function FleetTelemetryCards({
                 </div>
               </div>
 
-              {/* Sub-actions Cepat: BBM, Servis & Cuci */}
+              {/* Sub-actions Cepat: Servis & Cuci */}
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)] text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.click();
-                    onOpenBbmModal(k);
-                  }}
-                  className="text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-1"
-                >
-                  <Fuel className="w-3 h-3" />
-                  <span>+ BBM</span>
-                </button>
-                <span className="text-[var(--border)]">•</span>
                 <button
                   type="button"
                   onClick={() => {

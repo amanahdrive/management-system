@@ -1,11 +1,11 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import { LiquidGlassBottomNav, LiquidNavItem } from '@/components/navigation/LiquidGlassBottomNav';
 import { FleetPicTelemetrySummary } from '@/lib/actions/kendaraan';
-import { Car, Gauge, Fuel, Wrench, ClipboardCheck } from 'lucide-react';
+import { Car, Gauge, Wrench, ClipboardCheck } from 'lucide-react';
 
-export type ArmadaTab = 'armada' | 'trip' | 'bbm' | 'perawatan' | 'inspeksi';
+export type ArmadaTab = 'armada' | 'trip' | 'perawatan' | 'inspeksi';
 
 interface FloatingArmadaNavProps {
   currentTab: ArmadaTab;
@@ -33,14 +33,7 @@ export function FloatingArmadaNav({
       id: 'trip',
       label: 'Log Trip',
       icon: Gauge,
-      badge: activeTripsCount > 0 ? activeTripsCount : undefined,
       onClick: () => onSelectTab('trip'),
-    },
-    {
-      id: 'bbm',
-      label: 'BBM',
-      icon: Fuel,
-      onClick: () => onSelectTab('bbm'),
     },
     {
       id: 'perawatan',

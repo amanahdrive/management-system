@@ -1,10 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Kendaraan, HargaBBM, KendaraanLogHarian, KendaraanInspeksi } from '@/types/database';
+import { Kendaraan, KendaraanLogHarian, KendaraanInspeksi } from '@/types/database';
 import { getKendaraanMasterList } from '@/lib/actions/master-data';
 import {
-  getHargaBBMList,
   getKendaraanLogList,
   getKendaraanInspeksiList,
   getFleetPicTelemetrySummary,
@@ -13,7 +12,6 @@ import {
 import { FleetCockpitHeader } from '@/components/armada/FleetCockpitHeader';
 import { FleetTelemetryCards } from '@/components/armada/FleetTelemetryCards';
 import { FleetTripLogger } from '@/components/armada/FleetTripLogger';
-import { FleetFuelManager } from '@/components/armada/FleetFuelManager';
 import { FleetMaintenanceHub } from '@/components/armada/FleetMaintenanceHub';
 import { FleetInspectionChecklist } from '@/components/armada/FleetInspectionChecklist';
 import { FleetIncidentQuickModal } from '@/components/armada/FleetIncidentQuickModal';
@@ -38,7 +36,6 @@ export default function ArmadaPwaPage() {
 
   // Data States
   const [kendaraanList, setKendaraanList] = React.useState<Kendaraan[]>([]);
-  const [hargaBbmList, setHargaBbmList] = React.useState<HargaBBM[]>([]);
   const [logs, setLogs] = React.useState<KendaraanLogHarian[]>([]);
   const [inspeksiList, setInspeksiList] = React.useState<KendaraanInspeksi[]>([]);
   const [telemetry, setTelemetry] = React.useState<FleetPicTelemetrySummary>({
@@ -77,16 +74,14 @@ export default function ArmadaPwaPage() {
   const loadFleetData = React.useCallback(async () => {
     try {
       setIsRefreshing(true);
-      const [kList, bbmList, logList, inspList, telemSummary] = await Promise.all([
+      const [kList, logList, inspList, telemSummary] = await Promise.all([
         getKendaraanMasterList(),
-        getHargaBBMList(),
         getKendaraanLogList(),
         getKendaraanInspeksiList({ limit: 30 }),
         getFleetPicTelemetrySummary(),
       ]);
 
       setKendaraanList(kList);
-      setHargaBbmList(bbmList);
       setLogs(logList);
       setInspeksiList(inspList);
       setTelemetry(telemSummary);
@@ -117,12 +112,6 @@ export default function ArmadaPwaPage() {
     sound.click();
     setSelectedKendaraanForAction(k?.id);
     setShowOdoModal(true);
-  };
-
-  const handleOpenBbm = (k: Kendaraan) => {
-    sound.click();
-    setSelectedKendaraanForAction(k.id);
-    setActiveTab('bbm');
   };
 
   const handleOpenOli = (k: Kendaraan) => {
@@ -221,7 +210,6 @@ export default function ArmadaPwaPage() {
                 <FleetTelemetryCards
                   kendaraanList={kendaraanList}
                   onOpenOdoModal={handleOpenOdo}
-                  onOpenBbmModal={handleOpenBbm}
                   onOpenOliModal={handleOpenOli}
                   onOpenCuciModal={handleOpenCuci}
                 />
@@ -287,9 +275,8 @@ export default function ArmadaPwaPage() {
                               <div className="font-mono font-bold text-xs text-[var(--text-primary)]">
                                 {odoVal.toLocaleString('id-ID')} km
                               </div>
-                              <div className="text-[10px] text-[var(--text-muted)]">
-                                {isMasuk ? 'Masuk' : 'Keluar'}
-                                {l.jarak_tempuh ? ` (+${l.jarak_tempuh} km)` : ''}
+                              <div className="text-[10px] text-[var(--text-muted)] font-mono">
+                                {l.jarak_tempuh ? `+${l.jarak_tempuh} km` : l.odometer_basecamp_in ? 'BC In' : 'BC Out'}
                               </div>
                             </div>
                           </div>
@@ -311,18 +298,7 @@ export default function ArmadaPwaPage() {
               />
             )}
 
-            {/* SUB-MENU 3: BBM & PENGISIAN */}
-            {activeTab === 'bbm' && (
-              <FleetFuelManager
-                kendaraanList={kendaraanList}
-                hargaBbmList={hargaBbmList}
-                logs={logs}
-                onRefresh={loadFleetData}
-                initialKendaraanId={selectedKendaraanForAction}
-              />
-            )}
-
-            {/* SUB-MENU 4: PERAWATAN OLI & CUCI MOBIL */}
+            {/* SUB-MENU 3: PERAWATAN OLI & CUCI MOBIL */}
             {activeTab === 'perawatan' && (
               <FleetMaintenanceHub
                 kendaraanList={kendaraanList}
