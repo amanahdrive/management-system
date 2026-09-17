@@ -3,7 +3,7 @@
 import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheInvalidate } from '@/lib/utils/cache';
 import { getTodayDateString, addDaysToDateStr } from '@/lib/utils/date';
-import { KendaraanBan, HargaBBM, KendaraanLogHarian, KendaraanInspeksi, Kendaraan } from '@/types/database';
+import { KendaraanBan, PosisiBanEnum, HargaBBM, KendaraanLogHarian, KendaraanInspeksi, Kendaraan } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 
 function safeRevalidatePath(path: string) {
@@ -795,6 +795,48 @@ export async function addBanHistory(
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Ambil Status Ban Terkini per Posisi untuk Kendaraan
+ */
+export async function getLatestBanByKendaraan(
+  kendaraanId: string
+): Promise<Record<PosisiBanEnum, KendaraanBan | null>> {
+  try {
+    const rows = await dbQuery<KendaraanBan>(
+      `SELECT DISTINCT ON (posisi_ban) *
+       FROM kendaraan_ban
+       WHERE kendaraan_id = $1
+       ORDER BY posisi_ban, tanggal_ganti DESC, created_at DESC`,
+      [kendaraanId]
+    );
+
+    const map: Record<PosisiBanEnum, KendaraanBan | null> = {
+      depan_kiri: null,
+      depan_kanan: null,
+      belakang_kiri: null,
+      belakang_kanan: null,
+      serep: null,
+    };
+
+    for (const r of rows) {
+      if (r.posisi_ban in map) {
+        map[r.posisi_ban] = r;
+      }
+    }
+
+    return map;
+  } catch (err: any) {
+    console.error('Error fetching latest ban:', err);
+    return {
+      depan_kiri: null,
+      depan_kanan: null,
+      belakang_kiri: null,
+      belakang_kanan: null,
+      serep: null,
+    };
   }
 }
 

@@ -285,6 +285,7 @@ export interface SiswaSessionSummaryData {
   selesai: number;
   total: number;
   hasPending: boolean;
+  terjadwal: number;
 }
 
 /**
@@ -309,6 +310,7 @@ export async function getSiswaSessionSummaries(): Promise<Record<string, SiswaSe
         selesai: Number(r.selesai_count || 0),
         total: Number(r.total_sesi || 10),
         hasPending: Boolean(r.has_pending),
+        terjadwal: Number(r.terjadwal_count || 0),
       };
     }
     return map;

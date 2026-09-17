@@ -188,7 +188,7 @@ export interface KendaraanBan {
   kendaraan_id: string;
   posisi_ban: PosisiBanEnum;
   tanggal_ganti: string;
-  km_saat_ganti: number;
+  km_saat_ganti?: number | null;
   status_beli: StatusPembelianEnum;
   created_at: string;
   updated_at: string;

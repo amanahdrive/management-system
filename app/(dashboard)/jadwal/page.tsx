@@ -25,7 +25,7 @@ import {
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { ArmadaSelectionPopoverModal } from '@/components/jadwal/ArmadaSelectionPopoverModal';
 import { getInstrukturList, getSlotWaktuList, getKendaraanMasterList } from '@/lib/actions/master-data';
-import { getSiswaList } from '@/lib/actions/siswa';
+import { getSiswaList, getSiswaSessionSummaries, SiswaSessionSummaryData } from '@/lib/actions/siswa';
 import {
   getTodayDateString,
   formatDateIndo,
@@ -105,6 +105,7 @@ export default function JadwalPage() {
   const [instrukturList, setInstrukturList] = React.useState<Staff[]>([]);
   const [slotList, setSlotList] = React.useState<SlotWaktu[]>([]);
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
+  const [siswaSessionMap, setSiswaSessionMap] = React.useState<Record<string, SiswaSessionSummaryData>>({});
   const [loading, setLoading] = React.useState(true);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const [deletingSiswaId, setDeletingSiswaId] = React.useState<string | null>(null);
@@ -229,12 +230,13 @@ export default function JadwalPage() {
       jList = await getJadwalByDateRange(from, to, selectedStaff);
     }
 
-    const [iList, sList, swList, mList, kList] = await Promise.all([
+    const [iList, sList, swList, mList, kList, sessionMap] = await Promise.all([
       getInstrukturList(),
       getSiswaList(),
       getSlotWaktuList(),
       getJadwalConflictCheckList(),
       getKendaraanMasterList(),
+      getSiswaSessionSummaries(),
     ]);
 
     setJadwalList(jList);
@@ -243,6 +245,7 @@ export default function JadwalPage() {
     setSlotList(swList);
     setMonthlyJadwalList(mList);
     setKendaraanList(kList);
+    setSiswaSessionMap(sessionMap);
 
     setFormData((prev) => ({
       ...prev,
@@ -296,17 +299,6 @@ export default function JadwalPage() {
     }
   };
 
-  // Filter siswa tanpa jadwal aktif
-  const allScheduledSiswaIds = React.useMemo(() => {
-    return Array.from(
-      new Set(
-        monthlyJadwalList
-          .filter((j) => j.status_sesi !== 'batal')
-          .map((j) => j.siswa_id)
-          .filter(Boolean)
-      )
-    );
-  }, [monthlyJadwalList]);
 
   // Display schedule list: preserve all sessions for all dates, including students with 2+ slots on the same day
   const displayJadwalList = React.useMemo(() => {
@@ -413,8 +405,31 @@ export default function JadwalPage() {
   }, [jadwalList, filterBentrok, instrukturList, monthlyJadwalList, slotList]);
 
   const availableSiswaList = React.useMemo(() => {
-    return siswaList.filter((s) => !allScheduledSiswaIds.includes(s.id));
-  }, [siswaList, allScheduledSiswaIds]);
+    return siswaList.filter((s) => {
+      // 1. Abaikan siswa yang diarsipkan
+      if (s.is_archived) return false;
+
+      // 2. Abaikan siswa Non-Siswa SIM (NS-SIM) karena tidak mengambil sesi kursus mobil
+      if (s.kode_siswa?.startsWith('NS-SIM')) return false;
+
+      // 3. Evaluasi sesi dari database view v_siswa_session_summary
+      const summary = siswaSessionMap[s.id];
+      if (summary) {
+        // Siswa yang sudah menyelesaikan seluruh sesi paketnya (selesai >= total) -> Lulus / Selesai
+        if (summary.total > 0 && summary.selesai >= summary.total) {
+          return false;
+        }
+
+        // Siswa yang sudah memiliki jadwal lengkap (selesai + terjadwal >= total)
+        const scheduledOrDone = summary.selesai + (summary.terjadwal || 0);
+        if (summary.total > 0 && scheduledOrDone >= summary.total) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [siswaList, siswaSessionMap]);
 
   // Helper konversi tanggal rencana mulai siswa ke format YYYY-MM-DD
   const getSiswaRencanaMulaiDateStr = (dateVal: any): string => {
@@ -668,11 +683,15 @@ export default function JadwalPage() {
   // Handle student selection change in Add Modal
   const handleSiswaSelect = (siswaId: string) => {
     const sObj = siswaList.find((s) => s.id === siswaId);
+    const summary = siswaSessionMap[siswaId];
     const totalSesi = sObj?.paket?.jumlah_sesi || 10;
+    const scheduledOrDone = summary ? (summary.selesai + (summary.terjadwal || 0)) : 0;
+    const remainingSesi = Math.max(1, totalSesi - scheduledOrDone);
+
     const startRencana = getSiswaRencanaMulaiDateStr(sObj?.tanggal_rencana_mulai);
     const startDate = startRencana || selectedTanggal || getTodayDateString();
     const dates = generateDatesForCount(
-      totalSesi,
+      remainingSesi,
       startDate,
       formData.staff_id
     );
@@ -690,11 +709,15 @@ export default function JadwalPage() {
     const firstAvail = availableSiswaList[0];
     const firstIns = instrukturList[0];
     const firstSlot = slotList[0];
+    const summary = firstAvail ? siswaSessionMap[firstAvail.id] : undefined;
     const totalSesi = firstAvail?.paket?.jumlah_sesi || 10;
+    const scheduledOrDone = summary ? (summary.selesai + (summary.terjadwal || 0)) : 0;
+    const remainingSesi = Math.max(1, totalSesi - scheduledOrDone);
+
     const startRencana = getSiswaRencanaMulaiDateStr(firstAvail?.tanggal_rencana_mulai);
     const startDate = startRencana || selectedTanggal || getTodayDateString();
     const dates = generateDatesForCount(
-      totalSesi,
+      remainingSesi,
       startDate,
       firstIns?.id
     );
@@ -957,6 +980,11 @@ export default function JadwalPage() {
       : null;
 
     const isMobilPribadi = formData.tipe_kendaraan === 'pribadi';
+    const summary = siswaSessionMap[formData.siswa_id];
+    const startingSesiKe = summary ? (summary.selesai + (summary.terjadwal || 0)) : 0;
+    const sObj = siswaList.find((s) => s.id === formData.siswa_id);
+    const totalSesi = formData.total_sesi_paket || sObj?.paket?.jumlah_sesi || (sessionDates.length + startingSesiKe);
+
     const batchPayloads: Partial<JadwalSesi>[] = sessionDates.map((tgl, idx) => ({
       siswa_id: formData.siswa_id,
       staff_id: formData.staff_id,
@@ -966,8 +994,8 @@ export default function JadwalPage() {
       kendaraan_id: isMobilPribadi ? null : (formData.kendaraan_id || null),
       jenis_mobil: isMobilPribadi ? 'mobil_sendiri' : (formData.jenis_mobil || 'manual'),
       tanggal_sesi: tgl,
-      nomor_sesi_ke: idx + 1,
-      total_sesi_paket: sessionDates.length,
+      nomor_sesi_ke: startingSesiKe + idx + 1,
+      total_sesi_paket: totalSesi,
       status_sesi: 'terjadwal',
     }));
 
@@ -2481,8 +2509,8 @@ export default function JadwalPage() {
                   Pilih Siswa *
                 </label>
                 {availableSiswaList.length === 0 ? (
-                  <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold p-2 bg-rose-50 dark:bg-rose-950/30 rounded border border-rose-200">
-                    Seluruh siswa aktif sudah terdaftar jadwal pada tanggal ini ({formatDateIndo(selectedTanggal)}).
+                  <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold p-2.5 bg-rose-50 dark:bg-rose-950/30 rounded border border-rose-200">
+                    Tidak ada siswa aktif yang memerlukan penjadwalan. Seluruh siswa aktif telah memiliki jadwal lengkap atau telah menyelesaikan seluruh sesi paketnya.
                   </p>
                 ) : (
                   <select
@@ -2490,11 +2518,17 @@ export default function JadwalPage() {
                     onChange={(e) => handleSiswaSelect(e.target.value)}
                     className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-semibold"
                   >
-                    {availableSiswaList.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nama} ({s.kode_siswa}) — {s.paket?.nama_paket || 'Paket Sesi'}
-                      </option>
-                    ))}
+                    {availableSiswaList.map((s) => {
+                      const summary = siswaSessionMap[s.id];
+                      const totalSesi = s.paket?.jumlah_sesi || summary?.total || 10;
+                      const scheduledOrDone = summary ? (summary.selesai + (summary.terjadwal || 0)) : 0;
+                      const remaining = Math.max(0, totalSesi - scheduledOrDone);
+                      return (
+                        <option key={s.id} value={s.id}>
+                          {s.nama} ({s.kode_siswa}) — {s.paket?.nama_paket || 'Paket Sesi'} {scheduledOrDone > 0 ? `(Sisa ${remaining} dari ${totalSesi} sesi)` : `(${totalSesi} sesi)`}
+                        </option>
+                      );
+                    })}
                   </select>
                 )}
               </div>
@@ -2517,9 +2551,18 @@ export default function JadwalPage() {
                     </span>
                   </div>
 
+                  {siswaSessionMap[selectedSiswaObj.id] && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[var(--text-secondary)] font-medium">Status Sesi Saat Ini:</span>
+                      <span className="font-bold text-[var(--text-primary)]">
+                        {siswaSessionMap[selectedSiswaObj.id].selesai} Selesai, {siswaSessionMap[selectedSiswaObj.id].terjadwal || 0} Terjadwal (Sisa {Math.max(0, (selectedSiswaObj.paket?.jumlah_sesi || siswaSessionMap[selectedSiswaObj.id].total) - (siswaSessionMap[selectedSiswaObj.id].selesai + (siswaSessionMap[selectedSiswaObj.id].terjadwal || 0)))} sesi)
+                      </span>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                      Jumlah Sesi Paket
+                      Jumlah Sesi Yang Akan Dijadwalkan
                     </label>
                     <input
                       type="number"

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Kendaraan, KendaraanBan, PosisiBanEnum } from '@/types/database';
 import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
-import { updateOliKendaraan, addBanHistory, updateCuciMobil } from '@/lib/actions/kendaraan';
+import { updateOliKendaraan, addBanHistory, updateCuciMobil, getLatestBanByKendaraan } from '@/lib/actions/kendaraan';
 import { sound } from '@/lib/sound/SoundFX';
 import {
   Wrench,
@@ -34,14 +34,27 @@ const POSISI_LABEL_MAP: Record<PosisiBanEnum, string> = {
   serep: 'Ban Serep (SP)',
 };
 
+function formatTireDate(dateStr?: string | null): string {
+  if (!dateStr) return '';
+  const parts = String(dateStr).slice(0, 10).split('-');
+  if (parts.length === 3) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const mIdx = parseInt(parts[1], 10) - 1;
+    return `${parts[2]} ${months[mIdx] || parts[1]}`;
+  }
+  return dateStr;
+}
+
 function WheelPill({
   short,
   label,
+  sublabel,
   isSelected,
   onClick,
 }: {
   short: string;
   label: string;
+  sublabel?: string;
   isSelected: boolean;
   onClick: () => void;
 }) {
@@ -49,7 +62,7 @@ function WheelPill({
     <button
       type="button"
       onClick={onClick}
-      className={`w-28 py-2 px-2 rounded-xl text-center border font-mono transition-colors active:scale-95 shadow-xs cursor-pointer select-none ${
+      className={`w-28 py-2 px-1.5 rounded-xl text-center border font-mono transition-colors active:scale-95 shadow-xs cursor-pointer select-none ${
         isSelected
           ? 'bg-indigo-600 text-white border-indigo-500 shadow-md ring-2 ring-indigo-400/40 font-bold'
           : 'bg-[var(--card-bg)] text-[var(--text-primary)] border-[var(--border)] hover:border-indigo-400 hover:bg-black/5 dark:hover:bg-white/5'
@@ -66,6 +79,15 @@ function WheelPill({
       >
         {label}
       </div>
+      {sublabel && (
+        <div
+          className={`text-[8px] mt-0.5 font-medium whitespace-nowrap truncate ${
+            isSelected ? 'text-indigo-200' : 'text-indigo-600 dark:text-indigo-400'
+          }`}
+        >
+          {sublabel}
+        </div>
+      )}
     </button>
   );
 }
@@ -96,19 +118,41 @@ export function FleetMaintenanceHub({
 
   // Ban Form States
   const [posisiBan, setPosisiBan] = React.useState<PosisiBanEnum>('depan_kiri');
-  const [banKm, setBanKm] = React.useState<number>(
-    selectedKendaraan?.status?.odometer_terkini || 0
-  );
+  const [banKm, setBanKm] = React.useState<string>('');
   const [banStatusBeli, setBanStatusBeli] = React.useState<'baru' | 'second'>('baru');
   const [banTanggal, setBanTanggal] = React.useState<string>(getTodayDateString());
   const [isSavingBan, setIsSavingBan] = React.useState(false);
+  const [latestBanMap, setLatestBanMap] = React.useState<Record<PosisiBanEnum, KendaraanBan | null>>({
+    depan_kiri: null,
+    depan_kanan: null,
+    belakang_kiri: null,
+    belakang_kanan: null,
+    serep: null,
+  });
+
+  const loadLatestBan = React.useCallback(async (kendaraanId: string) => {
+    if (!kendaraanId) return;
+    try {
+      const res = await getLatestBanByKendaraan(kendaraanId);
+      setLatestBanMap(res);
+    } catch (e) {
+      console.error('Error loading latest ban:', e);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (selectedKendaraan?.id) {
+      loadLatestBan(selectedKendaraan.id);
+    }
+  }, [selectedKendaraan?.id, loadLatestBan]);
 
   // Update odometer defaults when switching vehicle
   React.useEffect(() => {
     if (selectedKendaraan?.status?.odometer_terkini) {
       setOliKm(selectedKendaraan.status.odometer_terkini);
-      setBanKm(selectedKendaraan.status.odometer_terkini);
     }
+    setBanKm('');
+    setBanTanggal(getTodayDateString());
   }, [selectedKendaraan]);
 
   const currentOdo = selectedKendaraan?.status?.odometer_terkini || 0;
@@ -167,15 +211,21 @@ export function FleetMaintenanceHub({
     try {
       setIsSavingBan(true);
       sound.click();
+      const kmValue = banKm.trim() !== '' && !isNaN(Number(banKm)) ? Number(banKm) : null;
       const res = await addBanHistory({
         kendaraan_id: selectedKendaraan.id,
         posisi_ban: posisiBan,
         tanggal_ganti: banTanggal,
-        km_saat_ganti: banKm,
+        km_saat_ganti: kmValue,
         status_beli: banStatusBeli,
       });
       if (res.success) {
         sound.pop();
+        setBanKm('');
+        setBanTanggal(getTodayDateString());
+        if (selectedKendaraan.id) {
+          await loadLatestBan(selectedKendaraan.id);
+        }
         onRefresh();
       } else {
         alert(res.error || 'Gagal mencatat pergantian ban');
@@ -398,6 +448,11 @@ export function FleetMaintenanceHub({
                 <WheelPill
                   short="FL"
                   label="Depan Kiri"
+                  sublabel={
+                    latestBanMap.depan_kiri?.tanggal_ganti
+                      ? formatTireDate(latestBanMap.depan_kiri.tanggal_ganti)
+                      : undefined
+                  }
                   isSelected={posisiBan === 'depan_kiri'}
                   onClick={() => {
                     sound.click();
@@ -412,6 +467,11 @@ export function FleetMaintenanceHub({
                 <WheelPill
                   short="FR"
                   label="Depan Kanan"
+                  sublabel={
+                    latestBanMap.depan_kanan?.tanggal_ganti
+                      ? formatTireDate(latestBanMap.depan_kanan.tanggal_ganti)
+                      : undefined
+                  }
                   isSelected={posisiBan === 'depan_kanan'}
                   onClick={() => {
                     sound.click();
@@ -438,6 +498,11 @@ export function FleetMaintenanceHub({
                 <WheelPill
                   short="RL"
                   label="Belakang Kiri"
+                  sublabel={
+                    latestBanMap.belakang_kiri?.tanggal_ganti
+                      ? formatTireDate(latestBanMap.belakang_kiri.tanggal_ganti)
+                      : undefined
+                  }
                   isSelected={posisiBan === 'belakang_kiri'}
                   onClick={() => {
                     sound.click();
@@ -452,6 +517,11 @@ export function FleetMaintenanceHub({
                 <WheelPill
                   short="RR"
                   label="Belakang Kanan"
+                  sublabel={
+                    latestBanMap.belakang_kanan?.tanggal_ganti
+                      ? formatTireDate(latestBanMap.belakang_kanan.tanggal_ganti)
+                      : undefined
+                  }
                   isSelected={posisiBan === 'belakang_kanan'}
                   onClick={() => {
                     sound.click();
@@ -468,6 +538,11 @@ export function FleetMaintenanceHub({
                 <WheelPill
                   short="SP"
                   label="Ban Serep"
+                  sublabel={
+                    latestBanMap.serep?.tanggal_ganti
+                      ? formatTireDate(latestBanMap.serep.tanggal_ganti)
+                      : undefined
+                  }
                   isSelected={posisiBan === 'serep'}
                   onClick={() => {
                     sound.click();
@@ -486,22 +561,62 @@ export function FleetMaintenanceHub({
           {/* Form Pergantian Ban */}
           <form
             onSubmit={handleSaveBan}
-            className="card-container p-4 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] shadow-sm space-y-3"
+            className="card-container p-4 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] shadow-sm space-y-3.5"
           >
-            <h4 className="text-xs font-black uppercase tracking-wider text-[var(--text-primary)] border-b border-[var(--border)] pb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Disc className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Catat Penggantian Ban</span>
-              </span>
-              <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
-                Posisi: {POSISI_LABEL_MAP[posisiBan] || posisiBan.replace('_', ' ')}
-              </span>
-            </h4>
+            <div className="border-b border-[var(--border)] pb-2.5 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-1.5">
+                  <Disc className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Catat Penggantian Ban</span>
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                  Posisi: {POSISI_LABEL_MAP[posisiBan] || posisiBan.replace('_', ' ')}
+                </span>
+              </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
+              {latestBanMap[posisiBan] ? (
+                <p className="text-[10px] text-[var(--text-muted)] flex items-center gap-1.5 flex-wrap">
+                  <ShieldCheck className="w-3 h-3 text-emerald-500 shrink-0" />
+                  <span>
+                    Terakhir ganti:{' '}
+                    <strong className="text-[var(--text-primary)]">
+                      {formatDateIndo(latestBanMap[posisiBan]!.tanggal_ganti)}
+                    </strong>
+                    {latestBanMap[posisiBan]!.km_saat_ganti !== null && latestBanMap[posisiBan]!.km_saat_ganti !== undefined ? (
+                      <> • <span className="font-mono font-bold text-[var(--text-primary)]">{latestBanMap[posisiBan]!.km_saat_ganti?.toLocaleString('id-ID')} km</span></>
+                    ) : (
+                      <span className="text-[var(--text-muted)]"> (KM tidak dicatat)</span>
+                    )}{' '}
+                    — {latestBanMap[posisiBan]!.status_beli === 'baru' ? 'Ban Baru' : 'Ban Bekas'}
+                  </span>
+                </p>
+              ) : (
+                <p className="text-[10px] text-[var(--text-muted)]">
+                  Belum ada riwayat pergantian ban tercatat untuk posisi ini.
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {/* 1. Tanggal Ganti */}
               <div>
                 <label className="text-[11px] font-bold text-[var(--text-secondary)] block mb-1">
-                  Kondisi Beli
+                  Tanggal Ganti *
+                </label>
+                <input
+                  type="date"
+                  value={banTanggal}
+                  onChange={(e) => setBanTanggal(e.target.value)}
+                  max={getTodayDateString()}
+                  required
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--bg)] border border-[var(--border)] text-xs font-bold text-[var(--text-primary)]"
+                />
+              </div>
+
+              {/* 2. Kondisi Beli */}
+              <div>
+                <label className="text-[11px] font-bold text-[var(--text-secondary)] block mb-1">
+                  Kondisi Beli *
                 </label>
                 <select
                   value={banStatusBeli}
@@ -513,19 +628,37 @@ export function FleetMaintenanceHub({
                 </select>
               </div>
 
+              {/* 3. Kilometer Ganti (Opsional) */}
               <div>
-                <label className="text-[11px] font-bold text-[var(--text-secondary)] block mb-1">
-                  Kilometer Ganti
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-bold text-[var(--text-secondary)] block">
+                    Kilometer Ganti
+                  </label>
+                  <span className="text-[9px] text-[var(--text-muted)] font-medium">Opsional</span>
+                </div>
                 <input
                   type="number"
                   value={banKm}
-                  onChange={(e) => setBanKm(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-xl bg-[var(--bg)] border border-[var(--border)] text-xs font-mono font-bold text-[var(--text-primary)]"
-                  required
+                  onChange={(e) => setBanKm(e.target.value)}
+                  placeholder={currentOdo ? `Contoh: ${currentOdo}` : 'Opsional (km)'}
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--bg)] border border-[var(--border)] text-xs font-mono font-bold text-[var(--text-primary)] placeholder:text-[var(--text-muted)] placeholder:font-normal"
                 />
               </div>
             </div>
+
+            {/* Quick Button Isi KM Terkini */}
+            {currentOdo > 0 && !banKm && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setBanKm(String(currentOdo))}
+                  className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold flex items-center gap-1"
+                >
+                  <Gauge className="w-3 h-3" />
+                  <span>Isi KM Terkini ({currentOdo.toLocaleString('id-ID')} km)</span>
+                </button>
+              </div>
+            )}
 
             <button
               type="submit"

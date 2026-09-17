@@ -92,7 +92,7 @@ export default function KendaraanDetailPage() {
       kendaraan_id: kendaraan.id,
       posisi_ban: posisiBan,
       tanggal_ganti: tanggal,
-      km_saat_ganti: banKm,
+      km_saat_ganti: banKm > 0 ? banKm : null,
       status_beli: 'baru',
     });
     setModalType(null);
@@ -302,14 +302,18 @@ export default function KendaraanDetailPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                    Odometer Saat Ganti (km) *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">
+                      Odometer Saat Ganti (km)
+                    </label>
+                    <span className="text-[10px] text-[var(--text-muted)]">Opsional</span>
+                  </div>
                   <input
                     type="number"
-                    value={banKm}
-                    onChange={(e) => setBanKm(parseInt(e.target.value, 10))}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-[var(--border)] bg-[var(--bg)] font-mono font-bold text-[var(--text-primary)]"
+                    value={banKm || ''}
+                    onChange={(e) => setBanKm(e.target.value ? parseInt(e.target.value, 10) : 0)}
+                    placeholder={kendaraan?.status?.odometer_terkini ? `Contoh: ${kendaraan.status.odometer_terkini}` : 'Opsional (km)'}
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-[var(--border)] bg-[var(--bg)] font-mono font-bold text-[var(--text-primary)] placeholder:font-normal placeholder:text-[var(--text-muted)]"
                   />
                 </div>
               </div>
