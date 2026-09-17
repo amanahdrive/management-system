@@ -17,7 +17,6 @@ import {
   Award,
   Loader2,
   RefreshCw,
-  Sparkles,
   CheckCircle2,
 } from 'lucide-react';
 
@@ -230,7 +229,7 @@ export function CertificateSvgModal({
           <div className="p-4 border-b border-[var(--border)] bg-[var(--bg)] space-y-3 animate-fadeIn text-xs">
             <div className="flex items-center justify-between">
               <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
                 <span>Sesuaikan Parameter Sertifikat:</span>
               </span>
               <button

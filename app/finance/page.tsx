@@ -76,7 +76,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   RotateCcw,
-  Sparkles,
   Star,
   Landmark,
   Search,
@@ -1382,7 +1381,7 @@ export default function FinancePortalPage() {
                 className="w-full py-2.5 px-3 rounded-2xl liquid-glass-card border border-[var(--liquid-glass-border)] flex items-center justify-between text-xs font-bold text-[var(--text-primary)] hover:border-indigo-500 transition-all active:scale-98"
               >
                 <div className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                   <span>Pos Pengeluaran</span>
                 </div>
                 <div className="flex items-center gap-0.5 text-[10px] text-indigo-600 font-bold">
@@ -2499,7 +2498,7 @@ export default function FinancePortalPage() {
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-600 flex items-center justify-center shrink-0">
-                      <Sparkles className="w-5 h-5" />
+                      <Layers className="w-5 h-5" />
                     </div>
                     <div>
                       <div className="text-xs font-bold text-[var(--text-primary)]">Pos Pengeluaran & Anggaran</div>

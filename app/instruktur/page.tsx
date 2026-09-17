@@ -48,7 +48,6 @@ import {
   ArrowRight,
   AlertTriangle,
   Utensils,
-  Sparkles,
 } from 'lucide-react';
 
 const STAFF_KODE_MAP: Record<string, string> = {
@@ -890,7 +889,7 @@ export default function InstrukturPortalPage() {
                   <span className="font-mono text-[10px] uppercase text-[var(--text-muted)] font-semibold">
                     Mobil Sendiri
                   </span>
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <Car className="w-3.5 h-3.5 text-amber-500" />
                 </div>
                 <div className="font-mono text-base font-bold text-[var(--text-primary)] tabular-nums">
                   {formatRupiah(weeklyRecap?.feePribadiTotal || 0)}

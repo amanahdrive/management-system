@@ -33,7 +33,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Clock,
-  Sparkles,
+  IdCard,
   Zap,
   CreditCard,
   Landmark,
@@ -429,7 +429,7 @@ export default function PosPengeluaranPage() {
                 className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm hover:-translate-y-0.5"
                 title="Cek dan masukkan otomatis siswa siap terbit, hutang, dan operasional bulan ini"
               >
-                <Sparkles className={`w-3.5 h-3.5 ${generating ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${generating ? 'animate-spin' : ''}`} />
                 <span>{generating ? 'Memeriksa Data...' : 'Sinkronkan Pos Otomatis'}</span>
               </button>
               <button
@@ -613,8 +613,8 @@ export default function PosPengeluaranPage() {
                   onClick={handleGenerateOtomatis}
                   className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1.5"
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Generate Pos Otomatis Bulan Ini</span>
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Sinkronkan Pos Bulan Ini</span>
                 </button>
                 <button
                   type="button"
@@ -670,7 +670,7 @@ export default function PosPengeluaranPage() {
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {pos.sumber === 'otomatis_sim' && (
                               <span className="px-2 py-0.5 bg-blue-500/10 text-blue-600 border border-blue-500/20 rounded-md text-[10px] font-bold flex items-center gap-1">
-                                <Sparkles className="w-2.5 h-2.5" />
+                                <IdCard className="w-2.5 h-2.5" />
                                 Pelatihan SIM
                               </span>
                             )}
@@ -1221,7 +1221,7 @@ export default function PosPengeluaranPage() {
                     <div>
                       <div className="font-bold">Koreksi Salah Bayar:</div>
                       <p className="text-[11px] leading-relaxed mt-0.5">
-                        Mengubah status kembali ke <strong>Belum Bayar</strong> akan otomatis <strong>menghapus mutasi pengeluaran kas terkait</strong> agar saldo kas Anda kembali utuh.
+                        Mengubah status ke <strong>Belum Bayar</strong> akan membatalkan mutasi pengeluaran kas terkait.
                       </p>
                     </div>
                   </div>

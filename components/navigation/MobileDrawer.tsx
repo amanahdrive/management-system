@@ -16,7 +16,7 @@ import {
   ChevronDown,
   ChevronUp,
   FileSpreadsheet,
-  Sparkles,
+  Layers,
   CreditCard,
   Landmark,
   Package,
@@ -59,7 +59,7 @@ const KENDARAAN_SUB_ITEMS = [
 const KAS_SUB_ITEMS = [
   { label: 'Overview Kas', href: '/kas', icon: Wallet },
   { label: 'Buku Besar (Cashflow)', href: '/kas/cashflow', icon: FileSpreadsheet },
-  { label: 'Pos Pengeluaran', href: '/kas/pos', icon: Sparkles },
+  { label: 'Pos Pengeluaran', href: '/kas/pos', icon: Layers },
   { label: 'Manajemen Piutang', href: '/kas/piutang', icon: CreditCard },
   { label: 'Manajemen Hutang', href: '/kas/hutang', icon: Landmark },
   { label: 'Rekening Bank', href: '/kas/rekening', icon: Building2 },

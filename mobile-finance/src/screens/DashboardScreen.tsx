@@ -22,7 +22,7 @@ import {
   Users,
   CreditCard,
   ChevronRight,
-  Sparkles,
+  Layers,
   X,
   CheckCircle2,
   Calendar,
@@ -174,7 +174,7 @@ export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =
                   activeOpacity={0.8}
                   onPress={() => setShowPosModal(true)}
                 >
-                  <Sparkles size={18} color="#FFFFFF" />
+                  <Layers size={18} color="#FFFFFF" />
                   <Text style={styles.actionBtnText}>Pos Pengeluaran</Text>
                 </TouchableOpacity>
               </View>
@@ -256,7 +256,7 @@ export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <View style={styles.modalTitleRow}>
-                <Sparkles size={18} color="#818CF8" />
+                <Layers size={18} color="#818CF8" />
                 <Text style={styles.modalTitle}>Pos Pengeluaran Rutin</Text>
               </View>
               <TouchableOpacity onPress={() => setShowPosModal(false)} style={styles.modalCloseBtn}>

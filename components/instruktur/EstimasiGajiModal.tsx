@@ -12,7 +12,6 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   Utensils,
   Car,
   RefreshCw,
@@ -139,7 +138,7 @@ export function EstimasiGajiModal({
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <Calendar className="w-3.5 h-3.5" />
               <span>Bulanan</span>
             </button>
           </div>

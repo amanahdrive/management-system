@@ -54,7 +54,7 @@ import {
   CalendarDays,
   RotateCcw,
   Filter,
-  Sparkles,
+  Zap,
   Tag,
   Calculator,
   UserCheck,
@@ -1253,8 +1253,8 @@ export default function NotaPage() {
                 {/* Quick Presets / Shortcuts */}
                 <div className="p-3 rounded-2xl bg-[var(--bg-subtle)] border border-[var(--border)] space-y-2">
                   <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-[var(--text-secondary)]">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Shortcut Tambah Cepat:</span>
+                    <Zap className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Item Cepat (Preset):</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     <button

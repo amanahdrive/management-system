@@ -12,7 +12,6 @@ import {
   TrendingUp,
   RefreshCw,
   Clock,
-  Sparkles,
   MapPin,
   FileText,
   Activity,
@@ -181,7 +180,7 @@ export default function HomepageTrackingPage() {
               <p className="text-[11px] text-[var(--text-muted)]">Jumlah submission form pendaftaran &amp; perolehan siswa baru</p>
             </div>
             <div className="flex items-center gap-1 text-[11px] font-mono text-[var(--brand-primary)]">
-              <Sparkles className="w-3.5 h-3.5" />
+              <Activity className="w-3.5 h-3.5" />
               <span>Real-time</span>
             </div>
           </div>

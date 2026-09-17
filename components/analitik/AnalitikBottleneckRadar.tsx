@@ -210,7 +210,7 @@ export function AnalitikBottleneckRadar({ bottlenecks }: BottleneckRadarProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs pt-1">
                 <div className="p-3 border border-[var(--border)] bg-[var(--bg)] space-y-1">
                   <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">
-                    🔍 Akar Masalah (Root Cause)
+                    Akar Masalah (Root Cause)
                   </span>
                   <p className="text-[11px] text-[var(--text-primary)] leading-relaxed">
                     {item.rootCause}
@@ -219,7 +219,7 @@ export function AnalitikBottleneckRadar({ bottlenecks }: BottleneckRadarProps) {
 
                 <div className="p-3 border border-emerald-200 dark:border-emerald-950 bg-emerald-500/5 space-y-1">
                   <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
-                    💡 Rekomendasi Solusi Praktis
+                    Rekomendasi Tindakan
                   </span>
                   <p className="text-[11px] text-[var(--text-primary)] leading-relaxed">
                     {item.actionRecommendation}

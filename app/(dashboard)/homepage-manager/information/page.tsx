@@ -19,7 +19,7 @@ import {
   AlertCircle,
   ExternalLink,
   MessageCircle,
-  Sparkles,
+  Eye,
   Sliders,
   ZoomIn,
   Move,
@@ -440,7 +440,7 @@ export default function HomepageInformationPage() {
           <div className="lg:col-span-5 p-5 rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xs space-y-4">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
-                <Sparkles className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                <Eye className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
                 <span>Live Preview Tampilan Homepage</span>
               </div>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 font-bold">

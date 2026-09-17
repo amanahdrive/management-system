@@ -7,7 +7,7 @@ import { updateOliKendaraan, addBanHistory, updateCuciMobil, getLatestBanByKenda
 import { sound } from '@/lib/sound/SoundFX';
 import {
   Wrench,
-  Sparkles,
+  Droplets,
   Disc,
   AlertTriangle,
   CheckCircle2,
@@ -304,7 +304,7 @@ export function FleetMaintenanceHub({
               : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5 text-cyan-500" />
+          <Droplets className="w-3.5 h-3.5 text-cyan-500" />
           <span>Cuci Mobil</span>
         </button>
       </div>
@@ -676,7 +676,7 @@ export function FleetMaintenanceHub({
         <div className="space-y-3.5 animate-in fade-in duration-200">
           <div className="card-container p-4 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] shadow-sm space-y-3 text-center">
             <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 flex items-center justify-center mx-auto">
-              <Sparkles className="w-6 h-6" />
+              <Droplets className="w-6 h-6" />
             </div>
 
             <div>

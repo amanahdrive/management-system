@@ -4,7 +4,7 @@ import React from 'react';
 import { Kendaraan } from '@/types/database';
 import { getKendaraanImage } from '@/lib/utils/vehicle';
 import { sound } from '@/lib/sound/SoundFX';
-import { Car, UserCheck, Check, X, ShieldCheck, Sparkles } from 'lucide-react';
+import { Car, UserCheck, Check, X, ShieldCheck } from 'lucide-react';
 
 export interface ArmadaSelectionPopoverModalProps {
   isOpen: boolean;
@@ -121,8 +121,8 @@ export function ArmadaSelectionPopoverModal({
         {/* Konten Pilihan Mobil */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1">
           <div className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Pilih Mobil yang Dipakai Hari Ini:</span>
+            <Car className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Pilih Armada Mobil:</span>
           </div>
 
           {/* List Armada Mobil Operasional */}
@@ -141,7 +141,7 @@ export function ArmadaSelectionPopoverModal({
                       : 'border-[var(--border)] bg-[var(--card-bg)] hover:border-emerald-500/50 hover:bg-black/5 dark:hover:bg-white/5'
                   }`}
                 >
-                  {/* Visual Gambar Realistik Mobil (WebP Ringan & Bebas Background) */}
+                  {/* Visual Gambar Mobil (WebP Ringan & Bebas Background) */}
                   <div className="relative w-24 h-16 sm:w-28 sm:h-20 shrink-0 rounded-2xl overflow-hidden bg-gradient-to-b from-black/5 to-transparent dark:from-white/5 border border-[var(--border)] flex items-center justify-center p-1">
                     <img
                       src={carImg}

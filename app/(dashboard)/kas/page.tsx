@@ -60,7 +60,6 @@ import {
   Loader2,
   Banknote,
   Car,
-  Sparkles,
   ArrowRight,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -1298,7 +1297,7 @@ export default function KasOverviewPage() {
                         <div className="p-2 rounded bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 flex items-start gap-1.5">
                           <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-600" />
                           <div>
-                            <strong>Pelunasan Penuh Hutang!</strong> Pembayaran ini akan melunasi seluruh sisa hutang dan statusnya otomatis berubah menjadi <strong>LUNAS</strong>.
+                            <strong>Pelunasan Penuh:</strong> Pembayaran ini melunasi seluruh sisa hutang dan status diperbarui menjadi <strong>LUNAS</strong>.
                           </div>
                         </div>
                       )}

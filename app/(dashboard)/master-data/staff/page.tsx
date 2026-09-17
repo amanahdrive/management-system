@@ -6,7 +6,7 @@ import { DataTable } from '@/components/shared/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Staff, Jabatan } from '@/types/database';
 import { getStaffList, getJabatanList, upsertStaff } from '@/lib/actions/master-data';
-import { Plus, Edit2, Check, Calendar, Clock, Sparkles, Banknote, Loader2, Save } from 'lucide-react';
+import { Plus, Edit2, Check, Calendar, Clock, Banknote, Loader2, Save } from 'lucide-react';
 import { MasterDataSubNav } from '@/components/master-data/MasterDataSubNav';
 import { useAppRefresh } from '@/lib/utils/refresh-event';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Sparkles, Clock, Check, ChevronDown } from 'lucide-react';
+import { Sun, Moon, Clock, Check, ChevronDown } from 'lucide-react';
 import { sound } from '@/lib/sound/SoundFX';
 
 export type ThemePreferenceMode = 'auto_wib' | 'light' | 'dark';
@@ -124,7 +124,7 @@ export function WibThemeToggle({
         >
           {mode === 'auto_wib' ? (
             <>
-              <Sparkles className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
+              <Clock className="w-3.5 h-3.5 text-emerald-500" />
               <span className="font-mono text-[11px] font-bold tracking-tight">WIB {wibTimeStr.slice(0, 5)}</span>
               {isDarkActive ? <Moon className="w-3 h-3 text-cyan-400" /> : <Sun className="w-3 h-3 text-amber-500" />}
             </>
@@ -202,7 +202,7 @@ export function WibThemeToggle({
             >
               <div className="flex items-center gap-2.5">
                 <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                  <Sparkles className="w-3.5 h-3.5" />
+                  <Clock className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">

@@ -24,7 +24,7 @@ import {
   Pencil,
   ExternalLink,
   RefreshCw,
-  Sparkles,
+  Printer,
   Filter,
   X,
   MessageCircle,
@@ -279,7 +279,7 @@ export default function SertifikatPage() {
           label="Siap Cetak (Prioritas)"
           value={`${metrics.siap} Siswa`}
           description="Sudah masuk 2 sesi terakhir"
-          icon={<Sparkles className="w-5 h-5 text-amber-500" />}
+          icon={<Printer className="w-5 h-5 text-amber-500" />}
           className={activeTab === 'siap_cetak' ? 'ring-2 ring-amber-500/50' : ''}
           onClick={() => setActiveTab('siap_cetak')}
         />
@@ -335,7 +335,7 @@ export default function SertifikatPage() {
                   : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20'
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <Printer className="w-3.5 h-3.5" />
               <span>Siap Cetak ({metrics.siap})</span>
             </button>
 
@@ -450,8 +450,8 @@ export default function SertifikatPage() {
                             <span>Selesai Cetak</span>
                           </span>
                         ) : isSiap ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 animate-pulse">
-                            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                            <Printer className="w-3.5 h-3.5 text-amber-600" />
                             <span>Siap Cetak</span>
                           </span>
                         ) : (

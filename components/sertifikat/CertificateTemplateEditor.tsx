@@ -15,7 +15,6 @@ import {
   Move,
   Eye,
   CheckCircle2,
-  Sparkles,
   Loader2,
   Plus,
   Trash2,

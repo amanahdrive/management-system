@@ -10,7 +10,7 @@ import {
   Gauge,
   Wrench,
   Fuel,
-  Sparkles,
+  Droplets,
   Plus,
 } from 'lucide-react';
 
@@ -133,7 +133,7 @@ export function FleetTelemetryCards({
 
                 {/* 3. Cuci Mobil Terakhir */}
                 <div className="flex items-start gap-2 pt-2 border-t border-[var(--border)]">
-                  <Sparkles className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
+                  <Droplets className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
                   <div className="min-w-0">
                     <span className="text-[10px] text-[var(--text-secondary)] block">
                       Cuci Mobil Terakhir
@@ -201,7 +201,7 @@ export function FleetTelemetryCards({
                   }}
                   className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-semibold flex items-center gap-1"
                 >
-                  <Sparkles className="w-3 h-3" />
+                  <Droplets className="w-3 h-3" />
                   <span>Catat Cuci</span>
                 </button>
               </div>

@@ -22,7 +22,6 @@ import {
   Users,
   Wallet,
   Car,
-  Sparkles,
   Tag,
   Award,
   Check,
@@ -941,7 +940,7 @@ export default function AuditLogPage() {
                         </div>
                         {diffCount > 0 && (
                           <div className="mt-1 flex items-center gap-1.5 text-[10px] text-[var(--brand-primary)] font-semibold">
-                            <Sparkles className="w-3 h-3" />
+                            <SlidersHorizontal className="w-3 h-3" />
                             <span>{diffCount} parameter diubah</span>
                           </div>
                         )}
@@ -1053,7 +1052,7 @@ export default function AuditLogPage() {
               {/* Diff Viewer (Parsed Humanized vs Object) */}
               <div>
                 <h4 className="font-bold text-xs text-[var(--text-primary)] mb-2 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-[var(--brand-primary)]" />
+                  <SlidersHorizontal className="w-4 h-4 text-[var(--brand-primary)]" />
                   Rincian Parameter yang Diubah
                 </h4>
 

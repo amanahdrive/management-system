@@ -53,7 +53,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Sparkles,
+  CalendarCheck,
   Filter,
   X,
   RefreshCw,
@@ -1942,7 +1942,7 @@ export default function JadwalPage() {
                   type="button"
                   onClick={() => setIsArmadaPopoverOpen(true)}
                   className="px-2.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg flex items-center justify-center gap-1 shadow-sm transition-all active:scale-95 cursor-pointer"
-                  title="Tandai Selesai & Pilih Armada Mobil Realistik"
+                  title="Tandai Selesai & Pilih Armada"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Selesai</span>
@@ -2068,7 +2068,7 @@ export default function JadwalPage() {
         </div>
       )}
 
-      {/* Popover / Modal Pilihan Armada Realistik untuk Progress Sesi Selesai di Console Utama */}
+      {/* Modal Pilihan Armada untuk Progress Sesi Selesai di Console Utama */}
       {isArmadaPopoverOpen && progressModalJadwal && (
         <ArmadaSelectionPopoverModal
           isOpen={isArmadaPopoverOpen}
@@ -2727,13 +2727,6 @@ export default function JadwalPage() {
                     <span>Mobil Pribadi / Siswa</span>
                   </label>
                 </div>
-
-                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-start gap-2 leading-relaxed">
-                  <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                  <span>
-                    <strong>Pencatatan Armada Otomatis & Akurat:</strong> Pemilihan unit armada mobil spesifik tidak lagi dipilih saat membuat jadwal. Instruktur akan memilih mobil yang dipakai langsung di lapangan saat sesi selesai melalui popover armada realistik.
-                  </span>
-                </div>
               </div>
 
               {/* 4. MULTI-DATE PICKER MATRIX BERDASARKAN TOTAL SESI PAKET */}
@@ -2747,8 +2740,8 @@ export default function JadwalPage() {
                     onClick={handleAutoAdjustDates}
                     className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold flex items-center gap-1 shadow-sm transition-colors"
                   >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Auto-Adjust Tanggal Bebas Bentrok</span>
+                    <CalendarCheck className="w-3.5 h-3.5" />
+                    <span>Atur Tanggal Otomatis</span>
                   </button>
                 </div>
 

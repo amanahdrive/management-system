@@ -12,7 +12,6 @@ import {
   XCircle,
   Car,
   Clock,
-  Sparkles,
   ShieldCheck,
   Trash2,
   Send,

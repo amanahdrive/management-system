@@ -17,7 +17,7 @@ import { formatDateIndo, getTodayDateString } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { KendaraanLogManager } from '@/components/kendaraan/KendaraanLogManager';
-import { Gauge, Wrench, Fuel, Sparkles, Disc, ArrowLeft, AlertOctagon, X } from 'lucide-react';
+import { Gauge, Wrench, Fuel, Droplets, Disc, ArrowLeft, AlertOctagon, X } from 'lucide-react';
 import Link from 'next/link';
 
 import { useAppRefresh } from '@/lib/utils/refresh-event';
@@ -150,7 +150,7 @@ export default function KendaraanDetailPage() {
           onClick={() => setModalType('cuci')}
           className="p-3.5 liquid-glass-card rounded-2xl hover:border-[var(--brand-primary)] flex flex-col items-center gap-1.5 text-center text-xs font-bold text-cyan-700 dark:text-cyan-400 transition-all active:scale-95 shadow-2xs"
         >
-          <Sparkles className="w-5 h-5 text-cyan-600" />
+          <Droplets className="w-5 h-5 text-cyan-600" />
           <span>Update Cuci</span>
         </button>
 

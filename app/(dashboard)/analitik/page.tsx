@@ -25,7 +25,7 @@ import {
   Fuel,
   Printer,
   RefreshCw,
-  Sparkles,
+  FileText,
   AlertOctagon,
   ArrowRight,
   Filter,
@@ -392,7 +392,7 @@ export default function AnalitikPage() {
       <div className="flex items-center gap-1 border-b border-[var(--border)] pb-2 overflow-x-auto text-xs font-semibold">
         {(
           [
-            { key: 'overview', label: '1. Ringkasan & Funnel', icon: Sparkles, badge: null, badgeColor: undefined },
+            { key: 'overview', label: '1. Ringkasan & Funnel', icon: TrendingUp, badge: null, badgeColor: undefined },
             { key: 'siswa', label: '2. Data Siswa & Akuisisi', icon: Users, badge: `${summaryKPI.totalSiswa}`, badgeColor: undefined },
             { key: 'keuangan', label: '3. Data Keuangan & Kas', icon: Wallet, badge: null, badgeColor: undefined },
             { key: 'armada', label: '4. Data Armada & BBM', icon: Car, badge: `${armadaAnalytics.length}`, badgeColor: undefined },
@@ -541,7 +541,7 @@ export default function AnalitikPage() {
             <div className="p-4 border border-[var(--border)] bg-[var(--bg)] space-y-3">
               <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                 <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <FileText className="w-3.5 h-3.5 text-amber-500" />
                   <span>Bahan Evaluasi & Rapat Manajemen</span>
                 </span>
                 <span className="text-[10px] text-[var(--text-secondary)] font-mono">Actionable Insights</span>

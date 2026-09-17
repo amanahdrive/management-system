@@ -7,7 +7,7 @@ import {
   ArrowDown,
   TrendingDown,
   ChevronRight,
-  Sparkles,
+  TrendingUp,
   Users,
   CheckCircle2,
   AlertCircle,
@@ -91,7 +91,7 @@ export function AnalitikFunnelVisualizer({
         <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
           <div>
             <h3 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+              <TrendingUp className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
               <span>Visualisasi Funnel Konversi Siswa (Stepped Conversion Flow)</span>
             </h3>
             <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">

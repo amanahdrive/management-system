@@ -10,7 +10,7 @@ import {
   Car,
   Menu,
   Wallet,
-  Sparkles,
+  Layers,
   Building2,
   Plus,
 } from 'lucide-react';
@@ -44,7 +44,7 @@ export function BottomNav() {
   if (isFinanceMode) {
     const financeLeftItems: [LiquidNavItem, LiquidNavItem] = [
       { id: 'finance', label: 'Beranda', href: '/finance', icon: Wallet },
-      { id: 'pos', label: 'POS', href: '/kas/pos', icon: Sparkles },
+      { id: 'pos', label: 'POS', href: '/kas/pos', icon: Layers },
     ];
 
     const financeRightItems: [LiquidNavItem, LiquidNavItem] = [
