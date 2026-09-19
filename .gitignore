@@ -42,7 +42,8 @@ yarn-error.log*
 next-env.d.ts
 
 # documentation (internal / private docs)
-/docs/
+/docs/*
+!/docs/DOKUMENTASI_PERHITUNGAN_ARMADA.md
 
 # IDE
 .cursor/
