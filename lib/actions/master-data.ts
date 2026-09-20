@@ -19,7 +19,9 @@ export async function getPaketList(): Promise<Paket[]> {
   if (cached && cached.length > 0) return cached;
 
   try {
-    const rows = await dbQuery<Paket>('SELECT * FROM paket ORDER BY created_at ASC');
+    const rows = await dbQuery<Paket>(
+      'SELECT * FROM paket ORDER BY COALESCE(urutan, 100) ASC, jumlah_sesi ASC, harga_normal ASC'
+    );
     cacheSet('master_paket_list', rows, 180);
     return rows;
   } catch (e) {

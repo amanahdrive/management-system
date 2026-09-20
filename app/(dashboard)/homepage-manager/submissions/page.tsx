@@ -11,6 +11,7 @@ import {
 import { getPaketList } from '@/lib/actions/master-data';
 import { HomepageLead, HomepageLeadStatus, Paket } from '@/types/database';
 import { formatRupiah } from '@/lib/utils/currency';
+import { groupPaketForSelect, formatPaketOptionLabel, getDefaultPaketForRegistration } from '@/lib/utils/paket';
 import {
   Search,
   RefreshCw,
@@ -118,7 +119,7 @@ export default function HomepageSubmissionsPage() {
         p.nama_paket.toLowerCase().includes((lead.paket_nama || '').toLowerCase())
     );
     if (!matchedPaket && pakets.length > 0) {
-      matchedPaket = pakets[0];
+      matchedPaket = getDefaultPaketForRegistration(pakets) || pakets[0];
     }
 
     setConvertPaketId(matchedPaket ? matchedPaket.id : '');
@@ -592,10 +593,14 @@ export default function HomepageSubmissionsPage() {
                   required
                 >
                   <option value="">-- Pilih Paket Kursus --</option>
-                  {pakets.map((pkt) => (
-                    <option key={pkt.id} value={pkt.id}>
-                      {pkt.nama_paket} ({pkt.jumlah_sesi} sesi{pkt.termasuk_sim ? ' + SIM A' : ''}) - {formatRupiah(pkt.harga_promo || pkt.harga_normal)}
-                    </option>
+                  {groupPaketForSelect(pakets).map((grp) => (
+                    <optgroup key={grp.groupName} label={grp.groupName}>
+                      {grp.items.map((pkt) => (
+                        <option key={pkt.id} value={pkt.id}>
+                          {formatPaketOptionLabel(pkt)}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>

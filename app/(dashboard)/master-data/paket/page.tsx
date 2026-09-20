@@ -50,6 +50,7 @@ export default function MasterPaketPage() {
       jenis_mobil: ['manual', 'matic'],
       is_custom: false,
       aktif: true,
+      urutan: (paketList.length > 0 ? Math.max(...paketList.map((p) => p.urutan || 0)) + 1 : 1),
     });
     setIsModalOpen(true);
   };
@@ -114,6 +115,16 @@ export default function MasterPaketPage() {
   };
 
   const columns: ColumnDef<Paket>[] = [
+    {
+      accessorKey: 'urutan',
+      header: 'Urutan',
+      sortingFn: 'basic',
+      cell: ({ row }) => (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)]">
+          #{row.original.urutan ?? 100}
+        </span>
+      ),
+    },
     {
       accessorKey: 'nama_paket',
       header: 'Nama Paket',
@@ -283,12 +294,29 @@ export default function MasterPaketPage() {
                   onChange={(e) =>
                     setEditingPaket({ ...editingPaket, nama_paket: e.target.value })
                   }
-                  placeholder="Contoh: Basic (5x) Manual"
+                  placeholder="Contoh: Basic (5 Sesi)"
                   className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    Urutan Prioritas *
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    required
+                    value={editingPaket.urutan ?? 10}
+                    onChange={(e) =>
+                      setEditingPaket({ ...editingPaket, urutan: parseInt(e.target.value) || 1 })
+                    }
+                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] font-mono font-semibold"
+                  />
+                  <span className="text-[10px] text-[var(--text-muted)] block mt-0.5">Urutan di dropdown</span>
+                </div>
+
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                     Jumlah Sesi *
@@ -304,7 +332,7 @@ export default function MasterPaketPage() {
                   />
                 </div>
 
-                <div className="flex items-center pt-5">
+                <div className="flex items-center pt-2">
                   <label className="flex items-center gap-2 text-xs font-medium text-[var(--text-primary)] cursor-pointer select-none">
                     <input
                       type="checkbox"

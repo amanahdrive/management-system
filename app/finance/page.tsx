@@ -23,6 +23,7 @@ import {
 import { getSiswaList, recordPelunasanDirect } from '@/lib/actions/siswa';
 import { getPaketList } from '@/lib/actions/master-data';
 import { formatCarOptionsLabel } from '@/lib/utils/vehicle';
+import { groupPaketForSelect, formatPaketOptionLabel, getDefaultPaketForRegistration } from '@/lib/utils/paket';
 import { getRekeningList } from '@/lib/actions/rekening';
 import { getPinSettings, verifyKasPin } from '@/lib/actions/kas-pin';
 import {
@@ -617,7 +618,7 @@ export default function FinancePortalPage() {
   const handleSiswaChange = (siswaId: string) => {
     // 1. Kasus DP Kustom (Input DP tanpa data siswa)
     if (siswaId === 'custom_dp') {
-      const defaultPaket = paketList[0];
+      const defaultPaket = getDefaultPaketForRegistration(paketList) || paketList[0];
       const defaultPrice = defaultPaket ? (defaultPaket.harga_promo || defaultPaket.harga_normal) : 2000000;
       const defaultDp = Math.round(defaultPrice * 0.5);
       setCustomPaketId(defaultPaket?.id || '');
@@ -2818,14 +2819,15 @@ export default function FinancePortalPage() {
                             onChange={(e) => handleCustomPaketChange(e.target.value)}
                             className="w-full px-2.5 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)]"
                           >
-                            {paketList.map((p) => {
-                              const carLabel = formatCarOptionsLabel(p.jenis_mobil);
-                              return (
-                                <option key={p.id} value={p.id}>
-                                  {p.nama_paket} ({carLabel}) - {formatRupiah(p.harga_promo || p.harga_normal)}
-                                </option>
-                              );
-                            })}
+                            {groupPaketForSelect(paketList).map((grp) => (
+                              <optgroup key={grp.groupName} label={grp.groupName}>
+                                {grp.items.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {formatPaketOptionLabel(p)}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))}
                           </select>
                         </div>
 

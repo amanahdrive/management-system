@@ -38,6 +38,7 @@ export interface Paket {
   jenis_mobil: JenisMobilEnum[];
   is_custom: boolean;
   aktif: boolean;
+  urutan?: number;
   created_at: string;
   updated_at: string;
 }

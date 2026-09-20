@@ -17,6 +17,7 @@ import { Plus, Eye, Edit2, Trash2, Archive, Search, X, Calendar, Info, RefreshCw
 import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
 import { purgeServerCache } from '@/lib/actions/cache';
 import { formatCarOptionsLabel } from '@/lib/utils/vehicle';
+import { groupPaketForSelect, formatPaketOptionLabel, getDefaultPaketForRegistration } from '@/lib/utils/paket';
 import Link from 'next/link';
 
 export default function SiswaPage() {
@@ -72,12 +73,14 @@ export default function SiswaPage() {
     setSiswaSessionMap(sessionMap);
 
     if (pData.length > 0 && !formData.paket_id) {
-      const defaultPaket = pData[0];
-      setFormData((prev) => ({
-        ...prev,
-        paket_id: defaultPaket.id,
-        harga_final: defaultPaket.harga_promo || defaultPaket.harga_normal,
-      }));
+      const defaultPaket = getDefaultPaketForRegistration(pData);
+      if (defaultPaket) {
+        setFormData((prev) => ({
+          ...prev,
+          paket_id: defaultPaket.id,
+          harga_final: defaultPaket.harga_promo || defaultPaket.harga_normal,
+        }));
+      }
     }
 
     setLoading(false);
@@ -109,7 +112,7 @@ export default function SiswaPage() {
   };
 
   const handleOpenAdd = () => {
-    const defaultPaket = paketList[0];
+    const defaultPaket = getDefaultPaketForRegistration(paketList);
     setFormData({
       nama: '',
       no_whatsapp: '',
@@ -797,16 +800,17 @@ export default function SiswaPage() {
                   <select
                     value={formData.paket_id || ''}
                     onChange={(e) => handlePaketChange(e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)]"
+                    className="w-full px-3 py-2 text-sm rounded-md border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)]"
                   >
-                    {paketList.map((p) => {
-                      const carLabel = formatCarOptionsLabel(p.jenis_mobil);
-                      return (
-                        <option key={p.id} value={p.id}>
-                          {p.nama_paket} ({p.jumlah_sesi} Sesi • {carLabel}) - {formatRupiah(p.harga_promo || p.harga_normal)}
-                        </option>
-                      );
-                    })}
+                    {groupPaketForSelect(paketList).map((grp) => (
+                      <optgroup key={grp.groupName} label={grp.groupName}>
+                        {grp.items.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {formatPaketOptionLabel(p)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
                   </select>
                 </div>
 

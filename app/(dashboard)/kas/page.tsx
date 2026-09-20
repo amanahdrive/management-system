@@ -25,6 +25,7 @@ import {
 import { getSiswaList } from '@/lib/actions/siswa';
 import { getPaketList, getStaffList, getKendaraanMasterList } from '@/lib/actions/master-data';
 import { formatCarOptionsLabel } from '@/lib/utils/vehicle';
+import { groupPaketForSelect, formatPaketOptionLabel, getDefaultPaketForRegistration } from '@/lib/utils/paket';
 import { getRekeningList } from '@/lib/actions/rekening';
 import { getPosPengeluaranList } from '@/lib/actions/pos-pengeluaran';
 import {
@@ -579,7 +580,7 @@ export default function KasOverviewPage() {
   const handleSiswaChange = (siswaId: string) => {
     // 1. Kasus DP Kustom (Input DP tanpa data siswa)
     if (siswaId === 'custom_dp') {
-      const defaultPaket = paketList[0];
+      const defaultPaket = getDefaultPaketForRegistration(paketList) || paketList[0];
       const defaultPrice = defaultPaket ? (defaultPaket.harga_promo || defaultPaket.harga_normal) : 2000000;
       const defaultDp = Math.round(defaultPrice * 0.5);
 
@@ -1110,14 +1111,15 @@ export default function KasOverviewPage() {
                             onChange={(e) => handleCustomPaketChange(e.target.value)}
                             className="w-full px-2.5 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg)] font-medium text-[var(--text-primary)]"
                           >
-                            {paketList.map((p) => {
-                              const carLabel = formatCarOptionsLabel(p.jenis_mobil);
-                              return (
-                                <option key={p.id} value={p.id}>
-                                  {p.nama_paket} ({carLabel}) - {formatRupiah(p.harga_promo || p.harga_normal)}
-                                </option>
-                              );
-                            })}
+                            {groupPaketForSelect(paketList).map((grp) => (
+                              <optgroup key={grp.groupName} label={grp.groupName}>
+                                {grp.items.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {formatPaketOptionLabel(p)}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))}
                           </select>
                         </div>
 
