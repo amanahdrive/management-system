@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
 import { checkIsFinanceMode, clearFinanceMode } from '@/lib/utils/finance-mode';
+import { ASSETS } from '@/lib/assets';
 
 const HOMEPAGE_SUB_ITEMS = [
   { label: 'Internal Tracking', href: '/homepage-manager/tracking', icon: BarChart3 },
@@ -123,6 +124,7 @@ export function Sidebar() {
   const [settingsExpanded, setSettingsExpanded] = React.useState(isSettingsActive);
 
   const [isFinanceMode, setIsFinanceMode] = React.useState(false);
+  const [logoSrc, setLogoSrc] = React.useState<string>(ASSETS.logo.symbol);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -263,13 +265,21 @@ export function Sidebar() {
         {sidebarOpen ? (
           <>
             <Link href={isFinanceMode ? '/finance' : '/dashboard'} className="flex items-center gap-2.5 min-w-0">
-              <Image
-                src="/assets/logo-amdri-symbol.png"
-                alt="Amanah Drive Symbol"
-                width={32}
-                height={32}
-                className="object-contain shrink-0"
-              />
+              <div className="relative w-8 h-8 shrink-0 flex items-center justify-center overflow-hidden rounded-lg bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20">
+                <Image
+                  src={logoSrc}
+                  alt="Amanah Drive Logo"
+                  width={32}
+                  height={32}
+                  unoptimized
+                  onError={() => {
+                    if (logoSrc !== '/logo-amdri-symbol.png') {
+                      setLogoSrc('/logo-amdri-symbol.png');
+                    }
+                  }}
+                  className="w-full h-full object-contain p-0.5"
+                />
+              </div>
               <span className="font-brand font-bold text-base text-[var(--brand-primary)] tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
                 {isFinanceMode ? 'Amanah Finance' : 'Amanah Drive'}
               </span>
@@ -290,13 +300,21 @@ export function Sidebar() {
             title="Klik untuk membuka Sidebar"
             className="flex items-center justify-center p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
           >
-            <Image
-              src="/assets/logo-amdri-symbol.png"
-              alt="Amanah Drive Symbol"
-              width={32}
-              height={32}
-              className="object-contain"
-            />
+            <div className="relative w-8 h-8 shrink-0 flex items-center justify-center overflow-hidden rounded-lg bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20">
+              <Image
+                src={logoSrc}
+                alt="Amanah Drive Logo"
+                width={32}
+                height={32}
+                unoptimized
+                onError={() => {
+                  if (logoSrc !== '/logo-amdri-symbol.png') {
+                    setLogoSrc('/logo-amdri-symbol.png');
+                  }
+                }}
+                className="w-full h-full object-contain p-0.5"
+              />
+            </div>
           </button>
         )}
       </div>

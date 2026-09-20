@@ -11,6 +11,7 @@ import { sound } from '@/lib/sound/SoundFX';
 import { purgeServerCache } from '@/lib/actions/cache';
 import { triggerAppRefresh } from '@/lib/utils/refresh-event';
 import { checkIsFinanceMode, clearFinanceMode } from '@/lib/utils/finance-mode';
+import { ASSETS } from '@/lib/assets';
 
 export function Topbar() {
   const { sidebarOpen } = useUiStore();
@@ -21,6 +22,7 @@ export function Topbar() {
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   const [isMuted, setIsMuted] = React.useState(false);
   const [isFinanceMode, setIsFinanceMode] = React.useState(false);
+  const [logoSrc, setLogoSrc] = React.useState<string>(ASSETS.logo.symbol);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -110,13 +112,21 @@ export function Topbar() {
       <div className="flex items-center gap-3">
         <div className="md:hidden flex items-center gap-2">
           <Link href={isFinanceMode ? '/finance' : '/dashboard'} className="flex items-center gap-2">
-            <Image
-              src="/assets/logo-amdri-symbol.png"
-              alt="Logo"
-              width={24}
-              height={24}
-              className="object-contain"
-            />
+            <div className="relative w-7 h-7 shrink-0 flex items-center justify-center overflow-hidden rounded-lg bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20">
+              <Image
+                src={logoSrc}
+                alt="Amanah Drive Logo"
+                width={28}
+                height={28}
+                unoptimized
+                onError={() => {
+                  if (logoSrc !== '/logo-amdri-symbol.png') {
+                    setLogoSrc('/logo-amdri-symbol.png');
+                  }
+                }}
+                className="w-full h-full object-contain p-0.5"
+              />
+            </div>
             <span className="font-brand font-bold text-sm text-[var(--brand-primary)]">
               {isFinanceMode ? 'Amanah Finance' : 'Amanah Drive'}
             </span>

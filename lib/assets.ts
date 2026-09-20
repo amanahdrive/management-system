@@ -12,6 +12,7 @@ export const ASSETS = {
   // Brand & Logos
   logo: {
     symbol: `${SUPABASE_STORAGE_BASE}/assets/logo-amdri-symbol.webp`,
+    symbolPng: `${SUPABASE_STORAGE_BASE}/assets/logo-amdri-symbol.png`,
     symbolWhite: `${SUPABASE_STORAGE_BASE}/assets/logo-amdri-symbol-white.webp`,
     symbolBlack: `${SUPABASE_STORAGE_BASE}/assets/logo-amdri-symbol-black.webp`,
     landscape: `${SUPABASE_STORAGE_BASE}/assets/logo-amdri-landscape.webp`,
