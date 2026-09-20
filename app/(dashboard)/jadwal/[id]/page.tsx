@@ -21,6 +21,7 @@ import {
   isSlotRangeValid,
   formatSlotLabel,
 } from '@/lib/utils/slot';
+import { getTipeKendaraanLabel } from '@/lib/utils/vehicle';
 import {
   CheckCircle2,
   XCircle,
@@ -586,6 +587,13 @@ export default function JadwalDetailPage() {
             </div>
 
             <div>
+              <p className="text-[var(--text-secondary)] font-medium">Tipe Kendaraan</p>
+              <p className="font-bold text-[var(--text-primary)]">
+                {getTipeKendaraanLabel(mainSesi)}
+              </p>
+            </div>
+
+            <div>
               <p className="text-[var(--text-secondary)] font-medium">Jenis Transmisi Mobil</p>
               <p className="font-bold text-[var(--text-primary)] uppercase">
                 {mainSesi.jenis_mobil || 'manual'}
@@ -820,16 +828,22 @@ export default function JadwalDetailPage() {
 
                   {/* Read-Only Mode Info */}
                   {!isOpen && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 text-xs text-[var(--text-primary)] pt-1 border-t border-[var(--border)]/40">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2.5 text-xs text-[var(--text-primary)] pt-1 border-t border-[var(--border)]/40">
                       <div>
                         <span className="text-[var(--text-secondary)] font-medium">Instruktur:</span>{' '}
                         <span className="font-semibold">{activeIns?.nama || '-'}</span>
                       </div>
                       <div>
-                        <span className="text-[var(--text-secondary)] font-medium">Kendaraan:</span>{' '}
+                        <span className="text-[var(--text-secondary)] font-medium">Tipe Kendaraan:</span>{' '}
+                        <span className="font-semibold">
+                          {getTipeKendaraanLabel({ ...sesi, tipe_kendaraan: workingData.tipe_kendaraan, jenis_mobil: workingData.jenis_mobil })}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[var(--text-secondary)] font-medium">Armada Mobil:</span>{' '}
                         <span className="font-semibold">
                           {isPribadi ? (
-                            <span className="text-purple-600 dark:text-purple-400 font-bold">Mobil Pribadi / Siswa</span>
+                            <span className="text-purple-600 dark:text-purple-400 font-bold">Mobil Sendiri</span>
                           ) : activeKendaraan ? (
                             <span>{activeKendaraan.nama_kendaraan} ({activeKendaraan.plat_nomor})</span>
                           ) : (
@@ -955,7 +969,7 @@ export default function JadwalDetailPage() {
                                 className="sr-only"
                               />
                               <Car className="w-3.5 h-3.5" />
-                              <span>Operasional</span>
+                              <span>Mobil Operasional</span>
                             </label>
 
                             <label
@@ -978,7 +992,7 @@ export default function JadwalDetailPage() {
                                 className="sr-only"
                               />
                               <UserCheck className="w-3.5 h-3.5" />
-                              <span>Pribadi / Siswa</span>
+                              <span>Mobil Sendiri</span>
                             </label>
                           </div>
                         </div>
@@ -1353,7 +1367,7 @@ export default function JadwalDetailPage() {
                           className="sr-only"
                         />
                         <UserCheck className="w-3.5 h-3.5" />
-                        <span>Mobil Pribadi / Siswa</span>
+                        <span>Mobil Sendiri</span>
                       </label>
                     </div>
 

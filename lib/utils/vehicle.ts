@@ -117,4 +117,68 @@ export function getKendaraanImage(kendaraan?: { nama_kendaraan?: string; foto_ur
   return `${SUPABASE_VEHICLE_STORAGE_BASE}/ayla.webp`;
 }
 
+/**
+ * Memeriksa apakah sebuah paket kursus merupakan kategori 'Mobil Sendiri'.
+ */
+export function isMobilSendiriPaket(
+  paket?: {
+    nama_paket?: string | null;
+    jenis_mobil?: string[] | null;
+  } | null
+): boolean {
+  if (!paket) return false;
+  const nama = (paket.nama_paket || '').toLowerCase();
+  if (
+    nama.includes('mobil sendiri') ||
+    nama.includes('sendiri') ||
+    nama.includes('pelancaran') ||
+    nama.includes('refresh')
+  ) {
+    return true;
+  }
+  const jm = paket.jenis_mobil || [];
+  if (
+    jm.length > 0 &&
+    jm.every((k) => k.startsWith('mobil_sendiri')) &&
+    !jm.includes('manual') &&
+    !jm.includes('matic')
+  ) {
+    return true;
+  }
+  return false;
+}
 
+/**
+ * Mendapatkan label tipe kendaraan standar ('Mobil Sendiri' vs 'Mobil Operasional')
+ * berdasarkan data jadwal sesi atau relasi siswa/paket.
+ */
+export function getTipeKendaraanLabel(
+  source?: {
+    tipe_kendaraan?: string | null;
+    jenis_mobil?: string | null;
+    siswa?: {
+      paket?: {
+        nama_paket?: string | null;
+        jenis_mobil?: string[] | null;
+      } | null;
+    } | null;
+    paket?: {
+      nama_paket?: string | null;
+      jenis_mobil?: string[] | null;
+    } | null;
+  } | null
+): 'Mobil Sendiri' | 'Mobil Operasional' {
+  if (!source) return 'Mobil Operasional';
+
+  // 1. Jika sesi secara eksplisit berstatus 'pribadi' atau 'mobil_sendiri'
+  if (source.tipe_kendaraan === 'pribadi' || source.jenis_mobil === 'mobil_sendiri') {
+    return 'Mobil Sendiri';
+  }
+
+  // 2. Jika paket siswa merupakan kategori Mobil Sendiri
+  if (isMobilSendiriPaket(source.siswa?.paket) || isMobilSendiriPaket(source.paket)) {
+    return 'Mobil Sendiri';
+  }
+
+  return 'Mobil Operasional';
+}

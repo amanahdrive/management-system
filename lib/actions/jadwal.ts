@@ -43,13 +43,18 @@ export async function getJadwalByTanggal(
     const rows = await dbQuery<JadwalSesi>(`
       SELECT 
         js.*,
-        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE 
+          WHEN s.id IS NOT NULL THEN 
+            to_jsonb(s) || jsonb_build_object('paket', CASE WHEN p.id IS NOT NULL THEN to_jsonb(p) ELSE NULL END)
+          ELSE NULL 
+        END AS siswa,
         CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS instruktur,
         CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
         CASE WHEN sw1.id IS NOT NULL THEN to_jsonb(sw1) ELSE NULL END AS slot_waktu,
         CASE WHEN sw2.id IS NOT NULL THEN to_jsonb(sw2) ELSE NULL END AS slot_waktu_akhir
       FROM jadwal_sesi js
       LEFT JOIN siswa s ON js.siswa_id = s.id
+      LEFT JOIN paket p ON s.paket_id = p.id
       LEFT JOIN staff st ON js.staff_id = st.id
       LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
       LEFT JOIN slot_waktu sw1 ON js.slot_waktu_id = sw1.id
@@ -81,13 +86,18 @@ export async function getJadwalByDateRange(
     const rows = await dbQuery<JadwalSesi>(`
       SELECT 
         js.*,
-        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE 
+          WHEN s.id IS NOT NULL THEN 
+            to_jsonb(s) || jsonb_build_object('paket', CASE WHEN p.id IS NOT NULL THEN to_jsonb(p) ELSE NULL END)
+          ELSE NULL 
+        END AS siswa,
         CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS instruktur,
         CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
         CASE WHEN sw1.id IS NOT NULL THEN to_jsonb(sw1) ELSE NULL END AS slot_waktu,
         CASE WHEN sw2.id IS NOT NULL THEN to_jsonb(sw2) ELSE NULL END AS slot_waktu_akhir
       FROM jadwal_sesi js
       LEFT JOIN siswa s ON js.siswa_id = s.id
+      LEFT JOIN paket p ON s.paket_id = p.id
       LEFT JOIN staff st ON js.staff_id = st.id
       LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
       LEFT JOIN slot_waktu sw1 ON js.slot_waktu_id = sw1.id
@@ -124,13 +134,18 @@ export async function getJadwalSesiById(id: string): Promise<JadwalSesi | null> 
     const row = await dbQuerySingle<JadwalSesi>(`
       SELECT 
         js.*,
-        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE 
+          WHEN s.id IS NOT NULL THEN 
+            to_jsonb(s) || jsonb_build_object('paket', CASE WHEN p.id IS NOT NULL THEN to_jsonb(p) ELSE NULL END)
+          ELSE NULL 
+        END AS siswa,
         CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS instruktur,
         CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
         CASE WHEN sw1.id IS NOT NULL THEN to_jsonb(sw1) ELSE NULL END AS slot_waktu,
         CASE WHEN sw2.id IS NOT NULL THEN to_jsonb(sw2) ELSE NULL END AS slot_waktu_akhir
       FROM jadwal_sesi js
       LEFT JOIN siswa s ON js.siswa_id = s.id
+      LEFT JOIN paket p ON s.paket_id = p.id
       LEFT JOIN staff st ON js.staff_id = st.id
       LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
       LEFT JOIN slot_waktu sw1 ON js.slot_waktu_id = sw1.id
@@ -150,13 +165,18 @@ export async function getJadwalBySiswa(siswaId: string): Promise<JadwalSesi[]> {
     const rows = await dbQuery<JadwalSesi>(`
       SELECT 
         js.*,
-        CASE WHEN s.id IS NOT NULL THEN to_jsonb(s) ELSE NULL END AS siswa,
+        CASE 
+          WHEN s.id IS NOT NULL THEN 
+            to_jsonb(s) || jsonb_build_object('paket', CASE WHEN p.id IS NOT NULL THEN to_jsonb(p) ELSE NULL END)
+          ELSE NULL 
+        END AS siswa,
         CASE WHEN st.id IS NOT NULL THEN to_jsonb(st) ELSE NULL END AS instruktur,
         CASE WHEN k.id IS NOT NULL THEN to_jsonb(k) ELSE NULL END AS kendaraan,
         CASE WHEN sw1.id IS NOT NULL THEN to_jsonb(sw1) ELSE NULL END AS slot_waktu,
         CASE WHEN sw2.id IS NOT NULL THEN to_jsonb(sw2) ELSE NULL END AS slot_waktu_akhir
       FROM jadwal_sesi js
       LEFT JOIN siswa s ON js.siswa_id = s.id
+      LEFT JOIN paket p ON s.paket_id = p.id
       LEFT JOIN staff st ON js.staff_id = st.id
       LEFT JOIN kendaraan k ON js.kendaraan_id = k.id
       LEFT JOIN slot_waktu sw1 ON js.slot_waktu_id = sw1.id

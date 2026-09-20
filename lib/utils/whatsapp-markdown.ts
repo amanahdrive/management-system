@@ -1,7 +1,7 @@
-// lib/utils/whatsapp-markdown.ts
 import { JadwalSesi } from '@/types/database';
 import { formatHariTanggalIndo, formatDateIndo } from './date';
 import { formatRupiah } from './currency';
+import { getTipeKendaraanLabel } from './vehicle';
 
 export interface RecapRates {
   feeOperasional: number;
@@ -131,11 +131,14 @@ export function generateWhatsAppJadwalMarkdown(
           }
         }
 
+        const tipeKendaraan = getTipeKendaraanLabel(sesi);
+
         body += `• *${slotHeader}*\n`;
         body += `Siswa: *${namaSiswa}*\n`;
         body += `Sesi: ${sesiKe}/${totalPaket}\n`;
         body += `Alamat: *${alamat}*\n`;
-        body += `No. WA: *${noWa}*\n\n`;
+        body += `No. WA: *${noWa}*\n`;
+        body += `Tipe Kendaraan: *${tipeKendaraan}*\n\n`;
       });
     });
   }
@@ -245,8 +248,9 @@ export function generateWhatsAppRangeScheduleMarkdown(
             const totalSesi = sesi.total_sesi_paket || 10;
             const statusText = sesi.status_sesi === 'selesai' ? '[SELESAI]' : sesi.status_sesi === 'batal' ? '[BATAL]' : '[TERJADWAL]';
 
+            const tipeKendaraan = getTipeKendaraanLabel(sesi);
             body += `  ${statusText} *${slotNama}*${timeStr}\n`;
-            body += `     Siswa: ${namaSiswa}${kodeSiswa} [Sesi ${sesiKe}/${totalSesi}]\n`;
+            body += `     Siswa: ${namaSiswa}${kodeSiswa} [Sesi ${sesiKe}/${totalSesi}] • ${tipeKendaraan}\n`;
           });
         }
         body += `\n`;

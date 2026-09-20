@@ -39,6 +39,7 @@ import {
   isSlotRangeValid,
   formatSlotLabel,
 } from '@/lib/utils/slot';
+import { getTipeKendaraanLabel, isMobilSendiriPaket } from '@/lib/utils/vehicle';
 import {
   Calendar,
   Copy,
@@ -696,11 +697,16 @@ export default function JadwalPage() {
       formData.staff_id
     );
 
+    const isSendiri = isMobilSendiriPaket(sObj?.paket);
+
     setFormData((prev) => ({
       ...prev,
       siswa_id: siswaId,
       total_sesi_paket: totalSesi,
       tanggal_sesi: startDate,
+      tipe_kendaraan: isSendiri ? 'pribadi' : 'operasional',
+      kendaraan_id: isSendiri ? null : prev.kendaraan_id,
+      jenis_mobil: isSendiri ? 'mobil_sendiri' : (prev.jenis_mobil === 'mobil_sendiri' ? 'manual' : prev.jenis_mobil),
     }));
     setSessionDates(dates);
   };
@@ -722,14 +728,16 @@ export default function JadwalPage() {
       firstIns?.id
     );
 
+    const isSendiri = isMobilSendiriPaket(firstAvail?.paket);
+
     setFormData({
       tanggal_sesi: startDate,
       siswa_id: firstAvail?.id || '',
       staff_id: firstIns?.id || '',
       slot_waktu_id: firstSlot?.id || '',
-      tipe_kendaraan: 'operasional',
+      tipe_kendaraan: isSendiri ? 'pribadi' : 'operasional',
       kendaraan_id: null as any,
-      jenis_mobil: 'manual',
+      jenis_mobil: isSendiri ? 'mobil_sendiri' : 'manual',
       total_sesi_paket: totalSesi,
       status_sesi: 'terjadwal',
     });
@@ -1168,6 +1176,29 @@ export default function JadwalPage() {
       cell: ({ row }) => `Sesi ${row.original.nomor_sesi_ke} dari ${row.original.total_sesi_paket}`,
     },
     {
+      id: 'tipe_kendaraan',
+      header: 'Tipe Kendaraan',
+      accessorFn: (row) => getTipeKendaraanLabel(row),
+      sortingFn: 'text',
+      cell: ({ row }) => {
+        const sesi = row.original;
+        const label = getTipeKendaraanLabel(sesi);
+        const isSendiri = label === 'Mobil Sendiri';
+        return (
+          <span
+            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+              isSendiri
+                ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800'
+                : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
+            }`}
+          >
+            <Car className="w-3.5 h-3.5 shrink-0" />
+            <span>{label}</span>
+          </span>
+        );
+      },
+    },
+    {
       accessorKey: 'status_sesi',
       header: 'Status',
       sortingFn: 'text',
@@ -1269,6 +1300,13 @@ export default function JadwalPage() {
       formatter: (_v, row) => row.instruktur?.nama || '-',
     },
     {
+      header: 'Tipe Kendaraan',
+      key: 'tipe_kendaraan',
+      width: 18,
+      align: 'center',
+      formatter: (_v, row) => getTipeKendaraanLabel(row),
+    },
+    {
       header: 'Armada Mobil',
       key: 'kendaraan',
       width: 20,
@@ -1276,9 +1314,9 @@ export default function JadwalPage() {
       formatter: (_v, row) =>
         row.kendaraan
           ? `${row.kendaraan.nama_kendaraan} (${row.kendaraan.plat_nomor})`
-          : row.tipe_kendaraan === 'pribadi'
-          ? 'Mobil Pribadi Siswa'
-          : '-',
+          : getTipeKendaraanLabel(row) === 'Mobil Sendiri'
+          ? 'Mobil Sendiri'
+          : 'Mobil Operasional',
     },
     {
       header: 'Transmisi',
@@ -1662,6 +1700,12 @@ export default function JadwalPage() {
                       <span className="text-[var(--text-secondary)] block">Progress:</span>
                       <span className="font-semibold text-[var(--text-primary)]">
                         Sesi {sesi.nomor_sesi_ke} dari {sesi.total_sesi_paket}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[var(--text-secondary)] block">Tipe Kendaraan:</span>
+                      <span className="font-semibold text-[var(--text-primary)]">
+                        {getTipeKendaraanLabel(sesi)}
                       </span>
                     </div>
                     <div>
@@ -2543,6 +2587,13 @@ export default function JadwalPage() {
                   </div>
 
                   <div className="flex items-center justify-between">
+                    <span className="text-[var(--text-secondary)] font-medium">Tipe Kendaraan:</span>
+                    <span className="font-bold text-[var(--text-primary)]">
+                      {getTipeKendaraanLabel({ siswa: selectedSiswaObj })}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
                     <span className="text-[var(--text-secondary)] font-medium">Rencana Mulai:</span>
                     <span className="font-bold text-[var(--text-primary)]">
                       {selectedSiswaObj.tanggal_rencana_mulai
@@ -2694,6 +2745,7 @@ export default function JadwalPage() {
                           ...prev,
                           tipe_kendaraan: 'operasional',
                           kendaraan_id: null as any,
+                          jenis_mobil: 'manual',
                         }))
                       }
                       className="sr-only"
@@ -2719,12 +2771,13 @@ export default function JadwalPage() {
                           ...prev,
                           tipe_kendaraan: 'pribadi',
                           kendaraan_id: null as any,
+                          jenis_mobil: 'mobil_sendiri',
                         }))
                       }
                       className="sr-only"
                     />
                     <UserCheck className="w-4 h-4" />
-                    <span>Mobil Pribadi / Siswa</span>
+                    <span>Mobil Sendiri</span>
                   </label>
                 </div>
               </div>
