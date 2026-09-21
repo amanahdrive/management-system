@@ -110,13 +110,13 @@ const COLOR_MAP: Record<
 const SIZE_MAP: Record<BadgeSize, { container: string; text: string; dot: string }> = {
   xs: {
     container: 'px-1.5 py-0.5 gap-1',
-    text: 'text-[10px] font-semibold leading-tight',
-    dot: 'w-1 h-1',
+    text: 'text-[11px] font-semibold leading-tight',
+    dot: 'w-1.5 h-1.5',
   },
   sm: {
     container: 'px-2 py-0.5 gap-1.5',
-    text: 'text-[11px] font-semibold leading-normal',
-    dot: 'w-1.5 h-1.5',
+    text: 'text-xs font-semibold leading-normal',
+    dot: 'w-2 h-2',
   },
   md: {
     container: 'px-2.5 py-1 gap-1.5',
@@ -131,7 +131,7 @@ const SIZE_MAP: Record<BadgeSize, { container: string; text: string; dot: string
  * dan Status Indicator Dots ala Linear, Stripe, dan Vercel.
  */
 export function Badge({
-  variant = 'subtle',
+  variant = 'dot',
   color = 'zinc',
   size = 'sm',
   icon,
@@ -143,16 +143,33 @@ export function Badge({
   const c = COLOR_MAP[color] || COLOR_MAP.zinc;
   const s = SIZE_MAP[size] || SIZE_MAP.sm;
 
+  if (variant === 'dot') {
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 font-semibold select-none transition-colors ${s.text} ${c.text} ${className}`}
+        {...props}
+      >
+        <span className="relative flex shrink-0 items-center justify-center">
+          {dotPing && (
+            <span
+              className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${c.dot}`}
+            />
+          )}
+          <span className={`relative inline-block rounded-full ${s.dot} ${c.dot}`} />
+        </span>
+        {icon && <span className="shrink-0 flex items-center">{icon}</span>}
+        <span className="truncate">{children}</span>
+      </span>
+    );
+  }
+
   let variantStyle = '';
   switch (variant) {
-    case 'dot':
-      variantStyle = `${c.bg} ${c.text} border ${c.border}`;
-      break;
     case 'outline':
       variantStyle = `bg-transparent ${c.text} border ${c.border}`;
       break;
     case 'solid':
-      variantStyle = `${c.solidBg} ${c.solidText} border-transparent shadow-xs`;
+      variantStyle = `${c.solidBg} ${c.solidText} border-transparent shadow-2xs`;
       break;
     case 'subtle':
     default:
@@ -162,20 +179,10 @@ export function Badge({
 
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-md font-medium tracking-normal select-none transition-colors ${s.container} ${s.text} ${variantStyle} ${className}`}
+      className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 font-medium tracking-normal select-none transition-colors ${s.text} ${variantStyle} ${className}`}
       {...props}
     >
-      {variant === 'dot' && (
-        <span className="relative flex shrink-0 items-center justify-center">
-          {dotPing && (
-            <span
-              className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${c.dot}`}
-            />
-          )}
-          <span className={`relative inline-block rounded-full ${s.dot} ${c.dot}`} />
-        </span>
-      )}
-      {icon && <span className="shrink-0 flex items-center">{icon}</span>}
+      {icon && <span className="shrink-0 flex items-center mr-1">{icon}</span>}
       <span className="truncate">{children}</span>
     </span>
   );

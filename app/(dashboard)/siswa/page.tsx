@@ -13,20 +13,21 @@ import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
-import { Plus, Eye, Edit2, Trash2, Archive, Search, X, Calendar, Info, RefreshCw } from 'lucide-react';
+import { Plus, Eye, Edit2, Trash2, Archive, Search, X, Calendar, Info, RefreshCw, CalendarPlus } from 'lucide-react';
 import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
 import { purgeServerCache } from '@/lib/actions/cache';
 import { formatCarOptionsLabel } from '@/lib/utils/vehicle';
 import { groupPaketForSelect, formatPaketOptionLabel, getDefaultPaketForRegistration } from '@/lib/utils/paket';
 import Link from 'next/link';
+import { Badge } from '@/components/shared/Badge';
 
 export default function SiswaPage() {
   const [siswaList, setSiswaList] = React.useState<Siswa[]>([]);
   const [paketList, setPaketList] = React.useState<Paket[]>([]);
   const [promosiList, setPromosiList] = React.useState<Promosi[]>([]);
   const [statusList, setStatusList] = React.useState<StatusPembayaranMaster[]>([]);
-  // Track session completion per siswa: key=siswa_id, value={ selesai, total, hasPending }
-  const [siswaSessionMap, setSiswaSessionMap] = React.useState<Record<string, { selesai: number; total: number; hasPending: boolean }>>({});
+  // Track session completion per siswa: key=siswa_id, value={ selesai, total, hasPending, terjadwal }
+  const [siswaSessionMap, setSiswaSessionMap] = React.useState<Record<string, { selesai: number; total: number; hasPending: boolean; terjadwal: number }>>({});
   const [loading, setLoading] = React.useState(true);
 
   // Archive & Delete States
@@ -37,6 +38,7 @@ export default function SiswaPage() {
   const [filterStatus, setFilterStatus] = React.useState('semua');
   const [filterPaket, setFilterPaket] = React.useState('semua');
   const [filterSumber, setFilterSumber] = React.useState('semua');
+  const [filterJadwal, setFilterJadwal] = React.useState<'semua' | 'belum_jadwal' | 'terjadwal' | 'selesai'>('semua');
   const [filterNama, setFilterNama] = React.useState('');
   const [filterDateFrom, setFilterDateFrom] = React.useState('');
   const [filterDateTo, setFilterDateTo] = React.useState('');
@@ -219,6 +221,22 @@ export default function SiswaPage() {
       if (filterPaket !== 'semua' && s.paket_id !== filterPaket) return false;
       if (filterSumber !== 'semua' && s.sumber !== filterSumber) return false;
 
+      // Status Jadwal filter
+      if (filterJadwal !== 'semua') {
+        const sessionInfo = siswaSessionMap[s.id];
+        const selesai = sessionInfo?.selesai || 0;
+        const terjadwal = sessionInfo?.terjadwal || 0;
+        const total = sessionInfo?.total || s.paket?.jumlah_sesi || 10;
+        const totalDibuat = selesai + terjadwal;
+        const isBelumJadwal = totalDibuat === 0;
+        const isSelesai = selesai >= total && total > 0;
+        const isTerjadwal = !isBelumJadwal && !isSelesai;
+
+        if (filterJadwal === 'belum_jadwal' && !isBelumJadwal) return false;
+        if (filterJadwal === 'terjadwal' && !isTerjadwal) return false;
+        if (filterJadwal === 'selesai' && !isSelesai) return false;
+      }
+
       // Name/code search
       if (filterNama.trim()) {
         const q = filterNama.trim().toLowerCase();
@@ -239,7 +257,22 @@ export default function SiswaPage() {
 
       return true;
     });
-  }, [siswaList, siswaSessionMap, showArchived, filterStatus, filterPaket, filterSumber, filterNama, filterDateFrom, filterDateTo, filterDateField]);
+  }, [siswaList, siswaSessionMap, showArchived, filterStatus, filterPaket, filterSumber, filterJadwal, filterNama, filterDateFrom, filterDateTo, filterDateField]);
+
+  const countBelumJadwal = React.useMemo(() => {
+    return siswaList.filter((s) => {
+      const isLunas = s.status_pembayaran_kode === 'lunas';
+      const sessionInfo = siswaSessionMap[s.id];
+      const isFullyDone = isLunas && sessionInfo
+        ? (sessionInfo.selesai >= sessionInfo.total && !sessionInfo.hasPending && sessionInfo.total > 0)
+        : false;
+      if (!showArchived && isFullyDone) return false;
+      if (showArchived && !isFullyDone) return false;
+      const selesai = sessionInfo?.selesai || 0;
+      const terjadwal = sessionInfo?.terjadwal || 0;
+      return (selesai + terjadwal) === 0;
+    }).length;
+  }, [siswaList, siswaSessionMap, showArchived]);
 
   const exportColumns: ExportColumn[] = [
     { header: 'Kode Siswa', key: 'kode_siswa', width: 14, align: 'center' },
@@ -260,11 +293,31 @@ export default function SiswaPage() {
     },
     { header: 'Tgl Pendaftaran', key: 'tanggal_booking', width: 16, align: 'center', formatter: (v) => formatDateIndo(v) },
     {
+      header: 'Status Jadwal',
+      key: 'status_jadwal',
+      width: 16,
+      align: 'center',
+      formatter: (_v, row) => {
+        const info = siswaSessionMap[row.id];
+        const selesai = info?.selesai || 0;
+        const terjadwal = info?.terjadwal || 0;
+        const total = info?.total || row.paket?.jumlah_sesi || 10;
+        if (selesai + terjadwal === 0) return 'Belum Jadwal';
+        if (selesai >= total && total > 0) return 'Selesai Kursus';
+        return 'Terjadwal';
+      },
+    },
+    {
       header: 'Progress Sesi',
       key: 'progress',
       width: 15,
       align: 'center',
-      formatter: (_v, row) => `${siswaSessionMap[row.id] || 0} / ${row.paket?.jumlah_sesi || 10} Sesi`,
+      formatter: (_v, row) => {
+        const info = siswaSessionMap[row.id];
+        const selesai = info?.selesai || 0;
+        const total = info?.total || row.paket?.jumlah_sesi || 10;
+        return `${selesai} / ${total} Sesi`;
+      },
     },
     { header: 'Total Harga', key: 'harga_final', width: 18, isCurrency: true },
     { header: 'DP Terbayar', key: 'dp_nominal', width: 18, isCurrency: true, formatter: (v) => v || 0 },
@@ -311,7 +364,80 @@ export default function SiswaPage() {
       header: 'Paket Kursus',
       accessorFn: (row) => row.paket?.nama_paket || 'Khusus',
       sortingFn: 'text',
-      cell: ({ row }) => row.original.paket?.nama_paket || 'Khusus',
+      cell: ({ row }) => (
+        <div>
+          <div className="font-medium text-[var(--text-primary)]">{row.original.paket?.nama_paket || 'Khusus'}</div>
+          <div className="text-[10.5px] text-[var(--text-secondary)]">
+            {formatCarOptionsLabel(row.original.paket?.jenis_mobil)}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'status_jadwal',
+      header: 'Status Jadwal',
+      sortingFn: (rowA, rowB) => {
+        const infoA = siswaSessionMap[rowA.original.id];
+        const infoB = siswaSessionMap[rowB.original.id];
+        const totalA = infoA?.total || rowA.original.paket?.jumlah_sesi || 10;
+        const totalB = infoB?.total || rowB.original.paket?.jumlah_sesi || 10;
+        const sA = (infoA?.selesai || 0) + (infoA?.terjadwal || 0) === 0 ? 0 : (infoA?.selesai || 0) >= totalA ? 2 : 1;
+        const sB = (infoB?.selesai || 0) + (infoB?.terjadwal || 0) === 0 ? 0 : (infoB?.selesai || 0) >= totalB ? 2 : 1;
+        return sA - sB;
+      },
+      cell: ({ row }) => {
+        const sessionInfo = siswaSessionMap[row.original.id];
+        const selesai = sessionInfo?.selesai || 0;
+        const terjadwal = sessionInfo?.terjadwal || 0;
+        const total = sessionInfo?.total || row.original.paket?.jumlah_sesi || 10;
+        const totalDibuat = selesai + terjadwal;
+        const isBelumJadwal = totalDibuat === 0;
+        const isSelesai = selesai >= total && total > 0;
+
+        if (isBelumJadwal) {
+          return (
+            <div className="space-y-1">
+              <Badge variant="dot" color="amber" size="xs" dotPing>
+                Belum Jadwal
+              </Badge>
+              <div>
+                <Link
+                  href="/jadwal"
+                  className="inline-flex items-center gap-1 text-[11px] text-[var(--brand-primary)] hover:underline font-semibold"
+                  title="Buka menu Jadwal untuk input jadwal siswa ini"
+                >
+                  <CalendarPlus className="w-3 h-3" />
+                  <span>+ Input Jadwal</span>
+                </Link>
+              </div>
+            </div>
+          );
+        }
+
+        if (isSelesai) {
+          return (
+            <div className="space-y-0.5">
+              <Badge variant="dot" color="blue" size="xs">
+                Selesai Kursus
+              </Badge>
+              <div className="text-[10.5px] text-[var(--text-secondary)] font-medium">
+                {selesai}/{total} Sesi Selesai
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="space-y-0.5">
+            <Badge variant="dot" color="emerald" size="xs">
+              Terjadwal
+            </Badge>
+            <div className="text-[10.5px] text-[var(--text-secondary)] font-medium">
+              {selesai}/{total} Sesi {terjadwal > 0 ? `(${terjadwal} aktif)` : ''}
+            </div>
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'tanggal_booking',
@@ -363,13 +489,10 @@ export default function SiswaPage() {
         if (kode === 'lunas' || (kode === 'dp' && sisa === 0 && hargaFinal > 0)) {
           return (
             <div className="space-y-0.5">
-              <span
-                className="px-2.5 py-0.5 text-xs text-white font-bold rounded-md inline-block shadow-xs"
-                style={{ backgroundColor: '#1B8A5A' }}
-              >
+              <Badge variant="dot" color="emerald" size="xs">
                 Lunas (100%)
-              </span>
-              <div className="text-[10.5px] text-emerald-600 font-semibold">
+              </Badge>
+              <div className="text-[10.5px] text-emerald-600 dark:text-emerald-400 font-medium">
                 Terbayar Penuh
               </div>
             </div>
@@ -380,13 +503,10 @@ export default function SiswaPage() {
           const pct = hargaFinal > 0 ? Math.round((dpNominal / hargaFinal) * 100) : 0;
           return (
             <div className="space-y-0.5">
-              <span
-                className="px-2.5 py-0.5 text-xs text-white font-bold rounded-md inline-block shadow-xs"
-                style={{ backgroundColor: s?.warna_badge || '#B9821B' }}
-              >
+              <Badge variant="dot" color="amber" size="xs">
                 DP {pct}% ({formatRupiah(dpNominal)})
-              </span>
-              <div className="text-[10.5px] text-[var(--danger)] font-semibold">
+              </Badge>
+              <div className="text-[10.5px] text-rose-600 dark:text-rose-400 font-medium">
                 Sisa Piutang: {formatRupiah(sisa)}
               </div>
             </div>
@@ -396,42 +516,20 @@ export default function SiswaPage() {
         if (kode === 'belum_bayar') {
           return (
             <div className="space-y-0.5">
-              <span
-                className="px-2.5 py-0.5 text-xs text-white font-bold rounded-md inline-block shadow-xs"
-                style={{ backgroundColor: s?.warna_badge || '#C13D3D' }}
-              >
+              <Badge variant="dot" color="rose" size="xs">
                 Belum Bayar
-              </span>
-              <div className="text-[10.5px] text-[var(--danger)] font-semibold">
+              </Badge>
+              <div className="text-[10.5px] text-rose-600 dark:text-rose-400 font-medium">
                 Piutang: {formatRupiah(hargaFinal)}
               </div>
             </div>
           );
         }
 
-        if (kode === 'lunas') {
-          return (
-            <div className="space-y-0.5">
-              <span
-                className="px-2.5 py-0.5 text-xs text-white font-bold rounded-md inline-block shadow-xs"
-                style={{ backgroundColor: s?.warna_badge || '#1B8A5A' }}
-              >
-                Lunas (100%)
-              </span>
-              <div className="text-[10.5px] text-emerald-600 font-semibold">
-                Terbayar Penuh
-              </div>
-            </div>
-          );
-        }
-
         return (
-          <span
-            className="px-2.5 py-1 text-xs text-white font-bold rounded-md inline-block"
-            style={{ backgroundColor: s?.warna_badge || '#5C6E6B' }}
-          >
+          <Badge variant="dot" color="zinc" size="xs">
             {s?.label || kode}
-          </span>
+          </Badge>
         );
       },
     },
@@ -555,11 +653,26 @@ export default function SiswaPage() {
 
           <div>
             <select
+              value={filterJadwal}
+              onChange={(e) => setFilterJadwal(e.target.value as any)}
+              className="px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] font-medium"
+            >
+              <option value="semua">Semua Status Jadwal</option>
+              <option value="belum_jadwal">
+                ⚠️ Belum Jadwal {countBelumJadwal > 0 ? `(${countBelumJadwal})` : ''}
+              </option>
+              <option value="terjadwal">✅ Terjadwal</option>
+              <option value="selesai">🎓 Selesai</option>
+            </select>
+          </div>
+
+          <div>
+            <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
               className="px-3 py-2 text-xs rounded-md border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
             >
-              <option value="semua">Semua Status</option>
+              <option value="semua">Semua Status Bayar</option>
               {statusList.map((st) => (
                 <option key={st.id} value={st.kode}>{st.label}</option>
               ))}
@@ -597,6 +710,40 @@ export default function SiswaPage() {
             <span className="font-bold text-[var(--text-primary)]">{filteredData.length}</span> siswa
           </div>
         </div>
+
+        {/* Unassigned Schedule Alert Banner */}
+        {countBelumJadwal > 0 && (
+          <div className="flex items-center justify-between gap-3 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-md text-xs">
+            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+              </span>
+              <span>
+                Ada <strong>{countBelumJadwal} siswa</strong> yang belum dibuatkan jadwal sesi kursus.
+              </span>
+            </div>
+            {filterJadwal !== 'belum_jadwal' ? (
+              <button
+                type="button"
+                onClick={() => setFilterJadwal('belum_jadwal')}
+                className="text-amber-700 dark:text-amber-300 font-semibold hover:underline text-xs flex items-center gap-1 shrink-0"
+              >
+                <span>Lihat Siswa Belum Jadwal</span>
+                <span>&rarr;</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setFilterJadwal('semua')}
+                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium text-xs flex items-center gap-1 shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Reset Filter Jadwal</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Row 2: Date Range Filter */}
         <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[var(--border)]">

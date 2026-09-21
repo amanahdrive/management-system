@@ -35,11 +35,12 @@ export default function MasterStatusPembayaranPage() {
       header: 'Badge Warna',
       enableSorting: false,
       cell: ({ row }) => (
-        <span
-          className="px-2 py-1 text-xs text-white font-bold rounded"
-          style={{ backgroundColor: row.original.warna_badge }}
-        >
-          {row.original.label}
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold select-none">
+          <span
+            className="w-2 h-2 rounded-full inline-block shrink-0 shadow-2xs"
+            style={{ backgroundColor: row.original.warna_badge }}
+          />
+          <span style={{ color: row.original.warna_badge }}>{row.original.label}</span>
         </span>
       ),
     },

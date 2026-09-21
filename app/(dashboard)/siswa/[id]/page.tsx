@@ -233,24 +233,21 @@ export default function SiswaDetailPage() {
             </div>
 
             <div className="pt-1">
-              <span className="text-[var(--text-secondary)] block">Status Pembayaran:</span>
-              <div className="mt-1">
-                <span
-                  className="inline-block px-3 py-1 text-xs font-bold text-white rounded-md shadow-xs"
-                  style={{
-                    backgroundColor:
-                      siswa.status_pembayaran_kode === 'lunas' || sisaPiutang <= 0
-                        ? '#1B8A5A'
-                        : siswa.status_pembayaran?.warna_badge ||
-                          (siswa.status_pembayaran_kode === 'dp' ? '#B9821B' : '#C13D3D'),
-                  }}
-                >
-                  {siswa.status_pembayaran_kode === 'lunas' || sisaPiutang <= 0
-                    ? 'Lunas (100%)'
-                    : siswa.status_pembayaran_kode === 'dp'
-                    ? `DP ${siswa.harga_final > 0 ? Math.round(((siswa.dp_nominal || 0) / siswa.harga_final) * 100) : 0}% (${formatRupiah(siswa.dp_nominal || 0)})`
-                    : (siswa.status_pembayaran?.label || siswa.status_pembayaran_kode)}
-                </span>
+              <span className="text-[10px] text-[var(--text-secondary)] block mb-1">Status Pembayaran:</span>
+              <div>
+                {siswa.status_pembayaran_kode === 'lunas' || sisaPiutang <= 0 ? (
+                  <Badge variant="dot" color="emerald" size="sm">
+                    Lunas (100%)
+                  </Badge>
+                ) : siswa.status_pembayaran_kode === 'dp' ? (
+                  <Badge variant="dot" color="amber" size="sm">
+                    DP {siswa.harga_final > 0 ? Math.round(((siswa.dp_nominal || 0) / siswa.harga_final) * 100) : 0}% ({formatRupiah(siswa.dp_nominal || 0)})
+                  </Badge>
+                ) : (
+                  <Badge variant="dot" color="rose" size="sm">
+                    {siswa.status_pembayaran?.label || 'Belum Bayar'}
+                  </Badge>
+                )}
               </div>
             </div>
 
@@ -275,10 +272,25 @@ export default function SiswaDetailPage() {
               <CalendarDays className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="font-bold text-sm text-[var(--text-primary)]">
-                Daftar Jadwal Pembelajaran / Kursus
-              </h4>
-              <p className="text-xs text-[var(--text-secondary)]">
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-sm text-[var(--text-primary)]">
+                  Daftar Jadwal Pembelajaran / Kursus
+                </h4>
+                {jadwalList.length === 0 ? (
+                  <Badge variant="dot" color="amber" size="xs" dotPing>
+                    Belum Jadwal
+                  </Badge>
+                ) : jadwalList.every((s) => s.status_sesi === 'selesai') ? (
+                  <Badge variant="dot" color="blue" size="xs">
+                    Selesai Kursus
+                  </Badge>
+                ) : (
+                  <Badge variant="dot" color="emerald" size="xs">
+                    Terjadwal
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                 {jadwalList.length > 0
                   ? `Siswa memiliki ${jadwalList.length} sesi yang telah dijadwalkan`
                   : 'Belum ada jadwal yang diatur untuk siswa ini'}
