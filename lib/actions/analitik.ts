@@ -23,6 +23,29 @@ export interface FunnelStage {
   dropOffCount: number;
   dropOffRate: number;
   revenueLeakage: number; // Potential lost booking value
+  avgDays?: number;
+  accentColor?: string;
+  gradientFrom?: string;
+  gradientTo?: string;
+}
+
+export interface FunnelStudent {
+  id: string;
+  nama: string;
+  noWhatsapp: string;
+  tanggalBooking: string;
+  namaPaket: string;
+  termasukSim: boolean;
+  sumber: string;
+  statusPembayaranKode: string;
+  hargaFinal: number;
+  terbayar: number;
+  sisaPiutang: number;
+  totalSesi: number;
+  selesaiSesi: number;
+  currentStageId: 'leads' | 'paket' | 'dp' | 'lunas' | 'latihan' | 'lulus';
+  currentStageLabel: string;
+  daysActive: number;
 }
 
 export interface BottleneckItem {
@@ -78,6 +101,7 @@ export interface AnalitikData {
     overallConversionRate: number;
     totalRevenueLeakage: number;
     activeVelocityDays: number;
+    funnelStudents: FunnelStudent[];
   };
   sesiFunnel: {
     kapasitasTersedia: number;
@@ -177,7 +201,7 @@ const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Se
 const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
 export async function getAnalitikData(filter?: AnalitikFilter): Promise<AnalitikData> {
-  const cacheKey = `analitik_v2_${filter?.period || 'this_month'}_${filter?.startDate || ''}_${filter?.endDate || ''}`;
+  const cacheKey = `analitik_v3_${filter?.period || 'this_month'}_${filter?.startDate || ''}_${filter?.endDate || ''}`;
   const cached = cacheGet<AnalitikData>(cacheKey);
   if (cached) return cached;
 
@@ -629,6 +653,10 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
         dropOffCount: 0,
         dropOffRate: 0,
         revenueLeakage: 0,
+        avgDays: 1,
+        accentColor: '#8B5CF6',
+        gradientFrom: '#8B5CF6',
+        gradientTo: '#7C3AED',
       },
       {
         id: 'paket',
@@ -642,6 +670,10 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
         dropOffCount: 0,
         dropOffRate: 0,
         revenueLeakage: 0,
+        avgDays: 2,
+        accentColor: '#6366F1',
+        gradientFrom: '#6366F1',
+        gradientTo: '#4F46E5',
       },
       {
         id: 'dp',
@@ -655,6 +687,10 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
         dropOffCount: belumBayarCount,
         dropOffRate: totalSiswa > 0 ? Math.round((belumBayarCount / totalSiswa) * 1000) / 10 : 0,
         revenueLeakage: leakageUnpaid,
+        avgDays: 4,
+        accentColor: '#3B82F6',
+        gradientFrom: '#3B82F6',
+        gradientTo: '#2563EB',
       },
       {
         id: 'lunas',
@@ -668,6 +704,10 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
         dropOffCount: dpCount,
         dropOffRate: dpOrPaidCount > 0 ? Math.round((dpCount / dpOrPaidCount) * 1000) / 10 : 0,
         revenueLeakage: totalPiutang,
+        avgDays: 7,
+        accentColor: '#0EA5E9',
+        gradientFrom: '#0EA5E9',
+        gradientTo: '#0284C7',
       },
       {
         id: 'latihan',
@@ -681,6 +721,10 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
         dropOffCount: Math.max(0, dpOrPaidCount - activeScheduledCount),
         dropOffRate: dpOrPaidCount > 0 ? Math.round((Math.max(0, dpOrPaidCount - activeScheduledCount) / dpOrPaidCount) * 1000) / 10 : 0,
         revenueLeakage: Math.round((Math.max(0, dpOrPaidCount - activeScheduledCount) / (totalSiswa || 1)) * totalOmzet),
+        avgDays: 14,
+        accentColor: '#0F7A73',
+        gradientFrom: '#0F7A73',
+        gradientTo: '#0D9488',
       },
       {
         id: 'lulus',
@@ -694,10 +738,77 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
         dropOffCount: Math.max(0, activeScheduledCount - graduatedCount),
         dropOffRate: activeScheduledCount > 0 ? Math.round((Math.max(0, activeScheduledCount - graduatedCount) / activeScheduledCount) * 1000) / 10 : 0,
         revenueLeakage: 0,
+        avgDays: 21,
+        accentColor: '#10B981',
+        gradientFrom: '#10B981',
+        gradientTo: '#059669',
       },
     ];
 
     const overallConversionRate = totalSiswa > 0 ? Math.round((graduatedCount / totalSiswa) * 1000) / 10 : 0;
+
+    // Detailed Student List for Funnel Drilldown Table
+    const funnelStudents: FunnelStudent[] = siswaRows.map((s) => {
+      const progress = studentSessionMap.get(s.id);
+      const scheduledSessions = progress ? progress.total : 0;
+      const completedSessions = progress ? progress.selesai : 0;
+      let terbayarSiswa = 0;
+      if (s.status_pembayaran_kode === 'lunas') {
+        terbayarSiswa = s.harga_final;
+      } else if (s.status_pembayaran_kode === 'dp') {
+        terbayarSiswa = s.dp_nominal || 0;
+      }
+      const sisaPiutang = Math.max(0, s.harga_final - terbayarSiswa);
+      const isGraduated = s.is_archived || s.status_sim === 'selesai' || completedSessions >= s.jumlah_sesi;
+
+      let stageId: 'leads' | 'paket' | 'dp' | 'lunas' | 'latihan' | 'lulus' = 'leads';
+      let stageLabel = 'Pendaftaran';
+
+      if (isGraduated) {
+        stageId = 'lulus';
+        stageLabel = 'Lulus / Alumni';
+      } else if (scheduledSessions > 0) {
+        stageId = 'latihan';
+        stageLabel = 'Aktivasi Latihan';
+      } else if (s.status_pembayaran_kode === 'lunas') {
+        stageId = 'lunas';
+        stageLabel = 'Lunas Penuh';
+      } else if (s.status_pembayaran_kode === 'dp') {
+        stageId = 'dp';
+        stageLabel = 'Komitmen DP';
+      } else if (s.paket_id) {
+        stageId = 'paket';
+        stageLabel = 'Booking Paket';
+      }
+
+      const daysActive = Math.max(0, Math.round((new Date(todayStr).getTime() - new Date(s.tanggal_booking).getTime()) / 86400000));
+
+      let ch = s.sumber || 'organik';
+      if (ch === 'meta_ads') ch = 'Meta Ads';
+      else if (ch === 'tiktok') ch = 'TikTok';
+      else if (ch === 'referensi') ch = 'Referensi';
+      else if (ch === 'kustom') ch = s.sumber_kustom_text || 'Kustom';
+      else ch = 'Organik';
+
+      return {
+        id: s.id,
+        nama: s.nama,
+        noWhatsapp: s.no_whatsapp,
+        tanggalBooking: s.tanggal_booking,
+        namaPaket: s.nama_paket || 'Kursus Mengemudi',
+        termasukSim: Boolean(s.termasuk_sim),
+        sumber: ch,
+        statusPembayaranKode: s.status_pembayaran_kode,
+        hargaFinal: s.harga_final,
+        terbayar: terbayarSiswa,
+        sisaPiutang,
+        totalSesi: s.jumlah_sesi || 10,
+        selesaiSesi: completedSessions,
+        currentStageId: stageId,
+        currentStageLabel: stageLabel,
+        daysActive,
+      };
+    });
 
     // Marketing Channels Breakdown
     const byChannel = Object.entries(channelMap).map(([channel, data]) => ({
@@ -1251,6 +1362,7 @@ export async function getAnalitikData(filter?: AnalitikFilter): Promise<Analitik
         overallConversionRate,
         totalRevenueLeakage: leakageUnpaid,
         activeVelocityDays: 21,
+        funnelStudents,
       },
       sesiFunnel,
       unitEconomics: {
