@@ -19,21 +19,21 @@ const PUBLIC_FILE_EXTENSIONS = [
 ];
 
 /**
- * Validasi dasar token sesi: struktur 2 bagian (data.signature) & batas kedaluwarsa
+ * Validasi dan ekstraksi payload token sesi: struktur 2 bagian (data.signature) & batas kedaluwarsa
  */
-function isSessionValid(token: string | undefined): boolean {
-  if (!token) return false;
+function parseSessionToken(token: string | undefined): { isValid: boolean; payload?: any } {
+  if (!token) return { isValid: false };
   try {
     const parts = token.split('.');
-    if (parts.length !== 2) return false;
+    if (parts.length !== 2) return { isValid: false };
     const jsonStr = atob(parts[0].replace(/-/g, '+').replace(/_/g, '/'));
     const payload = JSON.parse(jsonStr);
     if (!payload.exp || Date.now() > payload.exp) {
-      return false;
+      return { isValid: false };
     }
-    return true;
+    return { isValid: true, payload };
   } catch {
-    return false;
+    return { isValid: false };
   }
 }
 
@@ -79,18 +79,30 @@ export function middleware(request: NextRequest) {
 
   // 2. Pemeriksaan cookie sesi aktif
   const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  const isAuthenticated = isSessionValid(sessionToken);
+  const { isValid: isAuthenticated, payload: sessionPayload } = parseSessionToken(sessionToken);
 
-  // Jika membuka root / (login) dan sesi masih aktif, arahkan langsung ke /dashboard
+  const roles: string[] = Array.isArray(sessionPayload?.roles) ? sessionPayload.roles : [];
+  const isInstrukturOnly = roles.length === 1 && roles[0] === 'instruktur';
+
+  // Jika membuka root / (login) dan sesi masih aktif:
+  // - Instruktur-only langsung ke /instruktur
+  // - Role lainnya atau multi-role ke /dashboard
   if (pathname === '/' && isAuthenticated) {
     const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
+    url.pathname = isInstrukturOnly ? '/instruktur' : '/dashboard';
     return NextResponse.redirect(url);
   }
 
   // Jika membuka root / dan belum login, izinkan tampil halaman login
   if (pathname === '/') {
     return NextResponse.next();
+  }
+
+  // Jika user dengan role instruktur-only membuka area /dashboard, arahkan ke /instruktur
+  if (isAuthenticated && isInstrukturOnly && (pathname === '/dashboard' || pathname.startsWith('/dashboard/'))) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/instruktur';
+    return NextResponse.redirect(url);
   }
 
   // Subdomain compatibility rewrites jika ada yang mengakses via subdomain

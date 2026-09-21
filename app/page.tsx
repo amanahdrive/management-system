@@ -102,11 +102,21 @@ export default function LoginPage() {
       sound.success?.();
       const user = res.user;
 
-      // Check if user has instruktur role
+      // Check user roles
       const hasInstrukturRole = user.roles.includes('instruktur');
+      const isInstrukturOnly = hasInstrukturRole && user.roles.length === 1;
 
-      if (hasInstrukturRole) {
-        // Show choice modal for users with instructor role (Alfi, Syawal, Risky)
+      if (isInstrukturOnly) {
+        // Direct redirect for instructor-only users (e.g. Risky)
+        if (user.staff_id) {
+          try {
+            localStorage.setItem('amanah_instruktur_id', user.staff_id);
+          } catch {}
+        }
+        setIsRedirecting(true);
+        router.replace('/instruktur');
+      } else if (hasInstrukturRole) {
+        // Show choice modal for multi-role users with instructor role (e.g. Alfi, Syawal)
         setAuthenticatedUser(user);
         setShowInstructorModal(true);
         setIsLoading(false);

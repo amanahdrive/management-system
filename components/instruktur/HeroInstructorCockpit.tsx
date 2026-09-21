@@ -29,6 +29,7 @@ interface HeroInstructorCockpitProps {
   onRefresh: () => void;
   isRefreshing: boolean;
   onLogout?: () => void;
+  canAccessConsole?: boolean;
 }
 
 export function HeroInstructorCockpit({
@@ -43,6 +44,7 @@ export function HeroInstructorCockpit({
   onRefresh,
   isRefreshing,
   onLogout,
+  canAccessConsole = false,
 }: HeroInstructorCockpitProps) {
   const photoPath = staff.foto_url || `/staff_models/${staff.nama}.png`;
   // Greeting based on current time
@@ -92,15 +94,17 @@ export function HeroInstructorCockpit({
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[var(--brand-primary)]' : ''}`} />
           </button>
-          <Link
-            href="/dashboard"
-            onClick={() => sound.playTactileClick()}
-            className="px-2.5 py-1.5 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 hover:border-emerald-500 hover:text-[var(--brand-primary)] text-[var(--text-secondary)] transition-all font-mono text-[10px] uppercase rounded-xl flex items-center gap-1 shadow-xs"
-            title="Buka Console Utama"
-          >
-            <LayoutDashboard className="w-3 h-3 text-[var(--brand-primary)]" />
-            <span className="font-bold">Console</span>
-          </Link>
+          {canAccessConsole && (
+            <Link
+              href="/dashboard"
+              onClick={() => sound.playTactileClick()}
+              className="px-2.5 py-1.5 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 hover:border-emerald-500 hover:text-[var(--brand-primary)] text-[var(--text-secondary)] transition-all font-mono text-[10px] uppercase rounded-xl flex items-center gap-1 shadow-xs"
+              title="Buka Console Utama"
+            >
+              <LayoutDashboard className="w-3 h-3 text-[var(--brand-primary)]" />
+              <span className="font-bold">Console</span>
+            </Link>
+          )}
         </div>
       </div>
 

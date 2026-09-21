@@ -401,6 +401,7 @@ export default function InstrukturPortalPage() {
         onRefresh={handleManualRefresh}
         isRefreshing={isRefreshing}
         onLogout={handleLogout}
+        canAccessConsole={Boolean(currentUser?.roles && currentUser.roles.some((r) => r !== 'instruktur'))}
       />
 
       {/* TAB CONTENT 1: JADWAL & KALENDER */}
