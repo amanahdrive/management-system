@@ -447,7 +447,9 @@ export async function syncSiswaSimToPosPengeluaran(siswaId: string): Promise<voi
       termasuk_sim: boolean;
       sesi_terakhir: string | null;
     }>(
-      `SELECT s.id, s.nama, s.tanggal_booking, s.status_sim, p.nama_paket, p.termasuk_sim,
+      `SELECT s.id, s.nama, s.tanggal_booking, s.status_sim,
+              COALESCE(s.custom_nama_paket, p.nama_paket) as nama_paket,
+              (p.termasuk_sim OR COALESCE(s.custom_termasuk_sim, false)) as termasuk_sim,
               (
                 SELECT MAX(j.tanggal_sesi)::text 
                 FROM jadwal_sesi j 

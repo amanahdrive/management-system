@@ -545,7 +545,7 @@ export async function updateSesiProgress(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const siswaRecord = await dbQuerySingle<{ jumlah_sesi: number }>(`
-      SELECT p.jumlah_sesi 
+      SELECT COALESCE(s.custom_jumlah_sesi, NULLIF(p.jumlah_sesi, 0), 10)::integer AS jumlah_sesi 
       FROM siswa s 
       LEFT JOIN paket p ON s.paket_id = p.id 
       WHERE s.id = $1

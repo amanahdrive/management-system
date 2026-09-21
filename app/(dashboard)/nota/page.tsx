@@ -1031,10 +1031,10 @@ export default function NotaPage() {
                             </td>
                             <td className="py-3 px-4">
                               <div className="font-semibold text-[var(--text-primary)]">
-                                {s.paket?.nama_paket || 'Paket Kursus'}
+                                {s.custom_nama_paket || s.paket?.nama_paket || 'Paket Kursus'}
                               </div>
                               <div className="text-[10px] text-[var(--text-secondary)]">
-                                {s.paket?.jumlah_sesi || 10} Sesi Pertemuan
+                                {s.custom_jumlah_sesi || s.paket?.jumlah_sesi || 10} Sesi Pertemuan
                               </div>
                             </td>
                             <td className="py-3 px-4 text-right font-bold tabular-nums text-[var(--text-primary)]">

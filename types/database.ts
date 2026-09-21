@@ -90,6 +90,12 @@ export interface Siswa {
   tanggal_selesai_sim?: string | null;
   catatan_sim?: string | null;
   is_archived?: boolean;
+  // Custom package configuration fields
+  custom_jumlah_sesi?: number | null;
+  custom_nama_paket?: string | null;
+  custom_jenis_mobil?: string | null;
+  custom_termasuk_sim?: boolean;
+  custom_tarif_per_sesi?: number | null;
   created_at: string;
   updated_at: string;
   // Joined fields

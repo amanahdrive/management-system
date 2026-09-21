@@ -164,9 +164,9 @@ export default function SiswaDetailPage() {
               <span className="text-[var(--text-secondary)] block">Paket Kursus</span>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-sm text-[var(--text-primary)]">
-                  {siswa.paket?.nama_paket || 'Khusus'} ({siswa.paket?.jumlah_sesi || 0} Sesi)
+                  {siswa.custom_nama_paket || siswa.paket?.nama_paket || 'Khusus'} ({siswa.custom_jumlah_sesi || siswa.paket?.jumlah_sesi || 0} Sesi)
                 </span>
-                {siswa.paket?.termasuk_sim && (
+                {(siswa.paket?.termasuk_sim || siswa.custom_termasuk_sim) && (
                   <Link
                     href="/sim"
                     className="px-2 py-0.5 rounded-md bg-[var(--brand-primary-light)] text-[var(--brand-primary)] hover:underline font-bold text-[10px] inline-flex items-center gap-1"
@@ -179,7 +179,7 @@ export default function SiswaDetailPage() {
               </div>
             </div>
 
-            {siswa.paket?.termasuk_sim && (
+            {(siswa.paket?.termasuk_sim || siswa.custom_termasuk_sim) && (
               <div className="p-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-[var(--text-secondary)] flex items-center gap-1">
@@ -324,7 +324,7 @@ export default function SiswaDetailPage() {
             <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)]">
               <span className="text-[11px] font-medium text-[var(--text-secondary)] block">Total Sesi Terdaftar</span>
               <span className="text-lg font-bold text-[var(--text-primary)]">
-                {jadwalList.length} <span className="text-xs font-normal text-[var(--text-muted)]">/ {siswa.paket?.jumlah_sesi || jadwalList[0]?.total_sesi_paket || '-'} sesi paket</span>
+                {jadwalList.length} <span className="text-xs font-normal text-[var(--text-muted)]">/ {siswa.custom_jumlah_sesi || siswa.paket?.jumlah_sesi || jadwalList[0]?.total_sesi_paket || '-'} sesi paket</span>
               </span>
             </div>
 

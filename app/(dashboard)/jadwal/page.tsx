@@ -686,7 +686,7 @@ export default function JadwalPage() {
   const handleSiswaSelect = (siswaId: string) => {
     const sObj = siswaList.find((s) => s.id === siswaId);
     const summary = siswaSessionMap[siswaId];
-    const totalSesi = sObj?.paket?.jumlah_sesi || 10;
+    const totalSesi = sObj?.custom_jumlah_sesi || sObj?.paket?.jumlah_sesi || 10;
     const scheduledOrDone = summary ? (summary.selesai + (summary.terjadwal || 0)) : 0;
     const remainingSesi = Math.max(1, totalSesi - scheduledOrDone);
 
@@ -698,7 +698,7 @@ export default function JadwalPage() {
       formData.staff_id
     );
 
-    const isSendiri = isMobilSendiriPaket(sObj?.paket);
+    const isSendiri = isMobilSendiriPaket(sObj?.paket) || (sObj?.custom_jenis_mobil || '').startsWith('mobil_sendiri');
 
     setFormData((prev) => ({
       ...prev,
@@ -707,7 +707,7 @@ export default function JadwalPage() {
       tanggal_sesi: startDate,
       tipe_kendaraan: isSendiri ? 'pribadi' : 'operasional',
       kendaraan_id: isSendiri ? null : prev.kendaraan_id,
-      jenis_mobil: isSendiri ? 'mobil_sendiri' : (prev.jenis_mobil === 'mobil_sendiri' ? 'manual' : prev.jenis_mobil),
+      jenis_mobil: isSendiri ? 'mobil_sendiri' : (sObj?.custom_jenis_mobil === 'matic' ? 'matic' : (prev.jenis_mobil === 'mobil_sendiri' ? 'manual' : prev.jenis_mobil)),
     }));
     setSessionDates(dates);
   };
@@ -717,7 +717,7 @@ export default function JadwalPage() {
     const firstIns = instrukturList[0];
     const firstSlot = slotList[0];
     const summary = firstAvail ? siswaSessionMap[firstAvail.id] : undefined;
-    const totalSesi = firstAvail?.paket?.jumlah_sesi || 10;
+    const totalSesi = firstAvail?.custom_jumlah_sesi || firstAvail?.paket?.jumlah_sesi || 10;
     const scheduledOrDone = summary ? (summary.selesai + (summary.terjadwal || 0)) : 0;
     const remainingSesi = Math.max(1, totalSesi - scheduledOrDone);
 
@@ -992,7 +992,7 @@ export default function JadwalPage() {
     const summary = siswaSessionMap[formData.siswa_id];
     const startingSesiKe = summary ? (summary.selesai + (summary.terjadwal || 0)) : 0;
     const sObj = siswaList.find((s) => s.id === formData.siswa_id);
-    const totalSesi = formData.total_sesi_paket || sObj?.paket?.jumlah_sesi || (sessionDates.length + startingSesiKe);
+    const totalSesi = formData.total_sesi_paket || sObj?.custom_jumlah_sesi || sObj?.paket?.jumlah_sesi || (sessionDates.length + startingSesiKe);
 
     const batchPayloads: Partial<JadwalSesi>[] = sessionDates.map((tgl, idx) => ({
       siswa_id: formData.siswa_id,
@@ -1014,7 +1014,7 @@ export default function JadwalPage() {
   };
 
   const selectedSiswaObj = siswaList.find((s) => s.id === formData.siswa_id);
-  const isCustomPaket = selectedSiswaObj?.paket?.is_custom === true;
+  const isCustomPaket = Boolean(selectedSiswaObj?.paket?.is_custom || selectedSiswaObj?.custom_jumlah_sesi);
 
   const columns: ColumnDef<any>[] = [
     {
@@ -2553,12 +2553,12 @@ export default function JadwalPage() {
                   >
                     {availableSiswaList.map((s) => {
                       const summary = siswaSessionMap[s.id];
-                      const totalSesi = s.paket?.jumlah_sesi || summary?.total || 10;
+                      const totalSesi = s.custom_jumlah_sesi || s.paket?.jumlah_sesi || summary?.total || 10;
                       const scheduledOrDone = summary ? (summary.selesai + (summary.terjadwal || 0)) : 0;
                       const remaining = Math.max(0, totalSesi - scheduledOrDone);
                       return (
                         <option key={s.id} value={s.id}>
-                          {s.nama} ({s.kode_siswa}) — {s.paket?.nama_paket || 'Paket Sesi'} {scheduledOrDone > 0 ? `(Sisa ${remaining} dari ${totalSesi} sesi)` : `(${totalSesi} sesi)`}
+                          {s.nama} ({s.kode_siswa}) — {s.custom_nama_paket || s.paket?.nama_paket || 'Paket Sesi'} {scheduledOrDone > 0 ? `(Sisa ${remaining} dari ${totalSesi} sesi)` : `(${totalSesi} sesi)`}
                         </option>
                       );
                     })}
@@ -2571,7 +2571,7 @@ export default function JadwalPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-[var(--text-secondary)] font-medium">Paket Kursus:</span>
                     <span className="font-bold text-[var(--brand-primary)]">
-                      {selectedSiswaObj.paket?.nama_paket || 'Paket Khusus'}
+                      {selectedSiswaObj.custom_nama_paket || selectedSiswaObj.paket?.nama_paket || 'Paket Khusus'}
                     </span>
                   </div>
 
@@ -2595,7 +2595,7 @@ export default function JadwalPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-[var(--text-secondary)] font-medium">Status Sesi Saat Ini:</span>
                       <span className="font-bold text-[var(--text-primary)]">
-                        {siswaSessionMap[selectedSiswaObj.id].selesai} Selesai, {siswaSessionMap[selectedSiswaObj.id].terjadwal || 0} Terjadwal (Sisa {Math.max(0, (selectedSiswaObj.paket?.jumlah_sesi || siswaSessionMap[selectedSiswaObj.id].total) - (siswaSessionMap[selectedSiswaObj.id].selesai + (siswaSessionMap[selectedSiswaObj.id].terjadwal || 0)))} sesi)
+                        {siswaSessionMap[selectedSiswaObj.id].selesai} Selesai, {siswaSessionMap[selectedSiswaObj.id].terjadwal || 0} Terjadwal (Sisa {Math.max(0, (selectedSiswaObj.custom_jumlah_sesi || selectedSiswaObj.paket?.jumlah_sesi || siswaSessionMap[selectedSiswaObj.id].total) - (siswaSessionMap[selectedSiswaObj.id].selesai + (siswaSessionMap[selectedSiswaObj.id].terjadwal || 0)))} sesi)
                       </span>
                     </div>
                   )}

@@ -13,7 +13,7 @@ import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
-import { Plus, Eye, Edit2, Trash2, Archive, Search, X, Calendar, Info, RefreshCw, CalendarPlus } from 'lucide-react';
+import { Plus, Eye, Edit2, Trash2, Archive, Search, X, Calendar, Info, RefreshCw, CalendarPlus, Settings2, Calculator, Car, Check, Sparkles } from 'lucide-react';
 import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
 import { purgeServerCache } from '@/lib/actions/cache';
 import { formatCarOptionsLabel } from '@/lib/utils/vehicle';
@@ -57,6 +57,11 @@ export default function SiswaPage() {
     harga_final: 0,
     sumber: 'meta_ads',
     catatan: '',
+    custom_jumlah_sesi: 5,
+    custom_nama_paket: '',
+    custom_jenis_mobil: 'manual',
+    custom_termasuk_sim: false,
+    custom_tarif_per_sesi: 170000,
   });
 
   const loadData = async () => {
@@ -126,6 +131,11 @@ export default function SiswaPage() {
       harga_final: defaultPaket ? defaultPaket.harga_promo || defaultPaket.harga_normal : 0,
       sumber: 'meta_ads',
       catatan: '',
+      custom_jumlah_sesi: 5,
+      custom_nama_paket: '',
+      custom_jenis_mobil: 'manual',
+      custom_termasuk_sim: false,
+      custom_tarif_per_sesi: 170000,
     });
     setIsModalOpen(true);
   };
@@ -145,6 +155,11 @@ export default function SiswaPage() {
       sumber: siswa.sumber,
       sumber_kustom_text: siswa.sumber_kustom_text,
       catatan: siswa.catatan,
+      custom_jumlah_sesi: siswa.custom_jumlah_sesi || 5,
+      custom_nama_paket: siswa.custom_nama_paket || '',
+      custom_jenis_mobil: siswa.custom_jenis_mobil || 'manual',
+      custom_termasuk_sim: !!siswa.custom_termasuk_sim,
+      custom_tarif_per_sesi: siswa.custom_tarif_per_sesi || 170000,
     });
     setIsModalOpen(true);
   };
@@ -168,12 +183,32 @@ export default function SiswaPage() {
   };
 
   const handlePaketChange = (paketId: string) => {
-    const newPrice = calculatePrice(paketId, formData.promosi_id || null);
-    setFormData((prev) => ({
-      ...prev,
-      paket_id: paketId,
-      harga_final: newPrice,
-    }));
+    const selected = paketList.find((p) => p.id === paketId);
+    const isCustom = Boolean(selected?.is_custom || selected?.jumlah_sesi === 0);
+
+    if (isCustom) {
+      const sesi = formData.custom_jumlah_sesi || 5;
+      const tarif = formData.custom_tarif_per_sesi || 170000;
+      const simCost = formData.custom_termasuk_sim ? 950000 : 0;
+      const calculatedCustom = (sesi * tarif) + simCost;
+
+      setFormData((prev) => ({
+        ...prev,
+        paket_id: paketId,
+        custom_jumlah_sesi: prev.custom_jumlah_sesi || 5,
+        custom_tarif_per_sesi: prev.custom_tarif_per_sesi || 170000,
+        custom_jenis_mobil: prev.custom_jenis_mobil || 'manual',
+        custom_termasuk_sim: prev.custom_termasuk_sim ?? false,
+        harga_final: (prev.harga_final ?? 0) > 0 && prev.harga_manual_override ? prev.harga_final : calculatedCustom,
+      }));
+    } else {
+      const newPrice = calculatePrice(paketId, formData.promosi_id || null);
+      setFormData((prev) => ({
+        ...prev,
+        paket_id: paketId,
+        harga_final: newPrice,
+      }));
+    }
   };
 
   const handlePromoChange = (promoId: string | null) => {
@@ -192,10 +227,40 @@ export default function SiswaPage() {
       return;
     }
 
-    const payload = {
+    const selected = paketList.find((p) => p.id === formData.paket_id);
+    const isCustom = Boolean(selected?.is_custom || selected?.jumlah_sesi === 0);
+
+    let payload: any = {
       ...formData,
       harga_manual_override: formData.harga_manual_override ?? false,
     };
+
+    if (isCustom) {
+      const sesi = Number(formData.custom_jumlah_sesi) || 5;
+      const jenisMobil = formData.custom_jenis_mobil || 'manual';
+      const termSIM = Boolean(formData.custom_termasuk_sim);
+      const labelTransmisi =
+        jenisMobil === 'matic'
+          ? 'Matic'
+          : jenisMobil === 'mobil_sendiri_manual'
+          ? 'Mobil Sendiri Manual'
+          : jenisMobil === 'mobil_sendiri_matic'
+          ? 'Mobil Sendiri Matic'
+          : jenisMobil === 'mobil_sendiri'
+          ? 'Mobil Sendiri'
+          : 'Manual';
+      const defaultCustomName = `Kustom ${sesi} Sesi (${labelTransmisi})${termSIM ? ' + SIM' : ''}`;
+
+      payload = {
+        ...payload,
+        custom_jumlah_sesi: sesi,
+        custom_jenis_mobil: jenisMobil,
+        custom_termasuk_sim: termSIM,
+        custom_nama_paket: formData.custom_nama_paket?.trim() || defaultCustomName,
+        custom_tarif_per_sesi: Number(formData.custom_tarif_per_sesi) || null,
+        status_sim: termSIM ? 'belum' : (formData.status_sim || 'belum'),
+      };
+    }
 
     const res = await createOrUpdateSiswa(payload);
     if (res.success) {
@@ -226,7 +291,7 @@ export default function SiswaPage() {
         const sessionInfo = siswaSessionMap[s.id];
         const selesai = sessionInfo?.selesai || 0;
         const terjadwal = sessionInfo?.terjadwal || 0;
-        const total = sessionInfo?.total || s.paket?.jumlah_sesi || 10;
+        const total = sessionInfo?.total || s.custom_jumlah_sesi || s.paket?.jumlah_sesi || 10;
         const totalDibuat = selesai + terjadwal;
         const isBelumJadwal = totalDibuat === 0;
         const isSelesai = selesai >= total && total > 0;
@@ -282,14 +347,14 @@ export default function SiswaPage() {
       header: 'Paket Kursus',
       key: 'paket_id',
       width: 22,
-      formatter: (_v, row) => row.paket?.nama_paket || 'Paket Kustom',
+      formatter: (_v, row) => row.custom_nama_paket || row.paket?.nama_paket || 'Paket Kustom',
     },
     {
       header: 'Opsi Kendaraan',
       key: 'jenis_mobil',
       width: 20,
       align: 'center',
-      formatter: (_v, row) => formatCarOptionsLabel(row.paket?.jenis_mobil || row.jenis_mobil),
+      formatter: (_v, row) => formatCarOptionsLabel((row.custom_jenis_mobil || row.paket?.jenis_mobil || row.jenis_mobil) as any),
     },
     { header: 'Tgl Pendaftaran', key: 'tanggal_booking', width: 16, align: 'center', formatter: (v) => formatDateIndo(v) },
     {
@@ -301,7 +366,7 @@ export default function SiswaPage() {
         const info = siswaSessionMap[row.id];
         const selesai = info?.selesai || 0;
         const terjadwal = info?.terjadwal || 0;
-        const total = info?.total || row.paket?.jumlah_sesi || 10;
+        const total = info?.total || row.custom_jumlah_sesi || row.paket?.jumlah_sesi || 10;
         if (selesai + terjadwal === 0) return 'Belum Jadwal';
         if (selesai >= total && total > 0) return 'Selesai Kursus';
         return 'Terjadwal';
@@ -315,7 +380,7 @@ export default function SiswaPage() {
       formatter: (_v, row) => {
         const info = siswaSessionMap[row.id];
         const selesai = info?.selesai || 0;
-        const total = info?.total || row.paket?.jumlah_sesi || 10;
+        const total = info?.total || row.custom_jumlah_sesi || row.paket?.jumlah_sesi || 10;
         return `${selesai} / ${total} Sesi`;
       },
     },
@@ -362,16 +427,32 @@ export default function SiswaPage() {
     {
       id: 'paket',
       header: 'Paket Kursus',
-      accessorFn: (row) => row.paket?.nama_paket || 'Khusus',
+      accessorFn: (row) => row.custom_nama_paket || row.paket?.nama_paket || 'Khusus',
       sortingFn: 'text',
-      cell: ({ row }) => (
-        <div>
-          <div className="font-medium text-[var(--text-primary)]">{row.original.paket?.nama_paket || 'Khusus'}</div>
-          <div className="text-[10.5px] text-[var(--text-secondary)]">
-            {formatCarOptionsLabel(row.original.paket?.jenis_mobil)}
+      cell: ({ row }) => {
+        const isCustom = Boolean(row.original.paket?.is_custom || row.original.custom_jumlah_sesi);
+        const displayName = row.original.custom_nama_paket || row.original.paket?.nama_paket || 'Khusus';
+        const carLabel = row.original.custom_jenis_mobil
+          ? formatCarOptionsLabel(row.original.custom_jenis_mobil as any)
+          : formatCarOptionsLabel(row.original.paket?.jenis_mobil);
+        const sessionCount = row.original.custom_jumlah_sesi || row.original.paket?.jumlah_sesi || 0;
+
+        return (
+          <div>
+            <div className="font-medium text-[var(--text-primary)] flex items-center gap-1.5 flex-wrap">
+              <span>{displayName}</span>
+              {isCustom && (
+                <span className="px-1.5 py-0.2 text-[9px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 rounded border border-amber-200 dark:border-amber-800/40">
+                  Kustom
+                </span>
+              )}
+            </div>
+            <div className="text-[10.5px] text-[var(--text-secondary)]">
+              {carLabel} • {sessionCount} Sesi
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       id: 'status_jadwal',
@@ -379,8 +460,8 @@ export default function SiswaPage() {
       sortingFn: (rowA, rowB) => {
         const infoA = siswaSessionMap[rowA.original.id];
         const infoB = siswaSessionMap[rowB.original.id];
-        const totalA = infoA?.total || rowA.original.paket?.jumlah_sesi || 10;
-        const totalB = infoB?.total || rowB.original.paket?.jumlah_sesi || 10;
+        const totalA = infoA?.total || rowA.original.custom_jumlah_sesi || rowA.original.paket?.jumlah_sesi || 10;
+        const totalB = infoB?.total || rowB.original.custom_jumlah_sesi || rowB.original.paket?.jumlah_sesi || 10;
         const sA = (infoA?.selesai || 0) + (infoA?.terjadwal || 0) === 0 ? 0 : (infoA?.selesai || 0) >= totalA ? 2 : 1;
         const sB = (infoB?.selesai || 0) + (infoB?.terjadwal || 0) === 0 ? 0 : (infoB?.selesai || 0) >= totalB ? 2 : 1;
         return sA - sB;
@@ -389,7 +470,7 @@ export default function SiswaPage() {
         const sessionInfo = siswaSessionMap[row.original.id];
         const selesai = sessionInfo?.selesai || 0;
         const terjadwal = sessionInfo?.terjadwal || 0;
-        const total = sessionInfo?.total || row.original.paket?.jumlah_sesi || 10;
+        const total = sessionInfo?.total || row.original.custom_jumlah_sesi || row.original.paket?.jumlah_sesi || 10;
         const totalDibuat = selesai + terjadwal;
         const isBelumJadwal = totalDibuat === 0;
         const isSelesai = selesai >= total && total > 0;
@@ -981,6 +1062,273 @@ export default function SiswaPage() {
                     ))}
                   </select>
                 </div>
+
+                {/* Konfigurasi Lengkap Paket Kustom / Fleksibel */}
+                {(() => {
+                  const selected = paketList.find((p) => p.id === formData.paket_id);
+                  const isCustom = Boolean(selected?.is_custom || selected?.jumlah_sesi === 0);
+                  if (!isCustom) return null;
+
+                  const currentSesi = Number(formData.custom_jumlah_sesi) || 5;
+                  const currentTarif = Number(formData.custom_tarif_per_sesi) || 170000;
+                  const currentSim = Boolean(formData.custom_termasuk_sim);
+                  const simEstimatedCost = 950000;
+                  const calculatedEstimatedTotal = (currentSesi * currentTarif) + (currentSim ? simEstimatedCost : 0);
+
+                  const handleSelectCarOption = (id: string) => {
+                    const isMobilSendiri = id.startsWith('mobil_sendiri');
+                    const suggestedTarif = isMobilSendiri ? 100000 : 170000;
+                    setFormData((prev) => {
+                      const newTarif = prev.custom_tarif_per_sesi === 170000 && isMobilSendiri
+                        ? 100000
+                        : prev.custom_tarif_per_sesi === 100000 && !isMobilSendiri
+                        ? 170000
+                        : prev.custom_tarif_per_sesi || suggestedTarif;
+                      return {
+                        ...prev,
+                        custom_jenis_mobil: id,
+                        custom_tarif_per_sesi: newTarif,
+                      };
+                    });
+                  };
+
+                  return (
+                    <div className="md:col-span-2 p-4 rounded-xl border border-amber-300 dark:border-amber-800/70 bg-gradient-to-br from-amber-50/70 via-amber-50/25 to-transparent dark:from-amber-950/40 dark:via-amber-950/20 dark:to-transparent space-y-4 shadow-2xs animate-in fade-in zoom-in-98 duration-200">
+                      {/* Header Section */}
+                      <div className="flex items-center justify-between border-b border-amber-200/80 dark:border-amber-900/60 pb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-700 dark:text-amber-400 shrink-0">
+                            <Settings2 className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs sm:text-sm font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                              <span>Detail & Spesifikasi Paket Kustom</span>
+                              <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                            </h4>
+                            <p className="text-[11px] text-[var(--text-secondary)]">
+                              Konfigurasikan jumlah sesi, tipe transmisi, fasilitas SIM, dan kalkulasi harga final
+                            </p>
+                          </div>
+                        </div>
+                        <span className="px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25 shrink-0">
+                          Fleksibel / Kustom
+                        </span>
+                      </div>
+
+                      {/* Baris 1: Jumlah Sesi (Pertemuan) */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-xs font-bold text-[var(--text-primary)]">
+                            Jumlah Sesi Pertemuan (Wajib) *
+                          </label>
+                          <span className="text-[11px] text-[var(--text-secondary)]">
+                            Total Durasi: <strong className="text-[var(--text-primary)] font-mono">{currentSesi * 2} Jam</strong> (2 jam/sesi)
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                          {/* Stepper Input */}
+                          <div className="flex items-center border border-[var(--border)] rounded-xl bg-[var(--bg)] p-0.5 shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nextVal = Math.max(1, currentSesi - 1);
+                                setFormData((prev) => ({ ...prev, custom_jumlah_sesi: nextVal }));
+                              }}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min={1}
+                              max={50}
+                              required
+                              value={formData.custom_jumlah_sesi ?? 5}
+                              onChange={(e) => {
+                                const val = Math.max(1, parseInt(e.target.value) || 1);
+                                setFormData((prev) => ({ ...prev, custom_jumlah_sesi: val }));
+                              }}
+                              className="w-16 px-1 py-1 text-center font-bold text-sm font-mono bg-transparent border-none focus:outline-hidden"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nextVal = Math.min(50, currentSesi + 1);
+                                setFormData((prev) => ({ ...prev, custom_jumlah_sesi: nextVal }));
+                              }}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          {/* Quick Select Buttons */}
+                          <div className="flex items-center gap-1.5 flex-wrap flex-1">
+                            {[3, 5, 7, 8, 10, 12, 15].map((count) => (
+                              <button
+                                key={count}
+                                type="button"
+                                onClick={() => setFormData((prev) => ({ ...prev, custom_jumlah_sesi: count }))}
+                                className={`px-2.5 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
+                                  currentSesi === count
+                                    ? 'bg-amber-600 text-white border-amber-600 shadow-xs ring-2 ring-amber-500/20'
+                                    : 'bg-[var(--bg)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5'
+                                }`}
+                              >
+                                {count} Sesi
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Baris 2: Opsi Mobil & Transmisi */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-[var(--text-primary)]">
+                          Pilihan Armada Kendaraan & Transmisi *
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {[
+                            { id: 'manual', label: 'Manual', sub: 'Mobil Amanah' },
+                            { id: 'matic', label: 'Matic', sub: 'Mobil Amanah' },
+                            { id: 'mobil_sendiri_manual', label: 'Mobil Sendiri', sub: 'Manual' },
+                            { id: 'mobil_sendiri_matic', label: 'Mobil Sendiri', sub: 'Matic' },
+                          ].map((item) => {
+                            const isSelected = (formData.custom_jenis_mobil || 'manual') === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => handleSelectCarOption(item.id)}
+                                className={`p-2.5 rounded-xl text-left border transition-all ${
+                                  isSelected
+                                    ? 'bg-[var(--bg)] border-amber-500 ring-2 ring-amber-500/20 shadow-xs'
+                                    : 'bg-[var(--bg)] border-[var(--border)] hover:border-black/20 dark:hover:border-white/20'
+                                }`}
+                              >
+                                <div className={`text-xs font-bold ${isSelected ? 'text-amber-700 dark:text-amber-400' : 'text-[var(--text-primary)]'}`}>
+                                  {item.label}
+                                </div>
+                                <div className="text-[10px] text-[var(--text-secondary)] mt-0.5">
+                                  {item.sub}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Baris 3: Fasilitas Pembuatan SIM A */}
+                      <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] flex items-center justify-between gap-3 shadow-2xs">
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
+                            <span>Fasilitas Pengurusan SIM A</span>
+                            {currentSim ? (
+                              <span className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
+                                ✓ Termasuk SIM A
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-black/5 dark:bg-white/5 text-[var(--text-secondary)] border border-[var(--border)]">
+                                Tanpa SIM
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10.5px] text-[var(--text-secondary)]">
+                            {currentSim
+                              ? 'Siswa akan otomatis tercatat di modul SIM dan sinkron dengan pos pengeluaran SIM.'
+                              : 'Hanya pelatihan kursus mengemudi tanpa pengurusan berkas SIM A.'}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setFormData((prev) => ({ ...prev, custom_termasuk_sim: !prev.custom_termasuk_sim }))}
+                          className={`px-3.5 py-2 text-xs font-bold rounded-xl border transition-all shrink-0 ${
+                            currentSim
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                              : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-black/5 dark:hover:bg-white/5'
+                          }`}
+                        >
+                          {currentSim ? '✓ Termasuk SIM A' : '+ Tambah SIM A'}
+                        </button>
+                      </div>
+
+                      {/* Baris 4: Nama / Label Khusus Paket (Opsional) */}
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                          Nama / Label Paket Kustom (Opsional)
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.custom_nama_paket || ''}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, custom_nama_paket: e.target.value }))}
+                          placeholder={`Misal: Kustom ${currentSesi} Sesi (${(formData.custom_jenis_mobil || 'manual').includes('matic') ? 'Matic' : 'Manual'})${currentSim ? ' + SIM' : ''}`}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)]"
+                        />
+                      </div>
+
+                      {/* Baris 5: Kalkulator Simulasi Biaya & Harga */}
+                      <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-300/70 dark:border-amber-800/50 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/60 dark:border-amber-900/40 pb-2">
+                          <div className="flex items-center gap-2">
+                            <Calculator className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                            <span className="text-xs font-bold text-[var(--text-primary)]">
+                              Kalkulator Simulasi Tarif Kustom
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                harga_final: calculatedEstimatedTotal,
+                                harga_manual_override: true,
+                              }));
+                            }}
+                            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-all shadow-xs active:scale-95"
+                          >
+                            Terapkan Hasil ke Harga Final ({formatRupiah(calculatedEstimatedTotal)})
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <CurrencyInput
+                              label="Tarif Per Sesi (Rupiah)"
+                              value={currentTarif}
+                              onChange={(val) => setFormData((prev) => ({ ...prev, custom_tarif_per_sesi: val }))}
+                            />
+                            <p className="text-[10px] text-[var(--text-secondary)] mt-1">
+                              Standar Amanah: Rp 170.000 (Mobil Amanah) / Rp 100.000 (Mobil Sendiri)
+                            </p>
+                          </div>
+
+                          <div className="p-3 rounded-xl bg-[var(--bg)] border border-[var(--border)] text-xs space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px] text-[var(--text-secondary)]">
+                              <span>Biaya Sesi ({currentSesi} Sesi × {formatRupiah(currentTarif)}):</span>
+                              <span className="font-semibold text-[var(--text-primary)] font-mono">
+                                {formatRupiah(currentSesi * currentTarif)}
+                              </span>
+                            </div>
+                            {currentSim && (
+                              <div className="flex items-center justify-between text-[11px] text-emerald-700 dark:text-emerald-400">
+                                <span>Fasilitas Pengurusan SIM A:</span>
+                                <span className="font-semibold font-mono">+{formatRupiah(simEstimatedCost)}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between text-xs font-bold text-[var(--text-primary)] border-t border-[var(--border)] pt-1.5">
+                              <span>Total Estimasi Sistem:</span>
+                              <span className="font-mono text-amber-600 dark:text-amber-400 text-sm">
+                                {formatRupiah(calculatedEstimatedTotal)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="md:col-span-2 space-y-1">
                   <CurrencyInput
