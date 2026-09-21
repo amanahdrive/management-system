@@ -154,14 +154,17 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-semibold tracking-wide">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-semibold tracking-wide">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Amanah Drive Console</span>
             </div>
             <h1 className="text-3xl font-extrabold tracking-tight text-[var(--text-primary)]">
-              Sistem Manajemen Terpadu
+              Sistem Operasional & Manajemen Internal
             </h1>
-            <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto leading-relaxed">
+            <p className="text-sm font-bold text-[var(--brand-primary)] uppercase tracking-wider">
+              CV Amanah Drive
+            </p>
+            <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto leading-relaxed pt-1">
               Platform operasional kursus mengemudi, penjadwalan sesi harian, arus kas, dan manajemen armada Palembang.
             </p>
           </div>
@@ -187,8 +190,11 @@ export default function LoginPage() {
                   className="w-full h-full object-contain"
                 />
               </div>
-              <p className="text-xs text-[var(--text-secondary)] font-medium">
-                Sistem Operasional & Manajemen Kursus
+              <p className="text-xs font-bold text-[var(--text-primary)] mt-1">
+                Sistem Operasional & Manajemen Internal
+              </p>
+              <p className="text-[11px] font-semibold text-[var(--brand-primary)] uppercase tracking-wider">
+                CV Amanah Drive
               </p>
             </div>
 
@@ -289,10 +295,13 @@ export default function LoginPage() {
             </form>
 
             {/* Footer Notice */}
-            <div className="mt-6 pt-4 border-t border-[var(--liquid-glass-border)] text-center">
+            <div className="mt-6 pt-4 border-t border-[var(--liquid-glass-border)] text-center space-y-1">
               <p className="text-[11px] text-[var(--text-muted)] flex items-center justify-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Akses aman internal PT Amanah Drive Palembang</span>
+                <span>Akses aman internal CV Amanah Drive Palembang</span>
+              </p>
+              <p className="text-[10px] text-[var(--text-muted)] opacity-80">
+                Copyrights M. Firdaus Alfarizi 2026
               </p>
             </div>
           </div>
@@ -333,7 +342,7 @@ export default function LoginPage() {
                     <span className="font-bold text-sm text-[var(--text-primary)]">
                       Portal Instruktur
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-600 text-white font-bold">
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-600 text-white font-bold">
                       Cockpit
                     </span>
                   </div>
@@ -358,7 +367,7 @@ export default function LoginPage() {
                     <span className="font-bold text-sm text-[var(--text-primary)]">
                       Console Utama
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-[var(--text-secondary)] font-semibold">
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-[var(--text-secondary)] font-semibold">
                       Dashboard
                     </span>
                   </div>

@@ -527,6 +527,7 @@ export interface UserProfile {
   aktif: boolean;
   created_at: string;
   updated_at: string;
+  foto_url?: string | null;
   // Joined staff relation
   staff?: Staff;
 }

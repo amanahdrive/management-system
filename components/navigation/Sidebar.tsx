@@ -8,17 +8,11 @@ import {
   ChevronLeft,
   ChevronDown,
   ChevronUp,
-  LogOut,
-  User as UserIcon,
-  Shield,
-  Sparkles,
 } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
 import { useAuthStore } from '@/lib/store/auth-store';
-import { logoutAction } from '@/lib/actions/auth';
 import { getVisibleMenuItems, MenuItem } from '@/lib/navigation/menu-registry';
 import { ASSETS } from '@/lib/assets';
-import { sound } from '@/lib/sound/SoundFX';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -58,12 +52,6 @@ export function Sidebar() {
       return;
     }
     setExpandedMenus((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const handleLogout = async () => {
-    sound.click?.();
-    await logoutAction();
-    router.replace('/');
   };
 
   const navItemClass = (isActive: boolean) =>
@@ -173,7 +161,7 @@ export function Sidebar() {
                   <div className="flex-1 flex items-center justify-between">
                     <span className="whitespace-nowrap">{item.title}</span>
                     {item.badge && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                         {item.badge}
                       </span>
                     )}
@@ -232,7 +220,7 @@ export function Sidebar() {
                           <span>{sub.title}</span>
                         </div>
                         {sub.badge && (
-                          <span className="text-[9px] px-1 py-0.2 rounded font-bold uppercase bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                             {sub.badge}
                           </span>
                         )}
@@ -246,53 +234,26 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* User Profile & Logout Footer */}
-      <div className="p-3 border-t border-[var(--liquid-glass-border)] bg-black/[0.02] dark:bg-white/[0.02]">
+      {/* System Identification Footer (Bottom Left) */}
+      <div className="p-3.5 border-t border-[var(--liquid-glass-border)] bg-black/[0.02] dark:bg-white/[0.02]">
         {sidebarOpen ? (
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-emerald-600/10 border border-emerald-600/20 text-emerald-600 flex items-center justify-center shrink-0 font-bold text-xs uppercase">
-                {user?.nama?.slice(0, 2) || 'AD'}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-[var(--text-primary)] truncate">
-                  {user?.nama || 'User'}
-                </p>
-                <div className="flex items-center gap-1 flex-wrap">
-                  {user?.roles?.includes('developer') ? (
-                    <span className="text-[9px] px-1 py-0.2 rounded font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
-                      Developer
-                    </span>
-                  ) : (
-                    user?.roles?.map((r) => (
-                      <span
-                        key={r}
-                        className="text-[9px] px-1 py-0.2 rounded font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 capitalize"
-                      >
-                        {r}
-                      </span>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={handleLogout}
-              className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
-              title="Keluar dari Akun"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+          <div className="text-left space-y-0.5 animate-in fade-in duration-150">
+            <h4 className="text-xs font-bold tracking-tight text-[var(--text-primary)]">
+              Amanah Drive Console
+            </h4>
+            <p className="text-[10px] text-[var(--text-secondary)] leading-tight">
+              Sistem Operasional & Manajemen Internal
+            </p>
+            <p className="text-[9px] font-semibold text-[var(--brand-primary)] uppercase tracking-wider pt-0.5">
+              CV Amanah Drive
+            </p>
           </div>
         ) : (
-          <button
-            onClick={handleLogout}
-            className="w-full flex justify-center p-2 rounded-lg text-[var(--text-muted)] hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
-            title="Keluar dari Akun"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+          <div className="flex justify-center" title="Amanah Drive Console - CV Amanah Drive">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[var(--brand-primary)] flex items-center justify-center font-bold text-[10px] shadow-2xs">
+              ADC
+            </div>
+          </div>
         )}
       </div>
     </aside>

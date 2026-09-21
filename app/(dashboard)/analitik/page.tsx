@@ -181,10 +181,10 @@ export default function AnalitikPage() {
               <BarChart3 className="w-5 h-5 text-[var(--brand-primary)]" />
               <span>Pusat Analitik & Intelijen Bisnis</span>
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-mono text-[10px] font-bold uppercase tracking-wider">
+            <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-mono text-[10px] font-bold uppercase tracking-wider">
               Enterprise Suite
             </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-[var(--bg-subtle)] text-[var(--text-secondary)] font-mono text-[11px] border border-[var(--border)] font-semibold">
+            <span className="px-2.5 py-0.5 rounded-md bg-[var(--bg-subtle)] text-[var(--text-secondary)] font-mono text-[11px] border border-[var(--border)] font-semibold">
               {data.periodeLabel}
             </span>
           </div>
@@ -448,7 +448,7 @@ export default function AnalitikPage() {
               <span>{t.label}</span>
               {t.badge && (
                 <span
-                  className={`px-2 py-0.5 text-[9px] font-mono font-bold rounded-full ${
+                  className={`px-2 py-0.5 text-[9px] font-mono font-bold rounded-md ${
                     isActive
                       ? 'bg-[var(--bg)] text-[var(--text-primary)]'
                       : t.badgeColor || 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)]'
@@ -536,7 +536,7 @@ export default function AnalitikPage() {
                       AI Assist & Business Intelijen
                     </span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full bg-[var(--brand-primary)]/10 text-[var(--brand-primary)] font-mono text-[9px] font-bold">
+                  <span className="px-2 py-0.5 rounded-md bg-[var(--brand-primary)]/10 text-[var(--brand-primary)] font-mono text-[9px] font-bold">
                     Advisor v3.0
                   </span>
                 </div>
@@ -810,11 +810,11 @@ export default function AnalitikPage() {
                         <td className="py-2.5 px-2 font-semibold text-[var(--text-primary)]">{pkg.namaPaket}</td>
                         <td className="py-2.5 px-2 text-center">
                           {pkg.termasukSim ? (
-                            <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-bold text-[10px]">
+                            <span className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-bold text-[10px]">
                               Kursus + SIM
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-full bg-[var(--bg-subtle)] text-[var(--text-secondary)] font-medium text-[10px]">
+                            <span className="px-2 py-0.5 rounded-md bg-[var(--bg-subtle)] text-[var(--text-secondary)] font-medium text-[10px]">
                               Kursus Saja
                             </span>
                           )}
@@ -844,7 +844,7 @@ export default function AnalitikPage() {
                 <span className="text-xs font-bold text-[var(--text-primary)]">
                   {finansialExecutive.cashflowChartTitle || 'Arus Kas (Pemasukan vs Pengeluaran)'}
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] font-mono">
+                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-semibold bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] font-mono">
                   {finansialExecutive.cashflowGrouping === 'daily' ? 'Agregasi Harian' : 'Agregasi Bulanan'}
                 </span>
               </div>
@@ -944,7 +944,7 @@ export default function AnalitikPage() {
                         <tr key={deb.id} className="hover:bg-[var(--bg-subtle)]/50 transition-colors">
                           <td className="py-2.5 px-3 font-bold text-[var(--text-primary)]">{deb.nama}</td>
                           <td className="py-2.5 px-3 text-center">
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                            <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
                               {deb.status}
                             </span>
                           </td>
@@ -1068,11 +1068,11 @@ export default function AnalitikPage() {
                       </td>
                       <td className="py-2.5 px-3 text-center">
                         {arm.perluPerhatian ? (
-                          <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-bold text-[10px]">
+                          <span className="px-2.5 py-0.5 rounded-md bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-bold text-[10px]">
                             Perlu Servis ({arm.kmSejakGantiOli} km)
                           </span>
                         ) : (
-                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-[10px]">
+                          <span className="px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-[10px]">
                             Normal ({arm.kmSejakGantiOli} km)
                           </span>
                         )}
@@ -1165,7 +1165,7 @@ export default function AnalitikPage() {
                       <td className="py-2.5 px-3 text-center tabular-nums font-medium">{ins.hariAktif} Hari</td>
                       <td className="py-2.5 px-3 text-center tabular-nums">
                         <span
-                          className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] font-mono ${
+                          className={`px-2.5 py-0.5 rounded-md font-bold text-[10px] font-mono ${
                             ins.completionRate >= 90
                               ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                               : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'

@@ -1250,7 +1250,7 @@ export default function FinancePortalPage() {
     <div className="min-h-screen bg-[var(--bg-subtle)] text-[var(--text-primary)] pb-32">
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-emerald-950/90 backdrop-blur-md text-emerald-200 text-xs font-bold rounded-full shadow-2xl border border-emerald-500/40 flex items-center gap-2 animate-fadeIn">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-emerald-950/90 backdrop-blur-md text-emerald-200 text-xs font-bold rounded-xl shadow-2xl border border-emerald-500/40 flex items-center gap-2 animate-fadeIn">
           <Check className="w-3.5 h-3.5 text-emerald-400" />
           <span>{toast}</span>
         </div>
@@ -2005,7 +2005,7 @@ export default function FinancePortalPage() {
                           </div>
 
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                            className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold border ${
                               isDp
                                 ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300'
                                 : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300'

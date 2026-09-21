@@ -1110,7 +1110,7 @@ export default function SiswaPage() {
                             </p>
                           </div>
                         </div>
-                        <span className="px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25 shrink-0">
+                        <span className="px-2.5 py-0.5 text-[10px] font-bold rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25 shrink-0">
                           Fleksibel / Kustom
                         </span>
                       </div>

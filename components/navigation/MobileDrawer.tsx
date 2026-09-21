@@ -118,7 +118,7 @@ export function MobileDrawer() {
                       <span>{item.title}</span>
                     </div>
                     {item.badge && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                         {item.badge}
                       </span>
                     )}
@@ -177,7 +177,7 @@ export function MobileDrawer() {
                               <span>{sub.title}</span>
                             </div>
                             {sub.badge && (
-                              <span className="text-[9px] px-1 py-0.2 rounded font-bold uppercase bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
                                 {sub.badge}
                               </span>
                             )}
@@ -195,8 +195,17 @@ export function MobileDrawer() {
         {/* User Card & Logout Button */}
         <div className="pt-4 border-t border-[var(--border)] mt-6 space-y-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-600/10 border border-emerald-600/20 text-emerald-600 flex items-center justify-center shrink-0 font-bold text-xs uppercase">
-              {user?.nama?.slice(0, 2) || 'AD'}
+            <div className="relative w-9 h-9 rounded-xl overflow-hidden bg-emerald-600/10 border border-emerald-600/20 text-emerald-600 flex items-center justify-center shrink-0 font-bold text-xs uppercase">
+              {user?.foto_url ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={user.foto_url}
+                  alt={user.nama}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                user?.nama?.slice(0, 2) || 'AD'
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-bold text-[var(--text-primary)] truncate">
@@ -204,14 +213,14 @@ export function MobileDrawer() {
               </p>
               <div className="flex items-center gap-1 flex-wrap">
                 {user?.roles?.includes('developer') ? (
-                  <span className="text-[9px] px-1 py-0.2 rounded font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300">
                     Developer
                   </span>
                 ) : (
                   user?.roles?.map((r) => (
                     <span
                       key={r}
-                      className="text-[9px] px-1 py-0.2 rounded font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 capitalize"
+                      className="text-[9px] px-1.5 py-0.5 rounded-md font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 capitalize"
                     >
                       {r}
                     </span>

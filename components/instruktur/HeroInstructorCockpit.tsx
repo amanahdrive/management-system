@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import { Staff } from '@/types/database';
 import { sound } from '@/lib/sound/SoundFX';
@@ -13,6 +14,7 @@ import {
   Car,
   MessageSquare,
   ShieldCheck,
+  LayoutDashboard,
 } from 'lucide-react';
 
 interface HeroInstructorCockpitProps {
@@ -26,7 +28,7 @@ interface HeroInstructorCockpitProps {
   onScrollToSchedule: () => void;
   onRefresh: () => void;
   isRefreshing: boolean;
-  onLogout: () => void;
+  onLogout?: () => void;
 }
 
 export function HeroInstructorCockpit({
@@ -90,17 +92,15 @@ export function HeroInstructorCockpit({
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[var(--brand-primary)]' : ''}`} />
           </button>
-          <button
-            onClick={() => {
-              sound.playTactileClick();
-              onLogout();
-            }}
-            className="px-2.5 py-1.5 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 hover:border-rose-400 hover:text-rose-600 text-[var(--text-secondary)] transition-all font-mono text-[10px] uppercase rounded-xl flex items-center gap-1 shadow-xs"
-            title="Ganti Profil Instruktur"
+          <Link
+            href="/dashboard"
+            onClick={() => sound.playTactileClick()}
+            className="px-2.5 py-1.5 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 hover:border-emerald-500 hover:text-[var(--brand-primary)] text-[var(--text-secondary)] transition-all font-mono text-[10px] uppercase rounded-xl flex items-center gap-1 shadow-xs"
+            title="Buka Console Utama"
           >
-            <LogOut className="w-3 h-3" />
-            <span>Ganti</span>
-          </button>
+            <LayoutDashboard className="w-3 h-3 text-[var(--brand-primary)]" />
+            <span className="font-bold">Console</span>
+          </Link>
         </div>
       </div>
 

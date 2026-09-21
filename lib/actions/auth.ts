@@ -440,3 +440,170 @@ export async function updateUserPasswordAction(
     return { success: false, error: err?.message || 'Gagal mengubah password pengguna.' };
   }
 }
+
+/**
+ * Update authenticated user's profile photo (WebP format)
+ */
+export async function updateProfilePhotoAction(
+  fotoUrl: string
+): Promise<{ success: boolean; error?: string; foto_url?: string }> {
+  const current = await getCurrentUser();
+  if (!current) {
+    return { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' };
+  }
+
+  if (!fotoUrl || (!fotoUrl.startsWith('data:image/') && !fotoUrl.startsWith('http') && !fotoUrl.startsWith('/'))) {
+    return { success: false, error: 'Format gambar tidak valid.' };
+  }
+
+  try {
+    // 1. Update user_profiles
+    await dbExecute(
+      `UPDATE public.user_profiles SET foto_url = $1, updated_at = NOW() WHERE id = $2`,
+      [fotoUrl, current.id]
+    );
+
+    // 2. If staff_id linked, also update public.staff so instructor portal reflects the photo
+    if (current.staff_id) {
+      try {
+        await dbExecute(
+          `UPDATE public.staff SET foto_url = $1, updated_at = NOW() WHERE id = $2`,
+          [fotoUrl, current.staff_id]
+        );
+      } catch (err) {
+        console.warn('Could not sync photo to staff record:', err);
+      }
+    }
+
+    const { ip, userAgent } = await getRequestMetadata();
+    try {
+      await dbExecute(
+        `INSERT INTO public.audit_logs (
+          actor_id, actor_username, actor_role, ip_address, user_agent,
+          modul, aksi, entitas_tipe, entitas_id, judul, deskripsi, perubahan, tingkat_urgensi
+        ) VALUES (
+          $1, $2, $3, $4, $5,
+          'account_settings', 'update_photo', 'user_profile', $6, $7, $8, $9, 'info'
+        )`,
+        [
+          current.id,
+          current.username,
+          (current.roles || []).join(', '),
+          ip,
+          userAgent,
+          current.id,
+          `Update Foto Profil: ${current.username}`,
+          `Pengguna memperbarui foto profil mereka.`,
+          JSON.stringify({ has_photo: true, updated_at: new Date().toISOString() }),
+        ]
+      );
+    } catch {}
+
+    revalidatePath('/', 'layout');
+    return { success: true, foto_url: fotoUrl };
+  } catch (err: any) {
+    console.error('Error updating profile photo:', err);
+    return { success: false, error: err?.message || 'Gagal menyimpan foto profil.' };
+  }
+}
+
+/**
+ * Change password by verifying old password + new password + confirm new password
+ */
+export async function changePasswordWithOldPasswordAction(payload: {
+  oldPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const current = await getCurrentUser();
+  if (!current) {
+    return { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' };
+  }
+
+  const { oldPassword, newPassword, confirmPassword } = payload;
+
+  if (!oldPassword) {
+    return { success: false, error: 'Password lama wajib diisi.' };
+  }
+
+  if (!newPassword || newPassword.length < 6) {
+    return { success: false, error: 'Password baru minimal 6 karakter.' };
+  }
+
+  if (newPassword !== confirmPassword) {
+    return { success: false, error: 'Konfirmasi password baru tidak cocok.' };
+  }
+
+  try {
+    // 1. Fetch user's current password hash
+    const userRow = await dbQuerySingle<{ password_hash: string | null }>(
+      `SELECT password_hash FROM public.user_profiles WHERE id = $1 LIMIT 1`,
+      [current.id]
+    );
+
+    let isOldPasswordValid = false;
+    if (userRow?.password_hash) {
+      isOldPasswordValid = await bcrypt.compare(oldPassword, userRow.password_hash);
+    }
+
+    // Also check auth.users if not matched
+    if (!isOldPasswordValid) {
+      const authRow = await dbQuerySingle<{ encrypted_password: string | null }>(
+        `SELECT encrypted_password FROM auth.users WHERE id = $1 LIMIT 1`,
+        [current.id]
+      );
+      if (authRow?.encrypted_password) {
+        isOldPasswordValid = await bcrypt.compare(oldPassword, authRow.encrypted_password);
+      }
+    }
+
+    if (!isOldPasswordValid) {
+      return { success: false, error: 'Password lama yang Anda masukkan tidak sesuai.' };
+    }
+
+    // 2. Hash new password
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+    // 3. Update in user_profiles
+    await dbExecute(
+      `UPDATE public.user_profiles SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+      [newPasswordHash, current.id]
+    );
+
+    // 4. Update in auth.users
+    await dbExecute(
+      `UPDATE auth.users SET encrypted_password = $1, updated_at = NOW() WHERE id = $2`,
+      [newPasswordHash, current.id]
+    );
+
+    const { ip, userAgent } = await getRequestMetadata();
+    try {
+      await dbExecute(
+        `INSERT INTO public.audit_logs (
+          actor_id, actor_username, actor_role, ip_address, user_agent,
+          modul, aksi, entitas_tipe, entitas_id, judul, deskripsi, perubahan, tingkat_urgensi
+        ) VALUES (
+          $1, $2, $3, $4, $5,
+          'account_settings', 'change_password', 'user_profile', $6, $7, $8, $9, 'info'
+        )`,
+        [
+          current.id,
+          current.username,
+          (current.roles || []).join(', '),
+          ip,
+          userAgent,
+          current.id,
+          `Ubah Kata Sandi: ${current.username}`,
+          `Pengguna berhasil memperbarui kata sandi dengan verifikasi sandi lama.`,
+          JSON.stringify({ updated_at: new Date().toISOString() }),
+        ]
+      );
+    } catch {}
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error changing password:', err);
+    return { success: false, error: err?.message || 'Gagal memperbarui kata sandi.' };
+  }
+}
+

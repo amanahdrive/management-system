@@ -1,9 +1,11 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
-import { Staff, JadwalSesi, Kendaraan } from '@/types/database';
+import { Staff, JadwalSesi, Kendaraan, UserProfile } from '@/types/database';
 import { getInstrukturList, getKendaraanMasterList } from '@/lib/actions/master-data';
+import { getCurrentUser, logoutAction } from '@/lib/actions/auth';
 import {
   getJadwalByTanggal,
   getJadwalConflictCheckList,
@@ -48,6 +50,7 @@ import {
   ArrowRight,
   AlertTriangle,
   Utensils,
+  LayoutDashboard,
 } from 'lucide-react';
 
 const STAFF_KODE_MAP: Record<string, string> = {
@@ -68,6 +71,8 @@ export default function InstrukturPortalPage() {
   const [selectedInstrukturId, setSelectedInstrukturId] = React.useState<string>('');
   const [selectedInstruktur, setSelectedInstruktur] = React.useState<Staff | null>(null);
   const [loadingInstruktur, setLoadingInstruktur] = React.useState(true);
+  const [currentUser, setCurrentUser] = React.useState<UserProfile | null>(null);
+  const [noInstructorAccess, setNoInstructorAccess] = React.useState(false);
 
   // Active PWA Tab
   const [activeTab, setActiveTab] = React.useState<'jadwal' | 'siswa' | 'gaji' | 'profil'>('jadwal');
@@ -103,24 +108,48 @@ export default function InstrukturPortalPage() {
 
   const scheduleRef = React.useRef<HTMLDivElement | null>(null);
 
-  // 1. Initial Load Instruktur List & Master Kendaraan
+  // 1. Initial Load Instruktur List, Master Kendaraan & Auto-detect Logged-in Instructor
   React.useEffect(() => {
     async function init() {
       setLoadingInstruktur(true);
-      const [list, kList] = await Promise.all([
-        getInstrukturList(),
-        getKendaraanMasterList(),
-      ]);
-      setInstrukturList(list);
-      setKendaraanList(kList);
+      try {
+        const [list, kList, user] = await Promise.all([
+          getInstrukturList(),
+          getKendaraanMasterList(),
+          getCurrentUser(),
+        ]);
+        setInstrukturList(list);
+        setKendaraanList(kList);
+        setCurrentUser(user);
 
-      const savedId = localStorage.getItem('amanah_instruktur_id');
-      if (savedId && list.some((i) => i.id === savedId)) {
-        setSelectedInstrukturId(savedId);
-        const ins = list.find((i) => i.id === savedId) || null;
-        setSelectedInstruktur(ins);
+        let targetStaff: Staff | null = null;
+        if (user?.staff_id) {
+          targetStaff = list.find((i) => i.id === user.staff_id) || null;
+        }
+
+        // Fallback: If not found by staff_id, check savedId or developer
+        if (!targetStaff) {
+          const savedId = typeof window !== 'undefined' ? localStorage.getItem('amanah_instruktur_id') : null;
+          if (savedId && list.some((i) => i.id === savedId)) {
+            targetStaff = list.find((i) => i.id === savedId) || null;
+          }
+        }
+
+        if (targetStaff) {
+          setSelectedInstrukturId(targetStaff.id);
+          setSelectedInstruktur(targetStaff);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('amanah_instruktur_id', targetStaff.id);
+          }
+        } else {
+          setNoInstructorAccess(true);
+        }
+      } catch (err) {
+        console.error('Error initializing instructor portal:', err);
+        setNoInstructorAccess(true);
+      } finally {
+        setLoadingInstruktur(false);
       }
-      setLoadingInstruktur(false);
     }
     init();
   }, []);
@@ -200,19 +229,13 @@ export default function InstrukturPortalPage() {
 
   useAppRefresh(handleManualRefresh);
 
-  const handleSelectInstruktur = (id: string) => {
+  const handleLogout = async () => {
     sound.playTactileClick();
-    setSelectedInstrukturId(id);
-    const ins = instrukturList.find((i) => i.id === id) || null;
-    setSelectedInstruktur(ins);
-    localStorage.setItem('amanah_instruktur_id', id);
-  };
-
-  const handleLogoutInstruktur = () => {
-    sound.playTactileClick();
-    localStorage.removeItem('amanah_instruktur_id');
-    setSelectedInstrukturId('');
-    setSelectedInstruktur(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('amanah_instruktur_id');
+    }
+    await logoutAction();
+    window.location.href = '/';
   };
 
   const handleStatusChange = async (
@@ -293,76 +316,37 @@ export default function InstrukturPortalPage() {
     );
   }
 
-  // 1. LOGIN / SELECT INSTRUCTOR (Industrial Cockpit Console with staff model cutouts)
-  if (!selectedInstruktur) {
+  // 1. Fallback when user has no instructor access or profile
+  if (noInstructorAccess || !selectedInstruktur) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[var(--bg-subtle)] text-[var(--text-primary)]">
-        <div 
-          className="max-w-xl w-full liquid-glass-card border border-[var(--liquid-glass-border)] rounded-3xl p-5 sm:p-8 space-y-6 shadow-2xl relative"
-        >
-          {/* Header */}
-          <div className="border-b border-[var(--liquid-glass-border)] pb-4 text-center sm:text-left flex flex-col sm:flex-row items-center sm:justify-between gap-3">
-            <div>
-              <div className="flex items-center justify-center sm:justify-start gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--brand-primary)] font-bold">
-                  PORTAL OPERASIONAL PWA
-                </span>
-              </div>
-              <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)] mt-1">
-                Amanah Drive Fleet Dispatch
-              </h1>
-              <p className="text-xs text-[var(--text-secondary)]">
-                Pilih profil instruktur bertugas untuk sinkronisasi jadwal
-              </p>
-            </div>
-            <ThemeToggle />
+        <div className="max-w-md w-full bg-[var(--liquid-glass-bg)] backdrop-blur-2xl border border-[var(--liquid-glass-border)] rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl text-center">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-500/20">
+            <AlertTriangle className="w-7 h-7" />
           </div>
-
-          {/* Instructor Badges Grid */}
           <div className="space-y-2">
-            <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] font-semibold block">
-              Daftar Instruktur Aktif
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {instrukturList.map((ins) => {
-                const photoSrc = ins.foto_url || `/staff_models/${ins.nama}.png`;
-                return (
-                  <button
-                    key={ins.id}
-                    onClick={() => handleSelectInstruktur(ins.id)}
-                    className="p-3.5 border border-[var(--liquid-glass-border)] bg-white/50 dark:bg-white/5 rounded-2xl hover:border-[var(--brand-primary)] hover:bg-white/80 dark:hover:bg-white/10 transition-all flex items-center gap-3 text-left group shadow-xs active:scale-98"
-                  >
-                    <div className="relative w-12 h-14 flex items-end justify-center shrink-0">
-                      <Image
-                        src={photoSrc}
-                        alt={ins.nama}
-                        fill
-                        sizes="48px"
-                        className="object-contain object-bottom"
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-bold text-sm text-[var(--text-primary)] group-hover:text-[var(--brand-primary)] transition-colors truncate">
-                        {ins.nama}
-                      </div>
-                      <div className="font-mono text-[10px] text-[var(--text-muted)] uppercase font-semibold">
-                        ID: {ins.kode_staff || STAFF_KODE_MAP[ins.nama] || ins.id.slice(0, 8)}
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        <span className="font-mono text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">SIAP BERTUGAS</span>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-[var(--text-muted)] group-hover:text-[var(--brand-primary)] group-hover:translate-x-0.5 transition-all" />
-                  </button>
-                );
-              })}
-            </div>
+            <h1 className="text-lg font-bold text-[var(--text-primary)]">
+              Profil Instruktur Tidak Ditemukan
+            </h1>
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+              Akun <strong>{currentUser?.nama || 'Anda'}</strong> ({currentUser?.username}) tidak terhubung dengan data profil instruktur aktif. Portal ini khusus diperuntukkan bagi instruktur bertugas.
+            </p>
           </div>
-
-          <div className="pt-2 border-t border-[var(--liquid-glass-border)] text-center text-[11px] font-mono text-[var(--text-muted)]">
-            Amanah Drive Management • Palembang Fleet Unit
+          <div className="pt-2 flex flex-col gap-2.5">
+            <Link
+              href="/dashboard"
+              className="w-full py-2.5 px-4 rounded-xl bg-[var(--brand-primary)] text-white text-xs font-bold hover:bg-[var(--brand-primary-dark)] transition-colors flex items-center justify-center gap-2 shadow-xs"
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              <span>Buka Console Utama</span>
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="w-full py-2.5 px-4 rounded-xl border border-[var(--border)] text-xs text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Keluar dari Akun (Logout)</span>
+            </button>
           </div>
         </div>
       </div>
@@ -412,7 +396,7 @@ export default function InstrukturPortalPage() {
         }}
         onRefresh={handleManualRefresh}
         isRefreshing={isRefreshing}
-        onLogout={handleLogoutInstruktur}
+        onLogout={handleLogout}
       />
 
       {/* TAB CONTENT 1: JADWAL & KALENDER */}
@@ -1014,13 +998,22 @@ export default function InstrukturPortalPage() {
               <ThemeToggle />
             </div>
 
-            <button
-              onClick={handleLogoutInstruktur}
-              className="w-full mt-3 py-2.5 border border-rose-400 text-rose-600 hover:bg-rose-500 hover:text-white font-mono text-xs font-bold uppercase rounded-2xl transition-colors flex items-center justify-center gap-1.5 shadow-xs"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>GANTI PROFIL INSTRUKTUR</span>
-            </button>
+            <div className="pt-2 flex flex-col gap-2">
+              <Link
+                href="/dashboard"
+                className="w-full py-2.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white font-mono text-xs font-bold uppercase rounded-xl transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Buka Console Utama</span>
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="w-full py-2.5 border border-rose-400 text-rose-600 hover:bg-rose-500 hover:text-white font-mono text-xs font-bold uppercase rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Keluar dari Akun (Logout)</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
