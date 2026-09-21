@@ -1004,13 +1004,15 @@ export default function InstrukturPortalPage() {
             </div>
 
             <div className="pt-2 flex flex-col gap-2">
-              <Link
-                href="/dashboard"
-                className="w-full py-2.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white font-mono text-xs font-bold uppercase rounded-xl transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-              >
-                <LayoutDashboard className="w-4 h-4" />
-                <span>Buka Console Utama</span>
-              </Link>
+              {currentUser?.roles && currentUser.roles.some((r) => r !== 'instruktur') && (
+                <Link
+                  href="/dashboard"
+                  className="w-full py-2.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white font-mono text-xs font-bold uppercase rounded-xl transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>Buka Console Utama</span>
+                </Link>
+              )}
               <button
                 onClick={handleLogout}
                 className="w-full py-2.5 border border-rose-400 text-rose-600 hover:bg-rose-500 hover:text-white font-mono text-xs font-bold uppercase rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
