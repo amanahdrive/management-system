@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Staff, JadwalSesi, Kendaraan, UserProfile } from '@/types/database';
-import { getInstrukturList, getKendaraanMasterList } from '@/lib/actions/master-data';
+import { getInstrukturList, getKendaraanMasterList, getStaffList } from '@/lib/actions/master-data';
 import { getCurrentUser, logoutAction } from '@/lib/actions/auth';
 import {
   getJadwalByTanggal,
@@ -125,12 +125,16 @@ export default function InstrukturPortalPage() {
         let targetStaff: Staff | null = null;
         if (user?.staff_id) {
           targetStaff = list.find((i) => i.id === user.staff_id) || null;
+          if (!targetStaff) {
+            const allStaff = await getStaffList();
+            targetStaff = allStaff.find((s) => s.id === user.staff_id) || null;
+          }
         }
 
-        // Fallback: If not found by staff_id, check savedId or developer
+        // Fallback: If not found by staff_id, check savedId
         if (!targetStaff) {
           const savedId = typeof window !== 'undefined' ? localStorage.getItem('amanah_instruktur_id') : null;
-          if (savedId && list.some((i) => i.id === savedId)) {
+          if (savedId) {
             targetStaff = list.find((i) => i.id === savedId) || null;
           }
         }
