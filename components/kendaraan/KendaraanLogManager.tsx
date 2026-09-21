@@ -1,18 +1,25 @@
 'use client';
 
 import React from 'react';
-import { Kendaraan, KendaraanLogHarian, HargaBBM } from '@/types/database';
+import {
+  Kendaraan,
+  KendaraanLogHarian,
+  KendaraanLogItem,
+  OdometerLogType,
+  HargaBBM,
+} from '@/types/database';
 import {
   getKendaraanLogList,
-  upsertKendaraanLog,
-  quickInputBasecampIn,
+  saveKendaraanLogItem,
+  deleteKendaraanLogItem,
   deleteKendaraanLog,
   getHargaBBMList,
+  SaveKendaraanLogItemInput,
 } from '@/lib/actions/kendaraan';
+import { getJadwalByTanggal } from '@/lib/actions/jadwal';
 import { formatRupiah } from '@/lib/utils/currency';
 import { formatDateIndo, getTodayDateString, addDaysToDateStr } from '@/lib/utils/date';
 import { DatePickerWIB } from '@/components/shared/DatePickerWIB';
-import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { ExportButton, ExportColumn } from '@/components/shared/ExportButton';
 import {
@@ -37,7 +44,6 @@ import {
   CheckCircle2,
   Clock,
   Car,
-  Edit2,
   Trash2,
   BarChart3,
   Check,
@@ -45,6 +51,16 @@ import {
   Activity,
   Layers,
   X,
+  LogOut,
+  LogIn,
+  Play,
+  Flag,
+  User,
+  ChevronDown,
+  ChevronRight,
+  AlertTriangle,
+  ArrowRight,
+  Sparkles,
 } from 'lucide-react';
 import { useAppRefresh } from '@/lib/utils/refresh-event';
 import { Badge } from '@/components/shared/Badge';
@@ -86,33 +102,42 @@ export function KendaraanLogManager({
   // Chart View
   const [chartTab, setChartTab] = React.useState<ChartTab>('distance');
 
+  // Accordion Expand State for Date Groups
+  const [expandedLogIds, setExpandedLogIds] = React.useState<Record<string, boolean>>({});
+
   // Modal States
   const [showLogModal, setShowLogModal] = React.useState(false);
-  const [editingLog, setEditingLog] = React.useState<KendaraanLogHarian | null>(null);
-
-  // Quick BC In Modal State
-  const [quickBcInLog, setQuickBcInLog] = React.useState<KendaraanLogHarian | null>(null);
-  const [quickInKm, setQuickInKm] = React.useState<string>('');
-  const [quickTanggalAkhir, setQuickTanggalAkhir] = React.useState<string>(getTodayDateString());
-
-  // Delete Confirm Dialog
-  const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
-
-  // Form State
   const [formKendaraanId, setFormKendaraanId] = React.useState<string>(
     lockedKendaraanId || (kendaraanList[0]?.id || '')
   );
-  const [formTanggalAwal, setFormTanggalAwal] = React.useState<string>(getTodayDateString());
-  const [formTanggalAkhir, setFormTanggalAkhir] = React.useState<string>('');
-  const [formOutKm, setFormOutKm] = React.useState<string>('');
-  const [formInKm, setFormInKm] = React.useState<string>('');
+  const [formTanggal, setFormTanggal] = React.useState<string>(getTodayDateString());
+  const [formTipe, setFormTipe] = React.useState<OdometerLogType>('ODO BC OUT');
+  const [formOdo, setFormOdo] = React.useState<string>('');
   const [formCatatan, setFormCatatan] = React.useState<string>('');
+  const [selectedSiswaId, setSelectedSiswaId] = React.useState<string>('');
+  const [selectedSiswaNama, setSelectedSiswaNama] = React.useState<string>('');
 
-  // Optional Fuel Section in Modal
-  const [formIsiBbm, setFormIsiBbm] = React.useState<boolean>(false);
-  const [formBbmJenis, setFormBbmJenis] = React.useState<string>('pertalite');
-  const [formBbmNominal, setFormBbmNominal] = React.useState<number>(150000);
-  const [formBbmLiter, setFormBbmLiter] = React.useState<string>('');
+  // Siswa list on chosen date
+  const [availableSiswa, setAvailableSiswa] = React.useState<
+    { id: string; nama: string; slot?: string }[]
+  >([]);
+  const [loadingSiswa, setLoadingSiswa] = React.useState(false);
+
+  // Overwrite Confirmation Modal State
+  const [overwriteConfirmData, setOverwriteConfirmData] = React.useState<{
+    input: SaveKendaraanLogItemInput;
+    existingItem: KendaraanLogItem;
+    vehicleName: string;
+  } | null>(null);
+
+  // Delete Confirm Dialog (Whole Day)
+  const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
+
+  // Delete Confirm Dialog (Single Sub-Item)
+  const [deleteItemTarget, setDeleteItemTarget] = React.useState<{
+    logId: string;
+    item: KendaraanLogItem;
+  } | null>(null);
 
   const [saving, setSaving] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -131,6 +156,19 @@ export function KendaraanLogManager({
       ]);
       setLogs(fetchedLogs);
       setHargaBbmList(bbmPrices);
+
+      // Auto-expand latest 3 logs by default
+      if (fetchedLogs.length > 0) {
+        setExpandedLogIds((prev) => {
+          const nextState = { ...prev };
+          fetchedLogs.slice(0, 3).forEach((l) => {
+            if (nextState[l.id] === undefined) {
+              nextState[l.id] = true;
+            }
+          });
+          return nextState;
+        });
+      }
     } catch (e) {
       console.error('Error loading log data:', e);
     } finally {
@@ -143,6 +181,39 @@ export function KendaraanLogManager({
   }, [loadData]);
 
   useAppRefresh(loadData);
+
+  // Fetch students scheduled on formTanggal
+  React.useEffect(() => {
+    if (!formTanggal) return;
+    let isMounted = true;
+    setLoadingSiswa(true);
+    getJadwalByTanggal(formTanggal)
+      .then((jadwalList) => {
+        if (!isMounted) return;
+        const siswaMap = new Map<string, { id: string; nama: string; slot?: string }>();
+        for (const j of jadwalList) {
+          if (j.siswa && j.siswa.id) {
+            const slotName = j.slot_waktu
+              ? `${j.slot_waktu.nama_slot} (${j.slot_waktu.jam_mulai} - ${j.slot_waktu.jam_selesai})`
+              : undefined;
+            siswaMap.set(j.siswa.id, {
+              id: j.siswa.id,
+              nama: j.siswa.nama || 'Siswa',
+              slot: slotName,
+            });
+          }
+        }
+        setAvailableSiswa(Array.from(siswaMap.values()));
+      })
+      .catch((err) => console.error('Error fetching students for date:', err))
+      .finally(() => {
+        if (isMounted) setLoadingSiswa(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [formTanggal]);
 
   // Handle Preset Changes
   const handlePresetChange = (preset: DatePreset) => {
@@ -167,153 +238,168 @@ export function KendaraanLogManager({
     }
   };
 
-  // Open Log Modal (Create / Edit)
-  const handleOpenAddLog = () => {
-    setEditingLog(null);
-    const defaultKid = lockedKendaraanId || kendaraanList[0]?.id || '';
-    setFormKendaraanId(defaultKid);
-    setFormTanggalAwal(getTodayDateString());
-    setFormTanggalAkhir('');
-    
-    // Auto-fill outKm from latest vehicle status if available
-    const selectedVeh = kendaraanList.find((k) => k.id === defaultKid);
+  // Toggle Accordion Expansion
+  const toggleExpand = (logId: string) => {
+    setExpandedLogIds((prev) => ({
+      ...prev,
+      [logId]: !prev[logId],
+    }));
+  };
+
+  // Open Log Modal (Create New Entry)
+  const handleOpenAddLog = (presetTipe?: OdometerLogType, presetDate?: string, presetKid?: string) => {
+    const targetKid = presetKid || lockedKendaraanId || formKendaraanId || kendaraanList[0]?.id || '';
+    setFormKendaraanId(targetKid);
+    setFormTanggal(presetDate || getTodayDateString());
+    setFormTipe(presetTipe || 'ODO BC OUT');
+
+    // Auto-fill odometer from latest vehicle status if available
+    const selectedVeh = kendaraanList.find((k) => k.id === targetKid);
     const currentOdo = selectedVeh?.status?.odometer_terkini || 0;
-    setFormOutKm(currentOdo > 0 ? currentOdo.toString() : '');
-    setFormInKm('');
+    setFormOdo(currentOdo > 0 ? currentOdo.toString() : '');
     setFormCatatan('');
-    setFormIsiBbm(false);
-    setFormBbmJenis('pertalite');
-    setFormBbmNominal(150000);
-    setFormBbmLiter('');
+    setSelectedSiswaId('');
+    setSelectedSiswaNama('');
     setFormError(null);
     setShowLogModal(true);
   };
 
-  const handleOpenEditLog = (log: KendaraanLogHarian) => {
-    setEditingLog(log);
-    setFormKendaraanId(log.kendaraan_id);
-    setFormTanggalAwal(log.tanggal);
-    setFormTanggalAkhir(log.tanggal_akhir || '');
-    setFormOutKm(log.odometer_basecamp_out !== null ? log.odometer_basecamp_out.toString() : '');
-    setFormInKm(log.odometer_basecamp_in !== null ? log.odometer_basecamp_in.toString() : '');
-    setFormCatatan(log.catatan || '');
-    if (log.bbm_nominal || log.bbm_liter) {
-      setFormIsiBbm(true);
-      setFormBbmJenis(log.bbm_jenis || 'pertalite');
-      setFormBbmNominal(log.bbm_nominal || 150000);
-      setFormBbmLiter(log.bbm_liter ? log.bbm_liter.toString() : '');
-    } else {
-      setFormIsiBbm(false);
-      setFormBbmJenis('pertalite');
-      setFormBbmNominal(150000);
-      setFormBbmLiter('');
+  // Students available for ODO SESI SELESAI (must have ODO SESI MULAI recorded)
+  const startedStudentsOnDate = React.useMemo(() => {
+    const dayLog = logs.find(
+      (l) => l.kendaraan_id === formKendaraanId && l.tanggal === formTanggal
+    );
+    if (!dayLog || !dayLog.log_items) return [];
+
+    const list: { id: string; nama: string; startOdo: number }[] = [];
+    for (const item of dayLog.log_items) {
+      if (item.tipe === 'ODO SESI MULAI' && item.siswa_id) {
+        list.push({
+          id: item.siswa_id,
+          nama: item.siswa_nama || 'Siswa',
+          startOdo: item.odometer,
+        });
+      }
     }
-    setFormError(null);
-    setShowLogModal(true);
-  };
+    return list;
+  }, [logs, formKendaraanId, formTanggal]);
 
+  // Handle Form Submission
   const handleSaveLog = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formKendaraanId || !formTanggalAwal) {
-      setFormError('Armada dan Tanggal Awal wajib diisi');
+    if (!formKendaraanId || !formTanggal) {
+      setFormError('Armada dan Tanggal wajib diisi');
       return;
     }
 
-    const outNum = formOutKm ? parseInt(formOutKm, 10) : undefined;
-    const inNum = formInKm ? parseInt(formInKm, 10) : undefined;
+    if (!formOdo || isNaN(Number(formOdo)) || Number(formOdo) <= 0) {
+      setFormError('Angka odometer harus berupa angka positif yang valid');
+      return;
+    }
 
-    if (outNum !== undefined && inNum !== undefined && inNum < outNum) {
-      setFormError('Odometer Basecamp In tidak boleh lebih kecil dari Odometer Basecamp Out');
+    if (formTipe === 'ODO SESI MULAI' && !selectedSiswaId) {
+      setFormError('Pilih nama siswa yang memulai sesi latihan');
+      return;
+    }
+
+    if (formTipe === 'ODO SESI SELESAI' && !selectedSiswaId) {
+      setFormError('Pilih nama siswa yang menyelesaikan sesi latihan');
       return;
     }
 
     setSaving(true);
     setFormError(null);
 
-    let calculatedLiter: number | undefined = undefined;
-    if (formIsiBbm) {
-      if (formBbmLiter) {
-        calculatedLiter = parseFloat(formBbmLiter);
-      } else if (formBbmNominal > 0) {
-        const pricePerLiter =
-          hargaBbmList.find((b) => b.jenis === formBbmJenis)?.harga_per_liter || 10000;
-        calculatedLiter = parseFloat((formBbmNominal / pricePerLiter).toFixed(2));
-      }
+    const vehicleObj = kendaraanList.find((k) => k.id === formKendaraanId);
+    const vName = vehicleObj ? `${vehicleObj.nama_kendaraan} (${vehicleObj.plat_nomor})` : 'Armada';
+
+    const inputPayload: SaveKendaraanLogItemInput = {
+      kendaraan_id: formKendaraanId,
+      tanggal: formTanggal,
+      tipe: formTipe,
+      odometer: Math.round(Number(formOdo)),
+      siswa_id: selectedSiswaId || null,
+      siswa_nama: selectedSiswaNama || null,
+      catatan: formCatatan.trim() || null,
+      forceOverwrite: false,
+    };
+
+    const res = await saveKendaraanLogItem(inputPayload);
+    setSaving(false);
+
+    if (res.duplicateFound && res.existingItem) {
+      // Tampilkan notifikasi / modal konfirmasi timpa
+      setOverwriteConfirmData({
+        input: {
+          ...inputPayload,
+          forceOverwrite: true,
+        },
+        existingItem: res.existingItem,
+        vehicleName: vName,
+      });
+      return;
     }
 
-    const res = await upsertKendaraanLog({
-      id: editingLog?.id,
-      kendaraan_id: formKendaraanId,
-      tanggal: formTanggalAwal,
-      tanggal_akhir: formTanggalAkhir || null,
-      odometer_basecamp_out: outNum,
-      odometer_basecamp_in: inNum,
-      bbm_liter: formIsiBbm ? calculatedLiter : null,
-      bbm_nominal: formIsiBbm ? formBbmNominal : null,
-      bbm_jenis: formIsiBbm ? formBbmJenis : null,
-      catatan: formCatatan || null,
-    });
-
-    setSaving(false);
     if (res.success) {
       setShowLogModal(false);
-      loadData();
+      await loadData();
       if (onDataChange) onDataChange();
     } else {
       setFormError(res.error || 'Gagal menyimpan log armada');
     }
   };
 
-  // Quick BC In Handler
-  const handleOpenQuickBcIn = (log: KendaraanLogHarian) => {
-    setQuickBcInLog(log);
-    setQuickInKm(log.odometer_basecamp_out ? (log.odometer_basecamp_out + 20).toString() : '');
-    setQuickTanggalAkhir(getTodayDateString());
-  };
-
-  const handleSaveQuickBcIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickBcInLog || !quickInKm) return;
-
-    const inNum = parseInt(quickInKm, 10);
-    const outNum = quickBcInLog.odometer_basecamp_out || 0;
-
-    if (inNum < outNum) {
-      alert('Odometer BC In harus lebih besar atau sama dengan Odometer BC Out!');
-      return;
-    }
-
+  // Confirm Overwrite Handler
+  const handleConfirmOverwrite = async () => {
+    if (!overwriteConfirmData) return;
     setSaving(true);
-    const res = await quickInputBasecampIn(quickBcInLog.id, inNum, quickTanggalAkhir);
-    setSaving(false);
-
-    if (res.success) {
-      setQuickBcInLog(null);
-      loadData();
-      if (onDataChange) onDataChange();
-    } else {
-      alert('Gagal menginput Basecamp In: ' + res.error);
+    try {
+      const res = await saveKendaraanLogItem(overwriteConfirmData.input);
+      if (res.success) {
+        setOverwriteConfirmData(null);
+        setShowLogModal(false);
+        await loadData();
+        if (onDataChange) onDataChange();
+      } else {
+        setFormError(res.error || 'Gagal menimpa log data');
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
-  // Delete Handler
-  const handleConfirmDelete = async () => {
+  // Delete Whole Day Log Handler
+  const handleConfirmDeleteDay = async () => {
     if (!deleteTargetId) return;
     setSaving(true);
     const res = await deleteKendaraanLog(deleteTargetId);
     setSaving(false);
     setDeleteTargetId(null);
     if (res.success) {
-      loadData();
+      await loadData();
       if (onDataChange) onDataChange();
     } else {
-      alert('Gagal menghapus log: ' + res.error);
+      alert('Gagal menghapus log hari ini: ' + res.error);
+    }
+  };
+
+  // Delete Single Sub-Item Handler
+  const handleConfirmDeleteItem = async () => {
+    if (!deleteItemTarget) return;
+    setSaving(true);
+    const res = await deleteKendaraanLogItem(deleteItemTarget.logId, deleteItemTarget.item.id);
+    setSaving(false);
+    setDeleteItemTarget(null);
+    if (res.success) {
+      await loadData();
+      if (onDataChange) onDataChange();
+    } else {
+      alert('Gagal menghapus sub-item log: ' + res.error);
     }
   };
 
   // Compute Enriched Logs with Effective Distance across Checkpoint / Periodic Snapshots
   const enrichedLogs = React.useMemo(() => {
-    // Group all logs by vehicle
     const vehicleGroups = new Map<string, KendaraanLogHarian[]>();
     for (const log of logs) {
       if (!vehicleGroups.has(log.kendaraan_id)) {
@@ -331,7 +417,6 @@ export function KendaraanLogManager({
     })[] = [];
 
     for (const [, vLogs] of vehicleGroups.entries()) {
-      // Sort chronologically ascending
       vLogs.sort(
         (a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime()
       );
@@ -353,6 +438,12 @@ export function KendaraanLogManager({
           effectiveJarak = inKm - outKm;
           lastKnownOdo = inKm;
           lastKnownDate = log.tanggal;
+        } else if (log.jarak_tempuh && log.jarak_tempuh > 0) {
+          effectiveJarak = log.jarak_tempuh;
+          if (currOdo) {
+            lastKnownOdo = currOdo;
+            lastKnownDate = log.tanggal;
+          }
         } else if (currOdo !== null) {
           if (lastKnownOdo !== null && currOdo > lastKnownOdo) {
             effectiveJarak = currOdo - lastKnownOdo;
@@ -392,7 +483,6 @@ export function KendaraanLogManager({
   // Filtered & Sorted Logs (Client-side)
   const filteredLogs = React.useMemo(() => {
     return enrichedLogs.filter((log) => {
-      // Vehicle Filter
       if (
         !lockedKendaraanId &&
         selectedKendaraanId !== 'all' &&
@@ -401,7 +491,6 @@ export function KendaraanLogManager({
         return false;
       }
 
-      // Status Filter
       if (selectedStatus === 'selesai') {
         if (
           !log.isPeriodicDelta &&
@@ -421,13 +510,18 @@ export function KendaraanLogManager({
         }
       }
 
-      // Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const vName = log.kendaraan?.nama_kendaraan?.toLowerCase() || '';
         const vPlate = log.kendaraan?.plat_nomor?.toLowerCase() || '';
         const catatan = (log.catatan || '').toLowerCase();
-        if (!vName.includes(q) && !vPlate.includes(q) && !catatan.includes(q)) {
+        const hasMatchingItem = (log.log_items || []).some(
+          (item) =>
+            item.tipe.toLowerCase().includes(q) ||
+            (item.siswa_nama || '').toLowerCase().includes(q) ||
+            (item.catatan || '').toLowerCase().includes(q)
+        );
+        if (!vName.includes(q) && !vPlate.includes(q) && !catatan.includes(q) && !hasMatchingItem) {
           return false;
         }
       }
@@ -503,14 +597,6 @@ export function KendaraanLogManager({
       totalLiterBbm > 0 && totalJarakKm > 0
         ? parseFloat((totalJarakKm / totalLiterBbm).toFixed(2))
         : 0;
-    const literPerKm =
-      totalJarakKm > 0 && totalLiterBbm > 0
-        ? parseFloat((totalLiterBbm / totalJarakKm).toFixed(4))
-        : 0;
-    const literPer100Km =
-      totalJarakKm > 0 && totalLiterBbm > 0
-        ? parseFloat(((totalLiterBbm / totalJarakKm) * 100).toFixed(2))
-        : 0;
     const biayaPerKm =
       totalJarakKm > 0 && totalBiayaBbm > 0 ? Math.round(totalBiayaBbm / totalJarakKm) : 0;
 
@@ -519,8 +605,6 @@ export function KendaraanLogManager({
       totalLiterBbm: parseFloat(totalLiterBbm.toFixed(1)),
       totalBiayaBbm,
       rasioEfisiensi,
-      literPerKm,
-      literPer100Km,
       biayaPerKm,
       tripSelesai,
       tripBerjalan,
@@ -555,7 +639,7 @@ export function KendaraanLogManager({
 
     return Array.from(map.values()).map((d) => ({
       ...d,
-      displayDate: d.tanggal.slice(5), // MM-DD
+      displayDate: d.tanggal.slice(5),
       efisiensi: d.liter > 0 ? parseFloat((d.jarak / d.liter).toFixed(1)) : 0,
     }));
   }, [filteredLogs]);
@@ -569,163 +653,82 @@ export function KendaraanLogManager({
     }
   };
 
-  // Live calculation for the modal form
-  const modalPreviewJarak = React.useMemo<{
-    jarak: number;
-    type: 'single' | 'periodic' | 'initial' | 'same';
-    prevOdo?: number;
-    prevDate?: string;
-    currOdo?: number;
-  } | null>(() => {
-    const outN = formOutKm ? parseInt(formOutKm, 10) : null;
-    const inN = formInKm ? parseInt(formInKm, 10) : null;
-
-    if (outN !== null && inN !== null && inN > outN) {
-      return { jarak: inN - outN, type: 'single' };
-    }
-
-    const currN = inN !== null ? inN : outN;
-    if (currN !== null && !isNaN(Number(currN))) {
-      const numVal = Number(currN);
-      // Find prior log for this vehicle
-      const priorLogs = logs
-        .filter(
-          (l) =>
-            l.kendaraan_id === formKendaraanId &&
-            (!editingLog || l.id !== editingLog.id) &&
-            new Date(l.tanggal).getTime() <= new Date(formTanggalAwal).getTime()
-        )
-        .sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
-
-      const prevLog = priorLogs[0];
-      const prevOdo =
-        prevLog?.odometer_basecamp_in !== null && prevLog?.odometer_basecamp_in !== undefined
-          ? prevLog.odometer_basecamp_in
-          : prevLog?.odometer_basecamp_out !== null && prevLog?.odometer_basecamp_out !== undefined
-          ? prevLog.odometer_basecamp_out
-          : null;
-
-      if (prevOdo !== null && numVal > prevOdo) {
+  // Helper styling function for Log Item Badges
+  const getItemBadgeStyle = (tipe: OdometerLogType) => {
+    switch (tipe) {
+      case 'ODO BC OUT':
         return {
-          jarak: numVal - prevOdo,
-          type: 'periodic',
-          prevOdo,
-          prevDate: prevLog.tanggal,
+          bg: 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800',
+          dot: 'bg-sky-500',
+          icon: <LogOut className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />,
+          label: 'BC OUT',
         };
-      } else if (prevOdo !== null && numVal === prevOdo) {
-        return { jarak: 0, type: 'same' };
-      } else if (prevOdo === null) {
-        return { jarak: 0, type: 'initial', currOdo: numVal };
-      }
+      case 'ODO SESI MULAI':
+        return {
+          bg: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+          dot: 'bg-emerald-500',
+          icon: <Play className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0 fill-current" />,
+          label: 'SESI MULAI',
+        };
+      case 'ODO SESI SELESAI':
+        return {
+          bg: 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
+          dot: 'bg-indigo-500',
+          icon: <Flag className="w-3 h-3 text-indigo-600 dark:text-indigo-400 shrink-0" />,
+          label: 'SESI SELESAI',
+        };
+      case 'ODO BC IN':
+        return {
+          bg: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+          dot: 'bg-amber-500',
+          icon: <LogIn className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />,
+          label: 'BC IN',
+        };
     }
-    return null;
-  }, [formOutKm, formInKm, formKendaraanId, formTanggalAwal, editingLog, logs]);
+  };
 
-  const exportKendaraanLogColumns: ExportColumn<any>[] = [
-    {
-      header: 'Tanggal',
-      accessor: 'tanggal',
-      format: (val) => formatDateIndo(val),
-      pdfWidth: '13%',
-    },
-    {
-      header: 'Armada / Mobil',
-      accessor: (item) => {
-        const k = kendaraanList.find((v) => v.id === item.kendaraan_id);
-        return k ? `${k.nama_kendaraan} (${k.plat_nomor})` : '-';
-      },
-      pdfWidth: '18%',
-    },
-    {
-      header: 'Odo BC Out',
-      accessor: (item) =>
-        item.odometer_basecamp_out !== null && item.odometer_basecamp_out !== undefined
-          ? `${item.odometer_basecamp_out.toLocaleString('id-ID')} km`
-          : '-',
-      align: 'right',
-      pdfWidth: '12%',
-    },
-    {
-      header: 'Odo BC In',
-      accessor: (item) =>
-        item.odometer_basecamp_in !== null && item.odometer_basecamp_in !== undefined
-          ? `${item.odometer_basecamp_in.toLocaleString('id-ID')} km`
-          : '-',
-      align: 'right',
-      pdfWidth: '12%',
-    },
-    {
-      header: 'Jarak Tempuh',
-      accessor: (item) =>
-        item.isInitialBaseline
-          ? '0 km (Start)'
-          : `${(item.effectiveJarak || 0).toLocaleString('id-ID')} km`,
-      align: 'right',
-      pdfWidth: '12%',
-    },
-    {
-      header: 'BBM Liter',
-      accessor: (item) =>
-        item.bbm_liter && Number(item.bbm_liter) > 0
-          ? `${Number(item.bbm_liter).toFixed(1)} L (${item.bbm_jenis || 'BBM'})`
-          : '-',
-      align: 'right',
-      pdfWidth: '12%',
-    },
-    {
-      header: 'Biaya BBM',
-      accessor: (item) => Number(item.bbm_nominal || 0),
-      format: 'currency',
-      isCurrency: true,
-      align: 'right',
-      pdfWidth: '13%',
-    },
-    {
-      header: 'Catatan',
-      accessor: (item) => item.catatan || '-',
-      pdfWidth: '18%',
-    },
+  // Export Columns Configuration
+  const exportColumns: ExportColumn<any>[] = [
+    { header: 'Tanggal', accessor: (row) => formatDateIndo(row.tanggal) },
+    { header: 'Armada Mobil', accessor: (row) => row.kendaraan?.nama_kendaraan || '' },
+    { header: 'Plat Nomor', accessor: (row) => row.kendaraan?.plat_nomor || '' },
+    { header: 'Odometer BC Out (km)', accessor: (row) => row.odometer_basecamp_out ?? '' },
+    { header: 'Odometer BC In (km)', accessor: (row) => row.odometer_basecamp_in ?? '' },
+    { header: 'Jarak Tempuh (km)', accessor: (row) => row.effectiveJarak || '' },
+    { header: 'Jumlah Sub-Log', accessor: (row) => (row.log_items || []).length },
+    { header: 'Catatan', accessor: (row) => row.catatan || '' },
   ];
 
   return (
     <div className="space-y-6">
-      {/* Header & Quick Action */}
+      {/* Header Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-base sm:text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+          <h2 className="text-xl font-extrabold text-[var(--text-primary)] flex items-center gap-2">
             <Gauge className="w-5 h-5 text-[var(--brand-primary)]" />
-            <span>Log Odometer & Monitoring Armada</span>
+            <span>Manajemen Log Armada & Odometer</span>
           </h2>
           <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-            Pencatatan Basecamp Out/In, akumulasi jarak operasional, dan konsumsi BBM armada real-time
+            Pencatatan rute bertahap: Basecamp Out, Sesi Siswa, hingga Basecamp In dalam 1 linimasa harian.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <ExportButton
-            data={filteredLogs}
-            columns={exportKendaraanLogColumns}
-            filename={`log-odometer-armada-${getTodayDateString()}`}
-            sheetName="Log Armada"
-            documentTitle="LAPORAN MONITORING ODOMETER & BBM ARMADA"
-            documentSubtitle="Rekapitulasi perjalanan basecamp out/in, akumulasi jarak tempuh, dan pengeluaran bahan bakar"
-            documentNumber={`ODO/${getTodayDateString().replace(/-/g, '')}`}
-            periodLabel={startDate && endDate ? `${formatDateIndo(startDate)} s/d ${formatDateIndo(endDate)}` : `Per ${formatDateIndo(getTodayDateString())}`}
-            summaryMetrics={[
-              { label: 'Total Jarak Tempuh', value: `${metrics.totalJarakKm.toLocaleString('id-ID')} km` },
-              { label: 'Konsumsi BBM', value: `${metrics.totalLiterBbm} Liter` },
-              { label: 'Total Biaya BBM', value: formatRupiah(metrics.totalBiayaBbm) },
-              { label: 'Rasio Rata-rata', value: `${metrics.rasioEfisiensi} km/L` },
-            ]}
+            data={sortedLogs}
+            columns={exportColumns}
+            filename={`Log_Armada_${startDate || 'all'}_sd_${endDate || 'all'}`}
+            sheetName="Log Odometer"
+            title="Rekap Log Odometer & Trip Armada"
             orientation="landscape"
           />
           <button
             type="button"
-            onClick={handleOpenAddLog}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
+            onClick={() => handleOpenAddLog()}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 shrink-0 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>+ Catat Log Armada / BC Out</span>
+            <span>+ Catat Log Armada</span>
           </button>
         </div>
       </div>
@@ -751,7 +754,7 @@ export function KendaraanLogManager({
               key={p.key}
               type="button"
               onClick={() => handlePresetChange(p.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 datePreset === p.key
                   ? 'bg-[var(--brand-primary)] text-white shadow-xs'
                   : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:bg-[var(--border)]'
@@ -780,7 +783,6 @@ export function KendaraanLogManager({
 
         {/* Secondary Filter Row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-[var(--border)]">
-          {/* Vehicle Dropdown (if not locked) */}
           {!lockedKendaraanId ? (
             <div>
               <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
@@ -802,7 +804,7 @@ export function KendaraanLogManager({
           ) : (
             <div>
               <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
-                Status Armada
+                Status Armada Terpilih
               </label>
               <div className="px-3 py-2 text-xs rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)] font-bold text-[var(--brand-primary)]">
                 {kendaraanList.find((k) => k.id === lockedKendaraanId)?.nama_kendaraan} —{' '}
@@ -811,7 +813,6 @@ export function KendaraanLogManager({
             </div>
           )}
 
-          {/* Status Trip Filter */}
           <div>
             <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
               Status Perjalanan
@@ -827,7 +828,6 @@ export function KendaraanLogManager({
             </select>
           </div>
 
-          {/* Search Box */}
           <div>
             <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
               Pencarian
@@ -835,7 +835,7 @@ export function KendaraanLogManager({
             <div className="relative">
               <input
                 type="text"
-                placeholder="Cari armada, plat, catatan..."
+                placeholder="Cari armada, siswa, tipe log..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
@@ -848,132 +848,96 @@ export function KendaraanLogManager({
 
       {/* Aggregate Live Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Jarak */}
-        <div className="card-container p-4 space-y-1 bg-[var(--bg)] hover:border-[var(--brand-primary)] transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
-              Total Jarak Tempuh
-            </span>
-            <div className="p-1.5 rounded-lg bg-[var(--brand-primary-light)] text-[var(--brand-primary)]">
-              <Gauge className="w-4 h-4" />
-            </div>
+        <div className="card-container p-4 space-y-1">
+          <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
+            <span className="font-semibold">Total Jarak Tempuh</span>
+            <Activity className="w-4 h-4 text-[var(--brand-primary)]" />
           </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-[var(--text-primary)] tabular-nums">
-            {metrics.totalJarakKm.toLocaleString('id-ID')} <span className="text-xs font-semibold">km</span>
+          <div className="text-2xl font-extrabold text-[var(--text-primary)] font-mono">
+            {metrics.totalJarakKm.toLocaleString('id-ID')}
+            <span className="text-xs font-normal text-[var(--text-secondary)] ml-1">km</span>
           </div>
           <div className="text-[11px] text-[var(--text-secondary)] flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-            <span>{metrics.tripSelesai} trip selesai</span>
+            <span>{metrics.tripSelesai} hari selesai</span>
             {metrics.tripBerjalan > 0 && (
-              <span className="text-amber-600 font-bold">({metrics.tripBerjalan} jalan)</span>
+              <span className="text-amber-600 font-semibold">• {metrics.tripBerjalan} jalan</span>
             )}
           </div>
         </div>
 
-        {/* Total BBM */}
-        <div className="card-container p-4 space-y-1 bg-[var(--bg)] hover:border-emerald-500 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
-              Total Konsumsi BBM
-            </span>
-            <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600">
-              <Fuel className="w-4 h-4" />
-            </div>
+        <div className="card-container p-4 space-y-1">
+          <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
+            <span className="font-semibold">Konsumsi BBM</span>
+            <Fuel className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-emerald-600 tabular-nums">
-            {metrics.totalLiterBbm.toLocaleString('id-ID')} <span className="text-xs font-semibold">Liter</span>
+          <div className="text-2xl font-extrabold text-emerald-600 font-mono">
+            {metrics.totalLiterBbm.toLocaleString('id-ID')}
+            <span className="text-xs font-normal text-[var(--text-secondary)] ml-1">Liter</span>
           </div>
           <div className="text-[11px] text-[var(--text-secondary)]">
-            Biaya: <span className="font-bold text-[var(--text-primary)]">{formatRupiah(metrics.totalBiayaBbm)}</span>
+            Total Biaya: {formatRupiah(metrics.totalBiayaBbm)}
           </div>
         </div>
 
-        {/* Efisiensi BBM */}
-        <div className="card-container p-4 space-y-1 bg-[var(--bg)] hover:border-blue-500 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
-              Efisiensi BBM
-            </span>
-            <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600">
-              <TrendingUp className="w-4 h-4" />
-            </div>
+        <div className="card-container p-4 space-y-1">
+          <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
+            <span className="font-semibold">Rasio Efisiensi Rata-rata</span>
+            <TrendingUp className="w-4 h-4 text-blue-600" />
           </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-[var(--brand-primary)] tabular-nums">
-            {metrics.rasioEfisiensi > 0 ? `${metrics.rasioEfisiensi}` : '-'}{' '}
-            <span className="text-xs font-semibold">km/L</span>
+          <div className="text-2xl font-extrabold text-blue-600 font-mono">
+            {metrics.rasioEfisiensi > 0 ? metrics.rasioEfisiensi : '-'}
+            <span className="text-xs font-normal text-[var(--text-secondary)] ml-1">km/L</span>
           </div>
           <div className="text-[11px] text-[var(--text-secondary)]">
-            Konsumsi:{' '}
-            <span className="font-semibold text-[var(--text-primary)]">
-              {metrics.literPer100Km > 0 ? `${metrics.literPer100Km} L/100km` : '-'}
-            </span>
+            {metrics.biayaPerKm > 0 ? `${formatRupiah(metrics.biayaPerKm)}/km` : 'Biaya per KM'}
           </div>
         </div>
 
-        {/* Biaya per KM */}
-        <div className="card-container p-4 space-y-1 bg-[var(--bg)] hover:border-purple-500 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
-              Biaya Operasional / KM
-            </span>
-            <div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600">
-              <Activity className="w-4 h-4" />
-            </div>
+        <div className="card-container p-4 space-y-1">
+          <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
+            <span className="font-semibold">Total Hari Tercatat</span>
+            <CheckCircle2 className="w-4 h-4 text-purple-600" />
           </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-purple-600 tabular-nums">
-            {metrics.biayaPerKm > 0 ? formatRupiah(metrics.biayaPerKm) : '-'}{' '}
-            <span className="text-xs font-semibold text-[var(--text-secondary)]">/ km</span>
+          <div className="text-2xl font-extrabold text-purple-600 font-mono">
+            {metrics.totalTrip}
+            <span className="text-xs font-normal text-[var(--text-secondary)] ml-1">Hari</span>
           </div>
           <div className="text-[11px] text-[var(--text-secondary)]">
-            {metrics.totalTrip} total catatan periode ini
+            {metrics.tripBerjalan > 0 ? `${metrics.tripBerjalan} perlu BC In` : 'Semua log terkendali'}
           </div>
         </div>
       </div>
 
-      {/* Interactive Visualizations */}
-      <div className="card-container space-y-4 p-5">
+      {/* Chart Section */}
+      <div className="card-container p-4 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
           <div className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-[var(--brand-primary)]" />
             <h3 className="font-bold text-sm text-[var(--text-primary)]">
-              Grafik Tren & Visualisasi Log Armada
+              Grafik Analisis Log & Efisiensi Perjalanan
             </h3>
           </div>
-
-          <div className="flex items-center gap-1.5 p-1 bg-[var(--bg-subtle)] rounded-xl border border-[var(--border)]">
-            <button
-              type="button"
-              onClick={() => setChartTab('distance')}
-              className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
-                chartTab === 'distance'
-                  ? 'bg-[var(--brand-primary)] text-white shadow-xs'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              Jarak Tempuh (km)
-            </button>
-            <button
-              type="button"
-              onClick={() => setChartTab('fuel')}
-              className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
-                chartTab === 'fuel'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              BBM (Liter)
-            </button>
-            <button
-              type="button"
-              onClick={() => setChartTab('efficiency')}
-              className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
-                chartTab === 'efficiency'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              Efisiensi (km/L)
-            </button>
+          <div className="flex items-center gap-1 bg-[var(--bg-subtle)] p-1 rounded-xl">
+            {(
+              [
+                { key: 'distance', label: 'Jarak (km)' },
+                { key: 'fuel', label: 'BBM (L)' },
+                { key: 'efficiency', label: 'Efisiensi (km/L)' },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setChartTab(t.key)}
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  chartTab === t.key
+                    ? 'bg-[var(--bg)] text-[var(--text-primary)] shadow-xs font-bold'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -1053,24 +1017,28 @@ export function KendaraanLogManager({
         )}
       </div>
 
-      {/* Interactive Log Table */}
-      <div className="card-container p-0 overflow-hidden space-y-0">
-        <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Car className="w-4 h-4 text-[var(--brand-primary)]" />
-            <h3 className="font-bold text-sm text-[var(--text-primary)]">
-              Riwayat Log Odometer & Trip Armada ({sortedLogs.length})
-            </h3>
-          </div>
-          <span className="text-[11px] text-[var(--text-secondary)]">
-            Klik header kolom untuk mengurutkan (Sort)
-          </span>
+      {/* Interactive Log Records Header */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          <Car className="w-4 h-4 text-[var(--brand-primary)]" />
+          <h3 className="font-bold text-sm text-[var(--text-primary)]">
+            Riwayat Log Odometer Harian ({sortedLogs.length} Hari)
+          </h3>
         </div>
+        <span className="text-[11px] text-[var(--text-secondary)]">
+          Klik baris/kartu untuk mengurai linimasa sub-log
+        </span>
+      </div>
 
+      {/* ========================================================================= */}
+      {/* 1. DESKTOP VIEW: Table with Sublist Accordion (hidden md:block)            */}
+      {/* ========================================================================= */}
+      <div className="hidden md:block card-container p-0 overflow-hidden space-y-0">
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left border-collapse">
             <thead className="bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-b border-[var(--border)] select-none">
               <tr>
+                <th className="p-3 w-8"></th>
                 <th
                   onClick={() => toggleSort('tanggal')}
                   className="p-3 font-bold cursor-pointer hover:text-[var(--text-primary)] transition-colors"
@@ -1104,213 +1072,263 @@ export function KendaraanLogManager({
                   className="p-3 font-bold cursor-pointer hover:text-[var(--text-primary)] transition-colors"
                 >
                   <div className="flex items-center gap-1">
-                    <span>Jarak (km)</span>
+                    <span>Total Jarak</span>
                     <ArrowUpDown className="w-3 h-3" />
                   </div>
                 </th>
-                <th
-                  onClick={() => toggleSort('bbm')}
-                  className="p-3 font-bold cursor-pointer hover:text-[var(--text-primary)] transition-colors"
-                >
-                  <div className="flex items-center gap-1">
-                    <span>BBM</span>
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </th>
-                <th
-                  onClick={() => toggleSort('efisiensi')}
-                  className="p-3 font-bold cursor-pointer hover:text-[var(--text-primary)] transition-colors"
-                >
-                  <div className="flex items-center gap-1">
-                    <span>Efisiensi</span>
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </th>
+                <th className="p-3 font-bold">Sub-Log / Sesi</th>
                 <th className="p-3 font-bold">Status</th>
-                <th className="p-3 font-bold">Catatan</th>
                 <th className="p-3 font-bold text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="p-8 text-center text-xs text-[var(--text-secondary)]">
+                  <td colSpan={9} className="p-8 text-center text-xs text-[var(--text-secondary)]">
                     Memuat data log armada...
                   </td>
                 </tr>
               ) : sortedLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="p-8 text-center text-xs text-[var(--text-secondary)]">
+                  <td colSpan={9} className="p-8 text-center text-xs text-[var(--text-secondary)]">
                     Belum ada catatan log armada yang sesuai dengan filter.
                   </td>
                 </tr>
               ) : (
                 sortedLogs.map((log) => {
+                  const isExpanded = !!expandedLogIds[log.id];
+                  const logItems = log.log_items || [];
                   const isCompleted =
                     log.isPeriodicDelta ||
                     log.isInitialBaseline ||
-                    (log.odometer_basecamp_in !== null && log.odometer_basecamp_out !== null);
-                  const isPendingIn =
-                    log.odometer_basecamp_out !== null &&
-                    log.odometer_basecamp_in === null &&
-                    !log.isPeriodicDelta &&
-                    !log.isInitialBaseline;
-                  const efisiensi = log.calculatedEfisiensi ? `${log.calculatedEfisiensi}` : null;
+                    (log.odometer_basecamp_out !== null && log.odometer_basecamp_in !== null);
 
                   return (
-                    <tr
-                      key={log.id}
-                      className="hover:bg-[var(--bg-subtle)]/50 transition-colors"
-                    >
-                      {/* Tanggal */}
-                      <td className="p-3 whitespace-nowrap font-medium text-[var(--text-primary)]">
-                        <div>{formatDateIndo(log.tanggal)}</div>
-                        {log.tanggal_akhir && log.tanggal_akhir !== log.tanggal && (
-                          <div className="text-[10px] text-[var(--text-secondary)]">
-                            s/d {formatDateIndo(log.tanggal_akhir)}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Armada */}
-                      <td className="p-3 whitespace-nowrap">
-                        <div className="font-bold text-[var(--text-primary)]">
-                          {log.kendaraan?.nama_kendaraan || 'Armada'}
-                        </div>
-                        <div className="text-[10px] font-mono font-bold text-[var(--brand-primary)]">
-                          {log.kendaraan?.plat_nomor}
-                        </div>
-                      </td>
-
-                      {/* BC Out */}
-                      <td className="p-3 whitespace-nowrap font-mono tabular-nums">
-                        {log.odometer_basecamp_out !== null ? (
-                          <span className="font-semibold text-[var(--text-primary)]">
-                            {log.odometer_basecamp_out.toLocaleString('id-ID')} km
-                          </span>
-                        ) : (
-                          <span className="text-[var(--text-muted)]">-</span>
-                        )}
-                      </td>
-
-                      {/* BC In */}
-                      <td className="p-3 whitespace-nowrap font-mono tabular-nums">
-                        {log.odometer_basecamp_in !== null ? (
-                          <span className="font-semibold text-[var(--text-primary)]">
-                            {log.odometer_basecamp_in.toLocaleString('id-ID')} km
-                          </span>
-                        ) : isPendingIn ? (
+                    <React.Fragment key={log.id}>
+                      <tr
+                        onClick={() => toggleExpand(log.id)}
+                        className={`hover:bg-[var(--surface-hover)] transition-colors cursor-pointer ${
+                          isExpanded ? 'bg-[var(--bg-subtle)]/60' : ''
+                        }`}
+                      >
+                        <td className="p-3 text-center">
                           <button
                             type="button"
-                            onClick={() => handleOpenQuickBcIn(log)}
-                            className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300 dark:border-amber-800 text-[10px] font-bold hover:bg-amber-200 transition-all active:scale-95 flex items-center gap-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpand(log.id);
+                            }}
+                            className="p-1 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-transform"
                           >
-                            <Clock className="w-3 h-3 animate-spin" />
-                            <span>+ Input BC In</span>
+                            {isExpanded ? (
+                              <ChevronDown className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                            ) : (
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            )}
                           </button>
-                        ) : (
-                          <span className="text-[var(--text-muted)]">-</span>
-                        )}
-                      </td>
+                        </td>
 
-                      {/* Jarak Tempuh */}
-                      <td className="p-3 whitespace-nowrap font-mono tabular-nums">
-                        {log.effectiveJarak > 0 ? (
-                          <div>
-                            <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-900">
-                              {log.effectiveJarak.toLocaleString('id-ID')} km
+                        <td className="p-3 font-semibold text-[var(--text-primary)]">
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                            <span>{formatDateIndo(log.tanggal)}</span>
+                          </div>
+                        </td>
+
+                        <td className="p-3">
+                          <div className="font-bold text-[var(--text-primary)]">
+                            {log.kendaraan?.nama_kendaraan}
+                          </div>
+                          <div className="text-[11px] text-[var(--text-secondary)] font-mono">
+                            {log.kendaraan?.plat_nomor}
+                          </div>
+                        </td>
+
+                        <td className="p-3 font-mono font-bold">
+                          {log.odometer_basecamp_out !== null ? (
+                            <span className="text-sky-700 dark:text-sky-400">
+                              {log.odometer_basecamp_out.toLocaleString('id-ID')} km
                             </span>
-                            {log.isPeriodicDelta && log.deltaFromDate && (
-                              <div className="text-[10px] text-[var(--text-secondary)] font-sans font-medium mt-0.5">
-                                dari {formatDateIndo(log.deltaFromDate)}
-                              </div>
-                            )}
-                          </div>
-                        ) : log.isInitialBaseline ? (
-                          <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold border border-blue-200 text-[10px]">
-                            Titik Awal ({((log.odometer_basecamp_in ?? log.odometer_basecamp_out) ?? 0).toLocaleString('id-ID')} km)
-                          </span>
-                        ) : isPendingIn ? (
-                          <span className="text-amber-600 font-semibold italic text-[11px]">Sedang jalan</span>
-                        ) : (
-                          <span className="text-[var(--text-muted)]">0 km</span>
-                        )}
-                      </td>
+                          ) : (
+                            <span className="text-[var(--text-muted)]">-</span>
+                          )}
+                        </td>
 
-                      {/* BBM */}
-                      <td className="p-3 whitespace-nowrap text-[11px]">
-                        {log.bbm_liter || log.bbm_nominal ? (
-                          <div>
-                            <div className="font-bold text-emerald-600">
-                              {log.bbm_liter ? `${log.bbm_liter} L` : ''}{' '}
-                              <span className="uppercase text-[10px] text-[var(--text-secondary)] font-semibold">
-                                {log.bbm_jenis}
+                        <td className="p-3 font-mono font-bold">
+                          {log.odometer_basecamp_in !== null ? (
+                            <span className="text-amber-700 dark:text-amber-400">
+                              {log.odometer_basecamp_in.toLocaleString('id-ID')} km
+                            </span>
+                          ) : (
+                            <span className="text-amber-600 font-normal italic text-[11px]">
+                              Sedang Jalan
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="p-3 font-mono font-extrabold">
+                          {log.effectiveJarak > 0 ? (
+                            <span className="text-emerald-600">
+                              +{log.effectiveJarak.toLocaleString('id-ID')} km
+                            </span>
+                          ) : (
+                            <span className="text-[var(--text-muted)] font-normal">-</span>
+                          )}
+                        </td>
+
+                        <td className="p-3">
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--bg)] border border-[var(--border)] font-semibold text-[11px] text-[var(--text-primary)]">
+                            <Layers className="w-3 h-3 text-[var(--brand-primary)]" />
+                            <span>{logItems.length} Catatan</span>
+                            {log.total_slot_selesai ? (
+                              <span className="text-[var(--text-secondary)]">
+                                ({log.total_slot_selesai} Sesi)
                               </span>
-                            </div>
-                            {log.bbm_nominal && (
-                              <div className="text-[10px] text-[var(--text-secondary)]">
-                                {formatRupiah(log.bbm_nominal)}
-                              </div>
-                            )}
+                            ) : null}
                           </div>
-                        ) : (
-                          <span className="text-[var(--text-muted)]">-</span>
-                        )}
-                      </td>
+                        </td>
 
-                      {/* Efisiensi */}
-                      <td className="p-3 whitespace-nowrap font-mono">
-                        {efisiensi ? (
-                          <span className="font-bold text-[var(--brand-primary)]">{efisiensi} km/L</span>
-                        ) : (
-                          <span className="text-[var(--text-muted)]">-</span>
-                        )}
-                      </td>
+                        <td className="p-3">
+                          {isCompleted ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>Selesai</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                              <Clock className="w-3 h-3" />
+                              <span>Sedang Jalan</span>
+                            </span>
+                          )}
+                        </td>
 
-                      {/* Status */}
-                      <td className="p-3 whitespace-nowrap">
-                        {isCompleted ? (
-                          <Badge variant="dot" size="xs" color="emerald">
-                            Selesai
-                          </Badge>
-                        ) : isPendingIn ? (
-                          <Badge variant="dot" size="xs" color="amber" dotPing>
-                            Sedang Berjalan
-                          </Badge>
-                        ) : (
-                          <Badge variant="subtle" size="xs" color="zinc">
-                            Tercatat
-                          </Badge>
-                        )}
-                      </td>
-
-                      {/* Catatan */}
-                      <td className="p-3 max-w-xs truncate text-[11px] text-[var(--text-secondary)]">
-                        {log.catatan || '-'}
-                      </td>
-
-                      {/* Aksi */}
-                      <td className="p-3 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditLog(log)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-colors"
-                            title="Edit Catatan Log"
+                        <td className="p-3 text-right">
+                          <div
+                            className="inline-flex items-center gap-1"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTargetId(log.id)}
-                            className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
-                            title="Hapus Log"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenAddLog(undefined, log.tanggal, log.kendaraan_id)}
+                              title="Tambah Sub-Log Pada Hari Ini"
+                              className="p-1.5 rounded-lg text-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/10 transition-colors"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteTargetId(log.id)}
+                              title="Hapus Rekap Log Hari Ini"
+                              className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Expandable Sublist Accordion Row */}
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={9} className="p-0 bg-[var(--bg-subtle)]/40 border-b border-[var(--border)]">
+                            <div className="p-4 pl-10 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                                  <Sparkles className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                                  <span>
+                                    Linimasa Sub-Log Odometer ({formatDateIndo(log.tanggal)})
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenAddLog(undefined, log.tanggal, log.kendaraan_id)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/10 rounded-lg border border-[var(--brand-primary)]/30 transition-all cursor-pointer"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                  <span>+ Tambah Sub-Log Hari Ini</span>
+                                </button>
+                              </div>
+
+                              {logItems.length === 0 ? (
+                                <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] text-xs text-[var(--text-secondary)] text-center">
+                                  Belum ada rincian event log pada hari ini.
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {logItems.map((item, idx) => {
+                                    const style = getItemBadgeStyle(item.tipe);
+                                    // Calculate delta for sesi selesai if possible
+                                    let sessionDelta: number | null = null;
+                                    if (item.tipe === 'ODO SESI SELESAI' && item.siswa_id) {
+                                      const startItem = logItems.find(
+                                        (i) => i.tipe === 'ODO SESI MULAI' && i.siswa_id === item.siswa_id
+                                      );
+                                      if (startItem && item.odometer >= startItem.odometer) {
+                                        sessionDelta = item.odometer - startItem.odometer;
+                                      }
+                                    }
+
+                                    return (
+                                      <div
+                                        key={item.id || idx}
+                                        className="p-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] flex items-center justify-between gap-3 text-xs shadow-2xs"
+                                      >
+                                        <div className="flex items-center gap-2.5 flex-wrap">
+                                          {/* Type Badge */}
+                                          <span
+                                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-extrabold border ${style.bg}`}
+                                          >
+                                            {style.icon}
+                                            <span>{item.tipe}</span>
+                                          </span>
+
+                                          {/* Odometer Value */}
+                                          <span className="font-mono font-bold text-sm text-[var(--text-primary)]">
+                                            {item.odometer.toLocaleString('id-ID')} km
+                                          </span>
+
+                                          {/* Session Delta if available */}
+                                          {sessionDelta !== null && (
+                                            <span className="font-mono font-bold text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                                              +{sessionDelta} km sesi
+                                            </span>
+                                          )}
+
+                                          {/* Student Info if session */}
+                                          {item.siswa_nama && (
+                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--text-secondary)]">
+                                              <User className="w-3 h-3 text-[var(--brand-primary)]" />
+                                              <span>Siswa: <strong className="text-[var(--text-primary)]">{item.siswa_nama}</strong></span>
+                                            </span>
+                                          )}
+
+                                          {/* Notes if available */}
+                                          {item.catatan && (
+                                            <span className="text-[11px] text-[var(--text-muted)] italic">
+                                              ({item.catatan})
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {/* Action: Delete Sub-Item */}
+                                        <button
+                                          type="button"
+                                          onClick={() => setDeleteItemTarget({ logId: log.id, item })}
+                                          title="Hapus Event Ini"
+                                          className="p-1.5 text-[var(--text-secondary)] hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors shrink-0"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })
               )}
@@ -1319,26 +1337,248 @@ export function KendaraanLogManager({
         </div>
       </div>
 
-      {/* Modal Dialog Form (Create / Edit Log) */}
+      {/* ========================================================================= */}
+      {/* 2. MOBILE VIEW: Responsive Card Feed (block md:hidden)                     */}
+      {/* ========================================================================= */}
+      <div className="block md:hidden space-y-3">
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-32 rounded-2xl bg-[var(--bg-subtle)] animate-pulse border border-[var(--border)]"
+              />
+            ))}
+          </div>
+        ) : sortedLogs.length === 0 ? (
+          <div className="p-6 rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] text-center text-xs text-[var(--text-secondary)]">
+            Belum ada catatan log armada pada filter yang dipilih.
+          </div>
+        ) : (
+          sortedLogs.map((log) => {
+            const isExpanded = !!expandedLogIds[log.id];
+            const logItems = log.log_items || [];
+            const isCompleted =
+              log.isPeriodicDelta ||
+              log.isInitialBaseline ||
+              (log.odometer_basecamp_out !== null && log.odometer_basecamp_in !== null);
+
+            return (
+              <div
+                key={log.id}
+                className="card-container p-4 space-y-3 border border-[var(--border)] rounded-2xl shadow-xs"
+              >
+                {/* Mobile Card Header */}
+                <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-[var(--brand-primary)] shrink-0" />
+                    <span className="font-bold text-xs text-[var(--text-primary)]">
+                      {formatDateIndo(log.tanggal)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {isCompleted ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Selesai</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                        <Clock className="w-3 h-3" />
+                        <span>Jalan</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mobile Vehicle & Metrics */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-extrabold text-sm text-[var(--text-primary)]">
+                      {log.kendaraan?.nama_kendaraan}
+                    </div>
+                    <div className="text-[11px] text-[var(--text-secondary)] font-mono">
+                      {log.kendaraan?.plat_nomor}
+                    </div>
+                  </div>
+
+                  {log.effectiveJarak > 0 && (
+                    <div className="text-right">
+                      <div className="text-sm font-extrabold font-mono text-emerald-600">
+                        +{log.effectiveJarak.toLocaleString('id-ID')} km
+                      </div>
+                      <div className="text-[10px] text-[var(--text-secondary)]">Total Hari Ini</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Mobile Odometer Gauge Bar */}
+                <div className="p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)] grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] text-[var(--text-secondary)] block font-semibold">
+                      BC Out (Keluar):
+                    </span>
+                    <span className="font-mono font-bold text-sky-700 dark:text-sky-400">
+                      {log.odometer_basecamp_out !== null
+                        ? `${log.odometer_basecamp_out.toLocaleString('id-ID')} km`
+                        : '-'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] text-[var(--text-secondary)] block font-semibold">
+                      BC In (Kembali):
+                    </span>
+                    <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
+                      {log.odometer_basecamp_in !== null ? (
+                        `${log.odometer_basecamp_in.toLocaleString('id-ID')} km`
+                      ) : (
+                        <span className="text-amber-600 font-normal italic text-[11px]">
+                          Sedang Jalan
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Mobile Accordion Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => toggleExpand(log.id)}
+                  className="w-full py-2 px-3 rounded-xl bg-[var(--bg)] border border-[var(--border)] hover:bg-[var(--bg-subtle)] flex items-center justify-between text-xs font-semibold text-[var(--text-primary)] transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+                    <span>Rincian Linimasa ({logItems.length} Event)</span>
+                  </span>
+                  {isExpanded ? (
+                    <ChevronDown className="w-4 h-4 text-[var(--brand-primary)]" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-[var(--text-secondary)]" />
+                  )}
+                </button>
+
+                {/* Mobile Expanded Timeline Sublist */}
+                {isExpanded && (
+                  <div className="pt-2 border-t border-[var(--border)] space-y-2">
+                    {logItems.length === 0 ? (
+                      <div className="p-3 text-center text-xs text-[var(--text-secondary)] bg-[var(--bg-subtle)] rounded-xl">
+                        Belum ada sub-log tercatat pada hari ini.
+                      </div>
+                    ) : (
+                      logItems.map((item, idx) => {
+                        const style = getItemBadgeStyle(item.tipe);
+                        let sessionDelta: number | null = null;
+                        if (item.tipe === 'ODO SESI SELESAI' && item.siswa_id) {
+                          const startItem = logItems.find(
+                            (i) => i.tipe === 'ODO SESI MULAI' && i.siswa_id === item.siswa_id
+                          );
+                          if (startItem && item.odometer >= startItem.odometer) {
+                            sessionDelta = item.odometer - startItem.odometer;
+                          }
+                        }
+
+                        return (
+                          <div
+                            key={item.id || idx}
+                            className="p-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] space-y-1 text-xs"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${style.bg}`}
+                              >
+                                {style.icon}
+                                <span>{item.tipe}</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteItemTarget({ logId: log.id, item })}
+                                className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-1">
+                              <span className="font-mono font-bold text-sm text-[var(--text-primary)]">
+                                {item.odometer.toLocaleString('id-ID')} km
+                              </span>
+                              {sessionDelta !== null && (
+                                <span className="font-mono font-bold text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                                  +{sessionDelta} km sesi
+                                </span>
+                              )}
+                            </div>
+
+                            {item.siswa_nama && (
+                              <div className="text-[11px] text-[var(--text-secondary)] flex items-center gap-1 pt-0.5">
+                                <User className="w-3 h-3 text-[var(--brand-primary)]" />
+                                <span>Siswa: <strong className="text-[var(--text-primary)]">{item.siswa_nama}</strong></span>
+                              </div>
+                            )}
+
+                            {item.catatan && (
+                              <div className="text-[10px] text-[var(--text-muted)] italic pt-0.5">
+                                {item.catatan}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+
+                {/* Mobile Card Action Footer */}
+                <div className="flex items-center justify-between pt-2 border-t border-[var(--border)] gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAddLog(undefined, log.tanggal, log.kendaraan_id)}
+                    className="flex-1 py-2 px-3 rounded-xl bg-[var(--brand-primary)]/10 hover:bg-[var(--brand-primary)]/20 text-[var(--brand-primary)] text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Log Lanjutan</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTargetId(log.id)}
+                    className="py-2 px-3 rounded-xl border border-rose-200 dark:border-rose-900/50 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Hapus</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 3. MODAL INPUT: Catat Log Armada (Multi-Event Odometer)                    */}
+      {/* ========================================================================= */}
       {showLogModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-          <div className="w-full max-w-lg bg-[var(--bg)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-lg bg-[var(--bg)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <h3 className="font-bold text-base text-[var(--text-primary)] flex items-center gap-2">
                 <Gauge className="w-4 h-4 text-[var(--brand-primary)]" />
-                <span>{editingLog ? 'Edit Log Armada' : 'Catat Log Armada / Basecamp Out'}</span>
+                <span>Catat Log Armada / Odometer</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setShowLogModal(false)}
-                className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
+                className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {formError && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-[var(--danger)] text-xs flex items-center gap-2">
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{formError}</span>
               </div>
@@ -1364,160 +1604,214 @@ export function KendaraanLogManager({
                 </select>
               </div>
 
-              {/* Tanggal Awal & Akhir */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Tanggal Input */}
+              <div>
                 <DatePickerWIB
-                  label="Tanggal Awal / Berangkat *"
-                  value={formTanggalAwal}
-                  onChange={setFormTanggalAwal}
-                />
-                <DatePickerWIB
-                  label="Tanggal Akhir / Kembali (Opsional)"
-                  value={formTanggalAkhir}
-                  onChange={setFormTanggalAkhir}
+                  label="Tanggal Operasional *"
+                  value={formTanggal}
+                  onChange={setFormTanggal}
                 />
               </div>
 
-              {/* Odometer BC Out & BC In */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)]">
-                <div>
-                  <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                    Odometer BC Out (km) *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="Contoh: 45000"
-                    value={formOutKm}
-                    onChange={(e) => setFormOutKm(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-mono font-bold text-sm text-[var(--text-primary)]"
-                  />
-                  <span className="text-[10px] text-[var(--text-secondary)] block mt-0.5">
-                    Angka km saat mobil keluar
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                    Odometer BC In (km){' '}
-                    <span className="font-normal text-amber-600">(Skip jika belum kembali)</span>
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="Kosongkan jika masih jalan"
-                    value={formInKm}
-                    onChange={(e) => setFormInKm(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-mono font-bold text-sm text-[var(--text-primary)]"
-                  />
-                  <span className="text-[10px] text-[var(--text-secondary)] block mt-0.5">
-                    Angka km saat mobil tiba kembali
-                  </span>
-                </div>
-
-                {modalPreviewJarak !== null && (
-                  <div className="col-span-1 sm:col-span-2 pt-2 border-t border-[var(--border)] flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-1">
-                    <span className="font-semibold text-[var(--text-secondary)]">
-                      {modalPreviewJarak.type === 'single'
-                        ? 'Kalkulasi Trip Selesai:'
-                        : modalPreviewJarak.type === 'periodic'
-                        ? `Akumulasi Berkala (sejak ${formatDateIndo(modalPreviewJarak.prevDate || '')}):`
-                        : modalPreviewJarak.type === 'initial'
-                        ? 'Status Odometer:'
-                        : 'Kalkulasi Jarak:'}
-                    </span>
-                    <span className="font-extrabold text-sm text-emerald-600 font-mono">
-                      {modalPreviewJarak.type === 'initial'
-                        ? `Titik Awal (${(modalPreviewJarak.currOdo || 0).toLocaleString('id-ID')} km)`
-                        : `+${modalPreviewJarak.jarak.toLocaleString('id-ID')} km`}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Optional BBM Toggle */}
-              <div className="space-y-3 pt-1 border-t border-[var(--border)]">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formIsiBbm}
-                    onChange={(e) => setFormIsiBbm(e.target.checked)}
-                    className="w-4 h-4 rounded text-emerald-600"
-                  />
-                  <span className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-1.5">
-                    <Fuel className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Catat Pengisian BBM pada perjalanan/hari ini</span>
-                  </span>
+              {/* Tipe Input Selection (4 Interactive Cards) */}
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1.5 font-semibold">
+                  Pilih Tipe Input Odometer *
                 </label>
-
-                {formIsiBbm && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50">
-                    <div>
-                      <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                        Jenis BBM
-                      </label>
-                      <select
-                        value={formBbmJenis}
-                        onChange={(e) => setFormBbmJenis(e.target.value)}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      {
+                        tipe: 'ODO BC OUT' as OdometerLogType,
+                        label: 'ODO BC OUT',
+                        desc: 'Keluar Basecamp',
+                        icon: <LogOut className="w-4 h-4 text-sky-600" />,
+                        activeClass:
+                          'border-sky-500 bg-sky-50/70 dark:bg-sky-950/40 text-sky-950 dark:text-sky-100 ring-2 ring-sky-400',
+                      },
+                      {
+                        tipe: 'ODO SESI MULAI' as OdometerLogType,
+                        label: 'ODO SESI MULAI',
+                        desc: 'Siswa Mulai Latihan',
+                        icon: <Play className="w-4 h-4 text-emerald-600 fill-current" />,
+                        activeClass:
+                          'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-100 ring-2 ring-emerald-400',
+                      },
+                      {
+                        tipe: 'ODO SESI SELESAI' as OdometerLogType,
+                        label: 'ODO SESI SELESAI',
+                        desc: 'Siswa Selesai Latihan',
+                        icon: <Flag className="w-4 h-4 text-indigo-600" />,
+                        activeClass:
+                          'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-100 ring-2 ring-indigo-400',
+                      },
+                      {
+                        tipe: 'ODO BC IN' as OdometerLogType,
+                        label: 'ODO BC IN',
+                        desc: 'Kembali ke Basecamp',
+                        icon: <LogIn className="w-4 h-4 text-amber-600" />,
+                        activeClass:
+                          'border-amber-500 bg-amber-50/70 dark:bg-amber-950/40 text-amber-950 dark:text-amber-100 ring-2 ring-amber-400',
+                      },
+                    ] as const
+                  ).map((opt) => {
+                    const isSelected = formTipe === opt.tipe;
+                    return (
+                      <button
+                        key={opt.tipe}
+                        type="button"
+                        onClick={() => {
+                          setFormTipe(opt.tipe);
+                          setSelectedSiswaId('');
+                          setSelectedSiswaNama('');
+                        }}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? opt.activeClass
+                            : 'border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
+                        }`}
                       >
-                        <option value="pertalite">Pertalite</option>
-                        <option value="pertamax">Pertamax</option>
-                        <option value="solar">Solar / Dexlite</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <CurrencyInput
-                        label="Nominal Pembelian (Rp)"
-                        value={formBbmNominal}
-                        onChange={setFormBbmNominal}
-                      />
-                    </div>
-
-                    <div className="col-span-1 sm:col-span-2">
-                      <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                        Volume Liter (Opsional — default hitung otomatis dari harga BBM)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="Contoh: 15.0"
-                        value={formBbmLiter}
-                        onChange={(e) => setFormBbmLiter(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-mono text-[var(--text-primary)]"
-                      />
-                    </div>
-                  </div>
-                )}
+                        <div className="flex items-center gap-2 mb-1">
+                          {opt.icon}
+                          <span className="font-extrabold text-xs">{opt.label}</span>
+                        </div>
+                        <span className="text-[10px] text-[var(--text-muted)] block">
+                          {opt.desc}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* Catatan */}
+              {/* Dynamic Dropdown Siswa for ODO SESI MULAI */}
+              {formTipe === 'ODO SESI MULAI' && (
+                <div className="p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 space-y-1.5 animate-fadeIn">
+                  <label className="block text-[var(--text-primary)] font-bold">
+                    Pilih Siswa (Jadwal Tanggal {formatDateIndo(formTanggal)}) *
+                  </label>
+                  {loadingSiswa ? (
+                    <div className="text-[11px] text-[var(--text-secondary)] italic">
+                      Memuat jadwal siswa pada tanggal ini...
+                    </div>
+                  ) : availableSiswa.length === 0 ? (
+                    <div className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200 dark:border-amber-800">
+                      Tidak ada jadwal siswa yang terdaftar pada tanggal ini. Anda tetap dapat memasukkan nama siswa secara manual di catatan.
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedSiswaId}
+                      onChange={(e) => {
+                        const sid = e.target.value;
+                        setSelectedSiswaId(sid);
+                        const sObj = availableSiswa.find((s) => s.id === sid);
+                        setSelectedSiswaNama(sObj ? sObj.nama : '');
+                      }}
+                      required
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                    >
+                      <option value="">-- Pilih Siswa Yang Mulai Sesi --</option>
+                      {availableSiswa.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.nama} {s.slot ? `— ${s.slot}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {/* Dynamic Dropdown Siswa for ODO SESI SELESAI */}
+              {formTipe === 'ODO SESI SELESAI' && (
+                <div className="p-3 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/50 space-y-1.5 animate-fadeIn">
+                  <label className="block text-[var(--text-primary)] font-bold">
+                    Pilih Siswa (Yang Sudah Memiliki ODO SESI MULAI) *
+                  </label>
+                  {startedStudentsOnDate.length === 0 ? (
+                    <div className="text-[11px] text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 p-2 rounded-lg border border-rose-200 dark:border-rose-800 flex items-start gap-1.5">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>
+                        Belum ada siswa dengan status <strong>ODO SESI MULAI</strong> pada armada ini untuk tanggal {formatDateIndo(formTanggal)}. Harap catat ODO SESI MULAI terlebih dahulu.
+                      </span>
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedSiswaId}
+                      onChange={(e) => {
+                        const sid = e.target.value;
+                        setSelectedSiswaId(sid);
+                        const sObj = startedStudentsOnDate.find((s) => s.id === sid);
+                        setSelectedSiswaNama(sObj ? sObj.nama : '');
+                      }}
+                      required
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--bg)] font-semibold text-[var(--text-primary)]"
+                    >
+                      <option value="">-- Pilih Siswa Yang Selesai Sesi --</option>
+                      {startedStudentsOnDate.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.nama} — (Odo Mulai: {s.startOdo.toLocaleString('id-ID')} km)
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {/* Odometer Input */}
+              <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)] space-y-1">
+                <label className="block text-[var(--text-secondary)] font-bold">
+                  Angka Odometer (km) *
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    required
+                    placeholder="Contoh: 222350"
+                    value={formOdo}
+                    onChange={(e) => setFormOdo(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-mono font-extrabold text-base text-[var(--text-primary)]"
+                  />
+                  <span className="absolute right-3 top-3 text-xs font-bold text-[var(--text-muted)]">
+                    KM
+                  </span>
+                </div>
+                <span className="text-[10px] text-[var(--text-muted)] block">
+                  Pastikan angka sesuai tampilan spidometer riil mobil.
+                </span>
+              </div>
+
+              {/* Catatan Operasional (Opsional) */}
               <div>
                 <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                  Catatan Operasional / Keterangan (Opsional)
+                  Catatan Operasional (Opsional)
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Contoh: Sesi siswa luar kota / Antar jemput / Operasional reguler"
+                  placeholder="Contoh: Rute luar kota / Kondisi jalan macet / Cuaca hujan..."
                   value={formCatatan}
                   onChange={(e) => setFormCatatan(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)]"
                 />
               </div>
 
-              {/* Buttons */}
+              {/* Modal Buttons */}
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border)]">
                 <button
                   type="button"
                   onClick={() => setShowLogModal(false)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] transition-colors"
+                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
-                  className="px-5 py-2 text-xs font-bold rounded-xl bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] disabled:opacity-50 text-white flex items-center gap-1.5 transition-all shadow-xs"
+                  disabled={
+                    saving ||
+                    !formOdo ||
+                    (formTipe === 'ODO SESI SELESAI' && startedStudentsOnDate.length === 0)
+                  }
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] disabled:opacity-50 text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
                 >
                   {saving ? (
                     <Clock className="w-3.5 h-3.5 animate-spin" />
@@ -1532,104 +1826,110 @@ export function KendaraanLogManager({
         </div>
       )}
 
-      {/* Quick BC In Modal */}
-      {quickBcInLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-          <div className="w-full max-w-sm bg-[var(--bg)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
-              <h3 className="font-bold text-sm text-[var(--text-primary)] flex items-center gap-2">
-                <Clock className="w-4 h-4 text-amber-500" />
-                <span>Input Odometer Basecamp In</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setQuickBcInLog(null)}
-                className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      {/* ========================================================================= */}
+      {/* 4. OVERWRITE CONFIRMATION MODAL                                           */}
+      {/* ========================================================================= */}
+      {overwriteConfirmData && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-md bg-[var(--bg)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-amber-600">
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-[var(--text-primary)]">
+                  Konfirmasi Timpa Data Log
+                </h3>
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  Ditemukan data log dengan tipe yang sama pada tanggal ini.
+                </p>
+              </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)] text-xs space-y-1">
-              <div className="font-bold text-[var(--text-primary)]">
-                {quickBcInLog.kendaraan?.nama_kendaraan} ({quickBcInLog.kendaraan?.plat_nomor})
+            <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)] space-y-2 text-xs">
+              <div className="text-[var(--text-secondary)]">
+                Armada: <strong className="text-[var(--text-primary)]">{overwriteConfirmData.vehicleName}</strong>
               </div>
               <div className="text-[var(--text-secondary)]">
-                Tanggal Keluar: {formatDateIndo(quickBcInLog.tanggal)}
+                Tanggal: <strong className="text-[var(--text-primary)]">{formatDateIndo(overwriteConfirmData.input.tanggal)}</strong>
               </div>
-              <div className="font-mono text-[var(--brand-primary)] font-bold">
-                Odometer Out: {quickBcInLog.odometer_basecamp_out?.toLocaleString('id-ID')} km
+              <div className="text-[var(--text-secondary)]">
+                Tipe Log: <span className="font-bold text-[var(--brand-primary)]">{overwriteConfirmData.input.tipe}</span>
+                {overwriteConfirmData.input.siswa_nama && (
+                  <span> (Siswa: {overwriteConfirmData.input.siswa_nama})</span>
+                )}
+              </div>
+
+              <div className="pt-2 border-t border-[var(--border)] grid grid-cols-2 gap-2 text-center">
+                <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50">
+                  <span className="text-[10px] text-rose-700 dark:text-rose-400 block font-semibold">
+                    Data Sebelumnya
+                  </span>
+                  <span className="font-mono font-bold text-sm text-rose-700 dark:text-rose-300">
+                    {overwriteConfirmData.existingItem.odometer.toLocaleString('id-ID')} km
+                  </span>
+                </div>
+
+                <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50">
+                  <span className="text-[10px] text-emerald-700 dark:text-emerald-400 block font-semibold">
+                    Data Baru (Pengganti)
+                  </span>
+                  <span className="font-mono font-bold text-sm text-emerald-700 dark:text-emerald-300">
+                    {overwriteConfirmData.input.odometer.toLocaleString('id-ID')} km
+                  </span>
+                </div>
               </div>
             </div>
 
-            <form onSubmit={handleSaveQuickBcIn} className="space-y-3 text-xs">
-              <DatePickerWIB
-                label="Tanggal Kembali / Basecamp In"
-                value={quickTanggalAkhir}
-                onChange={setQuickTanggalAkhir}
-              />
+            <p className="text-xs text-[var(--text-secondary)]">
+              Apakah Anda yakin ingin menimpa (*overwrite*) catatan log sebelumnya dengan angka odometer baru?
+            </p>
 
-              <div>
-                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">
-                  Odometer Basecamp In (km) *
-                </label>
-                <input
-                  type="number"
-                  required
-                  autoFocus
-                  placeholder="Masukkan angka odometer terkini"
-                  value={quickInKm}
-                  onChange={(e) => setQuickInKm(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] font-mono font-bold text-base text-[var(--text-primary)]"
-                />
-              </div>
-
-              {quickInKm && quickBcInLog.odometer_basecamp_out && (
-                <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300 flex items-center justify-between font-medium">
-                  <span>Jarak Trip Ini:</span>
-                  <span className="font-bold font-mono text-sm">
-                    {Math.max(0, parseInt(quickInKm, 10) - quickBcInLog.odometer_basecamp_out).toLocaleString(
-                      'id-ID'
-                    )}{' '}
-                    km
-                  </span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
-                <button
-                  type="button"
-                  onClick={() => setQuickBcInLog(null)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] transition-colors"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving || !quickInKm}
-                  className="px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white flex items-center gap-1.5 transition-all shadow-xs"
-                >
-                  {saving ? (
-                    <Clock className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Check className="w-3.5 h-3.5" />
-                  )}
-                  <span>{saving ? 'Menyimpan...' : 'Tutup Trip & Simpan BC In'}</span>
-                </button>
-              </div>
-            </form>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+              <button
+                type="button"
+                onClick={() => setOverwriteConfirmData(null)}
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={handleConfirmOverwrite}
+                className="px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+              >
+                {saving ? (
+                  <Clock className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Check className="w-3.5 h-3.5" />
+                )}
+                <span>Ya, Timpa Data</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Delete Confirm Dialog */}
+      {/* Delete Day Confirm Dialog */}
       <ConfirmDialog
         isOpen={Boolean(deleteTargetId)}
         onClose={() => setDeleteTargetId(null)}
-        onConfirm={handleConfirmDelete}
-        title="HAPUS CATATAN LOG ARMADA"
-        description="Apakah Anda yakin ingin menghapus catatan log odometer ini? Data yang dihapus tidak dapat dipulihkan."
-        confirmText="Ya, Hapus Log"
+        onConfirm={handleConfirmDeleteDay}
+        title="HAPUS SELURUH LOG HARI INI"
+        description="Apakah Anda yakin ingin menghapus seluruh catatan log armada pada tanggal ini? Semua linimasa sub-log pada hari tersebut akan terhapus."
+        confirmText="Ya, Hapus Semua Log Hari Ini"
+        isDanger
+      />
+
+      {/* Delete Sub-Item Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(deleteItemTarget)}
+        onClose={() => setDeleteItemTarget(null)}
+        onConfirm={handleConfirmDeleteItem}
+        title="HAPUS SUB-EVENT ODOMETER"
+        description={`Apakah Anda yakin ingin menghapus catatan "${deleteItemTarget?.item.tipe} (${deleteItemTarget?.item.odometer.toLocaleString('id-ID')} km)"? Data ringkasan hari ini akan dihitung ulang secara otomatis.`}
+        confirmText="Ya, Hapus Sub-Log"
         isDanger
       />
     </div>

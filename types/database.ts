@@ -201,6 +201,20 @@ export interface KendaraanBan {
   updated_at: string;
 }
 
+export type OdometerLogType = 'ODO BC OUT' | 'ODO BC IN' | 'ODO SESI MULAI' | 'ODO SESI SELESAI';
+
+export interface KendaraanLogItem {
+  id: string;
+  tipe: OdometerLogType;
+  odometer: number;
+  siswa_id?: string | null;
+  siswa_nama?: string | null;
+  jadwal_sesi_id?: string | null;
+  catatan?: string | null;
+  waktu?: string | null;
+  created_at: string;
+}
+
 export interface KendaraanLogHarian {
   id: string;
   kendaraan_id: string;
@@ -214,6 +228,7 @@ export interface KendaraanLogHarian {
   bbm_jenis?: string | null;
   total_slot_selesai: number | null;
   catatan?: string | null;
+  log_items?: KendaraanLogItem[];
   created_at: string;
   updated_at: string;
   // Joined relation

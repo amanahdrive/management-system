@@ -3,7 +3,7 @@
 import { dbQuery, dbQuerySingle } from '@/lib/db';
 import { cacheInvalidate } from '@/lib/utils/cache';
 import { getTodayDateString, addDaysToDateStr } from '@/lib/utils/date';
-import { KendaraanBan, PosisiBanEnum, HargaBBM, KendaraanLogHarian, KendaraanInspeksi, Kendaraan } from '@/types/database';
+import { KendaraanBan, PosisiBanEnum, HargaBBM, KendaraanLogHarian, KendaraanInspeksi, Kendaraan, KendaraanLogItem, OdometerLogType } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 
 function safeRevalidatePath(path: string) {
@@ -43,6 +43,7 @@ export async function getKendaraanLogList(filter?: {
         l.odometer_basecamp_in,
         l.jarak_tempuh,
         l.total_slot_selesai,
+        COALESCE(l.log_items, '[]'::jsonb) AS log_items,
         l.created_at,
         l.updated_at,
         COALESCE(l.bbm_nominal, kas_bbm.total_nominal) AS bbm_nominal,
@@ -91,7 +92,35 @@ export async function getKendaraanLogList(filter?: {
     query += ` ORDER BY l.tanggal DESC, l.created_at DESC`;
 
     const rows = await dbQuery<KendaraanLogHarian>(query, params);
-    return rows;
+
+    // Normalisasi log_items: jika kosong tapi ada odo out / in historis, buatkan item sintesis
+    return rows.map((row) => {
+      let items: KendaraanLogItem[] = Array.isArray(row.log_items) ? [...row.log_items] : [];
+      if (items.length === 0) {
+        if (row.odometer_basecamp_out !== null && row.odometer_basecamp_out !== undefined) {
+          items.push({
+            id: `legacy-out-${row.id}`,
+            tipe: 'ODO BC OUT',
+            odometer: Number(row.odometer_basecamp_out),
+            catatan: row.catatan || 'Titik Berangkat Basecamp',
+            created_at: `${row.tanggal}T07:00:00Z`,
+          });
+        }
+        if (row.odometer_basecamp_in !== null && row.odometer_basecamp_in !== undefined) {
+          items.push({
+            id: `legacy-in-${row.id}`,
+            tipe: 'ODO BC IN',
+            odometer: Number(row.odometer_basecamp_in),
+            catatan: 'Kembali ke Basecamp',
+            created_at: `${row.tanggal_akhir || row.tanggal}T17:00:00Z`,
+          });
+        }
+      }
+      return {
+        ...row,
+        log_items: items,
+      };
+    });
   } catch (e) {
     console.error('Error fetching kendaraan log list:', e);
     return [];
@@ -552,6 +581,269 @@ export async function deleteKendaraanLog(id: string): Promise<{ success: boolean
     return { success: true };
   } catch (err: any) {
     console.error('Error deleting kendaraan log:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+export interface SaveKendaraanLogItemInput {
+  kendaraan_id: string;
+  tanggal: string;
+  tipe: OdometerLogType;
+  odometer: number;
+  siswa_id?: string | null;
+  siswa_nama?: string | null;
+  jadwal_sesi_id?: string | null;
+  catatan?: string | null;
+  forceOverwrite?: boolean;
+}
+
+export interface SaveKendaraanLogItemResult {
+  success: boolean;
+  duplicateFound?: boolean;
+  existingItem?: KendaraanLogItem;
+  id?: string;
+  error?: string;
+}
+
+/**
+ * Menyimpan / menggabungkan atau menimpa log item odometer harian
+ */
+export async function saveKendaraanLogItem(
+  input: SaveKendaraanLogItemInput
+): Promise<SaveKendaraanLogItemResult> {
+  try {
+    const { kendaraan_id, tanggal, tipe, odometer, siswa_id, siswa_nama, jadwal_sesi_id, catatan, forceOverwrite } = input;
+
+    if (!kendaraan_id) return { success: false, error: 'Armada mobil wajib dipilih' };
+    if (!tanggal) return { success: false, error: 'Tanggal wajib diisi' };
+    if (!tipe) return { success: false, error: 'Tipe log odometer wajib dipilih' };
+    if (odometer === undefined || odometer === null || isNaN(Number(odometer)) || Number(odometer) <= 0) {
+      return { success: false, error: 'Angka odometer wajib diisi dengan angka valid (> 0)' };
+    }
+    const odoNum = Math.round(Number(odometer));
+
+    // 1. Ambil data log harian untuk kendaraan & tanggal ini
+    const existingRow = await dbQuerySingle<KendaraanLogHarian>(
+      `SELECT id, kendaraan_id, tanggal, odometer_basecamp_out, odometer_basecamp_in, jarak_tempuh, total_slot_selesai, COALESCE(log_items, '[]'::jsonb) AS log_items, catatan
+       FROM kendaraan_log_harian
+       WHERE kendaraan_id = $1 AND tanggal = $2`,
+      [kendaraan_id, tanggal]
+    );
+
+    let items: KendaraanLogItem[] = Array.isArray(existingRow?.log_items) ? [...existingRow.log_items] : [];
+
+    // Jika items kosong tapi ada field legacy, synthesize dulu
+    if (items.length === 0 && existingRow) {
+      if (existingRow.odometer_basecamp_out !== null && existingRow.odometer_basecamp_out !== undefined) {
+        items.push({
+          id: `legacy-out-${existingRow.id}`,
+          tipe: 'ODO BC OUT',
+          odometer: Number(existingRow.odometer_basecamp_out),
+          catatan: existingRow.catatan || 'Titik Berangkat Basecamp',
+          created_at: `${existingRow.tanggal}T07:00:00Z`,
+        });
+      }
+      if (existingRow.odometer_basecamp_in !== null && existingRow.odometer_basecamp_in !== undefined) {
+        items.push({
+          id: `legacy-in-${existingRow.id}`,
+          tipe: 'ODO BC IN',
+          odometer: Number(existingRow.odometer_basecamp_in),
+          catatan: 'Kembali ke Basecamp',
+          created_at: `${existingRow.tanggal}T17:00:00Z`,
+        });
+      }
+    }
+
+    // 2. Cek apakah ada duplikat tipe yang sama pada tanggal ini
+    let duplicateItem: KendaraanLogItem | undefined = undefined;
+
+    if (tipe === 'ODO BC OUT') {
+      duplicateItem = items.find((i) => i.tipe === 'ODO BC OUT');
+    } else if (tipe === 'ODO BC IN') {
+      duplicateItem = items.find((i) => i.tipe === 'ODO BC IN');
+    } else if (tipe === 'ODO SESI MULAI') {
+      duplicateItem = items.find(
+        (i) => i.tipe === 'ODO SESI MULAI' && (siswa_id ? i.siswa_id === siswa_id : true)
+      );
+    } else if (tipe === 'ODO SESI SELESAI') {
+      duplicateItem = items.find(
+        (i) => i.tipe === 'ODO SESI SELESAI' && (siswa_id ? i.siswa_id === siswa_id : true)
+      );
+    }
+
+    // Jika ada duplikat dan belum ada konfirmasi forceOverwrite
+    if (duplicateItem && !forceOverwrite) {
+      return {
+        success: false,
+        duplicateFound: true,
+        existingItem: duplicateItem,
+      };
+    }
+
+    // 3. Modifikasi atau tambahkan item
+    const nowIso = new Date().toISOString();
+    if (duplicateItem && forceOverwrite) {
+      // Timpa item yang sudah ada
+      items = items.map((i) => {
+        if (i.id === duplicateItem!.id) {
+          return {
+            ...i,
+            odometer: odoNum,
+            siswa_id: siswa_id !== undefined ? siswa_id : i.siswa_id,
+            siswa_nama: siswa_nama !== undefined ? siswa_nama : i.siswa_nama,
+            jadwal_sesi_id: jadwal_sesi_id !== undefined ? jadwal_sesi_id : i.jadwal_sesi_id,
+            catatan: catatan !== undefined ? catatan : i.catatan,
+            created_at: nowIso,
+          };
+        }
+        return i;
+      });
+    } else {
+      // Tambahkan item baru ke tanggal yang sama
+      const newItem: KendaraanLogItem = {
+        id: crypto.randomUUID ? crypto.randomUUID() : `log-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        tipe,
+        odometer: odoNum,
+        siswa_id: siswa_id || null,
+        siswa_nama: siswa_nama || null,
+        jadwal_sesi_id: jadwal_sesi_id || null,
+        catatan: catatan || null,
+        created_at: nowIso,
+      };
+      items.push(newItem);
+    }
+
+    // Urutkan items berdasarkan odometer
+    items.sort((a, b) => a.odometer - b.odometer);
+
+    // 4. Hitung ulang ringkasan agregat tanggal
+    const bcOutItem = items.find((i) => i.tipe === 'ODO BC OUT');
+    const bcInItem = [...items].reverse().find((i) => i.tipe === 'ODO BC IN');
+
+    const outKm = bcOutItem ? bcOutItem.odometer : (items[0]?.odometer || null);
+    const inKm = bcInItem ? bcInItem.odometer : null;
+
+    let jarakTempuh: number | null = null;
+    if (outKm !== null && inKm !== null && inKm >= outKm) {
+      jarakTempuh = inKm - outKm;
+    } else if (items.length > 1) {
+      const minOdo = Math.min(...items.map((i) => i.odometer));
+      const maxOdo = Math.max(...items.map((i) => i.odometer));
+      if (maxOdo > minOdo) {
+        jarakTempuh = maxOdo - minOdo;
+      }
+    }
+
+    const totalSlotSelesai = items.filter((i) => i.tipe === 'ODO SESI SELESAI').length;
+
+    // 5. Upsert ke database
+    const upsertRes = await dbQuerySingle<{ id: string }>(
+      `INSERT INTO kendaraan_log_harian (
+         kendaraan_id, tanggal, odometer_basecamp_out, odometer_basecamp_in, jarak_tempuh, total_slot_selesai, log_items, catatan, updated_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, NOW())
+       ON CONFLICT (kendaraan_id, tanggal) DO UPDATE
+       SET 
+         odometer_basecamp_out = COALESCE(EXCLUDED.odometer_basecamp_out, kendaraan_log_harian.odometer_basecamp_out),
+         odometer_basecamp_in = EXCLUDED.odometer_basecamp_in,
+         jarak_tempuh = COALESCE(EXCLUDED.jarak_tempuh, kendaraan_log_harian.jarak_tempuh),
+         total_slot_selesai = EXCLUDED.total_slot_selesai,
+         log_items = EXCLUDED.log_items,
+         catatan = COALESCE(EXCLUDED.catatan, kendaraan_log_harian.catatan),
+         updated_at = NOW()
+       RETURNING id`,
+      [
+        kendaraan_id,
+        tanggal,
+        outKm,
+        inKm,
+        jarakTempuh,
+        totalSlotSelesai,
+        JSON.stringify(items),
+        catatan || existingRow?.catatan || null,
+      ]
+    );
+
+    // 6. Sinkronisasi status riil armada (odometer terkini)
+    await syncKendaraanStatus(kendaraan_id);
+
+    safeRevalidatePath(`/kendaraan/${kendaraan_id}`);
+    safeRevalidatePath('/kendaraan');
+    safeRevalidatePath('/armada');
+    safeRevalidatePath('/dashboard');
+
+    return { success: true, id: upsertRes?.id };
+  } catch (err: any) {
+    console.error('Error in saveKendaraanLogItem:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Menghapus satu item dari log_items pada hari tertentu
+ */
+export async function deleteKendaraanLogItem(
+  logId: string,
+  itemId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const existing = await dbQuerySingle<KendaraanLogHarian>(
+      `SELECT id, kendaraan_id, tanggal, COALESCE(log_items, '[]'::jsonb) AS log_items
+       FROM kendaraan_log_harian WHERE id = $1`,
+      [logId]
+    );
+
+    if (!existing) {
+      return { success: false, error: 'Data log tidak ditemukan' };
+    }
+
+    let items: KendaraanLogItem[] = Array.isArray(existing.log_items) ? [...existing.log_items] : [];
+    items = items.filter((i) => i.id !== itemId);
+
+    if (items.length === 0) {
+      // Jika semua sub-item habis, hapus baris tanggal tersebut
+      await deleteKendaraanLog(logId);
+      return { success: true };
+    }
+
+    // Hitung ulang
+    const bcOutItem = items.find((i) => i.tipe === 'ODO BC OUT');
+    const bcInItem = [...items].reverse().find((i) => i.tipe === 'ODO BC IN');
+    const outKm = bcOutItem ? bcOutItem.odometer : (items[0]?.odometer || null);
+    const inKm = bcInItem ? bcInItem.odometer : null;
+
+    let jarakTempuh: number | null = null;
+    if (outKm !== null && inKm !== null && inKm >= outKm) {
+      jarakTempuh = inKm - outKm;
+    } else if (items.length > 1) {
+      const minOdo = Math.min(...items.map((i) => i.odometer));
+      const maxOdo = Math.max(...items.map((i) => i.odometer));
+      if (maxOdo > minOdo) jarakTempuh = maxOdo - minOdo;
+    }
+    const totalSlotSelesai = items.filter((i) => i.tipe === 'ODO SESI SELESAI').length;
+
+    await dbQuery(
+      `UPDATE kendaraan_log_harian 
+       SET 
+         odometer_basecamp_out = $1,
+         odometer_basecamp_in = $2,
+         jarak_tempuh = $3,
+         total_slot_selesai = $4,
+         log_items = $5::jsonb,
+         updated_at = NOW()
+       WHERE id = $6`,
+      [outKm, inKm, jarakTempuh, totalSlotSelesai, JSON.stringify(items), logId]
+    );
+
+    await syncKendaraanStatus(existing.kendaraan_id);
+
+    safeRevalidatePath(`/kendaraan/${existing.kendaraan_id}`);
+    safeRevalidatePath('/kendaraan');
+    safeRevalidatePath('/armada');
+    safeRevalidatePath('/dashboard');
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error in deleteKendaraanLogItem:', err);
     return { success: false, error: err.message };
   }
 }
