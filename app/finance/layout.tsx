@@ -27,12 +27,9 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
-import { PwaHistoryIsolation } from '@/components/shared/PwaHistoryIsolation';
-
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text-primary)] font-sans antialiased transition-colors duration-200">
-      <PwaHistoryIsolation />
       {children}
     </div>
   );

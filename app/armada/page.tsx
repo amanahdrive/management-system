@@ -18,7 +18,6 @@ import { FleetIncidentQuickModal } from '@/components/armada/FleetIncidentQuickM
 import { FleetScheduleDrawer } from '@/components/armada/FleetScheduleDrawer';
 import { FleetOdometerReportModal } from '@/components/armada/FleetOdometerReportModal';
 import { FloatingArmadaNav, ArmadaTab } from '@/components/armada/FloatingArmadaNav';
-import { PwaInstallModal } from '@/components/shared/PwaInstallModal';
 import { sound } from '@/lib/sound/SoundFX';
 import { formatDateIndo } from '@/lib/utils/date';
 import {
@@ -61,10 +60,6 @@ export default function ArmadaPwaPage() {
   const [showScheduleDrawer, setShowScheduleDrawer] = React.useState(false);
   const [selectedKendaraanForAction, setSelectedKendaraanForAction] = React.useState<string | undefined>(undefined);
 
-  // PWA Install Prompt State
-  const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
-  const [showInstallModal, setShowInstallModal] = React.useState(false);
-
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
@@ -96,16 +91,6 @@ export default function ArmadaPwaPage() {
   React.useEffect(() => {
     loadFleetData();
   }, [loadFleetData]);
-
-  // PWA Install Event Listener
-  React.useEffect(() => {
-    const handleBeforeInstall = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-  }, []);
 
   // Quick Action triggers from vehicle cards
   const handleOpenOdo = (k?: Kendaraan) => {
@@ -143,11 +128,6 @@ export default function ArmadaPwaPage() {
           showToast('Data armada berhasil disinkronkan!');
         }}
         isRefreshing={isRefreshing}
-        onInstallPwa={() => {
-          sound.pop();
-          setShowInstallModal(true);
-        }}
-        canInstall={!!deferredPrompt}
       />
 
       {/* Main Content Area (Max-W-MD Mobile Centered) */}
@@ -355,19 +335,6 @@ export default function ArmadaPwaPage() {
         isOpen={showScheduleDrawer}
         onClose={() => setShowScheduleDrawer(false)}
         kendaraanList={kendaraanList}
-      />
-
-      {/* 9. PWA Install Prompt Modal */}
-      <PwaInstallModal
-        appName="PIC Armada Amanah Drive"
-        appDescription="Aplikasi PWA Operasional, Odometer & Servis Armada"
-        isOpen={showInstallModal}
-        onClose={() => setShowInstallModal(false)}
-        deferredPrompt={deferredPrompt}
-        onInstalled={() => {
-          sound.pop();
-          setDeferredPrompt(null);
-        }}
       />
     </div>
   );

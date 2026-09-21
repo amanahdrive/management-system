@@ -2,7 +2,9 @@
   "name": "Amanah Drive Console",
   "short_name": "Amanah Console",
   "description": "Sistem Manajemen & Operasional Kursus Mengemudi Amanah Drive Palembang",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#092e2b",
@@ -11,15 +13,33 @@
   "icons": [
     {
       "src": "/assets/app-icon-1024.png",
-      "sizes": "1024x1024",
+      "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/assets/app-icon-1024-white.png",
+      "src": "/assets/app-icon-1024.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/app-icon-1024.png",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/assets/app-icon-1024.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/assets/app-icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/favicon.ico",

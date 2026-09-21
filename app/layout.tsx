@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/shared/ThemeProvider';
 import { ButtonFeedback } from '@/components/shared/ButtonFeedback';
 import { LivingGridBackground } from '@/components/shared/LivingGridBackground';
+import { UniversalPwaInstallPrompt } from '@/components/shared/UniversalPwaInstallPrompt';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -24,13 +25,14 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://management-amanahdrive.vercel.app'),
+  metadataBase: new URL('https://panel.amanahdrive.my.id'),
+  applicationName: 'Amanah Drive Console',
   title: {
-    default: 'Amanah Drive - Sistem Manajemen & Operasional Kursus Mengemudi',
-    template: '%s | Amanah Drive',
+    default: 'Amanah Drive Console - Sistem Operasional & Manajemen',
+    template: '%s | Amanah Drive Console',
   },
   description:
-    'Sistem manajemen operasional, penjadwalan sesi mengemudi siswa, keuangan kas, dan armada Amanah Drive Palembang.',
+    'Sistem operasional dan manajemen internal kursus mengemudi CV Amanah Drive Palembang.',
   keywords: [
     'Amanah Drive',
     'Kursus Mengemudi Palembang',
@@ -39,9 +41,9 @@ export const metadata: Metadata = {
     'Sistem Operasional Kursus',
     'Les Mobil Palembang',
   ],
-  authors: [{ name: 'Amanah Drive Palembang', url: 'https://management-amanahdrive.vercel.app' }],
-  creator: 'Amanah Drive Palembang',
-  publisher: 'Amanah Drive Palembang',
+  authors: [{ name: 'Amanah Drive Palembang', url: 'https://panel.amanahdrive.my.id' }],
+  creator: 'CV Amanah Drive Palembang',
+  publisher: 'CV Amanah Drive Palembang',
   formatDetection: {
     email: false,
     address: false,
@@ -50,11 +52,16 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/',
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Amanah Console',
+  },
   openGraph: {
-    title: 'Amanah Drive - Sistem Manajemen & Operasional Kursus Mengemudi',
-    description: 'Sistem operasional dan manajemen kursus mengemudi Amanah Drive Palembang.',
-    url: 'https://management-amanahdrive.vercel.app',
-    siteName: 'Amanah Drive Management',
+    title: 'Amanah Drive Console - Sistem Operasional & Manajemen',
+    description: 'Sistem operasional dan manajemen internal kursus mengemudi CV Amanah Drive Palembang.',
+    url: 'https://panel.amanahdrive.my.id',
+    siteName: 'Amanah Drive Console',
     images: [
       {
         url: '/assets/app-icon-1024.png',
@@ -68,8 +75,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Amanah Drive - Sistem Manajemen & Operasional Kursus Mengemudi',
-    description: 'Sistem operasional dan manajemen kursus mengemudi Amanah Drive Palembang.',
+    title: 'Amanah Drive Console - Sistem Operasional & Manajemen',
+    description: 'Sistem operasional dan manajemen internal kursus mengemudi CV Amanah Drive Palembang.',
     images: ['/assets/app-icon-1024.png'],
   },
   robots: {
@@ -107,6 +114,7 @@ export default function RootLayout({
         <ThemeProvider>
           <LivingGridBackground />
           <ButtonFeedback />
+          <UniversalPwaInstallPrompt />
           <div className="relative z-10">
             {children}
           </div>

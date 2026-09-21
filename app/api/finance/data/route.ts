@@ -16,11 +16,19 @@ import {
   calculateLocalKasMetrics,
 } from '@/lib/constants/finance';
 import { getPosPengeluaranList } from '@/lib/actions/pos-pengeluaran';
+import { getCurrentUser } from '@/lib/actions/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Sesi tidak valid atau telah berakhir' },
+        { status: 401 }
+      );
+    }
     const [
       txSettled,
       katSettled,

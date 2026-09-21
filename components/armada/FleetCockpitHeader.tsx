@@ -7,7 +7,6 @@ import {
   Volume2,
   VolumeX,
   RefreshCw,
-  Download,
   Sun,
   Moon,
 } from 'lucide-react';
@@ -17,15 +16,11 @@ interface FleetCockpitHeaderProps {
   isRefreshing: boolean;
   onOpenIncident?: () => void;
   onOpenSchedule?: () => void;
-  onInstallPwa?: () => void;
-  canInstall?: boolean;
 }
 
 export function FleetCockpitHeader({
   onRefresh,
   isRefreshing,
-  onInstallPwa,
-  canInstall = false,
 }: FleetCockpitHeaderProps) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
@@ -137,18 +132,6 @@ export function FleetCockpitHeader({
           >
             {isMuted ? <VolumeX className="w-4 h-4 opacity-50" /> : <Volume2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
           </button>
-
-          {/* Install PWA (jika tersedia) */}
-          {canInstall && onInstallPwa && (
-            <button
-              type="button"
-              onClick={onInstallPwa}
-              className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-all active:scale-95"
-              title="Pasang PWA"
-            >
-              <Download className="w-4 h-4" />
-            </button>
-          )}
         </div>
       </div>
     </header>

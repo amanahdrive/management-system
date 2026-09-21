@@ -1,9 +1,18 @@
 import { NextResponse } from 'next/server';
 import { addKasTransaksi, updateKasTransaksi, deleteKasTransaksi } from '@/lib/actions/kas';
 import { sendPushToRole } from '@/lib/services/push-notification';
+import { getCurrentUser } from '@/lib/actions/auth';
 
 export async function POST(req: Request) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Sesi tidak valid atau telah berakhir' },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const result = await addKasTransaksi(body);
 
@@ -42,6 +51,14 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Sesi tidak valid atau telah berakhir' },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const { id, ...updates } = body;
 
@@ -65,6 +82,14 @@ export async function PUT(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Sesi tidak valid atau telah berakhir' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 

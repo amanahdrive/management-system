@@ -41,7 +41,6 @@ import { getTodayDateString, formatDateIndo } from '@/lib/utils/date';
 import { CurrencyInput } from '@/components/shared/CurrencyInput';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
-import { PwaInstallModal } from '@/components/shared/PwaInstallModal';
 import { LiquidGlassBottomNav } from '@/components/navigation/LiquidGlassBottomNav';
 import { useAppRefresh, triggerAppRefresh } from '@/lib/utils/refresh-event';
 import { purgeServerCache } from '@/lib/actions/cache';
@@ -154,11 +153,6 @@ export default function FinancePortalPage() {
   // Filter & Search State in Tab Kas
   const [txFilterType, setTxFilterType] = React.useState<'all' | 'pemasukan' | 'pengeluaran'>('all');
   const [txSearchQuery, setTxSearchQuery] = React.useState('');
-
-  // PWA Install State
-  const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
-  const [showInstallModal, setShowInstallModal] = React.useState(false);
-  const [showPwaBanner, setShowPwaBanner] = React.useState(false);
 
   // Add Transaction Modal / Bottom Sheet
   const [showAddForm, setShowAddForm] = React.useState(false);
@@ -309,30 +303,6 @@ export default function FinancePortalPage() {
     if (!pinVerified) return;
     loadData();
   }, [pinVerified]);
-
-  // PWA beforeinstallprompt Listener
-  React.useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      if (!sessionStorage.getItem('fin_pwa_dismissed')) {
-        setShowPwaBanner(true);
-      }
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
-
-    if (!isStandalone && !sessionStorage.getItem('fin_pwa_dismissed')) {
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      if (isMobile) {
-        setShowPwaBanner(true);
-      }
-    }
-
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
 
   // Load Data with Single-Endpoint API, Local Calculation & Resilient Fallback
   const loadData = async () => {
@@ -3853,15 +3823,6 @@ export default function FinancePortalPage() {
         isDanger
       />
 
-      {/* PWA Install Modal */}
-      {showInstallModal && deferredPrompt && (
-        <PwaInstallModal
-          appName="Amanah Drive Finance"
-          isOpen={showInstallModal}
-          onClose={() => setShowInstallModal(false)}
-          deferredPrompt={deferredPrompt}
-        />
-      )}
     </div>
   );
 }

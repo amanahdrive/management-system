@@ -27,12 +27,9 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
-import { PwaHistoryIsolation } from '@/components/shared/PwaHistoryIsolation';
-
 export default function InstrukturLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[var(--bg-subtle)] text-[var(--text-primary)] font-sans antialiased">
-      <PwaHistoryIsolation />
       {children}
     </div>
   );

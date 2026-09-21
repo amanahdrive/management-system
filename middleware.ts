@@ -18,14 +18,32 @@ const PUBLIC_FILE_EXTENSIONS = [
   '.xml',
 ];
 
+/**
+ * Validasi dasar token sesi: struktur 2 bagian (data.signature) & batas kedaluwarsa
+ */
+function isSessionValid(token: string | undefined): boolean {
+  if (!token) return false;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 2) return false;
+    const jsonStr = atob(parts[0].replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(jsonStr);
+    if (!payload.exp || Date.now() > payload.exp) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = request.headers.get('host') || '';
 
-  // Skip static assets, next internals, and API routes
+  // Skip static assets and next internals
   if (
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/api') ||
     pathname.startsWith('/assets') ||
     PUBLIC_FILE_EXTENSIONS.some((ext) => pathname.endsWith(ext)) ||
     pathname === '/robots.txt' ||
@@ -35,23 +53,47 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for active session cookie
-  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  const isAuthenticated = Boolean(sessionToken);
+  // 1. Nonaktifkan akses domain Vercel (*.vercel.app): Tampilkan halaman info pemindahan resmi
+  if (hostname.includes('vercel.app')) {
+    if (pathname === '/moved') {
+      return NextResponse.next();
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = '/moved';
+    return NextResponse.rewrite(url);
+  }
 
-  // If user visits root / (login page) and is already authenticated, redirect to /dashboard
+  // Izinkan rute /moved diakses bebas
+  if (pathname === '/moved') {
+    return NextResponse.next();
+  }
+
+  // Izinkan webhook & cron publik (memiliki proteksi signature/secret mandiri)
+  if (
+    pathname.startsWith('/api/webhook') ||
+    pathname.startsWith('/api/cron') ||
+    pathname.startsWith('/api/verify-pin')
+  ) {
+    return NextResponse.next();
+  }
+
+  // 2. Pemeriksaan cookie sesi aktif
+  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const isAuthenticated = isSessionValid(sessionToken);
+
+  // Jika membuka root / (login) dan sesi masih aktif, arahkan langsung ke /dashboard
   if (pathname === '/' && isAuthenticated) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
     return NextResponse.redirect(url);
   }
 
-  // If user visits root / and is NOT authenticated, allow them to view login page
+  // Jika membuka root / dan belum login, izinkan tampil halaman login
   if (pathname === '/') {
     return NextResponse.next();
   }
 
-  // Subdomain compatibility rewrites if someone still visits via subdomain
+  // Subdomain compatibility rewrites jika ada yang mengakses via subdomain
   if (
     hostname.startsWith('instruktur.') ||
     hostname.startsWith('instruktur-')
@@ -63,12 +105,22 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // Protect all dashboard and application routes
-  // Unauthenticated users attempting to access /dashboard, /siswa, /kas, /settings, etc. get redirected to /
+  // 3. Proteksi seluruh rute console & API internal
+  // Pengunjung yang belum terotentikasi akan dialihkan ke /
   if (!isAuthenticated) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Sesi tidak valid atau telah berakhir' },
+        { status: 401 }
+      );
+    }
     const url = request.nextUrl.clone();
     url.pathname = '/';
-    return NextResponse.redirect(url);
+    const response = NextResponse.redirect(url);
+    if (sessionToken && !isAuthenticated) {
+      response.cookies.delete(SESSION_COOKIE_NAME);
+    }
+    return response;
   }
 
   return NextResponse.next();
@@ -77,12 +129,8 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * Match all request paths except static files
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
