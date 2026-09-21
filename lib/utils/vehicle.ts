@@ -127,24 +127,28 @@ export function isMobilSendiriPaket(
   } | null
 ): boolean {
   if (!paket) return false;
-  const nama = (paket.nama_paket || '').toLowerCase();
-  if (
-    nama.includes('mobil sendiri') ||
-    nama.includes('sendiri') ||
-    nama.includes('pelancaran') ||
-    nama.includes('refresh')
-  ) {
-    return true;
-  }
+
   const jm = paket.jenis_mobil || [];
+
+  // Jika paket memiliki opsi mobil operasional (manual atau matic), maka BUKAN mobil sendiri
+  if (jm.includes('manual') || jm.includes('matic')) {
+    return false;
+  }
+
+  // Jika semua opsi di jenis_mobil berawalan mobil_sendiri
   if (
     jm.length > 0 &&
-    jm.every((k) => k.startsWith('mobil_sendiri')) &&
-    !jm.includes('manual') &&
-    !jm.includes('matic')
+    jm.every((k) => k.startsWith('mobil_sendiri'))
   ) {
     return true;
   }
+
+  // Fallback nama: hanya jika nama paket secara eksplisit mengandung kata "mobil sendiri"
+  const nama = (paket.nama_paket || '').toLowerCase();
+  if (nama.includes('mobil sendiri')) {
+    return true;
+  }
+
   return false;
 }
 
@@ -161,6 +165,7 @@ export function getTipeKendaraanLabel(
         nama_paket?: string | null;
         jenis_mobil?: string[] | null;
       } | null;
+      custom_jenis_mobil?: string | null;
     } | null;
     paket?: {
       nama_paket?: string | null;
@@ -175,7 +180,19 @@ export function getTipeKendaraanLabel(
     return 'Mobil Sendiri';
   }
 
-  // 2. Jika paket siswa merupakan kategori Mobil Sendiri
+  // 2. Jika sesi secara eksplisit berstatus 'operasional'
+  if (source.tipe_kendaraan === 'operasional' && source.jenis_mobil !== 'mobil_sendiri') {
+    return 'Mobil Operasional';
+  }
+
+  // 3. Jika siswa memiliki custom_jenis_mobil
+  if (source.siswa?.custom_jenis_mobil) {
+    return source.siswa.custom_jenis_mobil.startsWith('mobil_sendiri')
+      ? 'Mobil Sendiri'
+      : 'Mobil Operasional';
+  }
+
+  // 4. Jika paket siswa merupakan kategori Mobil Sendiri
   if (isMobilSendiriPaket(source.siswa?.paket) || isMobilSendiriPaket(source.paket)) {
     return 'Mobil Sendiri';
   }

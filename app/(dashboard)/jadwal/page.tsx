@@ -729,7 +729,7 @@ export default function JadwalPage() {
       firstIns?.id
     );
 
-    const isSendiri = isMobilSendiriPaket(firstAvail?.paket);
+    const isSendiri = isMobilSendiriPaket(firstAvail?.paket) || (firstAvail?.custom_jenis_mobil || '').startsWith('mobil_sendiri');
 
     setFormData({
       tanggal_sesi: startDate,
@@ -738,7 +738,7 @@ export default function JadwalPage() {
       slot_waktu_id: firstSlot?.id || '',
       tipe_kendaraan: isSendiri ? 'pribadi' : 'operasional',
       kendaraan_id: null as any,
-      jenis_mobil: isSendiri ? 'mobil_sendiri' : 'manual',
+      jenis_mobil: isSendiri ? 'mobil_sendiri' : (firstAvail?.custom_jenis_mobil === 'matic' ? 'matic' : 'manual'),
       total_sesi_paket: totalSesi,
       status_sesi: 'terjadwal',
     });
