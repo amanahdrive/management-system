@@ -19,7 +19,7 @@ import {
   X,
   MessageCircle,
 } from 'lucide-react';
-import { loginAction, getCurrentUser } from '@/lib/actions/auth';
+import { loginAction } from '@/lib/actions/auth';
 import { UserRole } from '@/types/database';
 import { sound } from '@/lib/sound/SoundFX';
 import { ASSETS } from '@/lib/assets';
@@ -55,9 +55,8 @@ export default function LoginPage() {
   // Help modal state
   const [showHelpModal, setShowHelpModal] = React.useState(false);
 
-  // Load remembered username and check active session
+  // Load remembered username
   React.useEffect(() => {
-    // 1. Check remembered username
     try {
       const savedUser = localStorage.getItem(REMEMBER_KEY);
       if (savedUser) {
@@ -65,18 +64,7 @@ export default function LoginPage() {
         setRememberMe(true);
       }
     } catch {}
-
-    // 2. Check if already logged in
-    async function checkSession() {
-      try {
-        const user = await getCurrentUser();
-        if (user) {
-          router.replace('/dashboard');
-        }
-      } catch {}
-    }
-    checkSession();
-  }, [router]);
+  }, []);
 
   // Handle Login Submit
   const handleLogin = async (e: React.FormEvent) => {
@@ -178,16 +166,11 @@ export default function LoginPage() {
               <div className="flex items-center gap-3">
                 <div className="relative w-10 h-10 rounded-2xl overflow-hidden bg-emerald-500/10 border border-emerald-500/20 shadow-xs flex items-center justify-center">
                   <Image
-                    src="/assets/app-icon-1024.png"
+                    src={ASSETS.logo.symbol}
                     alt="Amanah Drive Logo"
                     width={40}
                     height={40}
-                    priority
                     unoptimized
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = ASSETS.logo.symbol;
-                    }}
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -206,24 +189,20 @@ export default function LoginPage() {
             <div className="lg:hidden mb-6 relative rounded-2xl overflow-hidden border border-emerald-500/20 shadow-md">
               <div className="relative h-28 w-full bg-[#0c2421]">
                 <Image
-                  src="/assets/amdri-banner.webp"
+                  src={ASSETS.logo.banner}
                   alt="Amanah Drive Fleet"
                   fill
+                  unoptimized
                   className="object-cover object-center opacity-70"
-                  priority
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0c2421] via-black/40 to-transparent flex items-end p-3">
                   <div className="relative w-28 h-7">
                     <Image
-                      src="/assets/logo-amdri-landscape-white.webp"
+                      src={ASSETS.logo.landscapeWhite}
                       alt="Amanah Drive"
                       fill
+                      unoptimized
                       className="object-contain"
-                      priority
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = ASSETS.logo.landscape;
-                      }}
                     />
                   </div>
                 </div>
@@ -375,13 +354,13 @@ export default function LoginPage() {
         {/* RIGHT COLUMN: PROFESSIONAL FUTURISTIC MINIMALIST SHOWCASE (DESKTOP)     */}
         {/* ========================================================================= */}
         <div className="hidden lg:flex lg:col-span-6 xl:col-span-6 relative overflow-hidden flex-col justify-between p-10 xl:p-14 text-white min-h-[580px] bg-[#0c2421]">
-          {/* High-Resolution Background Banner */}
+          {/* High-Resolution Background Banner via Supabase CDN */}
           <div className="absolute inset-0 z-0">
             <Image
-              src="/assets/amdri-banner.webp"
+              src={ASSETS.logo.banner}
               alt="Amanah Drive Modern Fleet & Circuit"
               fill
-              priority
+              unoptimized
               className="object-cover object-center transform scale-105 transition-transform duration-1000 ease-out"
             />
             {/* Cinematic Minimalist Dark Gradients */}
@@ -393,11 +372,11 @@ export default function LoginPage() {
           <div className="relative z-10 flex items-center justify-between">
             <div className="relative w-44 h-11 drop-shadow-md">
               <Image
-                src="/assets/logo-amdri-landscape-white.webp"
+                src={ASSETS.logo.landscapeWhite}
                 alt="CV Amanah Drive"
                 fill
+                unoptimized
                 className="object-contain object-left"
-                priority
               />
             </div>
           </div>
