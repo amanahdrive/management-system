@@ -96,7 +96,7 @@ export function IssuedCertificateHistoryTable({
       header: 'Status',
       sortingFn: 'text',
       cell: ({ row }) => (
-        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 inline-flex items-center gap-1">
+        <span className="px-2.5 py-0.5 rounded-md text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 inline-flex items-center gap-1 border border-emerald-300 dark:border-emerald-800">
           <ShieldCheck className="w-3 h-3 text-emerald-600" />
           <span className="capitalize">{row.original.status || 'Valid'}</span>
         </span>

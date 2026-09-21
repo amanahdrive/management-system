@@ -22,6 +22,7 @@ import {
   formatSlotLabel,
 } from '@/lib/utils/slot';
 import { getTipeKendaraanLabel } from '@/lib/utils/vehicle';
+import { Badge } from '@/components/shared/Badge';
 import {
   CheckCircle2,
   XCircle,
@@ -642,7 +643,7 @@ export default function JadwalDetailPage() {
               </label>
 
               {selectedSessionIds.length > 0 && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-bold">
+                <span className="text-xs px-2 py-0.5 rounded-md bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-bold border border-[var(--brand-primary)]/20">
                   {selectedSessionIds.length} sesi dicentang
                 </span>
               )}
@@ -753,10 +754,9 @@ export default function JadwalDetailPage() {
                         Sesi {sesi.nomor_sesi_ke}
                       </span>
                       {isModified && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                        <Badge variant="dot" color="amber" size="xs" dotPing>
                           Ada Perubahan (Draft)
-                        </span>
+                        </Badge>
                       )}
                       <span className="text-[var(--text-secondary)] font-medium">
                         • {formatDateIndo(workingData.tanggal_sesi)} • {formatSlotLabel(activeSlot, activeSlotAkhir)}
@@ -853,17 +853,19 @@ export default function JadwalDetailPage() {
                       </div>
                       <div>
                         <span className="text-[var(--text-secondary)] font-medium">Status Sesi:</span>{' '}
-                        <span
-                          className={`inline-block px-1.5 py-0.5 text-[10px] font-bold rounded text-white ${
+                        <Badge
+                          variant="dot"
+                          size="xs"
+                          color={
                             workingData.status_sesi === 'selesai'
-                              ? 'bg-emerald-600'
+                              ? 'emerald'
                               : workingData.status_sesi === 'batal'
-                              ? 'bg-rose-600'
-                              : 'bg-amber-600'
-                          }`}
+                              ? 'rose'
+                              : 'amber'
+                          }
                         >
                           {workingData.status_sesi.toUpperCase()}
-                        </span>
+                        </Badge>
                       </div>
                       <div>
                         <span className="text-[var(--text-secondary)] font-medium">Catatan:</span>{' '}

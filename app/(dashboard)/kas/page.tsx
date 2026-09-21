@@ -848,7 +848,7 @@ export default function KasOverviewPage() {
                 type="button"
                 onClick={handleManualSync}
                 disabled={loading}
-                className="px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
+                className="px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
                 title="Muat ulang data dari database"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
@@ -857,7 +857,7 @@ export default function KasOverviewPage() {
               <button
                 type="button"
                 onClick={handleOpenSetorTunai}
-                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm hover:-translate-y-0.5"
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm hover:-translate-y-0.5"
                 title="Pindahkan saldo tunai ke rekening bank"
               >
                 <Landmark className="w-3.5 h-3.5" />
@@ -1684,7 +1684,7 @@ export default function KasOverviewPage() {
                           <span>{formatDateIndo(tx.tanggal)}</span>
                           <span>•</span>
                           <span
-                            className={`px-1.5 py-0.2 rounded-full font-semibold text-[9.5px] inline-flex items-center gap-1 ${
+                            className={`px-1.5 py-0.5 rounded-md font-semibold text-[9.5px] inline-flex items-center gap-1 ${
                               isTunai
                                 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
                                 : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
@@ -1693,7 +1693,7 @@ export default function KasOverviewPage() {
                             {isTunai ? 'Tunai' : 'Non-Tunai'}
                           </span>
                           {!isTunai && (bankInfo || tx.rekening_id) && (
-                            <span className="px-1.5 py-0.2 rounded-full font-semibold text-[9.5px] inline-flex items-center gap-1 bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 font-mono">
+                            <span className="px-1.5 py-0.5 rounded-md font-semibold text-[9.5px] inline-flex items-center gap-1 bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 font-mono">
                               <Landmark className="w-2.5 h-2.5" />
                               <span>{bankInfo || 'Rekening Bank'}</span>
                             </span>
@@ -1701,7 +1701,7 @@ export default function KasOverviewPage() {
                           {tx.kendaraan_id && (
                             <>
                               <span>•</span>
-                              <span className="px-1.5 py-0.2 rounded-full font-semibold text-[9.5px] inline-flex items-center gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-mono">
+                              <span className="px-1.5 py-0.5 rounded-md font-semibold text-[9.5px] inline-flex items-center gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-mono">
                                 <Car className="w-2.5 h-2.5 text-amber-600" />
                                 <span>{kendaraanList.find((k) => k.id === tx.kendaraan_id)?.nama_kendaraan || 'Armada'} ({kendaraanList.find((k) => k.id === tx.kendaraan_id)?.plat_nomor || ''})</span>
                               </span>
@@ -1712,7 +1712,7 @@ export default function KasOverviewPage() {
                           {tx.sumber_otomatis && (
                             <>
                               <span>•</span>
-                              <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold">
+                              <span className="px-1.5 py-0.5 rounded-md text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold">
                                 Otomatis
                               </span>
                             </>
@@ -1733,7 +1733,7 @@ export default function KasOverviewPage() {
                             return (
                               <>
                                 <span>•</span>
-                                <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-semibold inline-flex items-center gap-1">
+                                <span className="px-1.5 py-0.5 rounded-md text-[9px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-semibold inline-flex items-center gap-1">
                                   <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
                                   <span>{warningText}</span>
                                 </span>

@@ -121,7 +121,7 @@ export default function HomepageTrackingPage() {
             <span className="text-2xl font-bold text-[var(--text-primary)]">
               {summary.status_siswa}
             </span>
-            <span className="text-xs font-semibold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+            <span className="text-xs font-semibold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
               {conversionRate}% Rate
             </span>
           </div>

@@ -100,7 +100,7 @@ export function ExportButton<T = any>({
         type="button"
         onClick={handleExportXlsx}
         disabled={isDataEmpty || loadingXlsx}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 transition-all shadow-2xs hover:-translate-y-0.5 disabled:opacity-45 disabled:pointer-events-none"
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 transition-all shadow-2xs hover:-translate-y-0.5 disabled:opacity-45 disabled:pointer-events-none"
         title="Export file Excel (.xlsx) dengan fitur filter otomatis pada tiap header"
       >
         {loadingXlsx ? (
@@ -116,7 +116,7 @@ export function ExportButton<T = any>({
         type="button"
         onClick={handleExportPdf}
         disabled={isDataEmpty || loadingPdf}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border border-[var(--brand-primary)]/30 bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary)]/20 text-[var(--brand-primary)] transition-all shadow-2xs hover:-translate-y-0.5 disabled:opacity-45 disabled:pointer-events-none"
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--brand-primary)]/30 bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary)]/20 text-[var(--brand-primary)] transition-all shadow-2xs hover:-translate-y-0.5 disabled:opacity-45 disabled:pointer-events-none"
         title="Cetak atau unduh dokumen PDF resmi berstandar arsip bisnis (bebas elemen UI web)"
       >
         {loadingPdf ? (

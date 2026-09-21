@@ -31,6 +31,7 @@ import {
 import Link from 'next/link';
 
 import { useAppRefresh } from '@/lib/utils/refresh-event';
+import { Badge } from '@/components/shared/Badge';
 
 export default function SiswaDetailPage() {
   const params = useParams();
@@ -196,15 +197,13 @@ export default function SiswaDetailPage() {
                 <div className="flex items-center justify-between text-xs">
                   <div>
                     {siswa.status_sim === 'selesai' ? (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-[11px] inline-flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        <span>Selesai (Terbit: {siswa.tanggal_selesai_sim ? formatDateIndo(siswa.tanggal_selesai_sim) : '-'})</span>
-                      </span>
+                      <Badge variant="dot" color="emerald" size="sm">
+                        Selesai (Terbit: {siswa.tanggal_selesai_sim ? formatDateIndo(siswa.tanggal_selesai_sim) : '-'})
+                      </Badge>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold text-[11px] inline-flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-amber-600" />
-                        <span>Proses (Belum Selesai)</span>
-                      </span>
+                      <Badge variant="dot" color="amber" size="sm">
+                        Proses (Belum Selesai)
+                      </Badge>
                     )}
                   </div>
                 </div>
@@ -423,20 +422,13 @@ export default function SiswaDetailPage() {
                         </div>
                       </td>
                       <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold shadow-2xs ${
-                            isSelesai
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                              : isBatal
-                              ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                          }`}
+                        <Badge
+                          variant="dot"
+                          size="xs"
+                          color={isSelesai ? 'emerald' : isBatal ? 'rose' : 'amber'}
                         >
-                          {isSelesai && <CheckCircle2 className="w-3 h-3" />}
-                          {isBatal && <XCircle className="w-3 h-3" />}
-                          {isTerjadwal && <Clock className="w-3 h-3" />}
-                          <span>{isSelesai ? 'Selesai' : isBatal ? 'Batal' : 'Terjadwal'}</span>
-                        </span>
+                          {isSelesai ? 'Selesai' : isBatal ? 'Batal' : 'Terjadwal'}
+                        </Badge>
                       </td>
                       <td className="py-2.5 px-3 text-[var(--text-secondary)] italic max-w-[200px] truncate">
                         {sesi.catatan_sesi || '-'}

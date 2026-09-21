@@ -47,6 +47,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAppRefresh } from '@/lib/utils/refresh-event';
+import { Badge } from '@/components/shared/Badge';
 
 interface KendaraanLogManagerProps {
   kendaraanList: Kendaraan[];
@@ -1269,19 +1270,17 @@ export function KendaraanLogManager({
                       {/* Status */}
                       <td className="p-3 whitespace-nowrap">
                         {isCompleted ? (
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-bold inline-flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          <Badge variant="dot" size="xs" color="emerald">
                             Selesai
-                          </span>
+                          </Badge>
                         ) : isPendingIn ? (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 text-[10px] font-bold inline-flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                          <Badge variant="dot" size="xs" color="amber" dotPing>
                             Sedang Berjalan
-                          </span>
+                          </Badge>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-[10px] font-semibold">
+                          <Badge variant="subtle" size="xs" color="zinc">
                             Tercatat
-                          </span>
+                          </Badge>
                         )}
                       </td>
 

@@ -214,7 +214,7 @@ export default function MasterStaffPage() {
       header: 'ID Staff',
       sortingFn: 'text',
       cell: ({ row }) => (
-        <span className="font-mono text-xs font-bold text-[var(--brand-primary)] bg-[var(--brand-primary-light)] px-2.5 py-0.5 rounded-full">
+        <span className="font-mono text-xs font-bold text-[var(--brand-primary)] bg-[var(--brand-primary-light)] px-2 py-0.5 rounded-md border border-[var(--brand-primary)]/20">
           {row.original.kode_staff || '-'}
         </span>
       ),

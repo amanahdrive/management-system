@@ -750,7 +750,7 @@ export default function PiutangPage() {
                 <Calendar className="w-4 h-4 text-[var(--brand-primary)]" />
                 <span>Filter Periode:</span>
               </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-[var(--bg-subtle)] border border-[var(--border)] text-[11px] font-mono font-bold text-[var(--brand-primary)]">
+              <span className="px-2.5 py-0.5 rounded-md bg-[var(--bg-subtle)] border border-[var(--border)] text-[11px] font-mono font-bold text-[var(--brand-primary)]">
                 {periodBounds.label}
               </span>
             </div>

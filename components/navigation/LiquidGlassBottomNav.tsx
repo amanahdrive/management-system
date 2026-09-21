@@ -171,7 +171,7 @@ function renderNavItem(item: LiquidNavItem, isActive: boolean) {
         <span className="w-1 h-1 rounded-full bg-[var(--brand-primary)] absolute -bottom-0.5" />
       )}
       {item.badge !== undefined && (
-        <span className="absolute -top-1 -right-1 px-1.5 py-0.2 text-[8px] font-bold bg-emerald-600 text-white rounded-full shadow-xs">
+        <span className="absolute -top-1 -right-1 px-1.5 py-0.2 text-[8px] font-bold bg-emerald-600 text-white rounded-md shadow-xs">
           {item.badge}
         </span>
       )}

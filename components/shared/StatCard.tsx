@@ -63,7 +63,7 @@ export function StatCard({
           <div className="flex items-center flex-wrap gap-2 mt-2 text-xs">
             {trend && (
               <span
-                className={`font-mono text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                className={`font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-md border ${
                   trendType === 'positive'
                     ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40'
                     : trendType === 'negative'

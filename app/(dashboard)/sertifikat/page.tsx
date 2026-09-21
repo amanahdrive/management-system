@@ -35,6 +35,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
+import { Badge } from '@/components/shared/Badge';
 
 type FilterTab = 'all' | 'siap_cetak' | 'selesai_cetak' | 'belum_cetak';
 
@@ -263,7 +264,7 @@ export default function SertifikatPage() {
               type="button"
               onClick={handleManualSync}
               disabled={loading}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full text-xs font-semibold transition-all shadow-xs active:scale-95 hover:-translate-y-0.5 text-[var(--text-primary)]"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[var(--bg)] hover:bg-[var(--bg-subtle)] border border-[var(--border)] rounded-lg text-xs font-semibold transition-all shadow-xs active:scale-95 hover:-translate-y-0.5 text-[var(--text-primary)]"
               title="Sinkronkan data sertifikat dengan database terbaru"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
@@ -317,7 +318,7 @@ export default function SertifikatPage() {
             <button
               type="button"
               onClick={() => setActiveTab('all')}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
                 activeTab === 'all'
                   ? 'bg-[var(--brand-primary)] text-white shadow-xs'
                   : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:bg-[var(--bg)] hover:text-[var(--text-primary)] border border-[var(--border)]'
@@ -329,7 +330,7 @@ export default function SertifikatPage() {
             <button
               type="button"
               onClick={() => setActiveTab('siap_cetak')}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
                 activeTab === 'siap_cetak'
                   ? 'bg-amber-600 text-white shadow-xs'
                   : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20'
@@ -342,7 +343,7 @@ export default function SertifikatPage() {
             <button
               type="button"
               onClick={() => setActiveTab('selesai_cetak')}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
                 activeTab === 'selesai_cetak'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20'
@@ -355,7 +356,7 @@ export default function SertifikatPage() {
             <button
               type="button"
               onClick={() => setActiveTab('belum_cetak')}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
                 activeTab === 'belum_cetak'
                   ? 'bg-slate-700 text-white shadow-xs'
                   : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:bg-[var(--bg)] border border-[var(--border)]'
@@ -373,7 +374,7 @@ export default function SertifikatPage() {
               placeholder="Cari siswa, kode, instruktur, nomor..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 py-1.5 text-xs bg-[var(--bg)] border border-[var(--border)] rounded-full focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
+              className="w-full pl-9 pr-8 py-1.5 text-xs bg-[var(--bg)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
             />
             {searchQuery && (
               <button
@@ -445,20 +446,20 @@ export default function SertifikatPage() {
                       {/* 1. Status Cetak */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         {isSelesai ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <Badge variant="subtle" color="emerald" size="xs">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
                             <span>Selesai Cetak</span>
-                          </span>
+                          </Badge>
                         ) : isSiap ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                            <Printer className="w-3.5 h-3.5 text-amber-600" />
+                          <Badge variant="subtle" color="amber" size="xs">
+                            <Printer className="w-3.5 h-3.5" />
                             <span>Siap Cetak</span>
-                          </span>
+                          </Badge>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
+                          <Badge variant="subtle" color="zinc" size="xs">
                             <Clock className="w-3 h-3" />
                             <span>Belum Siap</span>
-                          </span>
+                          </Badge>
                         )}
                       </td>
 

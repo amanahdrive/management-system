@@ -297,7 +297,7 @@ export function EstimasiGajiModal({
                     Periode: {monthLabel}
                   </span>
                 </div>
-                <span className="font-mono text-[10px] px-2.5 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 uppercase font-semibold">
+                <span className="font-mono text-[10px] px-2 py-0.5 rounded-md border border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 uppercase font-semibold">
                   {staff.kode_staff || 'AM-00'}
                 </span>
               </div>

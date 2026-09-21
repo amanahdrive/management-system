@@ -1050,12 +1050,12 @@ export default function NotaPage() {
                             </td>
                             <td className="py-3 px-4">
                               {isLunas ? (
-                                <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 inline-block">
+                                <span className="px-2.5 py-0.5 rounded-md text-[10.5px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 inline-block">
                                   Lunas (100%)
                                 </span>
                               ) : (
                                 <div className="space-y-0.5">
-                                  <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 inline-block">
+                                  <span className="px-2.5 py-0.5 rounded-md text-[10.5px] font-extrabold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 inline-block">
                                     DP {pct}% ({formatRupiah(dpNominal)})
                                   </span>
                                   {s.dp_tanggal && (
@@ -1760,7 +1760,7 @@ export default function NotaPage() {
               <div className="card-container p-4 flex flex-wrap items-center justify-between gap-3 sticky top-4 z-30 bg-[var(--bg-elevated)] shadow-md">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-bold text-[var(--text-primary)]">{docInfo.title}</span>
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[var(--brand-primary-light)] text-[var(--brand-primary)] border border-[var(--brand-primary)]">
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-[var(--brand-primary-light)] text-[var(--brand-primary)] border border-[var(--brand-primary)]">
                     {docInfo.paperSize}
                   </span>
 

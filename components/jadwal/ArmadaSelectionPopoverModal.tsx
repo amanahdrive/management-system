@@ -111,7 +111,7 @@ export function ArmadaSelectionPopoverModal({
               </div>
             </div>
             {sessionInfo.nomorSesi && (
-              <span className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+              <span className="shrink-0 px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                 Sesi {sessionInfo.nomorSesi} {sessionInfo.totalSesi ? `/ ${sessionInfo.totalSesi}` : ''}
               </span>
             )}

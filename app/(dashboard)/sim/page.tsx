@@ -54,6 +54,7 @@ import {
   ChevronDown,
   SlidersHorizontal,
 } from 'lucide-react';
+import { Badge } from '@/components/shared/Badge';
 
 
 
@@ -929,7 +930,7 @@ export default function ManajemenSimPage() {
             >
               <Clock className="w-3.5 h-3.5" />
               <span>SIM Aktif / Belum Selesai</span>
-              <span className="px-1.5 py-0.2 bg-black/20 rounded-full text-[10px]">
+              <span className="px-1.5 py-0.5 bg-black/20 rounded-md text-[10px] font-mono">
                 {metrics.totalBelumSelesai}
               </span>
             </button>
@@ -945,7 +946,7 @@ export default function ManajemenSimPage() {
             >
               <Archive className="w-3.5 h-3.5" />
               <span>Daftar Arsip Selesai</span>
-              <span className="px-1.5 py-0.2 bg-black/20 rounded-full text-[10px]">
+              <span className="px-1.5 py-0.5 bg-black/20 rounded-md text-[10px] font-mono">
                 {metrics.totalSelesai}
               </span>
             </button>
@@ -961,7 +962,7 @@ export default function ManajemenSimPage() {
             >
               <Layers className="w-3.5 h-3.5" />
               <span>Semua Siswa SIM</span>
-              <span className="px-1.5 py-0.2 bg-black/20 rounded-full text-[10px]">
+              <span className="px-1.5 py-0.5 bg-black/20 rounded-md text-[10px] font-mono">
                 {metrics.totalSim}
               </span>
             </button>
@@ -1233,20 +1234,17 @@ export default function ManajemenSimPage() {
                       {/* Status Pembayaran */}
                       <td className="p-3 whitespace-nowrap">
                         {isLunas ? (
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-[10px] inline-flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          <Badge variant="dot" size="xs" color="emerald">
                             LUNAS
-                          </span>
+                          </Badge>
                         ) : s.status_pembayaran_kode === 'dp' ? (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-bold text-[10px] inline-flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                          <Badge variant="dot" size="xs" color="amber">
                             DP ({formatRupiah(s.dp_nominal || 0)})
-                          </span>
+                          </Badge>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-bold text-[10px] inline-flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                          <Badge variant="dot" size="xs" color="rose">
                             BELUM BAYAR
-                          </span>
+                          </Badge>
                         )}
                       </td>
 
@@ -2039,9 +2037,19 @@ export default function ManajemenSimPage() {
                               </span>
                             </td>
                             <td className="p-2.5">
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-[10px]">
-                                {s.status_pembayaran_kode?.toUpperCase()}
-                              </span>
+                              <Badge
+                                variant="subtle"
+                                size="xs"
+                                color={
+                                  s.status_pembayaran_kode === 'lunas'
+                                    ? 'emerald'
+                                    : s.status_pembayaran_kode === 'dp'
+                                    ? 'amber'
+                                    : 'rose'
+                                }
+                              >
+                                {s.status_pembayaran_kode?.toUpperCase() || '-'}
+                              </Badge>
                             </td>
                             <td className="p-2.5 text-[var(--text-secondary)]">
                               {formatDateIndo(s.tanggal_booking)}

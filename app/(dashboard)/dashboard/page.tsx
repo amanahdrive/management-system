@@ -130,7 +130,7 @@ export default function DashboardPage() {
           <h1 className="text-lg sm:text-xl font-bold text-[var(--text-primary)] tracking-tight">
             Dashboard Operasional
           </h1>
-          <span className="px-2.5 py-0.5 bg-[var(--bg-subtle)] text-[var(--text-secondary)] font-mono text-[10px] rounded-full border border-[var(--border)]">
+          <span className="px-2.5 py-0.5 bg-[var(--bg-subtle)] text-[var(--text-secondary)] font-mono text-[10px] rounded-md border border-[var(--border)]">
             {formatHariTanggalIndo(todayStr)}
           </span>
         </div>

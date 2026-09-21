@@ -247,15 +247,15 @@ export default function RekeningBankPage() {
                       </span>
                       <div className="flex items-center gap-1.5">
                         {rek.is_utama && (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 text-[10px] font-bold flex items-center gap-1 border border-amber-300 dark:border-amber-800">
+                          <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 text-[10px] font-bold flex items-center gap-1 border border-amber-300 dark:border-amber-800">
                             <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
                             Utama
                           </span>
                         )}
                         <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                          className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${
                             rek.aktif
-                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
                               : 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
                           }`}
                         >

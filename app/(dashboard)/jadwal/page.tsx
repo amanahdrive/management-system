@@ -40,6 +40,7 @@ import {
   formatSlotLabel,
 } from '@/lib/utils/slot';
 import { getTipeKendaraanLabel, isMobilSendiriPaket } from '@/lib/utils/vehicle';
+import { Badge } from '@/components/shared/Badge';
 import {
   Calendar,
   Copy,
@@ -1185,16 +1186,13 @@ export default function JadwalPage() {
         const label = getTipeKendaraanLabel(sesi);
         const isSendiri = label === 'Mobil Sendiri';
         return (
-          <span
-            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-              isSendiri
-                ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800'
-                : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
-            }`}
+          <Badge
+            variant="subtle"
+            color={isSendiri ? 'purple' : 'blue'}
+            icon={<Car className="w-3 h-3 mr-1" />}
           >
-            <Car className="w-3.5 h-3.5 shrink-0" />
-            <span>{label}</span>
-          </span>
+            {label}
+          </Badge>
         );
       },
     },
@@ -1204,19 +1202,9 @@ export default function JadwalPage() {
       sortingFn: 'text',
       cell: ({ row }) => {
         const st = row.original.status_sesi;
-        return (
-          <span
-            className={`px-2 py-0.5 text-xs rounded font-bold text-white ${
-              st === 'selesai'
-                ? 'bg-[var(--success)]'
-                : st === 'batal'
-                ? 'bg-[var(--danger)]'
-                : 'bg-[var(--info)]'
-            }`}
-          >
-            {st === 'terjadwal' ? 'Terjadwal' : st === 'selesai' ? 'Selesai' : 'Batal'}
-          </span>
-        );
+        const color = st === 'selesai' ? 'emerald' : st === 'batal' ? 'rose' : 'amber';
+        const label = st === 'terjadwal' ? 'Terjadwal' : st === 'selesai' ? 'Selesai' : 'Batal';
+        return <Badge variant="dot" color={color}>{label}</Badge>;
       },
     },
     {
@@ -1450,9 +1438,9 @@ export default function JadwalPage() {
             <button
               key={opt.key}
               onClick={() => setFilterMode(opt.key)}
-              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+              className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all ${
                 filterMode === opt.key
-                  ? 'bg-[var(--brand-primary)] text-white border-[var(--brand-primary)]'
+                  ? 'bg-[var(--brand-primary)] text-white border-[var(--brand-primary)] shadow-xs'
                   : 'bg-[var(--bg)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--brand-primary)] hover:text-[var(--brand-primary)]'
               }`}
             >
@@ -1670,17 +1658,18 @@ export default function JadwalPage() {
                         </div>
                       </div>
                     </div>
-                    <span
-                      className={`px-2 py-0.5 text-xs rounded font-bold text-white shrink-0 ${
+                    <Badge
+                      variant="dot"
+                      color={
                         sesi.status_sesi === 'selesai'
-                          ? 'bg-[var(--success)]'
+                          ? 'emerald'
                           : sesi.status_sesi === 'batal'
-                          ? 'bg-[var(--danger)]'
-                          : 'bg-[var(--info)]'
-                      }`}
+                          ? 'rose'
+                          : 'amber'
+                      }
                     >
                       {sesi.status_sesi === 'terjadwal' ? 'Terjadwal' : sesi.status_sesi === 'selesai' ? 'Selesai' : 'Batal'}
-                    </span>
+                    </Badge>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-[11px]">

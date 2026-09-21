@@ -39,7 +39,7 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
                 Tren Pendaftaran Siswa (6 Bulan)
               </h3>
             </div>
-            <span className="font-mono text-[10px] text-[var(--brand-primary)] px-1.5 py-0.5 rounded-full border border-[var(--brand-primary)]/20 bg-[var(--brand-primary-light)]">
+            <span className="font-mono text-[10px] text-[var(--brand-primary)] px-1.5 py-0.5 rounded-md border border-[var(--brand-primary)]/20 bg-[var(--brand-primary-light)]">
               HISTORIKAL
             </span>
           </div>
@@ -76,7 +76,7 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
                 Cashflow (Pemasukan vs Pengeluaran)
               </h3>
             </div>
-            <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/10">
+            <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-md border border-emerald-500/20 bg-emerald-500/10">
               REALTIME
             </span>
           </div>
@@ -117,7 +117,7 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
               Proporsi Sumber Leads Siswa Terdaftar
             </h3>
           </div>
-          <span className="font-mono text-[10px] text-zinc-500 px-1.5 py-0.5 rounded-full border border-[var(--border)]">
+          <span className="font-mono text-[10px] text-zinc-500 px-1.5 py-0.5 rounded-md border border-[var(--border)]">
             KONVERSI
           </span>
         </div>

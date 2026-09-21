@@ -52,6 +52,7 @@ import {
   Loader2,
   Check,
 } from 'lucide-react';
+import { Badge } from '@/components/shared/Badge';
 
 export default function PosPengeluaranPage() {
   const currentMonthStr = getTodayDateString().slice(0, 7); // 'YYYY-MM'
@@ -393,7 +394,7 @@ export default function PosPengeluaranPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <Link
                 href="/finance"
-                className="px-3.5 py-1.5 bg-[var(--bg-card)] hover:bg-[var(--bg)] border border-[var(--border)] text-[var(--text-primary)] rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
+                className="px-3.5 py-1.5 bg-[var(--bg-card)] hover:bg-[var(--bg)] border border-[var(--border)] text-[var(--text-primary)] rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs hover:-translate-y-0.5"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Portal Finance</span>
@@ -416,7 +417,7 @@ export default function PosPengeluaranPage() {
               <button
                 type="button"
                 onClick={() => setIsOpModalOpen(true)}
-                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm hover:-translate-y-0.5"
+                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm hover:-translate-y-0.5"
                 title="Atur parameter pos rutin bulanan (Token Listrik, WiFi kantor, dan Air PDAM)"
               >
                 <Zap className="w-3.5 h-3.5" />
@@ -426,7 +427,7 @@ export default function PosPengeluaranPage() {
                 type="button"
                 onClick={handleGenerateOtomatis}
                 disabled={generating}
-                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm hover:-translate-y-0.5"
+                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm hover:-translate-y-0.5"
                 title="Cek dan masukkan otomatis siswa siap terbit, hutang, dan operasional bulan ini"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${generating ? 'animate-spin' : ''}`} />
@@ -435,7 +436,7 @@ export default function PosPengeluaranPage() {
               <button
                 type="button"
                 onClick={handleOpenAddModal}
-                className="px-3.5 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm hover:-translate-y-0.5"
+                className="px-3.5 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-hover)] text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm hover:-translate-y-0.5"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Buat Pos Manual</span>
@@ -611,7 +612,7 @@ export default function PosPengeluaranPage() {
                 <button
                   type="button"
                   onClick={handleGenerateOtomatis}
-                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Sinkronkan Pos Bulan Ini</span>
@@ -619,7 +620,7 @@ export default function PosPengeluaranPage() {
                 <button
                   type="button"
                   onClick={handleOpenAddModal}
-                  className="px-3.5 py-1.5 border border-[var(--border)] rounded-full text-xs font-semibold hover:bg-[var(--bg-subtle)]"
+                  className="px-3.5 py-1.5 border border-[var(--border)] rounded-lg text-xs font-semibold hover:bg-[var(--bg-subtle)]"
                 >
                   + Buat Pos Manual
                 </button>
@@ -741,15 +742,14 @@ export default function PosPengeluaranPage() {
                         {/* Status */}
                         <td className="py-3.5 px-4 text-center">
                           {pos.status === 'terbayar' ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/30">
+                            <Badge variant="subtle" color="emerald" size="xs">
                               <CheckCircle2 className="w-3 h-3" />
-                              {pos.kas_transaksi_id ? 'Lunas Kas' : 'Terbayar (Luar Kas)'}
-                            </span>
+                              <span>{pos.kas_transaksi_id ? 'Lunas Kas' : 'Terbayar (Luar Kas)'}</span>
+                            </Badge>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/30">
-                              <Clock className="w-3 h-3" />
-                              Belum Bayar
-                            </span>
+                            <Badge variant="dot" color="amber" size="xs">
+                              <span>Belum Bayar</span>
+                            </Badge>
                           )}
                         </td>
 
@@ -1366,7 +1366,7 @@ export default function PosPengeluaranPage() {
                       <Droplets className="w-3.5 h-3.5" />
                       <span>3. Air PDAM Kantor (Fluktuatif)</span>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-teal-500/20 text-teal-700 dark:text-teal-300">
+                    <span className="px-2 py-0.5 rounded-md text-[9.5px] font-extrabold bg-teal-500/20 text-teal-700 dark:text-teal-300">
                       Biaya Fluktuatif
                     </span>
                   </div>

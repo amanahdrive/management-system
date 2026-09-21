@@ -542,7 +542,7 @@ export default function AuditLogPage() {
               <ShieldCheck className="w-6 h-6 text-[var(--brand-primary)]" />
               Sistem Audit Log Enterprise
             </h1>
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
               <Lock className="w-3 h-3" />
               Immutable WORM Ledger
             </span>

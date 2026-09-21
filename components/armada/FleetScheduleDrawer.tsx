@@ -142,7 +142,7 @@ export function FleetScheduleDrawer({
                         {k.plat_nomor} — {k.nama_kendaraan}
                       </span>
                     </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                       {sessions.length} Sesi
                     </span>
                   </div>

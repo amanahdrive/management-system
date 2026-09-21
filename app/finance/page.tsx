@@ -1311,7 +1311,7 @@ export default function FinancePortalPage() {
                 <span className="text-[11px] font-bold tracking-wider uppercase opacity-85">
                   Total Saldo Aktual
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[9.5px] font-extrabold bg-white/20 backdrop-blur-xs">
+                <span className="px-2.5 py-0.5 rounded-md text-[9.5px] font-extrabold bg-white/20 backdrop-blur-xs">
                   Realtime
                 </span>
               </div>
@@ -1343,7 +1343,7 @@ export default function FinancePortalPage() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] opacity-80 font-medium">Saldo Tunai</span>
-                    <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-0.5">
+                    <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded-md font-bold inline-flex items-center gap-0.5">
                       <span>Setor</span>
                       <ArrowRight className="w-2.5 h-2.5" />
                     </span>
@@ -1590,7 +1590,7 @@ export default function FinancePortalPage() {
                   <TrendingUp className="w-4 h-4 text-emerald-500" />
                   <span>Arus Kas (Cashflow)</span>
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                   {flowDateRangeLabel}
                 </span>
               </div>
@@ -1849,7 +1849,7 @@ export default function FinancePortalPage() {
                   <Wallet className="w-3.5 h-3.5 opacity-80" />
                   Total Piutang Beredar
                 </span>
-                <span className="text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-xs font-bold">
+                <span className="text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-md bg-white/20 backdrop-blur-xs font-bold">
                   Overview
                 </span>
               </div>
@@ -2088,7 +2088,7 @@ export default function FinancePortalPage() {
                             </div>
                           </div>
 
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300">
+                          <span className="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold border bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300">
                             Kasbon Aktif
                           </span>
                         </div>

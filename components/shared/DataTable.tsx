@@ -115,7 +115,7 @@ export function DataTable<TData, TValue>({
               placeholder={`Cari data ${searchKey}...`}
               value={globalFilter ?? ''}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              className="pl-10 pr-4 py-2 text-xs rounded-full border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] w-full focus:outline-none focus:border-[var(--brand-primary)] shadow-xs transition-all"
+              className="pl-10 pr-4 py-2 text-xs rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] w-full focus:outline-none focus:border-[var(--brand-primary)] shadow-xs transition-all"
             />
           </div>
         </div>

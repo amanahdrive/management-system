@@ -737,7 +737,7 @@ export default function InsidenPage() {
                           {item.kode_insiden}
                         </span>
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center ${keparahan.bg} ${keparahan.text} ${keparahan.border}`}
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center ${keparahan.bg} ${keparahan.text} ${keparahan.border}`}
                         >
                           <span>{keparahan.label}</span>
                         </span>
@@ -1221,7 +1221,7 @@ export default function InsidenPage() {
               {/* Badges */}
               <div className="flex flex-wrap items-center gap-2">
                 <span
-                  className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold border ${
                     KEPARAHAN_CONFIG[selectedDetail.tingkat_keparahan]?.bg
                   } ${KEPARAHAN_CONFIG[selectedDetail.tingkat_keparahan]?.text} ${
                     KEPARAHAN_CONFIG[selectedDetail.tingkat_keparahan]?.border
@@ -1231,7 +1231,7 @@ export default function InsidenPage() {
                 </span>
 
                 <span
-                  className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold ${
                     STATUS_CONFIG[selectedDetail.status_penanganan]?.bg
                   } ${STATUS_CONFIG[selectedDetail.status_penanganan]?.text}`}
                 >

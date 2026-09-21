@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import {
@@ -120,7 +120,7 @@ function ArmadaSpotlightCard({ armada, target }: { armada: ArmadaMonthlyStats; t
           </div>
         </div>
         {!hasData && (
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/5 text-[var(--text-muted)] font-semibold">
+          <span className="text-[10px] px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/5 text-[var(--text-muted)] font-semibold">
             Belum ada data
           </span>
         )}

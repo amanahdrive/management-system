@@ -555,7 +555,7 @@ export default function HutangPage() {
               )}
               <button
                 onClick={() => setIsAddModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-full transition-colors shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary-dark)] text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
               >
                 <Plus className="w-4 h-4" />
                 <span>+ Catat Hutang Baru</span>
@@ -572,7 +572,7 @@ export default function HutangPage() {
                 <Calendar className="w-4 h-4 text-[var(--brand-primary)]" />
                 <span>Filter Periode:</span>
               </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-[var(--bg-subtle)] border border-[var(--border)] text-[11px] font-mono font-bold text-[var(--brand-primary)]">
+              <span className="px-2.5 py-0.5 rounded-md bg-[var(--bg-subtle)] border border-[var(--border)] text-[11px] font-mono font-bold text-[var(--brand-primary)]">
                 {periodBounds.label}
               </span>
             </div>

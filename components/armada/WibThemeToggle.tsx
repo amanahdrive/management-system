@@ -207,7 +207,7 @@ export function WibThemeToggle({
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span>Otomatis WIB</span>
-                    <span className="px-1.5 py-0.2 text-[9px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full font-bold">
+                    <span className="px-1.5 py-0.5 text-[9px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-md font-bold">
                       Default
                     </span>
                   </div>

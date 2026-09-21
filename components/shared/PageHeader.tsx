@@ -18,7 +18,7 @@ export function PageHeader({ title, description, breadcrumbs, actions }: PageHea
     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-7 pb-5 border-b border-[var(--border)]">
       <div>
         {breadcrumbs && breadcrumbs.length > 0 && (
-          <nav className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg)] border border-[var(--border)] text-[11px] font-semibold text-[var(--text-muted)] mb-2 shadow-xs" aria-label="Breadcrumb">
+          <nav className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[var(--bg-subtle)] border border-[var(--border)] text-[11px] font-medium text-[var(--text-muted)] mb-2" aria-label="Breadcrumb">
             {breadcrumbs.map((b, idx) => (
               <React.Fragment key={idx}>
                 {idx > 0 && <span className="text-[var(--text-muted)] opacity-40">/</span>}

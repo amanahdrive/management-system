@@ -135,10 +135,10 @@ export function HeroInstructorCockpit({
 
         {/* Instructor Meta Tag with Official Staff ID */}
         <div className="flex items-center gap-2 mt-1">
-          <span className="font-mono text-[10px] px-3 py-1 rounded-full border border-[var(--brand-primary)]/30 bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold uppercase shadow-xs">
+          <span className="font-mono text-[10px] px-2.5 py-0.5 rounded-md border border-[var(--brand-primary)]/30 bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold uppercase shadow-xs">
             INSTRUKTUR LAPANGAN
           </span>
-          <span className="font-mono text-[11px] font-bold text-[var(--brand-primary)] bg-[var(--bg)] px-2.5 py-0.5 rounded-full border border-[var(--border)]">
+          <span className="font-mono text-[11px] font-bold text-[var(--brand-primary)] bg-[var(--bg)] px-2 py-0.5 rounded-md border border-[var(--border)]">
             ID: {staff.kode_staff || staff.id.slice(0, 8).toUpperCase()}
           </span>
         </div>

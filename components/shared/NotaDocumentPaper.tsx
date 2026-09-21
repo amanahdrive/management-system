@@ -89,7 +89,7 @@ export function NotaDocumentPaper({
         ? displayedInvoicePages.map((page) => (
             <div key={page.pageIndex} className="relative flex flex-col items-center">
               {totalPages > 1 && (
-                <div className="mb-2 text-[10px] font-bold text-slate-500 bg-slate-200/90 dark:bg-slate-800 dark:text-slate-300 px-3 py-0.5 rounded-full shadow-xs print:hidden">
+                <div className="mb-2 text-[10px] font-bold text-slate-500 bg-slate-200/90 dark:bg-slate-800 dark:text-slate-300 px-2.5 py-0.5 rounded-md shadow-xs print:hidden border border-slate-300/40 dark:border-slate-700">
                   Halaman {page.pageIndex} dari {page.totalPages}
                 </div>
               )}
@@ -110,7 +110,7 @@ export function NotaDocumentPaper({
         : displayedReceiptPages.map((page) => (
             <div key={page.pageIndex} className="relative flex flex-col items-center">
               {totalPages > 1 && (
-                <div className="mb-2 text-[10px] font-bold text-slate-500 bg-slate-200/90 dark:bg-slate-800 dark:text-slate-300 px-3 py-0.5 rounded-full shadow-xs print:hidden">
+                <div className="mb-2 text-[10px] font-bold text-slate-500 bg-slate-200/90 dark:bg-slate-800 dark:text-slate-300 px-2.5 py-0.5 rounded-md shadow-xs print:hidden border border-slate-300/40 dark:border-slate-700">
                   Halaman {page.pageIndex} dari {page.totalPages}
                 </div>
               )}

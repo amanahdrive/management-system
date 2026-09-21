@@ -212,7 +212,7 @@ export function InvoiceA4Template({
             </div>
             <div className="shrink-0 flex items-center gap-1.5">
               <span className="text-slate-600 font-semibold text-[8.5px]">Status:</span>
-              <span className={`px-2 py-0.5 rounded-full font-black border text-[8.5px] tracking-wider ${statusBadge.bg}`}>
+              <span className={`px-2 py-0.5 rounded-md font-black border text-[8.5px] tracking-wider ${statusBadge.bg}`}>
                 {statusBadge.text}
               </span>
             </div>

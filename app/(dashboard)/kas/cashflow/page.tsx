@@ -620,7 +620,7 @@ export default function CashflowPage() {
             <div className="font-semibold text-xs text-[var(--text-primary)]">{cleanKeterangan}</div>
             <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
               <span
-                className={`px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 ${
+                className={`px-2 py-0.5 rounded-md font-semibold inline-flex items-center gap-1 ${
                   isTunai
                     ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
                     : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
@@ -630,7 +630,7 @@ export default function CashflowPage() {
                 <span>{isTunai ? 'Tunai' : 'Non-Tunai'}</span>
               </span>
               {!isTunai && (bankInfo || row.original.rekening_id) && (
-                <span className="px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 font-mono text-[9.5px]">
+                <span className="px-2 py-0.5 rounded-md font-semibold inline-flex items-center gap-1 bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 font-mono text-[9.5px]">
                   <Landmark className="w-2.5 h-2.5" />
                   <span>{bankInfo || 'Rekening Bank'}</span>
                 </span>
@@ -644,7 +644,7 @@ export default function CashflowPage() {
               {row.original.sumber_otomatis && (
                 <>
                   <span className="text-[var(--text-muted)]">•</span>
-                  <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold">
+                  <span className="px-1.5 py-0.5 rounded-md text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold">
                     Otomatis
                   </span>
                 </>
@@ -1160,7 +1160,7 @@ export default function CashflowPage() {
                           <div className="font-semibold text-[var(--text-primary)]">{cleanKeterangan}</div>
                           <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-[var(--text-secondary)] mt-0.5">
                             <span
-                              className={`px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 ${
+                              className={`px-2 py-0.5 rounded-md font-semibold inline-flex items-center gap-1 ${
                                 isTunai
                                   ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
                                   : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
@@ -1170,7 +1170,7 @@ export default function CashflowPage() {
                               <span>{isTunai ? 'Tunai' : 'Non-Tunai'}</span>
                             </span>
                             {!isTunai && (bankInfo || tx.rekening_id) && (
-                              <span className="px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 font-mono text-[9.5px]">
+                              <span className="px-2 py-0.5 rounded-md font-semibold inline-flex items-center gap-1 bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 font-mono text-[9.5px]">
                                 <Landmark className="w-2.5 h-2.5" />
                                 <span>{bankInfo || 'Rekening Bank'}</span>
                               </span>
@@ -1178,7 +1178,7 @@ export default function CashflowPage() {
                             {tx.kendaraan_id && (
                               <>
                                 <span className="text-[var(--text-muted)]">•</span>
-                                <span className="px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-mono text-[9.5px]">
+                                <span className="px-2 py-0.5 rounded-md font-semibold inline-flex items-center gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-mono text-[9.5px]">
                                   <Car className="w-2.5 h-2.5 text-amber-600" />
                                   <span>{kendaraanList.find((k) => k.id === tx.kendaraan_id)?.nama_kendaraan || 'Armada'} ({kendaraanList.find((k) => k.id === tx.kendaraan_id)?.plat_nomor || ''})</span>
                                 </span>
@@ -1191,7 +1191,7 @@ export default function CashflowPage() {
                             {tx.sumber_otomatis && (
                               <>
                                 <span className="text-[var(--text-muted)]">•</span>
-                                <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold">
+                                <span className="px-1.5 py-0.5 rounded-md text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold">
                                   Otomatis
                                 </span>
                               </>
@@ -1212,7 +1212,7 @@ export default function CashflowPage() {
                               return (
                                 <>
                                   <span className="text-[var(--text-muted)]">•</span>
-                                  <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-semibold inline-flex items-center gap-1">
+                                  <span className="px-1.5 py-0.5 rounded-md text-[9px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-semibold inline-flex items-center gap-1">
                                     <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
                                     <span>{warningText}</span>
                                   </span>

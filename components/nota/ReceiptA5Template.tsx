@@ -101,7 +101,7 @@ export function ReceiptA5Template({
             <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 space-y-0.5">
               <div className="flex"><span className="w-22 text-slate-500">Paket Kursus</span><span className="w-2 text-center">:</span><span className="font-bold text-slate-900 truncate">{data.namaPaket || '-'} ({data.jumlahSesi} Sesi)</span></div>
               <div className="flex"><span className="w-22 text-slate-500">Metode Bayar</span><span className="w-2 text-center">:</span><span className="font-semibold text-slate-800">{data.metodePembayaran === 'tunai' ? 'Tunai (Kas Fisik)' : data.metodePembayaran === 'transfer' ? `Transfer Bank ${data.namaBank || ''}` : 'QRIS'}</span></div>
-              <div className="flex items-center"><span className="w-22 text-slate-500">Status Bayar</span><span className="w-2 text-center">:</span><span className={`px-1.5 py-0.2 rounded-full font-black border text-[8px] tracking-wider ${statusBadge.bg}`}>{statusBadge.text}</span></div>
+              <div className="flex items-center"><span className="w-22 text-slate-500">Status Bayar</span><span className="w-2 text-center">:</span><span className={`px-1.5 py-0.5 rounded-md font-black border text-[8px] tracking-wider ${statusBadge.bg}`}>{statusBadge.text}</span></div>
             </div>
           </div>
         )}
