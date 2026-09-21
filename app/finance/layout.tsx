@@ -4,11 +4,11 @@ import type { Metadata, Viewport } from 'next';
 export const metadata: Metadata = {
   title: 'Portal Finance — Amanah Drive',
   description: 'PWA Pencatatan Kas dan Keuangan Amanah Drive Palembang',
-  manifest: '/manifest-finance.json',
+  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Finance AD',
+    title: 'Amanah Console',
   },
   icons: {
     icon: '/assets/app-icon-1024.png',

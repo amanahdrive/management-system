@@ -5,231 +5,65 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  LayoutDashboard,
-  BarChart3,
-  Users,
-  IdCard,
-  Calendar,
-  Car,
-  Wallet,
-  Database,
-  Settings,
   ChevronLeft,
   ChevronDown,
   ChevronUp,
-  Package,
-  Tag,
-  ShieldCheck,
-  CreditCard,
-  Clock,
-  AlertOctagon,
-  Receipt,
-  Award,
-  FileSpreadsheet,
-  Layers,
-  Landmark,
-  Building2,
-  GraduationCap,
-  Smartphone,
-  ExternalLink,
-  Globe,
-  Inbox,
-  ArrowLeft,
+  LogOut,
+  User as UserIcon,
+  Shield,
+  Sparkles,
 } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
-import { checkIsFinanceMode, clearFinanceMode } from '@/lib/utils/finance-mode';
+import { useAuthStore } from '@/lib/store/auth-store';
+import { logoutAction } from '@/lib/actions/auth';
+import { getVisibleMenuItems, MenuItem } from '@/lib/navigation/menu-registry';
 import { ASSETS } from '@/lib/assets';
-
-const HOMEPAGE_SUB_ITEMS = [
-  { label: 'Internal Tracking', href: '/homepage-manager/tracking', icon: BarChart3 },
-  { label: 'Form Submit', href: '/homepage-manager/submissions', icon: Inbox },
-  { label: 'Homepage Updater', href: '/homepage-manager/information', icon: Globe },
-];
-
-const SISWA_SUB_ITEMS = [
-  { label: 'Data Siswa', href: '/siswa', icon: Users },
-  { label: 'Jadwal Sesi', href: '/jadwal', icon: Calendar },
-  { label: 'Manajemen SIM', href: '/sim', icon: IdCard },
-  { label: 'Sertifikat Siswa', href: '/sertifikat', icon: Award },
-];
-
-const KENDARAAN_SUB_ITEMS = [
-  { label: 'Manajemen Armada', href: '/kendaraan', icon: Car },
-  { label: 'Data Insiden', href: '/insiden', icon: AlertOctagon },
-];
-
-const KAS_SUB_ITEMS = [
-  { label: 'Overview Kas', href: '/kas', icon: Wallet },
-  { label: 'Buku Besar (Cashflow)', href: '/kas/cashflow', icon: FileSpreadsheet },
-  { label: 'Pos Pengeluaran', href: '/kas/pos', icon: Layers },
-  { label: 'Manajemen Piutang', href: '/kas/piutang', icon: CreditCard },
-  { label: 'Manajemen Hutang', href: '/kas/hutang', icon: Landmark },
-  { label: 'Rekening Bank', href: '/kas/rekening', icon: Building2 },
-  { label: 'Cetak Nota', href: '/nota', icon: Receipt },
-];
-
-const MASTER_SUB_ITEMS = [
-  { label: 'Paket Kursus', href: '/master-data/paket', icon: Package },
-  { label: 'Promosi Campaign', href: '/master-data/promosi', icon: Tag },
-  { label: 'Staff & Instruktur', href: '/master-data/staff', icon: Users },
-  { label: 'Daftar Jabatan', href: '/master-data/jabatan', icon: ShieldCheck },
-  { label: 'Master Kendaraan', href: '/master-data/kendaraan', icon: Car },
-  { label: 'Status Pembayaran', href: '/master-data/status-pembayaran', icon: CreditCard },
-  { label: 'Slot Waktu', href: '/master-data/slot-waktu', icon: Clock },
-];
-
-const PWA_SUB_ITEMS = [
-  { label: 'Portal Instruktur', href: '/instruktur', icon: ShieldCheck, badge: 'PWA' },
-  { label: 'PWA Finance', href: '/finance', icon: Wallet, badge: 'PWA' },
-  { label: 'PWA Armada', href: '/armada', icon: Car, badge: 'PWA' },
-];
-
-const SETTINGS_SUB_ITEMS = [
-  { label: 'Pengaturan Sistem', href: '/settings', icon: Settings },
-  { label: 'Audit Log', href: '/settings/audit-log', icon: ShieldCheck, badge: 'Dev' },
-];
+import { sound } from '@/lib/sound/SoundFX';
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { sidebarOpen, toggleSidebar, setSidebarOpen } = useUiStore();
+  const { user } = useAuthStore();
 
-  const isHomepageActive = pathname.startsWith('/homepage-manager');
-  const [homepageExpanded, setHomepageExpanded] = React.useState(isHomepageActive);
+  // Dynamic menu items based on user's active roles
+  const menuItems = React.useMemo(() => {
+    return getVisibleMenuItems(user?.roles || []);
+  }, [user?.roles]);
 
-  const isSiswaActive =
-    pathname.startsWith('/siswa') ||
-    pathname.startsWith('/sim') ||
-    pathname.startsWith('/sertifikat') ||
-    pathname.startsWith('/jadwal');
-  const [siswaExpanded, setSiswaExpanded] = React.useState(isSiswaActive);
-
-  const isKendaraanActive =
-    pathname.startsWith('/kendaraan') || pathname.startsWith('/insiden');
-  const [kendaraanExpanded, setKendaraanExpanded] = React.useState(isKendaraanActive);
-
-  const isKasActive = pathname.startsWith('/kas') || pathname.startsWith('/nota');
-  const [kasExpanded, setKasExpanded] = React.useState(isKasActive);
-
-  const isMasterActive = pathname.startsWith('/master-data');
-  const [masterExpanded, setMasterExpanded] = React.useState(isMasterActive);
-
-  const isPwaActive =
-    pathname.startsWith('/instruktur') ||
-    pathname.startsWith('/finance') ||
-    pathname.startsWith('/armada');
-  const [pwaExpanded, setPwaExpanded] = React.useState(isPwaActive);
-
-  const isSettingsActive = pathname.startsWith('/settings');
-  const [settingsExpanded, setSettingsExpanded] = React.useState(isSettingsActive);
-
-  const [isFinanceMode, setIsFinanceMode] = React.useState(false);
+  // Dropdown open states mapped by menu item id
+  const [expandedMenus, setExpandedMenus] = React.useState<Record<string, boolean>>({});
   const [logoSrc, setLogoSrc] = React.useState<string>(ASSETS.logo.symbol);
 
+  // Auto-expand menu that contains the active route
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
+    const newExpanded: Record<string, boolean> = {};
+    menuItems.forEach((item) => {
+      if (item.subItems) {
+        const isChildActive = item.subItems.some(
+          (sub) => pathname === sub.href || pathname.startsWith(`${sub.href}/`)
+        );
+        if (isChildActive) {
+          newExpanded[item.id] = true;
+        }
+      }
+    });
+    setExpandedMenus((prev) => ({ ...prev, ...newExpanded }));
+  }, [pathname, menuItems]);
 
-    const updateMode = () => {
-      setIsFinanceMode(checkIsFinanceMode(pathname));
-    };
-    updateMode();
-
-    const handleModeChange = () => updateMode();
-    window.addEventListener('amanah:finance-mode-change', handleModeChange);
-    return () => {
-      window.removeEventListener('amanah:finance-mode-change', handleModeChange);
-    };
-  }, [pathname]);
-
-  React.useEffect(() => {
-    if (isHomepageActive) setHomepageExpanded(true);
-  }, [isHomepageActive]);
-
-  React.useEffect(() => {
-    if (isSiswaActive) setSiswaExpanded(true);
-  }, [isSiswaActive]);
-
-  React.useEffect(() => {
-    if (isKendaraanActive) setKendaraanExpanded(true);
-  }, [isKendaraanActive]);
-
-  React.useEffect(() => {
-    if (isKasActive) setKasExpanded(true);
-  }, [isKasActive]);
-
-  React.useEffect(() => {
-    if (isMasterActive) setMasterExpanded(true);
-  }, [isMasterActive]);
-
-  React.useEffect(() => {
-    if (isPwaActive) setPwaExpanded(true);
-  }, [isPwaActive]);
-
-  React.useEffect(() => {
-    if (isSettingsActive) setSettingsExpanded(true);
-  }, [isSettingsActive]);
-
-  const handleHomepageClick = () => {
+  const toggleMenuExpand = (id: string) => {
     if (!sidebarOpen) {
       setSidebarOpen(true);
-      setHomepageExpanded(true);
+      setExpandedMenus((prev) => ({ ...prev, [id]: true }));
       return;
     }
-    setHomepageExpanded((prev) => !prev);
+    setExpandedMenus((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const handleSiswaClick = () => {
-    if (!sidebarOpen) {
-      setSidebarOpen(true);
-      setSiswaExpanded(true);
-      return;
-    }
-    setSiswaExpanded((prev) => !prev);
-  };
-
-  const handleKendaraanClick = () => {
-    if (!sidebarOpen) {
-      setSidebarOpen(true);
-      setKendaraanExpanded(true);
-      return;
-    }
-    setKendaraanExpanded((prev) => !prev);
-  };
-
-  const handleKasClick = () => {
-    if (!sidebarOpen) {
-      setSidebarOpen(true);
-      setKasExpanded(true);
-      return;
-    }
-    setKasExpanded((prev) => !prev);
-  };
-
-  const handleMasterClick = () => {
-    if (!sidebarOpen) {
-      setSidebarOpen(true);
-      setMasterExpanded(true);
-      return;
-    }
-    setMasterExpanded((prev) => !prev);
-  };
-
-  const handlePwaClick = () => {
-    if (!sidebarOpen) {
-      setSidebarOpen(true);
-      setPwaExpanded(true);
-      return;
-    }
-    setPwaExpanded((prev) => !prev);
-  };
-
-  const handleSettingsClick = () => {
-    if (!sidebarOpen) {
-      setSidebarOpen(true);
-      setSettingsExpanded(true);
-      return;
-    }
-    setSettingsExpanded((prev) => !prev);
+  const handleLogout = async () => {
+    sound.click?.();
+    await logoutAction();
+    router.replace('/');
   };
 
   const navItemClass = (isActive: boolean) =>
@@ -264,7 +98,7 @@ export function Sidebar() {
       >
         {sidebarOpen ? (
           <>
-            <Link href={isFinanceMode ? '/finance' : '/dashboard'} className="flex items-center gap-2.5 min-w-0">
+            <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
               <div className="relative w-8 h-8 shrink-0 flex items-center justify-center overflow-hidden rounded-lg bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20">
                 <Image
                   src={logoSrc}
@@ -281,13 +115,13 @@ export function Sidebar() {
                 />
               </div>
               <span className="font-brand font-bold text-base text-[var(--brand-primary)] tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
-                {isFinanceMode ? 'Amanah Finance' : 'Amanah Drive'}
+                Amanah Drive
               </span>
             </Link>
             <button
               onClick={toggleSidebar}
               aria-label="Ciutkan Sidebar"
-              className="p-1.5 border border-[var(--liquid-glass-border)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] rounded-xl transition-colors shrink-0"
+              className="p-1.5 border border-[var(--liquid-glass-border)] hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] rounded-xl transition-colors shrink-0 cursor-pointer"
               title="Ciutkan Sidebar"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -319,401 +153,148 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* Navigation Links */}
+      {/* Dynamic Navigation Links */}
       <nav className="flex-1 py-4 px-2.5 space-y-1 overflow-y-auto">
-        {isFinanceMode ? (
-          <>
-            {/* Tombol Kembali ke Admin Dashboard */}
-            <div className="pb-2 mb-2 border-b border-[var(--liquid-glass-border)]">
-              <button
-                type="button"
-                onClick={() => {
-                  clearFinanceMode();
-                  setIsFinanceMode(false);
-                  router.push('/dashboard');
-                }}
-                className={`w-full flex items-center ${
-                  sidebarOpen ? 'gap-2.5 px-3' : 'justify-center px-0'
-                } py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 dark:bg-emerald-500/15 dark:hover:bg-emerald-500/25 border border-emerald-500/30 rounded-xl transition-all cursor-pointer shadow-2xs`}
-                title="Kembali ke Dashboard Admin Utama"
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+
+          // Single direct route
+          if (!item.subItems || item.subItems.length === 0) {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.id}
+                href={item.href || '/dashboard'}
+                className={navItemClass(isActive)}
+                title={!sidebarOpen ? item.title : undefined}
               >
-                <ArrowLeft className="w-4 h-4 shrink-0" />
-                {sidebarOpen && <span className="whitespace-nowrap">Dashboard Admin</span>}
-              </button>
-            </div>
-
-            {/* 1. Portal Finance (Beranda) */}
-            <Link
-              href="/finance"
-              className={navItemClass(pathname === '/finance')}
-              title={!sidebarOpen ? 'Portal Finance' : undefined}
-            >
-              <Wallet className="w-4 h-4 min-w-[16px]" />
-              {sidebarOpen && <span className="whitespace-nowrap font-bold">Portal Finance</span>}
-            </Link>
-
-            <div className="pt-3 pb-1 px-3">
-              {sidebarOpen && (
-                <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">
-                  Kas & Keuangan
-                </p>
-              )}
-            </div>
-
-            {/* Submenu Kas & Keuangan */}
-            {KAS_SUB_ITEMS.map((sub) => {
-              const SubIcon = sub.icon;
-              const isSubActive = pathname === sub.href;
-              return (
-                <Link
-                  key={sub.href}
-                  href={sub.href}
-                  className={navItemClass(isSubActive)}
-                  title={!sidebarOpen ? sub.label : undefined}
-                >
-                  <SubIcon className="w-4 h-4 min-w-[16px]" />
-                  {sidebarOpen && <span className="whitespace-nowrap">{sub.label}</span>}
-                </Link>
-              );
-            })}
-          </>
-        ) : (
-          <>
-            {/* 1. Dashboard */}
-            <Link
-              href="/dashboard"
-              className={navItemClass(pathname === '/dashboard')}
-              title={!sidebarOpen ? 'Dashboard' : undefined}
-            >
-              <LayoutDashboard className="w-4 h-4 min-w-[16px]" />
-              {sidebarOpen && <span className="whitespace-nowrap">Dashboard</span>}
-            </Link>
-
-        {/* 2. Analitik */}
-        <Link
-          href="/analitik"
-          className={navItemClass(pathname.startsWith('/analitik'))}
-          title={!sidebarOpen ? 'Analitik' : undefined}
-        >
-          <BarChart3 className="w-4 h-4 min-w-[16px]" />
-          {sidebarOpen && <span className="whitespace-nowrap">Analitik</span>}
-        </Link>
-
-        {/* 2b. Homepage Manager Dropdown */}
-        <div>
-          <button
-            onClick={handleHomepageClick}
-            className={dropdownHeaderClass(isHomepageActive)}
-            title={!sidebarOpen ? 'Homepage Manager' : undefined}
-          >
-            <div className="flex items-center gap-3">
-              <Globe className="w-4 h-4 min-w-[16px]" />
-              {sidebarOpen && <span className="whitespace-nowrap font-medium">Homepage Manager</span>}
-            </div>
-            {sidebarOpen && (
-              homepageExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
-            )}
-          </button>
-
-          {sidebarOpen && homepageExpanded && (
-            <div className="pl-4 pt-1 space-y-1 border-l border-[var(--border)] ml-5 my-1.5">
-              {HOMEPAGE_SUB_ITEMS.map((sub) => {
-                const SubIcon = sub.icon;
-                const isSubActive = pathname === sub.href;
-
-                return (
-                  <Link
-                    key={sub.href}
-                    href={sub.href}
-                    className={`flex items-center gap-2.5 px-3 py-1.5 text-xs font-normal transition-all rounded-lg border-l ${
-                      isSubActive
-                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
-                        : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    <SubIcon className="w-3.5 h-3.5" />
-                    <span>{sub.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* 3. Manajemen Siswa Dropdown */}
-        <div>
-          <button
-            onClick={handleSiswaClick}
-            className={dropdownHeaderClass(isSiswaActive)}
-            title={!sidebarOpen ? 'Manajemen Siswa' : undefined}
-          >
-            <div className="flex items-center gap-3">
-              <GraduationCap className="w-4 h-4 min-w-[16px]" />
-              {sidebarOpen && <span className="whitespace-nowrap">Manajemen Siswa</span>}
-            </div>
-            {sidebarOpen && (
-              siswaExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
-            )}
-          </button>
-
-          {sidebarOpen && siswaExpanded && (
-            <div className="pl-4 pt-1 space-y-1 border-l border-[var(--border)] ml-5 my-1.5">
-              {SISWA_SUB_ITEMS.map((sub) => {
-                const SubIcon = sub.icon;
-                const isSubActive = pathname === sub.href || pathname.startsWith(`${sub.href}/`);
-
-                return (
-                  <Link
-                    key={sub.href}
-                    href={sub.href}
-                    className={`flex items-center gap-2.5 px-3 py-1.5 text-xs font-normal transition-all rounded-lg border-l ${
-                      isSubActive
-                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
-                        : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    <SubIcon className="w-3.5 h-3.5" />
-                    <span>{sub.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* 4. Kendaraan Dropdown */}
-        <div>
-          <button
-            onClick={handleKendaraanClick}
-            className={dropdownHeaderClass(isKendaraanActive)}
-            title={!sidebarOpen ? 'Kendaraan' : undefined}
-          >
-            <div className="flex items-center gap-3">
-              <Car className="w-4 h-4 min-w-[16px]" />
-              {sidebarOpen && <span className="whitespace-nowrap">Kendaraan</span>}
-            </div>
-            {sidebarOpen && (
-              kendaraanExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
-            )}
-          </button>
-
-          {sidebarOpen && kendaraanExpanded && (
-            <div className="pl-4 pt-1 space-y-1 border-l border-[var(--border)] ml-5 my-1.5">
-              {KENDARAAN_SUB_ITEMS.map((sub) => {
-                const SubIcon = sub.icon;
-                const isSubActive = pathname === sub.href || pathname.startsWith(`${sub.href}/`);
-
-                return (
-                  <Link
-                    key={sub.href}
-                    href={sub.href}
-                    className={`flex items-center gap-2.5 px-3 py-1.5 text-xs font-normal transition-all rounded-lg border-l ${
-                      isSubActive
-                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
-                        : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    <SubIcon className="w-3.5 h-3.5" />
-                    <span>{sub.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* 5. Kas & Keuangan Dropdown */}
-        <div>
-          <button
-            onClick={handleKasClick}
-            className={dropdownHeaderClass(isKasActive)}
-            title={!sidebarOpen ? 'Kas & Keuangan' : undefined}
-          >
-            <div className="flex items-center gap-3">
-              <Wallet className="w-4 h-4 min-w-[16px]" />
-              {sidebarOpen && <span className="whitespace-nowrap">Kas & Keuangan</span>}
-            </div>
-            {sidebarOpen && (
-              kasExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
-            )}
-          </button>
-
-          {sidebarOpen && kasExpanded && (
-            <div className="pl-4 pt-1 space-y-1 border-l border-[var(--border)] ml-5 my-1.5">
-              {KAS_SUB_ITEMS.map((sub) => {
-                const SubIcon = sub.icon;
-                const isSubActive = pathname === sub.href;
-
-                return (
-                  <Link
-                    key={sub.href}
-                    href={sub.href}
-                    className={`flex items-center gap-2.5 px-3 py-1.5 text-xs font-normal transition-all rounded-lg border-l ${
-                      isSubActive
-                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
-                        : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    <SubIcon className="w-3.5 h-3.5" />
-                    <span>{sub.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* 6. Master Data Dropdown */}
-        <div>
-          <button
-            onClick={handleMasterClick}
-            className={dropdownHeaderClass(isMasterActive)}
-            title={!sidebarOpen ? 'Master Data' : undefined}
-          >
-            <div className="flex items-center gap-3">
-              <Database className="w-4 h-4 min-w-[16px]" />
-              {sidebarOpen && <span className="whitespace-nowrap">Master Data</span>}
-            </div>
-            {sidebarOpen && (
-              masterExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
-            )}
-          </button>
-
-          {sidebarOpen && masterExpanded && (
-            <div className="pl-4 pt-1 space-y-1 border-l border-[var(--border)] ml-5 my-1.5">
-              {MASTER_SUB_ITEMS.map((sub) => {
-                const SubIcon = sub.icon;
-                const isSubActive = pathname === sub.href;
-
-                return (
-                  <Link
-                    key={sub.href}
-                    href={sub.href}
-                    className={`flex items-center gap-2.5 px-3 py-1.5 text-xs font-normal transition-all rounded-lg border-l ${
-                      isSubActive
-                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
-                        : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    <SubIcon className="w-3.5 h-3.5" />
-                    <span>{sub.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* 7. PWA Portals Dropdown (Isolated Browsing Context) */}
-        <div>
-          <button
-            onClick={handlePwaClick}
-            className={dropdownHeaderClass(isPwaActive)}
-            title={!sidebarOpen ? 'Portal PWA' : undefined}
-          >
-            <div className="flex items-center gap-3">
-              <Smartphone className="w-4 h-4 min-w-[16px]" />
-              {sidebarOpen && <span className="whitespace-nowrap">Portal PWA</span>}
-            </div>
-            {sidebarOpen && (
-              pwaExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
-            )}
-          </button>
-
-          {sidebarOpen && pwaExpanded && (
-            <div className="pl-4 pt-1 space-y-1 border-l border-[var(--border)] ml-5 my-1.5">
-              {PWA_SUB_ITEMS.map((sub) => {
-                const SubIcon = sub.icon;
-                const isSubActive = pathname === sub.href;
-
-                return (
-                  <a
-                    key={sub.href}
-                    href={sub.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex items-center justify-between px-3 py-1.5 text-xs font-normal transition-all rounded-lg border-l ${
-                      isSubActive
-                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
-                        : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
-                    }`}
-                    title={`${sub.label} (Buka di window PWA mandiri)`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <SubIcon className="w-3.5 h-3.5" />
-                      <span>{sub.label}</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-[10px] text-[var(--brand-primary)] font-bold font-mono">
-                      <span>PWA</span>
-                      <ExternalLink className="w-3 h-3 text-[var(--text-muted)]" />
-                    </div>
-                  </a>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* 8. Pengaturan & Audit Log Dropdown */}
-        <div>
-          <button
-            onClick={handleSettingsClick}
-            className={dropdownHeaderClass(isSettingsActive)}
-            title={!sidebarOpen ? 'Pengaturan' : undefined}
-          >
-            <div className="flex items-center gap-3">
-              <Settings className="w-4 h-4 min-w-[16px]" />
-              {sidebarOpen && <span className="whitespace-nowrap">Pengaturan</span>}
-            </div>
-            {sidebarOpen && (
-              settingsExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
-            )}
-          </button>
-
-          {sidebarOpen && settingsExpanded && (
-            <div className="pl-4 pt-1 space-y-1 border-l border-[var(--border)] ml-5 my-1.5">
-              {SETTINGS_SUB_ITEMS.map((sub) => {
-                const SubIcon = sub.icon;
-                const isSubActive = pathname === sub.href;
-
-                return (
-                  <Link
-                    key={sub.href}
-                    href={sub.href}
-                    className={`flex items-center justify-between px-3 py-1.5 text-xs font-normal transition-all rounded-lg border-l ${
-                      isSubActive
-                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
-                        : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <SubIcon className="w-3.5 h-3.5" />
-                      <span>{sub.label}</span>
-                    </div>
-                    {sub.badge && (
-                      <span className="text-[9px] px-1 py-0.2 rounded font-bold uppercase bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                        {sub.badge}
+                <Icon className="w-4 h-4 min-w-[16px]" />
+                {sidebarOpen && (
+                  <div className="flex-1 flex items-center justify-between">
+                    <span className="whitespace-nowrap">{item.title}</span>
+                    {item.badge && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                        {item.badge}
                       </span>
                     )}
-                  </Link>
-                );
-              })}
+                  </div>
+                )}
+              </Link>
+            );
+          }
+
+          // Dropdown menu container
+          const isChildActive = item.subItems.some(
+            (sub) => pathname === sub.href || pathname.startsWith(`${sub.href}/`)
+          );
+          const isExpanded = expandedMenus[item.id] ?? false;
+
+          return (
+            <div key={item.id}>
+              <button
+                type="button"
+                onClick={() => toggleMenuExpand(item.id)}
+                className={dropdownHeaderClass(isChildActive)}
+                title={!sidebarOpen ? item.title : undefined}
+              >
+                <div className="flex items-center gap-3">
+                  <Icon className="w-4 h-4 min-w-[16px]" />
+                  {sidebarOpen && <span className="whitespace-nowrap">{item.title}</span>}
+                </div>
+                {sidebarOpen && (
+                  isExpanded ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                  )
+                )}
+              </button>
+
+              {sidebarOpen && isExpanded && (
+                <div className="pl-4 pt-1 space-y-1 border-l border-[var(--border)] ml-5 my-1.5">
+                  {item.subItems.map((sub) => {
+                    const SubIcon = sub.icon;
+                    const isSubActive =
+                      pathname === sub.href || pathname.startsWith(`${sub.href}/`);
+
+                    return (
+                      <Link
+                        key={sub.href}
+                        href={sub.href}
+                        className={`flex items-center justify-between px-3 py-1.5 text-xs font-normal transition-all rounded-lg border-l ${
+                          isSubActive
+                            ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)] font-semibold'
+                            : 'border-transparent text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <SubIcon className="w-3.5 h-3.5" />
+                          <span>{sub.title}</span>
+                        </div>
+                        {sub.badge && (
+                          <span className="text-[9px] px-1 py-0.2 rounded font-bold uppercase bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                            {sub.badge}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-          </>
-        )}
+          );
+        })}
       </nav>
 
-      {/* Footer Info */}
-      {sidebarOpen && (
-        <div className="p-4 border-t border-[var(--liquid-glass-border)] text-[11px] text-[var(--text-muted)]">
-          <p className="font-semibold text-[var(--text-primary)]">
-            {isFinanceMode ? 'Amanah Finance App' : 'Amanah Drive Console'}
-          </p>
-          <p>{isFinanceMode ? 'Modul Kas & Keuangan' : 'Palembang, Sumatera Selatan'}</p>
-        </div>
-      )}
+      {/* User Profile & Logout Footer */}
+      <div className="p-3 border-t border-[var(--liquid-glass-border)] bg-black/[0.02] dark:bg-white/[0.02]">
+        {sidebarOpen ? (
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-emerald-600/10 border border-emerald-600/20 text-emerald-600 flex items-center justify-center shrink-0 font-bold text-xs uppercase">
+                {user?.nama?.slice(0, 2) || 'AD'}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-[var(--text-primary)] truncate">
+                  {user?.nama || 'User'}
+                </p>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {user?.roles?.includes('developer') ? (
+                    <span className="text-[9px] px-1 py-0.2 rounded font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                      Developer
+                    </span>
+                  ) : (
+                    user?.roles?.map((r) => (
+                      <span
+                        key={r}
+                        className="text-[9px] px-1 py-0.2 rounded font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 capitalize"
+                      >
+                        {r}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+              title="Keluar dari Akun"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleLogout}
+            className="w-full flex justify-center p-2 rounded-lg text-[var(--text-muted)] hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+            title="Keluar dari Akun"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        )}
+      </div>
     </aside>
   );
 }

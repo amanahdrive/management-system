@@ -1,8 +1,8 @@
 {
-  "name": "Sistem Manajemen Amanah Drive",
-  "short_name": "Amanah Drive",
-  "description": "Sistem Manajemen Operasional, Penjadwalan Kursus Mengemudi, dan Kas Amanah Drive Palembang",
-  "start_url": "/dashboard",
+  "name": "Amanah Drive Console",
+  "short_name": "Amanah Console",
+  "description": "Sistem Manajemen & Operasional Kursus Mengemudi Amanah Drive Palembang",
+  "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#092e2b",

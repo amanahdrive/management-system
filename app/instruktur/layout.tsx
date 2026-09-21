@@ -4,11 +4,11 @@ import type { Metadata, Viewport } from 'next';
 export const metadata: Metadata = {
   title: 'Portal Jadwal Instruktur — Amanah Drive',
   description: 'Portal jadwal harian dan sesi mengemudi Instruktur Amanah Drive Palembang',
-  manifest: '/manifest-instruktur.json',
+  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Instruktur AD',
+    title: 'Amanah Console',
   },
   icons: {
     icon: '/assets/app-icon-1024.png',

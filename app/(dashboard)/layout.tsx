@@ -6,62 +6,61 @@ import { Sidebar } from '@/components/navigation/Sidebar';
 import { Topbar } from '@/components/navigation/Topbar';
 import { BottomNav } from '@/components/navigation/BottomNav';
 import { MobileDrawer } from '@/components/navigation/MobileDrawer';
-import { PwaHistoryIsolation } from '@/components/shared/PwaHistoryIsolation';
 import { useUiStore } from '@/lib/store/ui-store';
-import {
-  isAdminRoute,
-  checkIsFinanceMode,
-  clearFinanceMode,
-  isStandalonePwa,
-} from '@/lib/utils/finance-mode';
+import { useAuthStore } from '@/lib/store/auth-store';
+import { getCurrentUser } from '@/lib/actions/auth';
+import { Loader2 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { sidebarOpen } = useUiStore();
+  const { user, setUser, loading, setLoading } = useAuthStore();
   const pathname = usePathname();
   const router = useRouter();
-  const [isFinanceMode, setIsFinanceMode] = React.useState(false);
 
+  // Load and verify current user session
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
+    let isMounted = true;
 
-    const updateMode = () => {
-      // Jika berada di rute Admin Console (/dashboard, /siswa, /jadwal, dll.), Finance mode DILARANG aktif
-      if (isAdminRoute(pathname)) {
-        clearFinanceMode();
-        setIsFinanceMode(false);
-        return;
-      }
+    async function loadAuth() {
+      try {
+        const currentUser = await getCurrentUser();
+        if (!isMounted) return;
 
-      const isFin = checkIsFinanceMode(pathname);
-      setIsFinanceMode(isFin);
-
-      // Hanya redirect ke /finance jika sedang di STANDALONE PWA (aplikasi mobile terinstal)
-      // dan berada di luar modul kas/nota
-      if (isFin && isStandalonePwa()) {
-        const isAllowedKas =
-          pathname.startsWith('/kas') ||
-          pathname.startsWith('/nota') ||
-          pathname.startsWith('/finance');
-        if (!isAllowedKas) {
-          router.replace('/finance');
+        if (!currentUser) {
+          router.replace('/');
+          return;
         }
+
+        setUser(currentUser);
+      } catch (err) {
+        console.error('Failed to load session:', err);
+        if (isMounted) router.replace('/');
+      } finally {
+        if (isMounted) setLoading(false);
       }
-    };
+    }
 
-    updateMode();
+    loadAuth();
 
-    const handleModeChange = () => updateMode();
-    window.addEventListener('amanah:finance-mode-change', handleModeChange);
     return () => {
-      window.removeEventListener('amanah:finance-mode-change', handleModeChange);
+      isMounted = false;
     };
-  }, [pathname, router]);
+  }, [router, setUser, setLoading]);
+
+  // If loading session, show clean centered loader
+  if (loading && !user) {
+    return (
+      <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 text-[var(--brand-primary)] animate-spin" />
+          <p className="text-xs text-[var(--text-secondary)] font-medium">Memuat sesi Amanah Drive...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[var(--bg-subtle)]">
-      {/* Khusus mode Finance standalone, aktifkan isolasi tombol back */}
-      {isFinanceMode && <PwaHistoryIsolation />}
-
       <Sidebar />
       <Topbar />
 

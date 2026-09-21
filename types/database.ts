@@ -500,4 +500,30 @@ export interface HomepageMapsInfo {
   embed_url: string;
 }
 
+export type UserRole =
+  | 'developer'
+  | 'siswa'
+  | 'jadwal'
+  | 'keuangan'
+  | 'armada'
+  | 'instruktur'
+  | 'marketing';
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  nama: string;
+  role: string;
+  email: string;
+  roles: UserRole[];
+  staff_id: string | null;
+  password_hash?: string | null;
+  aktif: boolean;
+  created_at: string;
+  updated_at: string;
+  // Joined staff relation
+  staff?: Staff;
+}
+
+
 

@@ -1,114 +1,80 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
   Calendar,
+  Wallet,
   Car,
   Menu,
-  Wallet,
-  Layers,
-  Building2,
   Plus,
 } from 'lucide-react';
 import { useUiStore } from '@/lib/store/ui-store';
-import { sound } from '@/lib/sound/SoundFX';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { LiquidGlassBottomNav, LiquidNavItem } from './LiquidGlassBottomNav';
-import { checkIsFinanceMode } from '@/lib/utils/finance-mode';
 
 export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { toggleMobileDrawer } = useUiStore();
-  const [isFinanceMode, setIsFinanceMode] = React.useState(false);
+  const { user } = useAuthStore();
 
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
+  const isDev = user?.roles?.includes('developer') ?? false;
+  const hasFinance = user?.roles?.includes('keuangan') ?? false;
+  const hasSiswa = user?.roles?.includes('siswa') ?? false;
+  const hasArmada = user?.roles?.includes('armada') ?? false;
+  const hasInstruktur = user?.roles?.includes('instruktur') ?? false;
 
-    const updateMode = () => {
-      setIsFinanceMode(checkIsFinanceMode(pathname));
-    };
-    updateMode();
+  // Decide 2 left items & 2 right items based on active roles
+  // 1st Item is always Dashboard
+  const leftItem1: LiquidNavItem = {
+    id: 'dashboard',
+    label: 'Beranda',
+    href: '/dashboard',
+    icon: LayoutDashboard,
+  };
 
-    const handleModeChange = () => updateMode();
-    window.addEventListener('amanah:finance-mode-change', handleModeChange);
-    return () => {
-      window.removeEventListener('amanah:finance-mode-change', handleModeChange);
-    };
-  }, [pathname]);
+  // 2nd Item: Siswa if permitted, or Armada, or Keuangan
+  const leftItem2: LiquidNavItem = hasSiswa || isDev
+    ? { id: 'siswa', label: 'Siswa', href: '/siswa', icon: Users }
+    : hasArmada
+    ? { id: 'kendaraan', label: 'Armada', href: '/kendaraan', icon: Car }
+    : hasFinance
+    ? { id: 'kas', label: 'Kas', href: '/kas', icon: Wallet }
+    : { id: 'instruktur', label: 'Jadwal', href: '/instruktur', icon: Calendar };
 
-  // Jika dalam Finance Mode, tampilkan dock navigasi khusus Kas & Keuangan
-  if (isFinanceMode) {
-    const financeLeftItems: [LiquidNavItem, LiquidNavItem] = [
-      { id: 'finance', label: 'Beranda', href: '/finance', icon: Wallet },
-      { id: 'pos', label: 'POS', href: '/kas/pos', icon: Layers },
-    ];
+  // 3rd Item: Kas if finance/dev, or Jadwal, or Kendaraan
+  const rightItem1: LiquidNavItem = hasFinance || isDev
+    ? { id: 'kas', label: 'Kas', href: '/kas', icon: Wallet }
+    : hasArmada
+    ? { id: 'kendaraan', label: 'Armada', href: '/kendaraan', icon: Car }
+    : { id: 'jadwal', label: 'Jadwal', href: '/jadwal', icon: Calendar };
 
-    const financeRightItems: [LiquidNavItem, LiquidNavItem] = [
-      { id: 'rekening', label: 'Rekening', href: '/kas/rekening', icon: Building2 },
-      { id: 'menu', label: 'Menu Kas', icon: Menu, onClick: toggleMobileDrawer },
-    ];
+  // 4th Item: Always Menu drawer
+  const rightItem2: LiquidNavItem = {
+    id: 'menu',
+    label: 'Menu',
+    icon: Menu,
+    onClick: toggleMobileDrawer,
+  };
 
-    const financeActiveId =
-      pathname === '/finance'
-        ? 'finance'
-        : pathname.startsWith('/kas/pos')
-        ? 'pos'
-        : pathname.startsWith('/kas/rekening')
-        ? 'rekening'
-        : 'menu';
+  const leftItems: [LiquidNavItem, LiquidNavItem] = [leftItem1, leftItem2];
+  const rightItems: [LiquidNavItem, LiquidNavItem] = [rightItem1, rightItem2];
 
-    return (
-      <div className="md:hidden">
-        <LiquidGlassBottomNav
-          leftItems={financeLeftItems}
-          rightItems={financeRightItems}
-          activeId={financeActiveId}
-          centerAction={{
-            icon: Plus,
-            label: 'Catat Kas',
-            title: 'Catat Transaksi Kas di Portal Finance',
-            onClick: () => router.push('/finance'),
-          }}
-        />
-      </div>
-    );
-  }
-
-  // Mode Admin Biasa (Desktop/Mobile Admin Console)
-  const leftItems: [LiquidNavItem, LiquidNavItem] = [
-    { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { id: 'siswa', label: 'Siswa', href: '/siswa', icon: Users },
-  ];
-
-  const rightItems: [LiquidNavItem, LiquidNavItem] = [
-    { id: 'jadwal', label: 'Jadwal', href: '/jadwal', icon: Calendar },
-    { id: 'menu', label: 'Menu', icon: Menu, onClick: toggleMobileDrawer },
-  ];
-
-  const isSiswaSection = pathname.startsWith('/siswa') || pathname.startsWith('/sim') || pathname.startsWith('/sertifikat');
-  const isJadwalSection = pathname.startsWith('/jadwal');
-  const isMenuSection =
-    pathname.startsWith('/kas') ||
-    pathname.startsWith('/kendaraan') ||
-    pathname.startsWith('/insiden') ||
-    pathname.startsWith('/nota') ||
-    pathname.startsWith('/master-data') ||
-    pathname.startsWith('/settings') ||
-    pathname.startsWith('/analitik');
-
-  const activeId = pathname === '/dashboard'
-    ? 'dashboard'
-    : isSiswaSection
-    ? 'siswa'
-    : isJadwalSection
-    ? 'jadwal'
-    : isMenuSection
-    ? 'menu'
-    : '';
+  const activeId =
+    pathname === '/dashboard'
+      ? 'dashboard'
+      : pathname.startsWith('/siswa') || pathname.startsWith('/sim')
+      ? 'siswa'
+      : pathname.startsWith('/kas') || pathname.startsWith('/nota')
+      ? 'kas'
+      : pathname.startsWith('/kendaraan') || pathname.startsWith('/insiden')
+      ? 'kendaraan'
+      : pathname.startsWith('/jadwal') || pathname.startsWith('/instruktur')
+      ? 'jadwal'
+      : 'menu';
 
   return (
     <div className="md:hidden">
@@ -119,7 +85,7 @@ export function BottomNav() {
         centerAction={{
           icon: Plus,
           label: 'Aksi Cepat',
-          title: 'Menu Aksi Cepat',
+          title: 'Menu Navigasi Lengkap',
           onClick: toggleMobileDrawer,
         }}
       />

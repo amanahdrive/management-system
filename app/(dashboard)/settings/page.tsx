@@ -472,14 +472,24 @@ export default function SettingsPage() {
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Settings' }]}
       />
 
-      {/* Navigation Submenu: Pengaturan vs Audit Log */}
-      <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2 text-xs font-semibold">
+      {/* Navigation Submenu: Pengaturan vs Users RBAC vs Audit Log */}
+      <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2 text-xs font-semibold flex-wrap">
         <Link
           href="/settings"
           className="px-3 py-1.5 rounded-lg bg-[var(--brand-primary)] text-white flex items-center gap-1.5 shadow-xs"
         >
           <Settings className="w-3.5 h-3.5" />
           <span>Pengaturan Sistem</span>
+        </Link>
+        <Link
+          href="/settings/users"
+          className="px-3 py-1.5 rounded-lg border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-1.5 transition-colors"
+        >
+          <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+          <span>Kelola Pengguna</span>
+          <span className="px-1.5 py-0.2 rounded text-[10px] uppercase font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+            RBAC
+          </span>
         </Link>
         <Link
           href="/settings/audit-log"

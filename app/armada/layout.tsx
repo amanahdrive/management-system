@@ -5,11 +5,11 @@ import { PwaHistoryIsolation } from '@/components/shared/PwaHistoryIsolation';
 export const metadata: Metadata = {
   title: 'Portal PIC Armada — Amanah Drive',
   description: 'PWA Manajemen Operasional, Telemetri, Odometer, BBM & Servis Armada Amanah Drive Palembang',
-  manifest: '/manifest-armada.json',
+  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Armada AD',
+    title: 'Amanah Console',
   },
   icons: {
     icon: '/assets/app-icon-1024.png',

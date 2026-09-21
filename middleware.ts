@@ -1,87 +1,88 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+const SESSION_COOKIE_NAME = 'amanah_session';
+
+// Public assets and routes that do not require authentication
+const PUBLIC_FILE_EXTENSIONS = [
+  '.ico',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.webp',
+  '.svg',
+  '.css',
+  '.js',
+  '.json',
+  '.txt',
+  '.xml',
+];
+
 export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
   const hostname = request.headers.get('host') || '';
 
-  // Matches instruktur. subdomain OR instruktur- project URL on Vercel
+  // Skip static assets, next internals, and API routes
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/assets') ||
+    PUBLIC_FILE_EXTENSIONS.some((ext) => pathname.endsWith(ext)) ||
+    pathname === '/robots.txt' ||
+    pathname === '/sitemap.xml' ||
+    pathname === '/manifest.json'
+  ) {
+    return NextResponse.next();
+  }
+
+  // Check for active session cookie
+  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const isAuthenticated = Boolean(sessionToken);
+
+  // If user visits root / (login page) and is already authenticated, redirect to /dashboard
+  if (pathname === '/' && isAuthenticated) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/dashboard';
+    return NextResponse.redirect(url);
+  }
+
+  // If user visits root / and is NOT authenticated, allow them to view login page
+  if (pathname === '/') {
+    return NextResponse.next();
+  }
+
+  // Subdomain compatibility rewrites if someone still visits via subdomain
   if (
     hostname.startsWith('instruktur.') ||
-    hostname.startsWith('instruktur-') ||
-    hostname.includes('instruktur.management-amanahdrive.vercel.app') ||
-    hostname.includes('instruktur-management-amanahdrive.vercel.app')
+    hostname.startsWith('instruktur-')
   ) {
-    const url = request.nextUrl.clone();
-    if (url.pathname === '/') {
+    if (pathname === '/') {
+      const url = request.nextUrl.clone();
       url.pathname = '/instruktur';
       return NextResponse.rewrite(url);
     }
-    // Block access to admin dashboard routes from instruktur subdomain
-    if (url.pathname !== '/instruktur' && !url.pathname.startsWith('/api') && !url.pathname.startsWith('/_next') && !url.pathname.startsWith('/assets')) {
-      url.pathname = '/instruktur';
-      return NextResponse.redirect(url);
-    }
   }
 
-  // Matches finance. subdomain OR finance- project URL on Vercel
-  if (
-    hostname.startsWith('finance.') ||
-    hostname.startsWith('finance-') ||
-    hostname.includes('finance.management-amanahdrive.vercel.app') ||
-    hostname.includes('finance-management-amanahdrive.vercel.app')
-  ) {
+  // Protect all dashboard and application routes
+  // Unauthenticated users attempting to access /dashboard, /siswa, /kas, /settings, etc. get redirected to /
+  if (!isAuthenticated) {
     const url = request.nextUrl.clone();
-    if (url.pathname === '/') {
-      url.pathname = '/finance';
-      return NextResponse.rewrite(url);
-    }
-    // Block access to non-finance/non-kas routes from finance subdomain
-    const isAllowedFinanceRoute =
-      url.pathname === '/finance' ||
-      url.pathname.startsWith('/finance/') ||
-      url.pathname === '/kas' ||
-      url.pathname.startsWith('/kas/') ||
-      url.pathname === '/nota' ||
-      url.pathname.startsWith('/nota/') ||
-      url.pathname.startsWith('/api') ||
-      url.pathname.startsWith('/_next') ||
-      url.pathname.startsWith('/assets');
-
-    if (!isAllowedFinanceRoute) {
-      url.pathname = '/finance';
-      return NextResponse.redirect(url);
-    }
-  }
-
-  // Matches armada. subdomain OR armada- project URL on Vercel
-  if (
-    hostname.startsWith('armada.') ||
-    hostname.startsWith('armada-') ||
-    hostname.includes('armada.management-amanahdrive.vercel.app') ||
-    hostname.includes('armada-management-amanahdrive.vercel.app')
-  ) {
-    const url = request.nextUrl.clone();
-    if (url.pathname === '/') {
-      url.pathname = '/armada';
-      return NextResponse.rewrite(url);
-    }
-    // Block access to admin dashboard routes from armada subdomain (strictly independent like instruktur)
-    if (
-      url.pathname !== '/armada' &&
-      !url.pathname.startsWith('/armada/') &&
-      !url.pathname.startsWith('/api') &&
-      !url.pathname.startsWith('/_next') &&
-      !url.pathname.startsWith('/assets') &&
-      !url.pathname.startsWith('/manifest')
-    ) {
-      url.pathname = '/armada';
-      return NextResponse.redirect(url);
-    }
+    url.pathname = '/';
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|icon.png).*)'],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
 };

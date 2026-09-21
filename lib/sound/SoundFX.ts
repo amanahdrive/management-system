@@ -176,6 +176,14 @@ class SoundEngine {
     this.playConfirmChime();
   }
 
+  public success() {
+    this.playConfirmChime();
+  }
+
+  public error() {
+    this.playMechanicalTick();
+  }
+
   public trash() {
     this.playMechanicalTick();
   }
